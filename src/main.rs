@@ -10,6 +10,7 @@ fn main() {
             Ok(num) => num,
             Err(_) => continue,
         };
+
         println!("whites: ");
         let mut whites = String::new();
         io::stdin().read_line(&mut whites).expect("fail");
@@ -17,8 +18,42 @@ fn main() {
             Ok(num) => num,
             Err(_) => continue,
         };
-        let result =
-            board::row::search_pattern(blacks, whites, 15, true, board::row::RowKind::Three);
-        println!("{:?}", result);
+
+        let mut line = match board::line::Line::new(15, blacks, whites) {
+            Ok(line) => line,
+            Err(_) => continue,
+        };
+
+        println!("Line: {}", line.to_string());
+
+        println!("Two:");
+        for lr in line.rows(true, board::row::RowKind::Two) {
+            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        }
+
+        println!("Sword:");
+        for lr in line.rows(true, board::row::RowKind::Sword) {
+            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        }
+
+        println!("Three:");
+        for lr in line.rows(true, board::row::RowKind::Three) {
+            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        }
+
+        println!("Four:");
+        for lr in line.rows(true, board::row::RowKind::Four) {
+            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        }
+
+        println!("Five:");
+        for lr in line.rows(true, board::row::RowKind::Five) {
+            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        }
+
+        println!("Overline:");
+        for lr in line.rows(true, board::row::RowKind::Five) {
+            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        }
     }
 }

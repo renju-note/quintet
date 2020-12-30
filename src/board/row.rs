@@ -1,5 +1,6 @@
 pub type Stones = u32;
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum RowKind {
     Two,
     Sword,
@@ -9,20 +10,10 @@ pub enum RowKind {
     Overline,
 }
 
-pub struct Row<'a> {
-    kind: RowKind,
-    size: u32,
-    eyes: &'a [u32],
-}
-
-pub struct RowPattern<'a> {
-    row: &'a Row<'a>,
-    size: u32,
-    offset: u32,
-    blacks: Stones,
-    blmask: Stones,
-    whites: Stones,
-    whmask: Stones,
+pub struct Row {
+    pub start: u32,
+    pub size: u32,
+    pub eyes: Vec<u32>,
 }
 
 pub fn search_pattern(
@@ -31,7 +22,7 @@ pub fn search_pattern(
     within: u32,
     black: bool,
     kind: RowKind,
-) -> Vec<u32> {
+) -> Vec<Row> {
     match (black, kind) {
         (true, RowKind::Two) => search_multi(blacks, whites, within, BLACK_TWO_PATTERNS),
         (true, RowKind::Sword) => search_multi(blacks, whites, within, BLACK_SWORD_PATTERNS),
@@ -48,14 +39,14 @@ pub fn search_pattern(
     }
 }
 
-fn search_multi(blacks: Stones, whites: Stones, within: u32, patterns: &[&RowPattern]) -> Vec<u32> {
+fn search_multi(blacks: Stones, whites: Stones, within: u32, patterns: &[&RowPattern]) -> Vec<Row> {
     patterns
         .into_iter()
         .flat_map(|p| search(blacks, whites, within, &p))
         .collect()
 }
 
-fn search(blacks: Stones, whites: Stones, within: u32, pattern: &RowPattern) -> Vec<u32> {
+fn search(blacks: Stones, whites: Stones, within: u32, pattern: &RowPattern) -> Vec<Row> {
     let mut result = Vec::new();
     if within < pattern.size {
         return result;
@@ -63,11 +54,23 @@ fn search(blacks: Stones, whites: Stones, within: u32, pattern: &RowPattern) -> 
     let filter: Stones = (1 << pattern.size) - 1;
     let mut blacks = blacks;
     let mut whites = whites;
-    for i in 0..(within - pattern.size + 1) {
+    for i in 0..=(within - pattern.size) {
         if (blacks & filter & !pattern.blmask) == pattern.blacks
             && (whites & filter & !pattern.whmask) == pattern.whites
         {
-            result.push(i + pattern.offset);
+            let start = i + pattern.offset;
+            let row = Row {
+                start: start,
+                size: pattern.row.size,
+                eyes: pattern
+                    .row
+                    .eyes
+                    .to_vec()
+                    .into_iter()
+                    .map(|eye| eye + start)
+                    .collect(),
+            };
+            result.push(row);
         }
         blacks = blacks >> 1;
         whites = whites >> 1;
@@ -75,9 +78,25 @@ fn search(blacks: Stones, whites: Stones, within: u32, pattern: &RowPattern) -> 
     return result;
 }
 
+struct RowPattern<'a> {
+    row: &'a RowShape<'a>,
+    size: u32,
+    offset: u32,
+    blacks: Stones,
+    blmask: Stones,
+    whites: Stones,
+    whmask: Stones,
+}
+
+struct RowShape<'a> {
+    kind: RowKind,
+    size: u32,
+    eyes: &'a [u32],
+}
+
 const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[2, 3],
@@ -90,7 +109,7 @@ const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[1, 3],
@@ -103,7 +122,7 @@ const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[0, 3],
@@ -116,7 +135,7 @@ const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[1, 2],
@@ -129,7 +148,7 @@ const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[0, 2],
@@ -142,7 +161,7 @@ const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[0, 1],
@@ -158,7 +177,7 @@ const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
 
 const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[2, 3],
@@ -171,7 +190,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[1, 3],
@@ -184,7 +203,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[1, 2],
@@ -197,7 +216,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[3, 4],
@@ -210,7 +229,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[3, 5],
@@ -223,7 +242,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[2, 5],
@@ -236,7 +255,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[0, 3],
@@ -249,7 +268,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b0000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[0, 2],
@@ -262,7 +281,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b0000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[0, 1],
@@ -275,7 +294,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b0000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[1, 5],
@@ -288,7 +307,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b0000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[1, 4],
@@ -301,7 +320,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[0, 3],
@@ -317,7 +336,7 @@ const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
 
 const BLACK_THREE_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[4],
@@ -330,7 +349,7 @@ const BLACK_THREE_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[3],
@@ -343,7 +362,7 @@ const BLACK_THREE_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[2],
@@ -356,7 +375,7 @@ const BLACK_THREE_PATTERNS: &[&RowPattern] = &[
         whmask: 0b10000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[1],
@@ -372,7 +391,7 @@ const BLACK_THREE_PATTERNS: &[&RowPattern] = &[
 
 const BLACK_FOUR_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[4],
@@ -385,7 +404,7 @@ const BLACK_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[3],
@@ -398,7 +417,7 @@ const BLACK_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[2],
@@ -411,7 +430,7 @@ const BLACK_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[1],
@@ -424,7 +443,7 @@ const BLACK_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b1000001,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[0],
@@ -439,7 +458,7 @@ const BLACK_FOUR_PATTERNS: &[&RowPattern] = &[
 ];
 
 const BLACK_FIVE_PATTERNS: &[&RowPattern] = &[&RowPattern {
-    row: &Row {
+    row: &RowShape {
         kind: RowKind::Five,
         size: 5,
         eyes: &[],
@@ -453,7 +472,7 @@ const BLACK_FIVE_PATTERNS: &[&RowPattern] = &[&RowPattern {
 }];
 
 const BLACK_OVERLINE_PATTERNS: &[&RowPattern] = &[&RowPattern {
-    row: &Row {
+    row: &RowShape {
         kind: RowKind::Overline,
         size: 6,
         eyes: &[],
@@ -468,7 +487,7 @@ const BLACK_OVERLINE_PATTERNS: &[&RowPattern] = &[&RowPattern {
 
 const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[2, 3],
@@ -481,7 +500,7 @@ const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[1, 3],
@@ -494,7 +513,7 @@ const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[0, 3],
@@ -507,7 +526,7 @@ const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[1, 2],
@@ -520,7 +539,7 @@ const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[0, 2],
@@ -533,7 +552,7 @@ const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Two,
             size: 4,
             eyes: &[0, 1],
@@ -549,7 +568,7 @@ const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
 
 const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[2, 3],
@@ -562,7 +581,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b00000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[1, 3],
@@ -575,7 +594,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b00000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[1, 2],
@@ -588,7 +607,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b00000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[3, 4],
@@ -601,7 +620,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[3, 5],
@@ -614,7 +633,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[2, 5],
@@ -627,7 +646,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[0, 3],
@@ -640,7 +659,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[0, 2],
@@ -653,7 +672,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[0, 1],
@@ -666,7 +685,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Sword,
             size: 5,
             eyes: &[1, 5],
@@ -682,7 +701,7 @@ const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
 
 const WHITE_THREE_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[4],
@@ -695,7 +714,7 @@ const WHITE_THREE_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[3],
@@ -708,7 +727,7 @@ const WHITE_THREE_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[2],
@@ -721,7 +740,7 @@ const WHITE_THREE_PATTERNS: &[&RowPattern] = &[
         whmask: 0b000000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Three,
             size: 6,
             eyes: &[1],
@@ -737,7 +756,7 @@ const WHITE_THREE_PATTERNS: &[&RowPattern] = &[
 
 const WHITE_FOUR_PATTERNS: &[&RowPattern] = &[
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[4],
@@ -750,7 +769,7 @@ const WHITE_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b00000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[3],
@@ -763,7 +782,7 @@ const WHITE_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b00000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[2],
@@ -776,7 +795,7 @@ const WHITE_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b00000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[1],
@@ -789,7 +808,7 @@ const WHITE_FOUR_PATTERNS: &[&RowPattern] = &[
         whmask: 0b00000,
     },
     &RowPattern {
-        row: &Row {
+        row: &RowShape {
             kind: RowKind::Four,
             size: 5,
             eyes: &[0],
@@ -804,7 +823,7 @@ const WHITE_FOUR_PATTERNS: &[&RowPattern] = &[
 ];
 
 const WHITE_FIVE_PATTERNS: &[&RowPattern] = &[&RowPattern {
-    row: &Row {
+    row: &RowShape {
         kind: RowKind::Five,
         size: 5,
         eyes: &[],
