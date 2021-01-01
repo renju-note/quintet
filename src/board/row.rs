@@ -1,6 +1,6 @@
 pub type Stones = u32;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub enum RowKind {
     Two,
     Sword,
@@ -10,6 +10,7 @@ pub enum RowKind {
     Overline,
 }
 
+#[derive(Clone)]
 pub struct Row {
     pub start: u32,
     pub size: u32,
@@ -41,7 +42,7 @@ pub fn search_pattern(
 
 fn search_multi(blacks: Stones, whites: Stones, within: u32, patterns: &[&RowPattern]) -> Vec<Row> {
     patterns
-        .into_iter()
+        .iter()
         .flat_map(|p| search(blacks, whites, within, &p))
         .collect()
 }
@@ -66,7 +67,7 @@ fn search(blacks: Stones, whites: Stones, within: u32, pattern: &RowPattern) -> 
                     .row
                     .eyes
                     .to_vec()
-                    .into_iter()
+                    .iter()
                     .map(|eye| eye + start)
                     .collect(),
             };
