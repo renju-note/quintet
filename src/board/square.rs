@@ -2,9 +2,9 @@ use super::line::*;
 use super::row::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-struct Point {
-    x: u32,
-    y: u32,
+pub struct Point {
+    pub x: u32,
+    pub y: u32,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -14,7 +14,7 @@ struct Index {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-enum Direction {
+pub enum Direction {
     Vertical,
     Horizontal,
     Ascending,
@@ -26,17 +26,17 @@ struct Facet {
     lines: Vec<Line>,
 }
 
-struct Square {
-    size: u32,
+pub struct Square {
+    pub size: u32,
     facets: Vec<Facet>,
 }
 
-struct SquareRow {
-    kind: RowKind,
-    direction: Direction,
-    start: Point,
-    end: Point,
-    eyes: Vec<Point>,
+pub struct SquareRow {
+    pub kind: RowKind,
+    pub direction: Direction,
+    pub start: Point,
+    pub end: Point,
+    pub eyes: Vec<Point>,
 }
 
 impl Square {
@@ -92,7 +92,7 @@ impl Square {
         }
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<SquareRow> {
+    pub fn rows(&self, black: bool, kind: RowKind) -> Vec<SquareRow> {
         self.facets
             .iter()
             .flat_map::<Vec<_>, _>(|facet| {

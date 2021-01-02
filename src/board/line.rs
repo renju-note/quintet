@@ -62,7 +62,7 @@ impl Line {
             let pat = 0b1 << i;
             let c = if self.blacks & pat != 0b0 {
                 'o'
-            } else if self.whites != 0b0 {
+            } else if self.whites & pat != 0b0 {
                 'x'
             } else {
                 '-'

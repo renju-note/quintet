@@ -1,59 +1,66 @@
 use std::io;
 mod board;
+mod foundation;
 
 fn main() {
+    let coder = foundation::Coder::new();
+
     loop {
-        println!("blacks: ");
-        let mut blacks = String::new();
-        io::stdin().read_line(&mut blacks).expect("fail");
-        let blacks: board::row::Stones = match u32::from_str_radix(&blacks.trim(), 2) {
-            Ok(num) => num,
+        println!("Game code: ");
+        let mut code = String::new();
+        io::stdin().read_line(&mut code).expect("fail");
+        let points = match coder.decode(&code) {
+            Ok(points) => points,
             Err(_) => continue,
         };
 
-        println!("whites: ");
-        let mut whites = String::new();
-        io::stdin().read_line(&mut whites).expect("fail");
-        let whites: board::row::Stones = match u32::from_str_radix(&whites.trim(), 2) {
-            Ok(num) => num,
+        let mut square = match board::square::Square::new(foundation::N) {
+            Ok(square) => square,
             Err(_) => continue,
         };
-
-        let mut line = match board::line::Line::new(15, blacks, whites) {
-            Ok(line) => line,
-            Err(_) => continue,
-        };
-
-        println!("Line: {}", line.to_string());
-
-        println!("Two:");
-        for lr in line.rows(true, board::row::RowKind::Two) {
-            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        let mut black = true;
+        for p in points {
+            square = square.put(black, p);
+            black = !black
         }
 
-        println!("Sword:");
-        for lr in line.rows(true, board::row::RowKind::Sword) {
-            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        println!("\nSquare: \n{}", square.to_string());
+
+        println!("Forbiddens:");
+        for (p, kind) in board::forbidden::forbiddens(&square) {
+            println!("    {:?} {:?}", p, kind)
         }
 
-        println!("Three:");
-        for lr in line.rows(true, board::row::RowKind::Three) {
-            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        println!("Black threes:");
+        for row in square.rows(true, board::row::RowKind::Three) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
         }
 
-        println!("Four:");
-        for lr in line.rows(true, board::row::RowKind::Four) {
-            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        println!("Black fours:");
+        for row in square.rows(true, board::row::RowKind::Four) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
         }
 
-        println!("Five:");
-        for lr in line.rows(true, board::row::RowKind::Five) {
-            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        println!("White threes:");
+        for row in square.rows(false, board::row::RowKind::Three) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
         }
 
-        println!("Overline:");
-        for lr in line.rows(true, board::row::RowKind::Five) {
-            println!("    {}, {}, {:?}", lr.start, lr.size, lr.eyes)
+        println!("White fours:");
+        for row in square.rows(false, board::row::RowKind::Four) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
         }
     }
 }
