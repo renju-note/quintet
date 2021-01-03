@@ -1,7 +1,7 @@
 use super::board::*;
 use regex::Regex;
 
-const N_RANGE: std::ops::RangeInclusive<u8> = 1..=BOAD_SIZE;
+const N_RANGE: std::ops::RangeInclusive<u8> = 1..=BOARD_SIZE;
 
 pub struct Coder {
     re: Regex,

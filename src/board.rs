@@ -1,5 +1,5 @@
+mod board;
 mod line;
-mod square;
 
+pub use board::{Board, Direction, Index, Point, BOARD_SIZE};
 pub use line::{Line, Stones};
-pub use square::{to_index, to_point, Direction, Facet, Index, Point, Square, BOAD_SIZE};

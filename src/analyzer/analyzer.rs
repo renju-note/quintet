@@ -9,7 +9,7 @@ pub enum ForbiddenKind {
     Overline,
 }
 
-pub struct SquareRow {
+pub struct BoardRow {
     pub kind: RowKind,
     pub direction: Direction,
     pub start: Point,
@@ -30,67 +30,65 @@ impl Analyzer {
         }
     }
 
-    pub fn get_rows(&mut self, square: &Square, black: bool, kind: RowKind) -> Vec<SquareRow> {
+    pub fn get_rows(&mut self, board: &Board, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = Vec::new();
-        for facet in square.facets.iter() {
-            for (i, line) in facet.lines.iter().enumerate() {
-                let key = (*line, black, kind);
-                let mut rows = self
-                    .rows_cache
-                    .entry(key)
-                    .or_insert_with(|| line_rows(line, black, kind))
-                    .iter()
-                    .map(|r| square_row(&facet, i as u8, r, kind))
-                    .collect::<Vec<_>>();
-                result.append(&mut rows);
-            }
+        for (direction, i, line) in board.iter_lines() {
+            let key = (*line, black, kind);
+            let mut rows = self
+                .rows_cache
+                .entry(key)
+                .or_insert_with(|| line_rows(line, black, kind))
+                .iter()
+                .map(|r| board_row(direction, i as u8, r, kind))
+                .collect::<Vec<_>>();
+            result.append(&mut rows);
         }
         result
     }
 
-    pub fn get_forbiddens(&mut self, square: &Square) -> Vec<(Point, ForbiddenKind)> {
-        let key = square.to_string();
+    pub fn get_forbiddens(&mut self, board: &Board) -> Vec<(Point, ForbiddenKind)> {
+        let key = board.to_string();
         match self.forbiddens_cache.get(&key) {
             Some(result) => result.to_vec(),
             None => {
-                let result = self.forbiddens(square);
+                let result = self.forbiddens(board);
                 self.forbiddens_cache.insert(key, result.to_vec());
                 result
             }
         }
     }
 
-    pub fn forbiddens(&mut self, square: &Square) -> Vec<(Point, ForbiddenKind)> {
-        (1..=square.size)
-            .flat_map(|x| (1..=square.size).map(move |y| Point { x: x, y: y }))
-            .map(|p| (p, self.forbidden(square, p)))
-            .filter(|(p, okind)| okind.is_some())
+    pub fn forbiddens(&mut self, board: &Board) -> Vec<(Point, ForbiddenKind)> {
+        (1..=BOARD_SIZE)
+            .flat_map(|x| (1..=BOARD_SIZE).map(move |y| Point { x: x, y: y }))
+            .map(|p| (p, self.forbidden(board, p)))
+            .filter(|(_, okind)| okind.is_some())
             .map(|(p, okind)| (p, okind.unwrap()))
             .collect()
     }
 
-    pub fn forbidden(&mut self, square: &Square, p: Point) -> Option<ForbiddenKind> {
-        if self.overline(square, p) {
+    pub fn forbidden(&mut self, board: &Board, p: Point) -> Option<ForbiddenKind> {
+        if self.overline(board, p) {
             Some(ForbiddenKind::Overline)
-        } else if self.double_four(square, p) {
+        } else if self.double_four(board, p) {
             Some(ForbiddenKind::DoubleFour)
-        } else if self.double_three(square, p) {
+        } else if self.double_three(board, p) {
             Some(ForbiddenKind::DoubleThree)
         } else {
             None
         }
     }
 
-    fn overline(&mut self, square: &Square, p: Point) -> bool {
-        let next = square.put(true, p);
+    fn overline(&mut self, board: &Board, p: Point) -> bool {
+        let next = board.put(true, p);
         self.get_rows(&next, true, RowKind::Overline)
             .iter()
             .find(|&r| between(&p, r))
             .is_some()
     }
 
-    fn double_four(&mut self, square: &Square, p: Point) -> bool {
-        let next = square.put(true, p);
+    fn double_four(&mut self, board: &Board, p: Point) -> bool {
+        let next = board.put(true, p);
         let fours = self.get_rows(&next, true, RowKind::Four);
         let new_fours: Vec<_> = fours.iter().filter(|&r| between(&p, r)).collect();
         if new_fours.len() < 2 {
@@ -99,8 +97,8 @@ impl Analyzer {
         distinctive(new_fours)
     }
 
-    fn double_three(&mut self, square: &Square, p: Point) -> bool {
-        let next = square.put(true, p);
+    fn double_three(&mut self, board: &Board, p: Point) -> bool {
+        let next = board.put(true, p);
         let threes = self.get_rows(&next, true, RowKind::Three);
         let new_threes: Vec<_> = threes.iter().filter(|&r| between(&p, r)).collect();
         if new_threes.len() < 2 {
@@ -115,22 +113,20 @@ impl Analyzer {
     }
 }
 
-fn square_row(facet: &Facet, i: u8, row: &Row, kind: RowKind) -> SquareRow {
-    SquareRow {
+fn board_row(direction: Direction, i: u8, row: &Row, kind: RowKind) -> BoardRow {
+    BoardRow {
         kind: kind,
-        direction: facet.direction,
-        start: to_point(Index { i: i, j: row.start }, facet.direction),
-        end: to_point(
-            Index {
-                i: i,
-                j: row.start + row.size - 1,
-            },
-            facet.direction,
-        ),
+        direction: direction,
+        start: Index { i: i, j: row.start }.to_point(direction),
+        end: Index {
+            i: i,
+            j: row.start + row.size - 1,
+        }
+        .to_point(direction),
         eyes: row
             .eyes
             .iter()
-            .map(|j| to_point(Index { i: i, j: *j }, facet.direction))
+            .map(|&j| Index { i: i, j: j }.to_point(direction))
             .collect(),
     }
 }
@@ -161,18 +157,22 @@ fn append_dummies(stones: Stones, size: u8) -> Stones {
     (stones << 1) | 0b1 | (0b1 << (size + 1))
 }
 
-fn between(p: &Point, r: &SquareRow) -> bool {
+fn between(p: &Point, r: &BoardRow) -> bool {
     let (s, e) = (r.start, r.end);
     match r.direction {
         Direction::Vertical => p.x == s.x && s.y <= p.y && p.y <= e.y,
         Direction::Horizontal => p.y == s.y && s.x <= p.x && p.x <= e.x,
-        Direction::Ascending => s.x <= p.x && p.x <= e.x && p.x - s.x == p.y - s.y,
-        Direction::Descending => s.x <= p.x && p.x <= e.x && p.x - s.x == s.y - p.y,
+        Direction::Ascending => {
+            s.x <= p.x && p.x <= e.x && s.y <= p.y && p.y <= e.y && p.x - s.x == p.y - s.y
+        }
+        Direction::Descending => {
+            s.x <= p.x && p.x <= e.x && e.y <= p.y && p.y <= s.y && p.x - s.x == s.y - p.y
+        }
     }
 }
 
-fn distinctive(srows: Vec<&SquareRow>) -> bool {
-    let mut prev: Option<&SquareRow> = None;
+fn distinctive(srows: Vec<&BoardRow>) -> bool {
+    let mut prev: Option<&BoardRow> = None;
     for s in srows {
         match prev {
             None => (),
@@ -187,7 +187,7 @@ fn distinctive(srows: Vec<&SquareRow>) -> bool {
     false
 }
 
-fn adjacent(a: &SquareRow, b: &SquareRow) -> bool {
+fn adjacent(a: &BoardRow, b: &BoardRow) -> bool {
     if a.direction != b.direction {
         return false;
     }

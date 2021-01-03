@@ -2,13 +2,12 @@ use std::io;
 mod analyzer;
 mod board;
 mod encoding;
-mod foundation;
 
-use analyzer::row::RowKind;
+use analyzer::RowKind;
 
 fn main() {
     let coder = encoding::Coder::new();
-    let mut analyzer = analyzer::analyzer::Analyzer::new();
+    let mut analyzer = analyzer::Analyzer::new();
 
     loop {
         println!("Game code: ");
@@ -19,22 +18,22 @@ fn main() {
             Err(_) => continue,
         };
 
-        let mut square = board::Square::new();
+        let mut board = board::Board::new();
         let mut black = true;
         for p in points {
-            square = square.put(black, p);
+            board = board.put(black, p);
             black = !black
         }
 
-        println!("\nSquare: \n{}", square.to_string());
+        println!("\nBoard: \n{}", board.to_string());
 
         println!("Forbiddens:");
-        for (p, kind) in analyzer.get_forbiddens(&square) {
+        for (p, kind) in analyzer.get_forbiddens(&board) {
             println!("    {:?} {:?}", p, kind)
         }
 
         println!("Black threes:");
-        for row in analyzer.get_rows(&square, true, RowKind::Three) {
+        for row in analyzer.get_rows(&board, true, RowKind::Three) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -42,7 +41,7 @@ fn main() {
         }
 
         println!("Black fours:");
-        for row in analyzer.get_rows(&square, true, RowKind::Four) {
+        for row in analyzer.get_rows(&board, true, RowKind::Four) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -50,7 +49,7 @@ fn main() {
         }
 
         println!("White threes:");
-        for row in analyzer.get_rows(&square, false, RowKind::Three) {
+        for row in analyzer.get_rows(&board, false, RowKind::Three) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -58,7 +57,7 @@ fn main() {
         }
 
         println!("White fours:");
-        for row in analyzer.get_rows(&square, false, RowKind::Four) {
+        for row in analyzer.get_rows(&board, false, RowKind::Four) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
