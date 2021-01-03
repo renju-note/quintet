@@ -1,26 +1,25 @@
-pub type Stones = u32;
+const MAX_SIZE: u8 = 32;
 
-pub const INT_SIZE: u32 = 32;
+pub type Stones = u32;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Line {
-    pub size: u32,
+    pub size: u8,
     pub blacks: Stones,
     pub whites: Stones,
 }
 
 impl Line {
-    pub fn new(size: u32, blacks: Stones, whites: Stones) -> Result<Line, String> {
-        if size < 1 || INT_SIZE < size {
-            return Err(String::from("Wrong size"));
+    pub fn new(size: u8) -> Line {
+        let size = std::cmp::min(size, MAX_SIZE);
+        Line {
+            size: size,
+            blacks: 0b0,
+            whites: 0b0,
         }
-        if blacks & whites != 0b0 {
-            return Err(String::from("Blacks and whites are overlapping"));
-        }
-        Ok(Line::new_raw(size, blacks, whites))
     }
 
-    pub fn put(&self, black: bool, i: u32) -> Line {
+    pub fn put(&self, black: bool, i: u8) -> Line {
         let stones = 0b1 << i;
         let blacks: Stones;
         let whites: Stones;
@@ -31,34 +30,25 @@ impl Line {
             blacks = self.blacks & !stones;
             whites = self.whites | stones;
         }
-        Line::new_raw(self.size, blacks, whites)
-    }
-
-    pub fn to_string(&self) -> String {
-        let mut result = String::new();
-        for i in 0..self.size {
-            let pat = 0b1 << i;
-            let c = if self.blacks & pat != 0b0 {
-                'o'
-            } else if self.whites & pat != 0b0 {
-                'x'
-            } else {
-                '-'
-            };
-            result.push(c)
-        }
-        result
-    }
-
-    fn new_raw(size: u32, blacks: Stones, whites: Stones) -> Line {
         Line {
-            size: size,
+            size: self.size,
             blacks: blacks,
             whites: whites,
         }
     }
-}
 
-fn append_dummies(stones: Stones, size: u32) -> Stones {
-    (stones << 1) | 0b1 | (0b1 << (size + 1))
+    pub fn to_string(&self) -> String {
+        (0..self.size)
+            .map(|i| {
+                let pat = 0b1 << i;
+                if self.blacks & pat != 0b0 {
+                    'o'
+                } else if self.whites & pat != 0b0 {
+                    'x'
+                } else {
+                    '-'
+                }
+            })
+            .collect()
+    }
 }

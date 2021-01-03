@@ -1,4 +1,4 @@
-use super::super::board::line::Stones;
+use super::super::board::Stones;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum RowKind {
@@ -12,15 +12,15 @@ pub enum RowKind {
 
 #[derive(Clone)]
 pub struct Row {
-    pub start: u32,
-    pub size: u32,
-    pub eyes: Vec<u32>,
+    pub start: u8,
+    pub size: u8,
+    pub eyes: Vec<u8>,
 }
 
 pub fn search_pattern(
     blacks: Stones,
     whites: Stones,
-    within: u32,
+    within: u8,
     black: bool,
     kind: RowKind,
 ) -> Vec<Row> {
@@ -40,14 +40,14 @@ pub fn search_pattern(
     }
 }
 
-fn search_multi(blacks: Stones, whites: Stones, within: u32, patterns: &[&RowPattern]) -> Vec<Row> {
+fn search_multi(blacks: Stones, whites: Stones, within: u8, patterns: &[&RowPattern]) -> Vec<Row> {
     patterns
         .iter()
         .flat_map(|p| search(blacks, whites, within, &p))
         .collect()
 }
 
-fn search(blacks: Stones, whites: Stones, within: u32, pattern: &RowPattern) -> Vec<Row> {
+fn search(blacks: Stones, whites: Stones, within: u8, pattern: &RowPattern) -> Vec<Row> {
     let mut result = Vec::new();
     if within < pattern.size {
         return result;
@@ -81,8 +81,8 @@ fn search(blacks: Stones, whites: Stones, within: u32, pattern: &RowPattern) -> 
 
 struct RowPattern<'a> {
     row: &'a RowShape<'a>,
-    size: u32,
-    offset: u32,
+    size: u8,
+    offset: u8,
     blacks: Stones,
     blmask: Stones,
     whites: Stones,
@@ -91,8 +91,8 @@ struct RowPattern<'a> {
 
 struct RowShape<'a> {
     kind: RowKind,
-    size: u32,
-    eyes: &'a [u32],
+    size: u8,
+    eyes: &'a [u8],
 }
 
 const BLACK_TWO_PATTERNS: &[&RowPattern] = &[

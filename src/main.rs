@@ -19,10 +19,7 @@ fn main() {
             Err(_) => continue,
         };
 
-        let mut square = match board::square::Square::new(foundation::N) {
-            Ok(square) => square,
-            Err(_) => continue,
-        };
+        let mut square = board::Square::new();
         let mut black = true;
         for p in points {
             square = square.put(black, p);

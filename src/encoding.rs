@@ -1,8 +1,7 @@
-use super::board::square::*;
-use super::foundation::*;
+use super::board::*;
 use regex::Regex;
 
-const N_RANGE: std::ops::RangeInclusive<u32> = 1..=N;
+const N_RANGE: std::ops::RangeInclusive<u8> = 1..=BOAD_SIZE;
 
 pub struct Coder {
     re: Regex,
@@ -48,25 +47,26 @@ impl Coder {
     }
 }
 
-fn x_to_str(x: u32) -> String {
-    std::char::from_u32('A' as u32 + x - 1).unwrap().to_string()
+fn x_to_str(x: u8) -> String {
+    let code = ('A' as u8 + x - 1) as u32;
+    std::char::from_u32(code).unwrap().to_string()
 }
 
-fn y_to_str(y: u32) -> String {
+fn y_to_str(y: u8) -> String {
     y.to_string()
 }
 
-fn x_from_str(s: &str) -> u32 {
+fn x_from_str(s: &str) -> u8 {
     match s.chars().nth(0) {
         Some(c) => match c {
-            'A'..='O' => c as u32 - 'A' as u32 + 1,
-            'a'..='o' => c as u32 - 'a' as u32 + 1,
+            'A'..='O' => c as u8 - 'A' as u8 + 1,
+            'a'..='o' => c as u8 - 'a' as u8 + 1,
             _ => 0,
         },
         None => 0,
     }
 }
 
-fn y_from_str(s: &str) -> u32 {
-    s.parse::<u32>().unwrap_or(0)
+fn y_from_str(s: &str) -> u8 {
+    s.parse::<u8>().unwrap_or(0)
 }

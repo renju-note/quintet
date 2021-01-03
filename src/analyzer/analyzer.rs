@@ -1,5 +1,4 @@
-use super::super::board::line::*;
-use super::super::board::square::*;
+use super::super::board::*;
 use super::row::*;
 use std::collections::HashMap;
 
@@ -41,7 +40,7 @@ impl Analyzer {
                     .entry(key)
                     .or_insert_with(|| line_rows(line, black, kind))
                     .iter()
-                    .map(|r| square_row(square, &facet, i as u32, r, kind))
+                    .map(|r| square_row(&facet, i as u8, r, kind))
                     .collect::<Vec<_>>();
                 result.append(&mut rows);
             }
@@ -116,23 +115,22 @@ impl Analyzer {
     }
 }
 
-fn square_row(square: &Square, facet: &Facet, i: u32, row: &Row, kind: RowKind) -> SquareRow {
+fn square_row(facet: &Facet, i: u8, row: &Row, kind: RowKind) -> SquareRow {
     SquareRow {
         kind: kind,
         direction: facet.direction,
-        start: to_point(Index { i: i, j: row.start }, facet.direction, square.size),
+        start: to_point(Index { i: i, j: row.start }, facet.direction),
         end: to_point(
             Index {
                 i: i,
                 j: row.start + row.size - 1,
             },
             facet.direction,
-            square.size,
         ),
         eyes: row
             .eyes
             .iter()
-            .map(|j| to_point(Index { i: i, j: *j }, facet.direction, square.size))
+            .map(|j| to_point(Index { i: i, j: *j }, facet.direction))
             .collect(),
     }
 }
@@ -159,7 +157,7 @@ fn line_rows(line: &Line, black: bool, kind: RowKind) -> Vec<Row> {
         .collect()
 }
 
-fn append_dummies(stones: Stones, size: u32) -> Stones {
+fn append_dummies(stones: Stones, size: u8) -> Stones {
     (stones << 1) | 0b1 | (0b1 << (size + 1))
 }
 
