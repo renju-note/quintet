@@ -1,5 +1,4 @@
 use super::line::*;
-use super::row::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Point {
@@ -8,9 +7,9 @@ pub struct Point {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-struct Index {
-    i: u32,
-    j: u32,
+pub struct Index {
+    pub i: u32,
+    pub j: u32,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -21,22 +20,16 @@ pub enum Direction {
     Descending,
 }
 
-struct Facet {
-    direction: Direction,
-    lines: Vec<Line>,
+#[derive(Eq, PartialEq, Hash, Clone)]
+pub struct Facet {
+    pub direction: Direction,
+    pub lines: Vec<Line>,
 }
 
+#[derive(Eq, PartialEq, Hash, Clone)]
 pub struct Square {
     pub size: u32,
-    facets: Vec<Facet>,
-}
-
-pub struct SquareRow {
-    pub kind: RowKind,
-    pub direction: Direction,
-    pub start: Point,
-    pub end: Point,
-    pub eyes: Vec<Point>,
+    pub facets: Vec<Facet>,
 }
 
 impl Square {
@@ -92,49 +85,6 @@ impl Square {
         }
     }
 
-    pub fn rows(&self, black: bool, kind: RowKind) -> Vec<SquareRow> {
-        self.facets
-            .iter()
-            .flat_map::<Vec<_>, _>(|facet| {
-                facet
-                    .lines
-                    .iter()
-                    .enumerate()
-                    .flat_map::<Vec<_>, _>(|(i, line)| {
-                        let i: u32 = i as u32;
-                        line.rows(black, kind)
-                            .iter()
-                            .map(|row| SquareRow {
-                                kind: kind,
-                                direction: facet.direction,
-                                start: to_point(
-                                    Index { i: i, j: row.start },
-                                    facet.direction,
-                                    self.size,
-                                ),
-                                end: to_point(
-                                    Index {
-                                        i: i,
-                                        j: row.start + row.size - 1,
-                                    },
-                                    facet.direction,
-                                    self.size,
-                                ),
-                                eyes: row
-                                    .eyes
-                                    .iter()
-                                    .map(|j| {
-                                        to_point(Index { i: i, j: *j }, facet.direction, self.size)
-                                    })
-                                    .collect(),
-                            })
-                            .collect()
-                    })
-                    .collect()
-            })
-            .collect::<Vec<_>>()
-    }
-
     pub fn to_string(&self) -> String {
         let hfacet = self
             .facets
@@ -154,7 +104,7 @@ impl Square {
     }
 }
 
-fn to_index(p: Point, direction: Direction, size: u32) -> Index {
+pub fn to_index(p: Point, direction: Direction, size: u32) -> Index {
     let (x, y) = (p.x, p.y);
     match direction {
         Direction::Vertical => Index { i: x - 1, j: y - 1 },
@@ -172,7 +122,7 @@ fn to_index(p: Point, direction: Direction, size: u32) -> Index {
     }
 }
 
-fn to_point(idx: Index, direction: Direction, size: u32) -> Point {
+pub fn to_point(idx: Index, direction: Direction, size: u32) -> Point {
     let (i, j) = (idx.i, idx.j);
     match direction {
         Direction::Vertical => Point { x: i + 1, y: j + 1 },

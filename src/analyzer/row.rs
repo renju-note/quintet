@@ -1,6 +1,6 @@
-pub type Stones = u32;
+use super::super::board::line::Stones;
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum RowKind {
     Two,
     Sword,

@@ -1,9 +1,14 @@
 use std::io;
+mod analyzer;
 mod board;
+mod encoding;
 mod foundation;
 
+use analyzer::row::RowKind;
+
 fn main() {
-    let coder = foundation::Coder::new();
+    let coder = encoding::Coder::new();
+    let mut analyzer = analyzer::analyzer::Analyzer::new();
 
     loop {
         println!("Game code: ");
@@ -27,12 +32,12 @@ fn main() {
         println!("\nSquare: \n{}", square.to_string());
 
         println!("Forbiddens:");
-        for (p, kind) in board::forbidden::forbiddens(&square) {
+        for (p, kind) in analyzer.get_forbiddens(&square) {
             println!("    {:?} {:?}", p, kind)
         }
 
         println!("Black threes:");
-        for row in square.rows(true, board::row::RowKind::Three) {
+        for row in analyzer.get_rows(&square, true, RowKind::Three) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -40,7 +45,7 @@ fn main() {
         }
 
         println!("Black fours:");
-        for row in square.rows(true, board::row::RowKind::Four) {
+        for row in analyzer.get_rows(&square, true, RowKind::Four) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -48,7 +53,7 @@ fn main() {
         }
 
         println!("White threes:");
-        for row in square.rows(false, board::row::RowKind::Three) {
+        for row in analyzer.get_rows(&square, false, RowKind::Three) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -56,7 +61,7 @@ fn main() {
         }
 
         println!("White fours:");
-        for row in square.rows(false, board::row::RowKind::Four) {
+        for row in analyzer.get_rows(&square, false, RowKind::Four) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes

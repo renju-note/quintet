@@ -1,8 +1,8 @@
-use super::row::*;
+pub type Stones = u32;
 
 pub const INT_SIZE: u32 = 32;
 
-#[derive(Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Line {
     pub size: u32,
     pub blacks: Stones,
@@ -32,28 +32,6 @@ impl Line {
             whites = self.whites | stones;
         }
         Line::new_raw(self.size, blacks, whites)
-    }
-
-    pub fn rows(&self, black: bool, kind: RowKind) -> Vec<Row> {
-        let blacks_: Stones;
-        let whites_: Stones;
-        if black {
-            blacks_ = self.blacks << 1;
-            whites_ = append_dummies(self.whites, self.size);
-        } else {
-            blacks_ = append_dummies(self.blacks, self.size);
-            whites_ = self.whites << 1;
-        }
-        let size_ = self.size + 2;
-
-        search_pattern(blacks_, whites_, size_, black, kind)
-            .iter()
-            .map(|row| Row {
-                start: row.start - 1,
-                size: row.size,
-                eyes: row.eyes.iter().map(|x| x - 1).collect(),
-            })
-            .collect()
     }
 
     pub fn to_string(&self) -> String {
