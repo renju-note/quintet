@@ -34,6 +34,8 @@ impl Board {
     }
 
     pub fn put(&self, black: bool, p: Point) -> Board {
+        // Use const generics in the future.
+        // fn put_lines<const size: usize>(lines: &[Line; size]) -> [Line; size]
         let mut vlines = self.vlines.clone();
         let vidx = p.to_index(Direction::Vertical);
         vlines[vidx.i as usize] = self.vlines[vidx.i as usize].put(black, vidx.j);

@@ -1,4 +1,4 @@
-use super::super::board::Stones;
+use super::super::board::{Line, Stones};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum RowKind {
@@ -11,7 +11,8 @@ pub enum RowKind {
 }
 
 #[derive(Clone)]
-pub struct Row {
+pub struct LineRow {
+    pub kind: RowKind,
     pub start: u8,
     pub size: u8,
     pub eyes: Vec<u8>,
@@ -23,7 +24,7 @@ pub fn search_pattern(
     within: u8,
     black: bool,
     kind: RowKind,
-) -> Vec<Row> {
+) -> Vec<LineRow> {
     match (black, kind) {
         (true, RowKind::Two) => search_multi(blacks, whites, within, BLACK_TWO_PATTERNS),
         (true, RowKind::Sword) => search_multi(blacks, whites, within, BLACK_SWORD_PATTERNS),
@@ -40,14 +41,19 @@ pub fn search_pattern(
     }
 }
 
-fn search_multi(blacks: Stones, whites: Stones, within: u8, patterns: &[&RowPattern]) -> Vec<Row> {
+fn search_multi(
+    blacks: Stones,
+    whites: Stones,
+    within: u8,
+    patterns: &[&RowPattern],
+) -> Vec<LineRow> {
     patterns
         .iter()
         .flat_map(|p| search(blacks, whites, within, &p))
         .collect()
 }
 
-fn search(blacks: Stones, whites: Stones, within: u8, pattern: &RowPattern) -> Vec<Row> {
+fn search(blacks: Stones, whites: Stones, within: u8, pattern: &RowPattern) -> Vec<LineRow> {
     let mut result = Vec::new();
     if within < pattern.size {
         return result;
@@ -60,7 +66,8 @@ fn search(blacks: Stones, whites: Stones, within: u8, pattern: &RowPattern) -> V
             && (whites & filter & !pattern.whmask) == pattern.whites
         {
             let start = i + pattern.offset;
-            let row = Row {
+            let row = LineRow {
+                kind: pattern.row.kind,
                 start: start,
                 size: pattern.row.size,
                 eyes: pattern

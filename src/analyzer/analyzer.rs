@@ -18,7 +18,7 @@ pub struct BoardRow {
 }
 
 pub struct Analyzer {
-    rows_cache: HashMap<(Line, bool, RowKind), Vec<Row>>,
+    rows_cache: HashMap<(Line, bool, RowKind), Vec<LineRow>>,
     forbiddens_cache: HashMap<String, Vec<(Point, ForbiddenKind)>>,
 }
 
@@ -39,7 +39,7 @@ impl Analyzer {
                 .entry(key)
                 .or_insert_with(|| line_rows(line, black, kind))
                 .iter()
-                .map(|r| board_row(direction, i as u8, r, kind))
+                .map(|r| board_row(direction, i as u8, r))
                 .collect::<Vec<_>>();
             result.append(&mut rows);
         }
@@ -113,9 +113,9 @@ impl Analyzer {
     }
 }
 
-fn board_row(direction: Direction, i: u8, row: &Row, kind: RowKind) -> BoardRow {
+fn board_row(direction: Direction, i: u8, row: &LineRow) -> BoardRow {
     BoardRow {
-        kind: kind,
+        kind: row.kind,
         direction: direction,
         start: Index { i: i, j: row.start }.to_point(direction),
         end: Index {
@@ -131,7 +131,7 @@ fn board_row(direction: Direction, i: u8, row: &Row, kind: RowKind) -> BoardRow 
     }
 }
 
-fn line_rows(line: &Line, black: bool, kind: RowKind) -> Vec<Row> {
+fn line_rows(line: &Line, black: bool, kind: RowKind) -> Vec<LineRow> {
     let blacks_: Stones;
     let whites_: Stones;
     if black {
@@ -145,7 +145,8 @@ fn line_rows(line: &Line, black: bool, kind: RowKind) -> Vec<Row> {
 
     search_pattern(blacks_, whites_, size_, black, kind)
         .iter()
-        .map(|row| Row {
+        .map(|row| LineRow {
+            kind: kind,
             start: row.start - 1,
             size: row.size,
             eyes: row.eyes.iter().map(|x| x - 1).collect(),
