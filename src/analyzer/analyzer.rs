@@ -9,23 +9,15 @@ pub enum ForbiddenKind {
     Overline,
 }
 
-pub struct BoardRow {
-    pub kind: RowKind,
-    pub direction: Direction,
-    pub start: Point,
-    pub end: Point,
-    pub eyes: Vec<Point>,
-}
-
 pub struct Analyzer {
-    rows_cache: HashMap<(Line, bool, RowKind), Vec<LineRow>>,
+    line_row_searcher: LineRowSearcher,
     forbiddens_cache: HashMap<String, Vec<(Point, ForbiddenKind)>>,
 }
 
 impl Analyzer {
     pub fn new() -> Analyzer {
         Analyzer {
-            rows_cache: HashMap::new(),
+            line_row_searcher: LineRowSearcher::new(),
             forbiddens_cache: HashMap::new(),
         }
     }
@@ -33,14 +25,12 @@ impl Analyzer {
     pub fn get_rows(&mut self, board: &Board, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = Vec::new();
         for (direction, i, line) in board.iter_lines() {
-            let key = (*line, black, kind);
             let mut rows = self
-                .rows_cache
-                .entry(key)
-                .or_insert_with(|| line_rows(line, black, kind))
+                .line_row_searcher
+                .get(&line, black, kind)
                 .iter()
-                .map(|r| board_row(direction, i as u8, r))
-                .collect::<Vec<_>>();
+                .map(|lr| BoardRow::from(lr, direction, i))
+                .collect();
             result.append(&mut rows);
         }
         result
@@ -83,14 +73,14 @@ impl Analyzer {
         let next = board.put(true, p);
         self.get_rows(&next, true, RowKind::Overline)
             .iter()
-            .find(|&r| between(&p, r))
+            .find(|&br| br.overlap(&p))
             .is_some()
     }
 
     fn double_four(&mut self, board: &Board, p: Point) -> bool {
         let next = board.put(true, p);
         let fours = self.get_rows(&next, true, RowKind::Four);
-        let new_fours: Vec<_> = fours.iter().filter(|&r| between(&p, r)).collect();
+        let new_fours: Vec<_> = fours.iter().filter(|&br| br.overlap(&p)).collect();
         if new_fours.len() < 2 {
             return false;
         }
@@ -100,7 +90,7 @@ impl Analyzer {
     fn double_three(&mut self, board: &Board, p: Point) -> bool {
         let next = board.put(true, p);
         let threes = self.get_rows(&next, true, RowKind::Three);
-        let new_threes: Vec<_> = threes.iter().filter(|&r| between(&p, r)).collect();
+        let new_threes: Vec<_> = threes.iter().filter(|&br| br.overlap(&p)).collect();
         if new_threes.len() < 2 {
             return false;
         }
@@ -110,65 +100,6 @@ impl Analyzer {
             .map(|&r| r)
             .collect();
         distinctive(truthy_threes)
-    }
-}
-
-fn board_row(direction: Direction, i: u8, row: &LineRow) -> BoardRow {
-    BoardRow {
-        kind: row.kind,
-        direction: direction,
-        start: Index { i: i, j: row.start }.to_point(direction),
-        end: Index {
-            i: i,
-            j: row.start + row.size - 1,
-        }
-        .to_point(direction),
-        eyes: row
-            .eyes
-            .iter()
-            .map(|&j| Index { i: i, j: j }.to_point(direction))
-            .collect(),
-    }
-}
-
-fn line_rows(line: &Line, black: bool, kind: RowKind) -> Vec<LineRow> {
-    let blacks_: Stones;
-    let whites_: Stones;
-    if black {
-        blacks_ = line.blacks << 1;
-        whites_ = append_dummies(line.whites, line.size);
-    } else {
-        blacks_ = append_dummies(line.blacks, line.size);
-        whites_ = line.whites << 1;
-    }
-    let size_ = line.size + 2;
-
-    search_pattern(blacks_, whites_, size_, black, kind)
-        .iter()
-        .map(|row| LineRow {
-            kind: kind,
-            start: row.start - 1,
-            size: row.size,
-            eyes: row.eyes.iter().map(|x| x - 1).collect(),
-        })
-        .collect()
-}
-
-fn append_dummies(stones: Stones, size: u8) -> Stones {
-    (stones << 1) | 0b1 | (0b1 << (size + 1))
-}
-
-fn between(p: &Point, r: &BoardRow) -> bool {
-    let (s, e) = (r.start, r.end);
-    match r.direction {
-        Direction::Vertical => p.x == s.x && s.y <= p.y && p.y <= e.y,
-        Direction::Horizontal => p.y == s.y && s.x <= p.x && p.x <= e.x,
-        Direction::Ascending => {
-            s.x <= p.x && p.x <= e.x && s.y <= p.y && p.y <= e.y && p.x - s.x == p.y - s.y
-        }
-        Direction::Descending => {
-            s.x <= p.x && p.x <= e.x && e.y <= p.y && p.y <= s.y && p.x - s.x == s.y - p.y
-        }
     }
 }
 
