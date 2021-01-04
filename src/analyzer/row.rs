@@ -1,4 +1,4 @@
-use super::super::board::{Direction, Index, Line, Point, Stones};
+use super::super::board::{Board, Direction, Index, Line, Point, Stones};
 use super::pattern::*;
 use std::collections::HashMap;
 
@@ -12,61 +12,67 @@ pub enum RowKind {
     Overline,
 }
 
-#[derive(Clone)]
-pub struct LineRow {
-    pub start: u8,
-    pub size: u8,
-    pub eyes: Vec<u8>,
-}
-
-pub struct LineRowSearcher {
+pub struct RowSearcher {
     cache: HashMap<(Line, bool, RowKind), Vec<LineRow>>,
 }
 
-impl LineRowSearcher {
-    pub fn new() -> LineRowSearcher {
-        LineRowSearcher {
+impl RowSearcher {
+    pub fn new() -> RowSearcher {
+        RowSearcher {
             cache: HashMap::new(),
         }
     }
 
-    pub fn get(&mut self, line: &Line, black: bool, kind: RowKind) -> Vec<LineRow> {
+    pub fn search(&mut self, board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
+        let mut result = Vec::new();
+        for (direction, i, line) in board.iter_lines() {
+            let mut rows = self
+                .search_line(&line, black, kind)
+                .iter()
+                .map(|lr| Row::from(lr, direction, i))
+                .collect();
+            result.append(&mut rows);
+        }
+        result
+    }
+
+    fn search_line(&mut self, line: &Line, black: bool, kind: RowKind) -> Vec<LineRow> {
         let key = (*line, black, kind);
         match self.cache.get(&key) {
             Some(result) => result.to_vec(),
             None => {
-                let result = self.search(line, black, kind);
+                let result = self.scan(line, black, kind);
                 self.cache.insert(key, result.to_vec());
                 result
             }
         }
     }
 
-    pub fn search(&self, line: &Line, black: bool, kind: RowKind) -> Vec<LineRow> {
+    fn scan(&self, line: &Line, black: bool, kind: RowKind) -> Vec<LineRow> {
         match (black, kind) {
-            (true, RowKind::Two) => self.search_patterns(line, black, BLACK_TWO_PATTERNS),
-            (true, RowKind::Sword) => self.search_patterns(line, black, BLACK_SWORD_PATTERNS),
-            (true, RowKind::Three) => self.search_patterns(line, black, BLACK_THREE_PATTERNS),
-            (true, RowKind::Four) => self.search_patterns(line, black, BLACK_FOUR_PATTERNS),
-            (true, RowKind::Five) => self.search_patterns(line, black, BLACK_FIVE_PATTERNS),
-            (true, RowKind::Overline) => self.search_patterns(line, black, BLACK_OVERLINE_PATTERNS),
-            (false, RowKind::Two) => self.search_patterns(line, black, WHITE_TWO_PATTERNS),
-            (false, RowKind::Sword) => self.search_patterns(line, black, WHITE_SWORD_PATTERNS),
-            (false, RowKind::Three) => self.search_patterns(line, black, WHITE_THREE_PATTERNS),
-            (false, RowKind::Four) => self.search_patterns(line, black, WHITE_FOUR_PATTERNS),
-            (false, RowKind::Five) => self.search_patterns(line, black, WHITE_FIVE_PATTERNS),
+            (true, RowKind::Two) => self.scan_patterns(line, black, BLACK_TWO_PATTERNS),
+            (true, RowKind::Sword) => self.scan_patterns(line, black, BLACK_SWORD_PATTERNS),
+            (true, RowKind::Three) => self.scan_patterns(line, black, BLACK_THREE_PATTERNS),
+            (true, RowKind::Four) => self.scan_patterns(line, black, BLACK_FOUR_PATTERNS),
+            (true, RowKind::Five) => self.scan_patterns(line, black, BLACK_FIVE_PATTERNS),
+            (true, RowKind::Overline) => self.scan_patterns(line, black, BLACK_OVERLINE_PATTERNS),
+            (false, RowKind::Two) => self.scan_patterns(line, black, WHITE_TWO_PATTERNS),
+            (false, RowKind::Sword) => self.scan_patterns(line, black, WHITE_SWORD_PATTERNS),
+            (false, RowKind::Three) => self.scan_patterns(line, black, WHITE_THREE_PATTERNS),
+            (false, RowKind::Four) => self.scan_patterns(line, black, WHITE_FOUR_PATTERNS),
+            (false, RowKind::Five) => self.scan_patterns(line, black, WHITE_FIVE_PATTERNS),
             _ => vec![],
         }
     }
 
-    fn search_patterns(&self, line: &Line, black: bool, patterns: &[&RowPattern]) -> Vec<LineRow> {
+    fn scan_patterns(&self, line: &Line, black: bool, patterns: &[&RowPattern]) -> Vec<LineRow> {
         patterns
             .iter()
-            .flat_map(|p| self.search_pattern(line, &p, black))
+            .flat_map(|p| self.scan_pattern(line, &p, black))
             .collect()
     }
 
-    fn search_pattern(&self, line: &Line, pattern: &RowPattern, black: bool) -> Vec<LineRow> {
+    fn scan_pattern(&self, line: &Line, pattern: &RowPattern, black: bool) -> Vec<LineRow> {
         if line.size < pattern.row.size {
             return vec![];
         }
@@ -107,17 +113,21 @@ fn append_dummies(stones: Stones, size: u8) -> Stones {
     (stones << 1) | 0b1 | (0b1 << (size + 1))
 }
 
+fn between(a: u8, x: u8, b: u8) -> bool {
+    a <= x && x <= b
+}
+
 #[derive(Clone)]
-pub struct BoardRow {
+pub struct Row {
     pub direction: Direction,
     pub start: Point,
     pub end: Point,
     pub eyes: Vec<Point>,
 }
 
-impl BoardRow {
-    pub fn from(lr: &LineRow, direction: Direction, i: u8) -> BoardRow {
-        BoardRow {
+impl Row {
+    fn from(lr: &LineRow, direction: Direction, i: u8) -> Row {
+        Row {
             direction: direction,
             start: Index { i: i, j: lr.start }.to_point(direction),
             end: Index {
@@ -148,6 +158,9 @@ impl BoardRow {
     }
 }
 
-fn between(a: u8, x: u8, b: u8) -> bool {
-    a <= x && x <= b
+#[derive(Clone)]
+struct LineRow {
+    start: u8,
+    size: u8,
+    eyes: Vec<u8>,
 }

@@ -1,9 +1,9 @@
-use std::io;
 mod analyzer;
 mod board;
 mod encoding;
 
 use analyzer::RowKind;
+use std::io;
 
 fn main() {
     let coder = encoding::Coder::new();
@@ -28,12 +28,12 @@ fn main() {
         println!("\nBoard: \n{}", board.to_string());
 
         println!("Forbiddens:");
-        for (p, kind) in analyzer.get_forbiddens(&board) {
+        for (p, kind) in analyzer.forbiddens(&board) {
             println!("    {:?} {:?}", p, kind)
         }
 
         println!("Black threes:");
-        for row in analyzer.get_rows(&board, true, RowKind::Three) {
+        for row in analyzer.rows(&board, true, RowKind::Three) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -41,7 +41,7 @@ fn main() {
         }
 
         println!("Black fours:");
-        for row in analyzer.get_rows(&board, true, RowKind::Four) {
+        for row in analyzer.rows(&board, true, RowKind::Four) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -49,7 +49,7 @@ fn main() {
         }
 
         println!("White threes:");
-        for row in analyzer.get_rows(&board, false, RowKind::Three) {
+        for row in analyzer.rows(&board, false, RowKind::Three) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -57,7 +57,7 @@ fn main() {
         }
 
         println!("White fours:");
-        for row in analyzer.get_rows(&board, false, RowKind::Four) {
+        for row in analyzer.rows(&board, false, RowKind::Four) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
