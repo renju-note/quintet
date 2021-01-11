@@ -19,6 +19,14 @@ impl Analyzer {
         self.row_searcher.search(board, black, kind)
     }
 
+    pub fn row_eyes(&mut self, board: &Board, black: bool, kind: RowKind) -> Vec<Point> {
+        self.row_searcher
+            .search(board, black, kind)
+            .iter()
+            .flat_map(|r| r.eyes.to_vec())
+            .collect()
+    }
+
     pub fn forbiddens(&mut self, board: &Board) -> Vec<(ForbiddenKind, Point)> {
         self.forbidden_seacher.search(board, &mut self.row_searcher)
     }
