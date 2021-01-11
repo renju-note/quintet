@@ -2,7 +2,7 @@ use super::line::*;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
-const M: u8 = N * 2 - 1; // 29
+const M: u8 = N * 2 - 1 - (4 * 2); // 21
 
 pub type OrthogonalLines = [Line; N as usize];
 pub type DiagonalLines = [Line; M as usize];
@@ -39,15 +39,25 @@ impl Board {
         let mut vlines = self.vlines.clone();
         let vidx = p.to_index(Direction::Vertical);
         vlines[vidx.i as usize] = self.vlines[vidx.i as usize].put(black, vidx.j);
+
         let mut hlines = self.hlines.clone();
         let hidx = p.to_index(Direction::Horizontal);
         hlines[hidx.i as usize] = self.hlines[hidx.i as usize].put(black, hidx.j);
+
         let mut alines = self.alines.clone();
         let aidx = p.to_index(Direction::Ascending);
-        alines[aidx.i as usize] = self.alines[aidx.i as usize].put(black, aidx.j);
+        if 4 <= aidx.i && aidx.i < M + 4 {
+            let i = (aidx.i - 4) as usize;
+            alines[i] = self.alines[i].put(black, aidx.j);
+        }
+
         let mut dlines = self.dlines.clone();
         let didx = p.to_index(Direction::Descending);
-        dlines[didx.i as usize] = self.dlines[didx.i as usize].put(black, didx.j);
+        if 4 <= didx.i && didx.i < M + 4 {
+            let i = (didx.i - 4) as usize;
+            dlines[i] = self.dlines[i].put(black, didx.j);
+        }
+
         Board {
             vlines: vlines,
             hlines: hlines,
@@ -71,12 +81,12 @@ impl Board {
             .alines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Ascending, i as u8, l));
+            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Descending, i as u8, l));
+            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
@@ -102,10 +112,6 @@ impl Board {
 
     fn diagonal_lines() -> DiagonalLines {
         [
-            Line::new(1),
-            Line::new(2),
-            Line::new(3),
-            Line::new(4),
             Line::new(5),
             Line::new(6),
             Line::new(7),
@@ -127,10 +133,6 @@ impl Board {
             Line::new(7),
             Line::new(6),
             Line::new(5),
-            Line::new(4),
-            Line::new(3),
-            Line::new(2),
-            Line::new(1),
         ]
     }
 }
