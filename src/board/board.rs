@@ -1,5 +1,4 @@
 use super::line::*;
-use std::iter;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;

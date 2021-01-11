@@ -19,12 +19,15 @@ impl VCFSolver {
         depth_limit: u8,
         shortest: bool,
     ) -> Option<Vec<Point>> {
-        // Exists self four
-        let fours = self.analyzer.rows(board, black, RowKind::Four);
-        if fours.len() >= 1 {
+        // Already exists five or four
+        if self.analyzer.rows(board, black, RowKind::Five).len() >= 1 {
+            return Some(vec![]);
+        }
+        if self.analyzer.rows(board, black, RowKind::Four).len() >= 1 {
             return Some(vec![]);
         }
 
+        // Reach depth limit
         if depth_limit == 0 {
             return None;
         }
