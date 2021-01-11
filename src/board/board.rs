@@ -4,8 +4,8 @@ pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
 const M: u8 = N * 2 - 1; // 29
 
-type OrthogonalLines = [Line; N as usize];
-type DiagonalLines = [Line; M as usize];
+pub type OrthogonalLines = [Line; N as usize];
+pub type DiagonalLines = [Line; M as usize];
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Direction {
@@ -80,9 +80,13 @@ impl Board {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
+    pub fn lines(&self) -> OrthogonalLines {
+        self.hlines
+    }
+
     pub fn to_string(&self) -> String {
         let mut result = self
-            .hlines
+            .lines()
             .iter()
             .rev()
             .map(|l| l.to_string())

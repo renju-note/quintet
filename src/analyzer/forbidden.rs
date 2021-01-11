@@ -10,7 +10,7 @@ pub enum ForbiddenKind {
 }
 
 pub struct ForbiddenSearcher {
-    cache: HashMap<String, Vec<(ForbiddenKind, Point)>>,
+    cache: HashMap<OrthogonalLines, Vec<(ForbiddenKind, Point)>>,
 }
 
 impl ForbiddenSearcher {
@@ -25,7 +25,7 @@ impl ForbiddenSearcher {
         board: &Board,
         row_searcher: &mut RowSearcher,
     ) -> Vec<(ForbiddenKind, Point)> {
-        let key = board.to_string();
+        let key = board.lines();
         match self.cache.get(&key) {
             Some(result) => result.to_vec(),
             None => {
