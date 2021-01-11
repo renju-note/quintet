@@ -71,14 +71,14 @@ impl ForbiddenSearcher {
         row_searcher
             .search(&next, true, RowKind::Overline)
             .iter()
-            .find(|&br| br.overlap(&p))
+            .find(|&br| br.overlap(p))
             .is_some()
     }
 
     fn double_four(&mut self, board: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
         let next = board.put(true, p);
         let fours = row_searcher.search(&next, true, RowKind::Four);
-        let new_fours: Vec<_> = fours.iter().filter(|&br| br.overlap(&p)).collect();
+        let new_fours: Vec<_> = fours.iter().filter(|&br| br.overlap(p)).collect();
         if new_fours.len() < 2 {
             return false;
         }
@@ -88,7 +88,7 @@ impl ForbiddenSearcher {
     fn double_three(&mut self, board: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
         let next = board.put(true, p);
         let threes = row_searcher.search(&next, true, RowKind::Three);
-        let new_threes: Vec<_> = threes.iter().filter(|&br| br.overlap(&p)).collect();
+        let new_threes: Vec<_> = threes.iter().filter(|&br| br.overlap(p)).collect();
         if new_threes.len() < 2 {
             return false;
         }

@@ -146,7 +146,7 @@ impl Row {
         }
     }
 
-    pub fn overlap(&self, p: &Point) -> bool {
+    pub fn overlap(&self, p: Point) -> bool {
         let (s, e) = (self.start, self.end);
         match self.direction {
             Direction::Vertical => p.x == s.x && between(s.y, p.y, e.y),
