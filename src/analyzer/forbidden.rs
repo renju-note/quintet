@@ -25,7 +25,7 @@ impl ForbiddenSearcher {
         board: &Board,
         row_searcher: &mut RowSearcher,
     ) -> Vec<(ForbiddenKind, Point)> {
-        let key = board.lines();
+        let key = board.vertical_lines();
         match self.cache.get(&key) {
             Some(result) => result.to_vec(),
             None => {
@@ -42,11 +42,12 @@ impl ForbiddenSearcher {
         p: Point,
         row_searcher: &mut RowSearcher,
     ) -> Option<ForbiddenKind> {
-        if self.overline(board, p, row_searcher) {
+        let next = board.put(true, p);
+        if self.overline(&next, p, row_searcher) {
             Some(ForbiddenKind::Overline)
-        } else if self.double_four(board, p, row_searcher) {
+        } else if self.double_four(&next, p, row_searcher) {
             Some(ForbiddenKind::DoubleFour)
-        } else if self.double_three(board, p, row_searcher) {
+        } else if self.double_three(&next, p, row_searcher) {
             Some(ForbiddenKind::DoubleThree)
         } else {
             None
@@ -66,53 +67,40 @@ impl ForbiddenSearcher {
             .collect()
     }
 
-    fn overline(&mut self, board: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
-        let next = board.put(true, p);
-        row_searcher
-            .search(&next, true, RowKind::Overline)
-            .iter()
-            .find(|&br| br.overlap(p))
-            .is_some()
+    fn overline(&mut self, next: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
+        let new_overlines = row_searcher.search_containing(&next, true, RowKind::Overline, p);
+        new_overlines.len() >= 1
     }
 
-    fn double_four(&mut self, board: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
-        let next = board.put(true, p);
-        let fours = row_searcher.search(&next, true, RowKind::Four);
-        let new_fours: Vec<_> = fours.iter().filter(|&br| br.overlap(p)).collect();
+    fn double_four(&mut self, next: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
+        let new_fours = row_searcher.search_containing(&next, true, RowKind::Four, p);
         if new_fours.len() < 2 {
             return false;
         }
-        distinctive(new_fours)
+        distinctive(new_fours.iter().collect())
     }
 
-    fn double_three(&mut self, board: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
-        let next = board.put(true, p);
-        let threes = row_searcher.search(&next, true, RowKind::Three);
-        let new_threes: Vec<_> = threes.iter().filter(|&br| br.overlap(p)).collect();
+    fn double_three(&mut self, next: &Board, p: Point, row_searcher: &mut RowSearcher) -> bool {
+        let new_threes = row_searcher.search_containing(&next, true, RowKind::Three, p);
         if new_threes.len() < 2 {
             return false;
         }
-        let truthy_threes: Vec<_> = new_threes
+        let truthy_threes = new_threes
             .iter()
-            .filter(|&r| self.judge(&next, r.eyes[0], row_searcher).is_none())
-            .map(|&r| r)
-            .collect();
+            .filter(|r| self.judge(&next, r.eyes[0], row_searcher).is_none())
+            .collect::<Vec<_>>();
+        if truthy_threes.len() < 2 {
+            return false;
+        }
         distinctive(truthy_threes)
     }
 }
 
 fn distinctive(rows: Vec<&Row>) -> bool {
-    let mut first: Option<&Row> = None;
-    for r in rows {
-        match first {
-            None => {
-                first = Some(r);
-            }
-            Some(p) => {
-                if !adjacent(p, r) {
-                    return true;
-                }
-            }
+    let first = rows[0];
+    for row in rows.iter().skip(1) {
+        if !adjacent(first, row) {
+            return true;
         }
     }
     false

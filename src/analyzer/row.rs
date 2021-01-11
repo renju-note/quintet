@@ -36,6 +36,26 @@ impl RowSearcher {
         result
     }
 
+    pub fn search_containing(
+        &mut self,
+        board: &Board,
+        black: bool,
+        kind: RowKind,
+        p: Point,
+    ) -> Vec<Row> {
+        let mut result = Vec::new();
+        for (direction, i, line) in board.lines_of(p) {
+            let mut rows = self
+                .search_line(&line, black, kind)
+                .iter()
+                .map(|lr| Row::from(lr, direction, i))
+                .filter(|r| r.overlap(p))
+                .collect();
+            result.append(&mut rows);
+        }
+        result
+    }
+
     fn search_line(&mut self, line: &Line, black: bool, kind: RowKind) -> Vec<LineRow> {
         let key = (*line, black, kind);
         match self.cache.get(&key) {

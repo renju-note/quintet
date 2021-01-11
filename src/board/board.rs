@@ -1,4 +1,5 @@
 use super::line::*;
+use std::iter;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
@@ -90,13 +91,39 @@ impl Board {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    pub fn lines(&self) -> OrthogonalLines {
-        self.hlines
+    pub fn lines_of(&self, p: Point) -> Vec<(Direction, u8, Line)> {
+        let vidx = p.to_index(Direction::Vertical);
+        let hidx = p.to_index(Direction::Horizontal);
+        let aidx = p.to_index(Direction::Ascending);
+        let didx = p.to_index(Direction::Descending);
+        let mut result = vec![
+            (Direction::Vertical, vidx.i, self.vlines[vidx.i as usize]),
+            (Direction::Horizontal, hidx.i, self.hlines[hidx.i as usize]),
+        ];
+        if 4 <= aidx.i && aidx.i < M + 4 {
+            result.push((
+                Direction::Ascending,
+                aidx.i,
+                self.alines[(aidx.i - 4) as usize],
+            ));
+        }
+        if 4 <= didx.i && didx.i < M + 4 {
+            result.push((
+                Direction::Descending,
+                didx.i,
+                self.dlines[(didx.i - 4) as usize],
+            ));
+        }
+        result
+    }
+
+    pub fn vertical_lines(&self) -> OrthogonalLines {
+        self.vlines
     }
 
     pub fn to_string(&self) -> String {
         let mut result = self
-            .lines()
+            .hlines
             .iter()
             .rev()
             .map(|l| l.to_string())
