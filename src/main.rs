@@ -83,9 +83,16 @@ fn main() {
         }
 
         println!("VCF:");
-        let result = solver.solve(&board, black);
+        let result = solver.solve(&board, black, u8::MAX, false);
         match result {
-            Some(ps) => println!("{}", coder.encode(&ps).unwrap()),
+            Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
+            None => println!("None"),
+        }
+
+        println!("VCF(shortest):");
+        let result = solver.solve(&board, black, u8::MAX, true);
+        match result {
+            Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
             None => println!("None"),
         }
     }
