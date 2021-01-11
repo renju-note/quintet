@@ -82,7 +82,7 @@ impl Board {
 
     pub fn to_string(&self) -> String {
         let mut result = self
-            .vlines
+            .hlines
             .iter()
             .rev()
             .map(|l| l.to_string())

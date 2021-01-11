@@ -1,6 +1,7 @@
 mod analyzer;
 mod board;
 mod encoding;
+mod solver;
 
 use analyzer::RowKind;
 use std::io;
@@ -8,6 +9,7 @@ use std::io;
 fn main() {
     let coder = encoding::Coder::new();
     let mut analyzer = analyzer::Analyzer::new();
+    let mut solver = solver::VCFSolver::new();
 
     loop {
         println!("Game code: ");
@@ -32,6 +34,14 @@ fn main() {
             println!("    {:?} {:?}", p, kind)
         }
 
+        println!("Black swords:");
+        for row in analyzer.rows(&board, true, RowKind::Sword) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
+        }
+
         println!("Black threes:");
         for row in analyzer.rows(&board, true, RowKind::Three) {
             println!(
@@ -42,6 +52,14 @@ fn main() {
 
         println!("Black fours:");
         for row in analyzer.rows(&board, true, RowKind::Four) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
+        }
+
+        println!("White swords:");
+        for row in analyzer.rows(&board, false, RowKind::Sword) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
@@ -62,6 +80,13 @@ fn main() {
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
             )
+        }
+
+        println!("VCF:");
+        let result = solver.solve(&board, black);
+        match result {
+            Some(ps) => println!("{}", coder.encode(&ps).unwrap()),
+            None => println!("None"),
         }
     }
 }
