@@ -87,6 +87,9 @@ impl RowSearcher {
             whites_ = line.whites << 1;
         }
         let within = line.size + 2;
+        if within < pattern.size {
+            return vec![];
+        }
 
         let filter: Stones = (1 << pattern.size) - 1;
         let mut result = vec![];

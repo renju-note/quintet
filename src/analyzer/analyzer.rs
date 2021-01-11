@@ -22,4 +22,9 @@ impl Analyzer {
     pub fn forbiddens(&mut self, board: &Board) -> Vec<(ForbiddenKind, Point)> {
         self.forbidden_seacher.search(board, &mut self.row_searcher)
     }
+
+    pub fn forbidden(&mut self, board: &Board, p: Point) -> Option<ForbiddenKind> {
+        self.forbidden_seacher
+            .judge(board, p, &mut self.row_searcher)
+    }
 }
