@@ -1,13 +1,13 @@
-use super::super::board::Stones;
+use super::super::board::Bits;
 
 pub struct RowPattern<'a> {
     pub row: &'a RowShape<'a>,
     pub size: u8,
     pub offset: u8,
-    pub blacks: Stones,
-    pub blmask: Stones,
-    pub whites: Stones,
-    pub whmask: Stones,
+    pub blacks: Bits,
+    pub blmask: Bits,
+    pub whites: Bits,
+    pub whmask: Bits,
 }
 
 pub struct RowShape<'a> {

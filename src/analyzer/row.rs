@@ -1,4 +1,4 @@
-use super::super::board::{Board, Direction, Index, Line, Point, Stones};
+use super::super::board::{Bits, Board, Direction, Index, Line, Point};
 use super::pattern::*;
 use std::collections::HashMap;
 
@@ -97,8 +97,8 @@ impl RowSearcher {
             return vec![];
         }
 
-        let mut blacks_: Stones;
-        let mut whites_: Stones;
+        let mut blacks_: Bits;
+        let mut whites_: Bits;
         if black {
             blacks_ = line.blacks << 1;
             whites_ = append_dummies(line.whites, line.size);
@@ -111,7 +111,7 @@ impl RowSearcher {
             return vec![];
         }
 
-        let filter: Stones = (1 << pattern.size) - 1;
+        let filter: Bits = (1 << pattern.size) - 1;
         let mut result = vec![];
         for i in 0..=(within - pattern.size) {
             if (blacks_ & filter & !pattern.blmask) == pattern.blacks
@@ -132,7 +132,7 @@ impl RowSearcher {
     }
 }
 
-fn append_dummies(stones: Stones, size: u8) -> Stones {
+fn append_dummies(stones: Bits, size: u8) -> Bits {
     (stones << 1) | 0b1 | (0b1 << (size + 1))
 }
 
