@@ -5,6 +5,7 @@ mod solver;
 
 use analyzer::RowKind;
 use std::io;
+use std::time::Instant;
 
 fn main() {
     let coder = encoding::Coder::new();
@@ -83,17 +84,23 @@ fn main() {
         }
 
         println!("VCF:");
+        let vcf_start = Instant::now();
         let result = solver.solve(&board, black, u8::MAX, false);
+        let vcf_duration = vcf_start.elapsed();
         match result {
             Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
             None => println!("None"),
         }
+        println!("Elapsed: {:?}", vcf_duration);
 
         println!("VCF(shortest):");
+        let vcf_shortest_start = Instant::now();
         let result = solver.solve(&board, black, u8::MAX, true);
+        let vcf_shortest_duration = vcf_shortest_start.elapsed();
         match result {
             Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
             None => println!("None"),
         }
+        println!("Elapsed: {:?}", vcf_shortest_duration);
     }
 }
