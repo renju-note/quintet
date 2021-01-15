@@ -17,8 +17,8 @@ pub enum Direction {
 
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub struct Board {
-    hlines: OrthogonalLines,
     vlines: OrthogonalLines,
+    hlines: OrthogonalLines,
     alines: DiagonalLines,
     dlines: DiagonalLines,
 }
@@ -26,8 +26,8 @@ pub struct Board {
 impl Board {
     pub fn new() -> Board {
         Board {
-            hlines: Board::orthogonal_lines(),
             vlines: Board::orthogonal_lines(),
+            hlines: Board::orthogonal_lines(),
             alines: Board::diagonal_lines(),
             dlines: Board::diagonal_lines(),
         }
