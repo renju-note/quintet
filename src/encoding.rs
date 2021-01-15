@@ -15,10 +15,10 @@ impl Coder {
     }
 
     pub fn encode(&self, ps: &[Point]) -> Result<String, String> {
-        ps.iter().map(|p| self.encode_one(*p)).collect()
+        ps.iter().map(|p| self.encode_one(p)).collect()
     }
 
-    pub fn encode_one(&self, p: Point) -> Result<String, String> {
+    pub fn encode_one(&self, p: &Point) -> Result<String, String> {
         if !N_RANGE.contains(&p.x) || !N_RANGE.contains(&p.y) {
             Err("Invalid point".to_string())
         } else {
