@@ -1,12 +1,12 @@
 const MAX_SIZE: u8 = 32;
 
-pub type Stones = u32;
+pub type Bits = u32;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Line {
     pub size: u8,
-    pub blacks: Stones,
-    pub whites: Stones,
+    pub blacks: Bits,
+    pub whites: Bits,
 }
 
 impl Line {
@@ -21,8 +21,8 @@ impl Line {
 
     pub fn put(&self, black: bool, i: u8) -> Line {
         let stones = 0b1 << i;
-        let blacks: Stones;
-        let whites: Stones;
+        let blacks: Bits;
+        let whites: Bits;
         if black {
             blacks = self.blacks | stones;
             whites = self.whites & !stones;
@@ -35,6 +35,10 @@ impl Line {
             blacks: blacks,
             whites: whites,
         }
+    }
+
+    pub fn must_have(&self, black: bool, white: bool) -> bool {
+        (!black || self.blacks != 0b0) && (!white || self.whites != 0b0)
     }
 
     pub fn to_string(&self) -> String {

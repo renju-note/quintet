@@ -2,10 +2,10 @@ use super::line::*;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
-const M: u8 = N * 2 - 1; // 29
+const M: u8 = N * 2 - 1 - (4 * 2); // 21
 
-type OrthogonalLines = [Line; N as usize];
-type DiagonalLines = [Line; M as usize];
+pub type OrthogonalLines = [Line; N as usize];
+pub type DiagonalLines = [Line; M as usize];
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Direction {
@@ -17,8 +17,8 @@ pub enum Direction {
 
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub struct Board {
-    hlines: OrthogonalLines,
     vlines: OrthogonalLines,
+    hlines: OrthogonalLines,
     alines: DiagonalLines,
     dlines: DiagonalLines,
 }
@@ -26,28 +26,38 @@ pub struct Board {
 impl Board {
     pub fn new() -> Board {
         Board {
-            hlines: Board::orthogonal_lines(),
             vlines: Board::orthogonal_lines(),
+            hlines: Board::orthogonal_lines(),
             alines: Board::diagonal_lines(),
             dlines: Board::diagonal_lines(),
         }
     }
 
-    pub fn put(&self, black: bool, p: Point) -> Board {
+    pub fn put(&self, black: bool, p: &Point) -> Board {
         // Use const generics in the future.
         // fn put_lines<const size: usize>(lines: &[Line; size]) -> [Line; size]
         let mut vlines = self.vlines.clone();
         let vidx = p.to_index(Direction::Vertical);
         vlines[vidx.i as usize] = self.vlines[vidx.i as usize].put(black, vidx.j);
+
         let mut hlines = self.hlines.clone();
         let hidx = p.to_index(Direction::Horizontal);
         hlines[hidx.i as usize] = self.hlines[hidx.i as usize].put(black, hidx.j);
+
         let mut alines = self.alines.clone();
         let aidx = p.to_index(Direction::Ascending);
-        alines[aidx.i as usize] = self.alines[aidx.i as usize].put(black, aidx.j);
+        if 4 <= aidx.i && aidx.i < M + 4 {
+            let i = (aidx.i - 4) as usize;
+            alines[i] = self.alines[i].put(black, aidx.j);
+        }
+
         let mut dlines = self.dlines.clone();
         let didx = p.to_index(Direction::Descending);
-        dlines[didx.i as usize] = self.dlines[didx.i as usize].put(black, didx.j);
+        if 4 <= didx.i && didx.i < M + 4 {
+            let i = (didx.i - 4) as usize;
+            dlines[i] = self.dlines[i].put(black, didx.j);
+        }
+
         Board {
             vlines: vlines,
             hlines: hlines,
@@ -56,28 +66,66 @@ impl Board {
         }
     }
 
-    pub fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
+    pub fn iter_lines(
+        &self,
+        must_have_black: bool,
+        must_have_white: bool,
+    ) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let viter = self
             .vlines
             .iter()
             .enumerate()
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
         let hiter = self
             .hlines
             .iter()
             .enumerate()
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
         let aiter = self
             .alines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Ascending, i as u8, l));
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
+            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Descending, i as u8, l));
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
+            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
+    }
+
+    pub fn lines_of(&self, p: &Point) -> Vec<(Direction, u8, Line)> {
+        let vidx = p.to_index(Direction::Vertical);
+        let hidx = p.to_index(Direction::Horizontal);
+        let aidx = p.to_index(Direction::Ascending);
+        let didx = p.to_index(Direction::Descending);
+        let mut result = vec![
+            (Direction::Vertical, vidx.i, self.vlines[vidx.i as usize]),
+            (Direction::Horizontal, hidx.i, self.hlines[hidx.i as usize]),
+        ];
+        if 4 <= aidx.i && aidx.i < M + 4 {
+            result.push((
+                Direction::Ascending,
+                aidx.i,
+                self.alines[(aidx.i - 4) as usize],
+            ));
+        }
+        if 4 <= didx.i && didx.i < M + 4 {
+            result.push((
+                Direction::Descending,
+                didx.i,
+                self.dlines[(didx.i - 4) as usize],
+            ));
+        }
+        result
+    }
+
+    pub fn vertical_lines(&self) -> OrthogonalLines {
+        self.vlines
     }
 
     pub fn to_string(&self) -> String {
@@ -98,10 +146,6 @@ impl Board {
 
     fn diagonal_lines() -> DiagonalLines {
         [
-            Line::new(1),
-            Line::new(2),
-            Line::new(3),
-            Line::new(4),
             Line::new(5),
             Line::new(6),
             Line::new(7),
@@ -123,10 +167,6 @@ impl Board {
             Line::new(7),
             Line::new(6),
             Line::new(5),
-            Line::new(4),
-            Line::new(3),
-            Line::new(2),
-            Line::new(1),
         ]
     }
 }
