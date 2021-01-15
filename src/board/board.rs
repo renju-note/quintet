@@ -66,26 +66,34 @@ impl Board {
         }
     }
 
-    pub fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
+    pub fn iter_lines(
+        &self,
+        must_have_black: bool,
+        must_have_white: bool,
+    ) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let viter = self
             .vlines
             .iter()
             .enumerate()
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
         let hiter = self
             .hlines
             .iter()
             .enumerate()
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
         let aiter = self
             .alines
             .iter()
             .enumerate()
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
             .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
             .iter()
             .enumerate()
+            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
             .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
     }

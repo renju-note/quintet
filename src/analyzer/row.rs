@@ -25,7 +25,7 @@ impl RowSearcher {
 
     pub fn search(&mut self, board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
         let mut result = Vec::new();
-        for (direction, i, line) in board.iter_lines() {
+        for (direction, i, line) in board.iter_lines(black, !black) {
             let mut rows = self
                 .search_line(&line, black, kind)
                 .iter()

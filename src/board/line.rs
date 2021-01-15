@@ -37,6 +37,10 @@ impl Line {
         }
     }
 
+    pub fn must_have(&self, black: bool, white: bool) -> bool {
+        (!black || self.blacks != 0b0) && (!white || self.whites != 0b0)
+    }
+
     pub fn to_string(&self) -> String {
         (0..self.size)
             .map(|i| {
