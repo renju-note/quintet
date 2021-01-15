@@ -23,7 +23,7 @@ fn main() {
 
         let mut board = board::Board::new();
         let mut black = true;
-        for p in points {
+        for p in &points {
             board = board.put(black, p);
             black = !black
         }
