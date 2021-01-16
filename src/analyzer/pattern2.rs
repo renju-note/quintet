@@ -93,6 +93,72 @@ pub struct Segment {
     pub eyes: Vec<u8>,
 }
 
+pub const BLACK_TWOS: [Pattern; 6] = [
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00001100,
+        blanks: 0b01110010,
+        eyes__: 0b00110000,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00010100,
+        blanks: 0b01101010,
+        eyes__: 0b00101000,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00011000,
+        blanks: 0b01100110,
+        eyes__: 0b00100100,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00100100,
+        blanks: 0b01011010,
+        eyes__: 0b00011000,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00101000,
+        blanks: 0b01010110,
+        eyes__: 0b00010100,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00110000,
+        blanks: 0b01001110,
+        eyes__: 0b00001100,
+    },
+];
+
+pub const BLACK_THREES: [Pattern; 4] = [
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00011100,
+        blanks: 0b01100010,
+        eyes__: 0b00100000,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00101100,
+        blanks: 0b01010010,
+        eyes__: 0b00010000,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00110100,
+        blanks: 0b01001010,
+        eyes__: 0b00001000,
+    },
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00111000,
+        blanks: 0b01000110,
+        eyes__: 0b00000100,
+    },
+];
+
 pub const BLACK_SWORDS: [Pattern; 10] = [
     Pattern {
         filter: 0b1111111,
@@ -156,33 +222,6 @@ pub const BLACK_SWORDS: [Pattern; 10] = [
     },
 ];
 
-pub const BLACK_THREES: [Pattern; 4] = [
-    Pattern {
-        filter: 0b11111111,
-        stones: 0b00011100,
-        blanks: 0b01100010,
-        eyes__: 0b00100000,
-    },
-    Pattern {
-        filter: 0b11111111,
-        stones: 0b00101100,
-        blanks: 0b01010010,
-        eyes__: 0b00010000,
-    },
-    Pattern {
-        filter: 0b11111111,
-        stones: 0b00110100,
-        blanks: 0b01001010,
-        eyes__: 0b00001000,
-    },
-    Pattern {
-        filter: 0b11111111,
-        stones: 0b00111000,
-        blanks: 0b01000110,
-        eyes__: 0b00000100,
-    },
-];
-
 pub const BLACK_FOURS: [Pattern; 5] = [
     Pattern {
         filter: 0b1111111,
@@ -229,6 +268,72 @@ pub const BLACK_OVERLINES: [Pattern; 1] = [Pattern {
     blanks: 0b000000,
     eyes__: 0b000000,
 }];
+
+pub const WHITE_TWOS: [Pattern; 6] = [
+    Pattern {
+        filter: 0b111111,
+        stones: 0b000110,
+        blanks: 0b111001,
+        eyes__: 0b011000,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b001010,
+        blanks: 0b110101,
+        eyes__: 0b010100,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b001100,
+        blanks: 0b110011,
+        eyes__: 0b010010,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b010010,
+        blanks: 0b101101,
+        eyes__: 0b001100,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b010100,
+        blanks: 0b101011,
+        eyes__: 0b001010,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b011000,
+        blanks: 0b100111,
+        eyes__: 0b000110,
+    },
+];
+
+pub const WHITE_THREES: [Pattern; 4] = [
+    Pattern {
+        filter: 0b111111,
+        stones: 0b001110,
+        blanks: 0b110001,
+        eyes__: 0b010000,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b010110,
+        blanks: 0b101001,
+        eyes__: 0b001000,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b011010,
+        blanks: 0b100101,
+        eyes__: 0b000100,
+    },
+    Pattern {
+        filter: 0b111111,
+        stones: 0b011100,
+        blanks: 0b100011,
+        eyes__: 0b000010,
+    },
+];
 
 pub const WHITE_SWORDS: [Pattern; 10] = [
     Pattern {
@@ -290,33 +395,6 @@ pub const WHITE_SWORDS: [Pattern; 10] = [
         stones: 0b11100,
         blanks: 0b00011,
         eyes__: 0b00011,
-    },
-];
-
-pub const WHITE_THREES: [Pattern; 4] = [
-    Pattern {
-        filter: 0b111111,
-        stones: 0b001110,
-        blanks: 0b110001,
-        eyes__: 0b010000,
-    },
-    Pattern {
-        filter: 0b111111,
-        stones: 0b010110,
-        blanks: 0b101001,
-        eyes__: 0b001000,
-    },
-    Pattern {
-        filter: 0b111111,
-        stones: 0b011010,
-        blanks: 0b100101,
-        eyes__: 0b000100,
-    },
-    Pattern {
-        filter: 0b111111,
-        stones: 0b011100,
-        blanks: 0b100011,
-        eyes__: 0b000010,
     },
 ];
 

@@ -70,11 +70,13 @@ impl RowSearcher {
 
     fn scan(&self, line: &Line, black: bool, kind: RowKind) -> Vec<Segment> {
         match (black, kind) {
+            (true, RowKind::Two) => self.scan_patterns(line, black, &BLACK_TWOS),
             (true, RowKind::Sword) => self.scan_patterns(line, black, &BLACK_SWORDS),
             (true, RowKind::Three) => self.scan_patterns(line, black, &BLACK_THREES),
             (true, RowKind::Four) => self.scan_patterns(line, black, &BLACK_FOURS),
             (true, RowKind::Five) => self.scan_patterns(line, black, &BLACK_FIVES),
             (true, RowKind::Overline) => self.scan_patterns(line, black, &BLACK_OVERLINES),
+            (false, RowKind::Two) => self.scan_patterns(line, black, &WHITE_TWOS),
             (false, RowKind::Sword) => self.scan_patterns(line, black, &WHITE_SWORDS),
             (false, RowKind::Three) => self.scan_patterns(line, black, &WHITE_THREES),
             (false, RowKind::Four) => self.scan_patterns(line, black, &WHITE_FOURS),
