@@ -3,7 +3,11 @@ use super::board::*;
 const N_RANGE: std::ops::RangeInclusive<u8> = 1..=BOARD_SIZE;
 
 pub fn encode(ps: &[Point]) -> Result<String, String> {
-    ps.iter().map(|p| encode_one(p)).collect()
+    let result = ps
+        .iter()
+        .map(|p| encode_one(p))
+        .collect::<Result<Vec<_>, String>>();
+    result.map(|ss| ss.join(","))
 }
 
 pub fn encode_one(p: &Point) -> Result<String, String> {
