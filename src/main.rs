@@ -44,6 +44,14 @@ fn main() {
             )
         }
 
+        println!("Black swords(2):");
+        for row in row2.search(&board, true, analyzer::row2::RowKind::Sword) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
+        }
+
         println!("Black threes:");
         for row in analyzer.rows(&board, true, RowKind::Three) {
             println!(
@@ -78,6 +86,14 @@ fn main() {
 
         println!("White swords:");
         for row in analyzer.rows(&board, false, RowKind::Sword) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
+        }
+
+        println!("White swords(2):");
+        for row in row2.search(&board, false, analyzer::row2::RowKind::Sword) {
             println!(
                 "    {:?}, {:?}, {:?}, {:?}",
                 row.direction, row.start, row.end, row.eyes
