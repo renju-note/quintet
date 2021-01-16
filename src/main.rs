@@ -11,6 +11,7 @@ fn main() {
     let coder = encoding::Coder::new();
     let mut analyzer = analyzer::Analyzer::new();
     let mut solver = solver::VCFSolver::new();
+    let mut row2 = analyzer::row2::RowSearcher::new();
 
     loop {
         println!("Game code: ");
@@ -59,6 +60,14 @@ fn main() {
             )
         }
 
+        println!("Black fours(2):");
+        for row in row2.search(&board, true, analyzer::row2::RowKind::Four) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
+        }
+
         println!("White swords:");
         for row in analyzer.rows(&board, false, RowKind::Sword) {
             println!(
@@ -83,6 +92,14 @@ fn main() {
             )
         }
 
+        println!("White fours(2):");
+        for row in row2.search(&board, false, analyzer::row2::RowKind::Four) {
+            println!(
+                "    {:?}, {:?}, {:?}, {:?}",
+                row.direction, row.start, row.end, row.eyes
+            )
+        }
+
         println!("VCF:");
         let vcf_start = Instant::now();
         let result = solver.solve(&board, black, u8::MAX, false);
@@ -93,14 +110,14 @@ fn main() {
         }
         println!("Elapsed: {:?}", vcf_duration);
 
-        println!("VCF(shortest):");
-        let vcf_shortest_start = Instant::now();
-        let result = solver.solve(&board, black, u8::MAX, true);
-        let vcf_shortest_duration = vcf_shortest_start.elapsed();
-        match result {
-            Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
-            None => println!("None"),
-        }
-        println!("Elapsed: {:?}", vcf_shortest_duration);
+        // println!("VCF(shortest):");
+        // let vcf_shortest_start = Instant::now();
+        // let result = solver.solve(&board, black, u8::MAX, true);
+        // let vcf_shortest_duration = vcf_shortest_start.elapsed();
+        // match result {
+        //     Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
+        //     None => println!("None"),
+        // }
+        // println!("Elapsed: {:?}", vcf_shortest_duration);
     }
 }
