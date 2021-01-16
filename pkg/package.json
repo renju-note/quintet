@@ -1,21 +1,23 @@
 {
-  "name": "@renju-note/quintet",
   "collaborators": [
     "yubessy <yubessy0@gmail.com>"
   ],
   "description": "Renju library with wasm-pack",
-  "version": "0.1.0",
+  "files": [
+    "quintet_bg.js",
+    "quintet_bg.wasm",
+    "quintet_bg.wasm.d.ts",
+    "quintet.d.ts",
+    "quintet.js"
+  ],
   "license": "MIT",
+  "module": "quintet.js",
+  "name": "@renju-note/quintet",
   "repository": {
     "type": "git",
     "url": "https://github.com/renju-note/quintet"
   },
-  "files": [
-    "quintet_bg.wasm",
-    "quintet.js",
-    "quintet.d.ts"
-  ],
-  "module": "quintet.js",
+  "sideEffects": false,
   "types": "quintet.d.ts",
-  "sideEffects": false
+  "version": "0.1.2"
 }
