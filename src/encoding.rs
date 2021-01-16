@@ -1,49 +1,37 @@
 use super::board::*;
-use regex::Regex;
 
 const N_RANGE: std::ops::RangeInclusive<u8> = 1..=BOARD_SIZE;
 
-pub struct Coder {
-    re: Regex,
+pub fn encode(ps: &[Point]) -> Result<String, String> {
+    let result = ps
+        .iter()
+        .map(|p| encode_one(p))
+        .collect::<Result<Vec<_>, String>>();
+    result.map(|ss| ss.join(","))
 }
 
-impl Coder {
-    pub fn new() -> Coder {
-        Coder {
-            re: Regex::new("[a-oA-O][0-9]+").unwrap(),
-        }
+pub fn encode_one(p: &Point) -> Result<String, String> {
+    if !N_RANGE.contains(&p.x) || !N_RANGE.contains(&p.y) {
+        Err("Invalid point".to_string())
+    } else {
+        let mut result = String::new();
+        result.push_str(&x_to_str(p.x));
+        result.push_str(&y_to_str(p.y));
+        Ok(result)
     }
+}
 
-    pub fn encode(&self, ps: &[Point]) -> Result<String, String> {
-        ps.iter().map(|p| self.encode_one(p)).collect()
-    }
+pub fn decode(s: &str) -> Result<Vec<Point>, String> {
+    s.split(',').map(|m| decode_one(m)).collect()
+}
 
-    pub fn encode_one(&self, p: &Point) -> Result<String, String> {
-        if !N_RANGE.contains(&p.x) || !N_RANGE.contains(&p.y) {
-            Err("Invalid point".to_string())
-        } else {
-            let mut result = String::new();
-            result.push_str(&x_to_str(p.x));
-            result.push_str(&y_to_str(p.y));
-            Ok(result)
-        }
-    }
-
-    pub fn decode(&self, s: &str) -> Result<Vec<Point>, String> {
-        self.re
-            .find_iter(s)
-            .map(|m| self.decode_one(m.as_str()))
-            .collect()
-    }
-
-    pub fn decode_one(&self, s: &str) -> Result<Point, String> {
-        let x = x_from_str(&s.chars().take(1).collect::<String>());
-        let y = y_from_str(&s.chars().skip(1).collect::<String>());
-        if !N_RANGE.contains(&x) || !N_RANGE.contains(&y) {
-            Err("Invalid point".to_string())
-        } else {
-            Ok(Point { x: x, y: y })
-        }
+pub fn decode_one(s: &str) -> Result<Point, String> {
+    let x = x_from_str(&s.chars().take(1).collect::<String>());
+    let y = y_from_str(&s.chars().skip(1).collect::<String>());
+    if !N_RANGE.contains(&x) || !N_RANGE.contains(&y) {
+        Err("Invalid point".to_string())
+    } else {
+        Ok(Point { x: x, y: y })
     }
 }
 

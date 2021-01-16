@@ -1,27 +1,22 @@
-mod analyzer;
-mod board;
-mod encoding;
-mod solver;
-
-use analyzer::RowKind;
+use quintet::encoding;
+use quintet::{Analyzer, Board, RowKind, VCFSolver};
 use std::io;
 use std::time::Instant;
 
 fn main() {
-    let coder = encoding::Coder::new();
-    let mut analyzer = analyzer::Analyzer::new();
-    let mut solver = solver::VCFSolver::new();
+    let mut analyzer = Analyzer::new();
+    let mut solver = VCFSolver::new();
 
     loop {
         println!("Game code: ");
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
-        let points = match coder.decode(&code) {
+        let points = match encoding::decode(&code.trim()) {
             Ok(points) => points,
             Err(_) => continue,
         };
 
-        let mut board = board::Board::new();
+        let mut board = Board::new();
         let mut black = true;
         for p in &points {
             board = board.put(black, p);
@@ -88,7 +83,7 @@ fn main() {
         let result = solver.solve(&board, black, u8::MAX, false);
         let vcf_duration = vcf_start.elapsed();
         match result {
-            Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
+            Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, encoding::encode(&ps).unwrap()),
             None => println!("None"),
         }
         println!("Elapsed: {:?}", vcf_duration);
@@ -98,7 +93,7 @@ fn main() {
         let result = solver.solve(&board, black, u8::MAX, true);
         let vcf_shortest_duration = vcf_shortest_start.elapsed();
         match result {
-            Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, coder.encode(&ps).unwrap()),
+            Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, encoding::encode(&ps).unwrap()),
             None => println!("None"),
         }
         println!("Elapsed: {:?}", vcf_shortest_duration);
