@@ -1,840 +1,439 @@
 use super::super::board::Bits;
 
-pub struct RowPattern<'a> {
-    pub row: &'a RowShape<'a>,
-    pub size: u8,
-    pub offset: u8,
-    pub blacks: Bits,
-    pub blmask: Bits,
-    pub whites: Bits,
-    pub whmask: Bits,
+pub struct Pattern {
+    pub filter: Bits,
+    pub stones: Bits,
+    pub blanks: Bits,
+    pub eyes__: Bits,
 }
 
-pub struct RowShape<'a> {
-    pub size: u8,
-    pub eyes: &'a [u8],
+impl Pattern {
+    pub fn matches(&self, stones: Bits, blanks: Bits, segment_offset: i8) -> Option<Segment> {
+        if (stones & self.filter == self.stones)
+            && (blanks & self.filter & self.blanks == self.blanks)
+        {
+            Some(Segment {
+                start: self.start(segment_offset),
+                end: self.end(segment_offset),
+                eyes: self.eyes(segment_offset),
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn size(&self) -> u8 {
+        match self.filter {
+            0b11111 => 5,
+            0b111111 => 6,
+            0b1111111 => 7,
+            0b11111111 => 8,
+            _ => 0,
+        }
+    }
+
+    fn start(&self, offset: i8) -> u8 {
+        let result = match (self.stones | self.blanks) & 0b11 {
+            0b11 => 0,
+            0b10 => 1,
+            0b00 => 2,
+            _ => 0,
+        };
+        (result as i8 + offset) as u8
+    }
+
+    fn end(&self, offset: i8) -> u8 {
+        let result = match self.stones | self.blanks {
+            0b1111 => 3,
+            0b11110 => 4,
+            0b111100 => 5,
+            0b11111 => 4,
+            0b111110 => 5,
+            0b1111100 => 6,
+            0b111111 => 5,
+            0b1111110 => 6,
+            0b11111100 => 7,
+            _ => 0,
+        };
+        (result as i8 + offset) as u8
+    }
+
+    fn eyes(&self, offset: i8) -> Vec<u8> {
+        match self.eyes__ {
+            0b1 => vec![(0 + offset) as u8],
+            0b10 => vec![(1 + offset) as u8],
+            0b100 => vec![(2 + offset) as u8],
+            0b1000 => vec![(3 + offset) as u8],
+            0b10000 => vec![(4 + offset) as u8],
+            0b100000 => vec![(5 + offset) as u8],
+            0b1000000 => vec![(6 + offset) as u8],
+            0b11 => vec![(0 + offset) as u8, (1 + offset) as u8],
+            0b101 => vec![(0 + offset) as u8, (2 + offset) as u8],
+            0b110 => vec![(1 + offset) as u8, (2 + offset) as u8],
+            0b1001 => vec![(0 + offset) as u8, (3 + offset) as u8],
+            0b1010 => vec![(1 + offset) as u8, (3 + offset) as u8],
+            0b1100 => vec![(2 + offset) as u8, (3 + offset) as u8],
+            0b10001 => vec![(0 + offset) as u8, (4 + offset) as u8],
+            0b10010 => vec![(1 + offset) as u8, (4 + offset) as u8],
+            0b10100 => vec![(2 + offset) as u8, (4 + offset) as u8],
+            0b11000 => vec![(3 + offset) as u8, (4 + offset) as u8],
+            0b100010 => vec![(1 + offset) as u8, (5 + offset) as u8],
+            0b100100 => vec![(2 + offset) as u8, (5 + offset) as u8],
+            0b101000 => vec![(3 + offset) as u8, (5 + offset) as u8],
+            0b110000 => vec![(4 + offset) as u8, (5 + offset) as u8],
+            _ => vec![],
+        }
+    }
 }
 
-pub const BLACK_TWO_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[2, 3],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00001100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+#[derive(Clone)]
+pub struct Segment {
+    pub start: u8,
+    pub end: u8,
+    pub eyes: Vec<u8>,
+}
+
+pub const BLACK_TWOS: [Pattern; 6] = [
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00001100,
+        blanks: 0b01110010,
+        eyes__: 0b00110000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[1, 3],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00010100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00010100,
+        blanks: 0b01101010,
+        eyes__: 0b00101000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[0, 3],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00011000,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00011000,
+        blanks: 0b01100110,
+        eyes__: 0b00100100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[1, 2],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00100100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00100100,
+        blanks: 0b01011010,
+        eyes__: 0b00011000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[0, 2],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00101000,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00101000,
+        blanks: 0b01010110,
+        eyes__: 0b00010100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[0, 1],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00110000,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00110000,
+        blanks: 0b01001110,
+        eyes__: 0b00001100,
     },
 ];
 
-pub const BLACK_SWORD_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[2, 3],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0100110,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+pub const BLACK_THREES: [Pattern; 4] = [
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00011100,
+        blanks: 0b01100010,
+        eyes__: 0b00100000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1, 3],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0101010,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00101100,
+        blanks: 0b01010010,
+        eyes__: 0b00010000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1, 2],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0110010,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00110100,
+        blanks: 0b01001010,
+        eyes__: 0b00001000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[3, 4],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0001110,
-        whites: 0b0000001,
-        blmask: 0b0000000,
-        whmask: 0b1000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[2, 4],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0010110,
-        whites: 0b0000001,
-        blmask: 0b0000000,
-        whmask: 0b1000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1, 4],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0011010,
-        whites: 0b0000001,
-        blmask: 0b0000000,
-        whmask: 0b1000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 3],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0101100,
-        whites: 0b1000000,
-        blmask: 0b0000000,
-        whmask: 0b0000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 2],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0110100,
-        whites: 0b1000000,
-        blmask: 0b0000000,
-        whmask: 0b0000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 1],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0111000,
-        whites: 0b1000000,
-        blmask: 0b0000000,
-        whmask: 0b0000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 4],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0011100,
-        whites: 0b1000001,
-        blmask: 0b0000000,
-        whmask: 0b0000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1, 4],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00110101,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 3],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b10101100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b00000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 4],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00111001,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 4],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b10011100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b00000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[2, 4],
-        },
-        size: 8,
-        offset: 2,
-        blacks: 0b00101101,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 2],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b10110100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b00000001,
-    },
-    // actual three
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 4, 5],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00011100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 3, 5],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00101100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 2, 5],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00110100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 1, 5],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00111000,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b11111111,
+        stones: 0b00111000,
+        blanks: 0b01000110,
+        eyes__: 0b00000100,
     },
 ];
 
-pub const BLACK_THREE_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[4],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00011100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+pub const BLACK_SWORDS: [Pattern; 10] = [
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0001110,
+        blanks: 0b0110000,
+        eyes__: 0b0110000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[3],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00101100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0010110,
+        blanks: 0b0101000,
+        eyes__: 0b0101000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[2],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00110100,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0011010,
+        blanks: 0b0100100,
+        eyes__: 0b0100100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[1],
-        },
-        size: 8,
-        offset: 1,
-        blacks: 0b00111000,
-        whites: 0b00000000,
-        blmask: 0b00000000,
-        whmask: 0b10000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0011100,
+        blanks: 0b0100010,
+        eyes__: 0b0100010,
     },
-];
-
-pub const BLACK_FOUR_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[4],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0011110,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0100110,
+        blanks: 0b0011000,
+        eyes__: 0b0011000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[3],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0101110,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0101010,
+        blanks: 0b0010100,
+        eyes__: 0b0010100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[2],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0110110,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0101100,
+        blanks: 0b0010010,
+        eyes__: 0b0010010,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0111010,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0110010,
+        blanks: 0b0001100,
+        eyes__: 0b0001100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b0111100,
-        whites: 0b0000000,
-        blmask: 0b0000000,
-        whmask: 0b1000001,
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0110100,
+        blanks: 0b0001010,
+        eyes__: 0b0001010,
+    },
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0111000,
+        blanks: 0b0000110,
+        eyes__: 0b0000110,
     },
 ];
 
-pub const BLACK_FIVE_PATTERNS: &[&RowPattern] = &[&RowPattern {
-    row: &RowShape { size: 5, eyes: &[] },
-    size: 7,
-    offset: 1,
-    blacks: 0b0111110,
-    whites: 0b0000000,
-    blmask: 0b0000000,
-    whmask: 0b1000001,
+pub const BLACK_FOURS: [Pattern; 5] = [
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0011110,
+        blanks: 0b0100000,
+        eyes__: 0b0100000,
+    },
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0101110,
+        blanks: 0b0010000,
+        eyes__: 0b0010000,
+    },
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0110110,
+        blanks: 0b0001000,
+        eyes__: 0b0001000,
+    },
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0111010,
+        blanks: 0b0000100,
+        eyes__: 0b0000100,
+    },
+    Pattern {
+        filter: 0b1111111,
+        stones: 0b0111100,
+        blanks: 0b0000010,
+        eyes__: 0b0000010,
+    },
+];
+
+pub const BLACK_FIVES: [Pattern; 1] = [Pattern {
+    filter: 0b1111111,
+    stones: 0b0111110,
+    blanks: 0b0000000,
+    eyes__: 0b0000000,
 }];
 
-pub const BLACK_OVERLINE_PATTERNS: &[&RowPattern] = &[&RowPattern {
-    row: &RowShape { size: 6, eyes: &[] },
-    size: 6,
-    offset: 0,
-    blacks: 0b111111,
-    whites: 0b000000,
-    blmask: 0b000000,
-    whmask: 0b000000,
+pub const BLACK_OVERLINES: [Pattern; 1] = [Pattern {
+    filter: 0b111111,
+    stones: 0b111111,
+    blanks: 0b000000,
+    eyes__: 0b000000,
 }];
 
-pub const WHITE_TWO_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[2, 3],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000000,
-        whites: 0b000110,
-        blmask: 0b000000,
-        whmask: 0b000000,
+pub const WHITE_TWOS: [Pattern; 6] = [
+    Pattern {
+        filter: 0b111111,
+        stones: 0b000110,
+        blanks: 0b111001,
+        eyes__: 0b011000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[1, 3],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000000,
-        whites: 0b001010,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b001010,
+        blanks: 0b110101,
+        eyes__: 0b010100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[0, 3],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000000,
-        whites: 0b001100,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b001100,
+        blanks: 0b110011,
+        eyes__: 0b010010,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[1, 2],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000000,
-        whites: 0b010010,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b010010,
+        blanks: 0b101101,
+        eyes__: 0b001100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[0, 2],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000000,
-        whites: 0b010100,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b010100,
+        blanks: 0b101011,
+        eyes__: 0b001010,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 4,
-            eyes: &[0, 1],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000000,
-        whites: 0b011000,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b011000,
+        blanks: 0b100111,
+        eyes__: 0b000110,
     },
 ];
 
-pub const WHITE_SWORD_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[2, 3],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b10011,
-        blmask: 0b00000,
-        whmask: 0b00000,
+pub const WHITE_THREES: [Pattern; 4] = [
+    Pattern {
+        filter: 0b111111,
+        stones: 0b001110,
+        blanks: 0b110001,
+        eyes__: 0b010000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1, 3],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b10101,
-        blmask: 0b00000,
-        whmask: 0b00000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b010110,
+        blanks: 0b101001,
+        eyes__: 0b001000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1, 2],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b11001,
-        blmask: 0b00000,
-        whmask: 0b00000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b011010,
+        blanks: 0b100101,
+        eyes__: 0b000100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[3, 4],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000001,
-        whites: 0b001110,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[2, 4],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000001,
-        whites: 0b010110,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1, 4],
-        },
-        size: 6,
-        offset: 1,
-        blacks: 0b000001,
-        whites: 0b011010,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 3],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b100000,
-        whites: 0b010110,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 2],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b100000,
-        whites: 0b011010,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 1],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b100000,
-        whites: 0b011100,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0, 4],
-        },
-        size: 7,
-        offset: 1,
-        blacks: 0b1000001,
-        whites: 0b0011100,
-        blmask: 0b0000000,
-        whmask: 0b0000000,
-    },
-    // actual three
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 4, 5],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b001110,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 3, 5],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b010110,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 2, 5],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b011010,
-        blmask: 0b000000,
-        whmask: 0b000000,
-    },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[0, 1, 5],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b011100,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b111111,
+        stones: 0b011100,
+        blanks: 0b100011,
+        eyes__: 0b000010,
     },
 ];
 
-pub const WHITE_THREE_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[4],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b001110,
-        blmask: 0b000000,
-        whmask: 0b000000,
+pub const WHITE_SWORDS: [Pattern; 10] = [
+    Pattern {
+        filter: 0b11111,
+        stones: 0b00111,
+        blanks: 0b11000,
+        eyes__: 0b11000,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[3],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b010110,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b01011,
+        blanks: 0b10100,
+        eyes__: 0b10100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[2],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b011010,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b01101,
+        blanks: 0b10010,
+        eyes__: 0b10010,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 6,
-            eyes: &[1],
-        },
-        size: 6,
-        offset: 0,
-        blacks: 0b000000,
-        whites: 0b011100,
-        blmask: 0b000000,
-        whmask: 0b000000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b01110,
+        blanks: 0b10001,
+        eyes__: 0b10001,
     },
-];
-
-pub const WHITE_FOUR_PATTERNS: &[&RowPattern] = &[
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[4],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b01111,
-        blmask: 0b00000,
-        whmask: 0b00000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b10011,
+        blanks: 0b01100,
+        eyes__: 0b01100,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[3],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b10111,
-        blmask: 0b00000,
-        whmask: 0b00000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b10101,
+        blanks: 0b01010,
+        eyes__: 0b01010,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[2],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b11011,
-        blmask: 0b00000,
-        whmask: 0b00000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b10110,
+        blanks: 0b01001,
+        eyes__: 0b01001,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[1],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b11101,
-        blmask: 0b00000,
-        whmask: 0b00000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b11001,
+        blanks: 0b00110,
+        eyes__: 0b00110,
     },
-    &RowPattern {
-        row: &RowShape {
-            size: 5,
-            eyes: &[0],
-        },
-        size: 5,
-        offset: 0,
-        blacks: 0b00000,
-        whites: 0b11110,
-        blmask: 0b00000,
-        whmask: 0b00000,
+    Pattern {
+        filter: 0b11111,
+        stones: 0b11010,
+        blanks: 0b00101,
+        eyes__: 0b00101,
+    },
+    Pattern {
+        filter: 0b11111,
+        stones: 0b11100,
+        blanks: 0b00011,
+        eyes__: 0b00011,
     },
 ];
 
-pub const WHITE_FIVE_PATTERNS: &[&RowPattern] = &[&RowPattern {
-    row: &RowShape { size: 5, eyes: &[] },
-    size: 5,
-    offset: 0,
-    blacks: 0b00000,
-    whites: 0b11111,
-    blmask: 0b00000,
-    whmask: 0b00000,
+pub const WHITE_FOURS: [Pattern; 5] = [
+    Pattern {
+        filter: 0b11111,
+        stones: 0b01111,
+        blanks: 0b10000,
+        eyes__: 0b10000,
+    },
+    Pattern {
+        filter: 0b11111,
+        stones: 0b10111,
+        blanks: 0b01000,
+        eyes__: 0b01000,
+    },
+    Pattern {
+        filter: 0b11111,
+        stones: 0b11011,
+        blanks: 0b00100,
+        eyes__: 0b00100,
+    },
+    Pattern {
+        filter: 0b11111,
+        stones: 0b11101,
+        blanks: 0b00010,
+        eyes__: 0b00010,
+    },
+    Pattern {
+        filter: 0b11111,
+        stones: 0b11110,
+        blanks: 0b00001,
+        eyes__: 0b00001,
+    },
+];
+
+pub const WHITE_FIVES: [Pattern; 1] = [Pattern {
+    filter: 0b11111,
+    stones: 0b11111,
+    blanks: 0b00000,
+    eyes__: 0b00000,
 }];

@@ -37,6 +37,10 @@ impl Line {
         }
     }
 
+    pub fn blanks(&self) -> Bits {
+        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
+    }
+
     pub fn must_have(&self, black: bool, white: bool) -> bool {
         (!black || self.blacks != 0b0) && (!white || self.whites != 0b0)
     }
