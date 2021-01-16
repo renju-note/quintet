@@ -1,15 +1,11 @@
-mod analyzer;
-mod board;
-mod encoding;
-mod solver;
-
-use analyzer::RowKind;
+use quintet::encoding;
+use quintet::{Analyzer, Board, RowKind, VCFSolver};
 use std::io;
 use std::time::Instant;
 
 fn main() {
-    let mut analyzer = analyzer::Analyzer::new();
-    let mut solver = solver::VCFSolver::new();
+    let mut analyzer = Analyzer::new();
+    let mut solver = VCFSolver::new();
 
     loop {
         println!("Game code: ");
@@ -20,7 +16,7 @@ fn main() {
             Err(_) => continue,
         };
 
-        let mut board = board::Board::new();
+        let mut board = Board::new();
         let mut black = true;
         for p in &points {
             board = board.put(black, p);
