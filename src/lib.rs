@@ -12,26 +12,45 @@ pub use board::{Board, Point};
 pub use solver::VCFSolver;
 
 #[wasm_bindgen]
-pub fn solve_vcf(code: &str, depth_limit: u8, shortest: bool) -> String {
-    let points = match encoding::decode(&code.trim()) {
-        Ok(points) => points,
-        Err(_) => return "ERROR: decode failed".to_string(),
-    };
-
+pub fn solve_vcf(
+    blacks: &[u8],
+    whites: &[u8],
+    black: bool,
+    depth_limit: u8,
+    shortest: bool,
+) -> Option<Box<[u8]>> {
     let mut board = Board::new();
-    let mut black = true;
-    for p in &points {
-        board = board.put(black, p);
-        black = !black
+    for &code in blacks {
+        let x = decode_x(code);
+        let y = decode_y(code);
+        board = board.put(true, &Point { x: x, y: y });
+    }
+    for &code in whites {
+        let x = decode_x(code);
+        let y = decode_y(code);
+        board = board.put(false, &Point { x: x, y: y });
     }
 
     let mut solver = VCFSolver::new();
-    let result = solver.solve(&board, black, depth_limit, shortest);
-    match result {
-        Some(ps) => match encoding::encode(&ps) {
-            Ok(s) => "SOLVED: ".to_string() + &s,
-            Err(s) => "ERROR: ".to_string() + &s,
-        },
-        None => "UNSOLVED: ".to_string(),
+    match solver.solve(&board, black, depth_limit, shortest) {
+        Some(ps) => Some(
+            ps.iter()
+                .map(|p| encode_xy(p.x, p.y))
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
+        None => None,
     }
+}
+
+fn encode_xy(x: u8, y: u8) -> u8 {
+    (x - 1) * 15 + (y - 1)
+}
+
+fn decode_x(code: u8) -> u8 {
+    code / 15 + 1
+}
+
+fn decode_y(code: u8) -> u8 {
+    code % 15 + 1
 }
