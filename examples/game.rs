@@ -8,19 +8,28 @@ fn main() {
     let mut solver = VCFSolver::new();
 
     loop {
-        println!("Game code: ");
+        println!("Board code:");
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
-        let points = match encoding::decode(&code.trim()) {
+        let codes = code.trim().split('/').collect::<Vec<_>>();
+        if codes.len() != 2 {
+            continue;
+        }
+        let blacks = match encoding::decode(codes[0]) {
+            Ok(points) => points,
+            Err(_) => continue,
+        };
+        let whites = match encoding::decode(codes[1]) {
             Ok(points) => points,
             Err(_) => continue,
         };
 
         let mut board = Board::new();
-        let mut black = true;
-        for p in &points {
-            board = board.put(black, p);
-            black = !black
+        for p in &blacks {
+            board = board.put(true, p);
+        }
+        for p in &whites {
+            board = board.put(false, p);
         }
 
         println!("\nBoard: \n{}", board.to_string());
@@ -78,9 +87,9 @@ fn main() {
             )
         }
 
-        println!("VCF:");
+        println!("Black VCF:");
         let vcf_start = Instant::now();
-        let result = solver.solve(&board, black, u8::MAX, false);
+        let result = solver.solve(&board, true, u8::MAX, false);
         let vcf_duration = vcf_start.elapsed();
         match result {
             Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, encoding::encode(&ps).unwrap()),
@@ -88,14 +97,14 @@ fn main() {
         }
         println!("Elapsed: {:?}", vcf_duration);
 
-        println!("VCF(shortest):");
-        let vcf_shortest_start = Instant::now();
-        let result = solver.solve(&board, black, u8::MAX, true);
-        let vcf_shortest_duration = vcf_shortest_start.elapsed();
+        println!("White VCF:");
+        let vcf_start = Instant::now();
+        let result = solver.solve(&board, false, u8::MAX, false);
+        let vcf_duration = vcf_start.elapsed();
         match result {
             Some(ps) => println!("{}, {}", (ps.len() + 1) / 2, encoding::encode(&ps).unwrap()),
             None => println!("None"),
         }
-        println!("Elapsed: {:?}", vcf_shortest_duration);
+        println!("Elapsed: {:?}", vcf_duration);
     }
 }
