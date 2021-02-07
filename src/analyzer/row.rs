@@ -123,7 +123,7 @@ impl RowSearcher {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Row {
     pub direction: Direction,
     pub start: Point,
