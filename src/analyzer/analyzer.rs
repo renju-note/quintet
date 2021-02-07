@@ -1,6 +1,7 @@
 use super::super::board::*;
 use super::forbidden::*;
 use super::row::*;
+use std::collections::HashSet;
 
 pub struct Analyzer {
     row_searcher: RowSearcher,
@@ -24,6 +25,8 @@ impl Analyzer {
             .search(board, black, kind)
             .iter()
             .flat_map(|r| r.eyes.to_vec())
+            .collect::<HashSet<_>>() // unique
+            .into_iter()
             .collect()
     }
 
