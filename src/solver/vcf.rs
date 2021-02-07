@@ -8,7 +8,7 @@ pub struct VCFSolver {
 impl VCFSolver {
     pub fn new() -> VCFSolver {
         VCFSolver {
-            analyzer: Analyzer::new(true, false),
+            analyzer: Analyzer::new(false, false),
         }
     }
 
