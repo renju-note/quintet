@@ -12,13 +12,7 @@ pub use board::{Board, Point};
 pub use solver::VCFSolver;
 
 #[wasm_bindgen]
-pub fn solve_vcf(
-    blacks: &[u8],
-    whites: &[u8],
-    black: bool,
-    depth_limit: u8,
-    shortest: bool,
-) -> Option<Box<[u8]>> {
+pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> Option<Box<[u8]>> {
     let mut board = Board::new();
     for &code in blacks {
         let x = decode_x(code);
@@ -32,7 +26,7 @@ pub fn solve_vcf(
     }
 
     let mut solver = VCFSolver::new();
-    match solver.solve(&board, black, depth_limit, shortest) {
+    match solver.solve(&board, black, depth_limit) {
         Some(ps) => Some(
             ps.iter()
                 .map(|p| encode_xy(p.x, p.y))

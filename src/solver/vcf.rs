@@ -8,17 +8,11 @@ pub struct VCFSolver {
 impl VCFSolver {
     pub fn new() -> VCFSolver {
         VCFSolver {
-            analyzer: Analyzer::new(true, false),
+            analyzer: Analyzer::new(false, false),
         }
     }
 
-    pub fn solve(
-        &mut self,
-        board: &Board,
-        black: bool,
-        depth_limit: u8,
-        shortest: bool,
-    ) -> Option<Vec<Point>> {
+    pub fn solve(&mut self, board: &Board, black: bool, depth: u8) -> Option<Vec<Point>> {
         // Already exists five or four
         if self.analyzer.rows(board, black, RowKind::Five).len() >= 1 {
             return Some(vec![]);
@@ -28,7 +22,7 @@ impl VCFSolver {
         }
 
         // Reach depth limit
-        if depth_limit == 0 {
+        if depth == 0 {
             return None;
         }
 
@@ -38,38 +32,26 @@ impl VCFSolver {
             return None;
         } else if op_four_eyes.len() == 1 {
             let next_move = &op_four_eyes[0];
-            return self.solve_one(board, black, next_move, depth_limit, shortest);
+            return self.solve_next(board, black, next_move, depth);
         }
 
         // Continue four move
         let next_move_cands = self.analyzer.row_eyes(board, black, RowKind::Sword);
-        let mut min_depth = depth_limit;
-        let mut result: Option<Vec<Point>> = None;
         for next_move in &next_move_cands {
-            match self.solve_one(board, black, next_move, min_depth, shortest) {
-                Some(ps) => {
-                    if !shortest {
-                        return Some(ps);
-                    }
-                    let depth = ((ps.len() + 1) / 2) as u8;
-                    if depth < min_depth {
-                        min_depth = depth;
-                        result = Some(ps);
-                    }
-                }
+            match self.solve_next(board, black, next_move, depth) {
+                Some(ps) => return Some(ps),
                 None => continue,
             }
         }
-        result
+        None
     }
 
-    fn solve_one(
+    fn solve_next(
         &mut self,
         board: &Board,
         black: bool,
         next_move: &Point,
-        depth_limit: u8,
-        shortest: bool,
+        depth: u8,
     ) -> Option<Vec<Point>> {
         if black && self.analyzer.forbidden(board, next_move).is_some() {
             return None;
@@ -84,12 +66,11 @@ impl VCFSolver {
                 return Some(vec![*next_move]);
             }
             let next2_board = next_board.put(!black, next2_move);
-            self.solve(&next2_board, black, depth_limit - 1, shortest)
-                .map(|mut ps| {
-                    let mut result = vec![*next_move, *next2_move];
-                    result.append(&mut ps);
-                    result
-                })
+            self.solve(&next2_board, black, depth - 1).map(|mut ps| {
+                let mut result = vec![*next_move, *next2_move];
+                result.append(&mut ps);
+                result
+            })
         } else {
             None
         }
