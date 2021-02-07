@@ -6,9 +6,9 @@ pub struct VCFSolver {
 }
 
 impl VCFSolver {
-    pub fn new(row_caching: bool, forbidden_caching: bool) -> VCFSolver {
+    pub fn new() -> VCFSolver {
         VCFSolver {
-            analyzer: Analyzer::new(row_caching, forbidden_caching),
+            analyzer: Analyzer::new(true, false),
         }
     }
 

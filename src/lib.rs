@@ -31,7 +31,7 @@ pub fn solve_vcf(
         board = board.put(false, &Point { x: x, y: y });
     }
 
-    let mut solver = VCFSolver::new(false, false);
+    let mut solver = VCFSolver::new();
     match solver.solve(&board, black, depth_limit, shortest) {
         Some(ps) => Some(
             ps.iter()

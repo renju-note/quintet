@@ -4,7 +4,7 @@ use std::io;
 use std::time::Instant;
 
 fn main() {
-    let mut solver = VCFSolver::new(true, false);
+    let mut solver = VCFSolver::new();
     loop {
         println!("\nBoard code (blacks/whites):");
         let mut code = String::new();
