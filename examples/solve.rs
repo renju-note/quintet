@@ -36,7 +36,7 @@ fn main() {
         let elapsed = start.elapsed();
         match result {
             Some(ps) => {
-                println!("\t{} moves", (ps.len() + 1) / 2);
+                println!("\t{} times", (ps.len() + 1) / 2);
                 println!("\t{}", encoding::encode(&ps).unwrap());
             }
             None => println!("\tNone"),
@@ -49,7 +49,7 @@ fn main() {
         let elapsed = start.elapsed();
         match result {
             Some(ps) => {
-                println!("\t{} moves", (ps.len() + 1) / 2);
+                println!("\t{} times", (ps.len() + 1) / 2);
                 println!("\t{}", encoding::encode(&ps).unwrap());
             }
             None => println!("\tNone"),

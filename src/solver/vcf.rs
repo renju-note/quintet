@@ -13,15 +13,23 @@ impl VCFSolver {
     }
 
     pub fn solve(&mut self, board: &Board, black: bool, depth: u8) -> Option<Vec<Point>> {
-        // Already exists five or four
+        // Already exists five
         if self.analyzer.rows(board, black, RowKind::Five).len() >= 1 {
-            return Some(vec![]);
+            return None;
         }
+        if self.analyzer.rows(board, !black, RowKind::Five).len() >= 1 {
+            return None;
+        }
+
+        // Already exists four
         if self.analyzer.rows(board, black, RowKind::Four).len() >= 1 {
             return Some(vec![]);
         }
 
-        // Reach depth limit
+        self.solve_all(board, black, depth)
+    }
+
+    fn solve_all(&mut self, board: &Board, black: bool, depth: u8) -> Option<Vec<Point>> {
         if depth == 0 {
             return None;
         }
@@ -32,21 +40,22 @@ impl VCFSolver {
             return None;
         } else if op_four_eyes.len() == 1 {
             let next_move = &op_four_eyes[0];
-            return self.solve_next(board, black, next_move, depth);
+            return self.solve_one(board, black, next_move, depth);
         }
 
         // Continue four move
         let next_move_cands = self.analyzer.row_eyes(board, black, RowKind::Sword);
         for next_move in &next_move_cands {
-            match self.solve_next(board, black, next_move, depth) {
+            match self.solve_one(board, black, next_move, depth) {
                 Some(ps) => return Some(ps),
                 None => continue,
             }
         }
+
         None
     }
 
-    fn solve_next(
+    fn solve_one(
         &mut self,
         board: &Board,
         black: bool,
@@ -66,11 +75,12 @@ impl VCFSolver {
                 return Some(vec![*next_move]);
             }
             let next2_board = next_board.put(!black, next2_move);
-            self.solve(&next2_board, black, depth - 1).map(|mut ps| {
-                let mut result = vec![*next_move, *next2_move];
-                result.append(&mut ps);
-                result
-            })
+            self.solve_all(&next2_board, black, depth - 1)
+                .map(|mut ps| {
+                    let mut result = vec![*next_move, *next2_move];
+                    result.append(&mut ps);
+                    result
+                })
         } else {
             None
         }
