@@ -10,12 +10,14 @@ pub enum ForbiddenKind {
 }
 
 pub struct ForbiddenSearcher {
+    caching: bool,
     cache: HashMap<OrthogonalLines, Vec<(ForbiddenKind, Point)>>,
 }
 
 impl ForbiddenSearcher {
-    pub fn new() -> ForbiddenSearcher {
+    pub fn new(caching: bool) -> ForbiddenSearcher {
         ForbiddenSearcher {
+            caching: caching,
             cache: HashMap::new(),
         }
     }
@@ -25,14 +27,18 @@ impl ForbiddenSearcher {
         board: &Board,
         row_searcher: &mut RowSearcher,
     ) -> Vec<(ForbiddenKind, Point)> {
-        let key = board.vertical_lines();
-        match self.cache.get(&key) {
-            Some(result) => result.to_vec(),
-            None => {
-                let result = self.all(board, row_searcher);
-                self.cache.insert(key, result.to_vec());
-                result
+        if self.caching {
+            let key = board.vertical_lines();
+            match self.cache.get(&key) {
+                Some(result) => result.to_vec(),
+                None => {
+                    let result = self.all(board, row_searcher);
+                    self.cache.insert(key, result.to_vec());
+                    result
+                }
             }
+        } else {
+            self.all(board, row_searcher)
         }
     }
 

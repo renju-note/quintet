@@ -13,12 +13,14 @@ pub enum RowKind {
 }
 
 pub struct RowSearcher {
+    caching: bool,
     cache: HashMap<(Line, bool, RowKind), Vec<Segment>>,
 }
 
 impl RowSearcher {
-    pub fn new() -> RowSearcher {
+    pub fn new(caching: bool) -> RowSearcher {
         RowSearcher {
+            caching: caching,
             cache: HashMap::new(),
         }
     }
@@ -57,14 +59,18 @@ impl RowSearcher {
     }
 
     fn search_line(&mut self, line: &Line, black: bool, kind: RowKind) -> Vec<Segment> {
-        let key = (*line, black, kind);
-        match self.cache.get(&key) {
-            Some(result) => result.to_vec(),
-            None => {
-                let result = self.scan(line, black, kind);
-                self.cache.insert(key, result.to_vec());
-                result
+        if self.caching {
+            let key = (*line, black, kind);
+            match self.cache.get(&key) {
+                Some(result) => result.to_vec(),
+                None => {
+                    let result = self.scan(line, black, kind);
+                    self.cache.insert(key, result.to_vec());
+                    result
+                }
             }
+        } else {
+            self.scan(line, black, kind)
         }
     }
 

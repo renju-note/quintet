@@ -4,8 +4,8 @@ use std::io;
 use std::time::Instant;
 
 fn main() {
-    let mut analyzer = Analyzer::new();
-    let mut solver = VCFSolver::new();
+    let mut analyzer = Analyzer::new(true, false);
+    let mut solver = VCFSolver::new(true, false);
 
     loop {
         println!("Board code:");

@@ -8,10 +8,10 @@ pub struct Analyzer {
 }
 
 impl Analyzer {
-    pub fn new() -> Analyzer {
+    pub fn new(row_caching: bool, forbidden_caching: bool) -> Analyzer {
         Analyzer {
-            row_searcher: RowSearcher::new(),
-            forbidden_seacher: ForbiddenSearcher::new(),
+            row_searcher: RowSearcher::new(row_caching),
+            forbidden_seacher: ForbiddenSearcher::new(forbidden_caching),
         }
     }
 
