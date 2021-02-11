@@ -1,10 +1,9 @@
 use quintet::encoding;
-use quintet::{Board, VCFSolver};
+use quintet::{board, solver};
 use std::io;
 use std::time::Instant;
 
 fn main() {
-    let mut solver = VCFSolver::new();
     loop {
         println!("\nBoard code (blacks/whites):");
         let mut code = String::new();
@@ -21,7 +20,7 @@ fn main() {
             Ok(points) => points,
             Err(_) => continue,
         };
-        let mut board = Board::new();
+        let mut board = board::Board::new();
         for p in &blacks {
             board = board.put(true, p);
         }
@@ -32,7 +31,7 @@ fn main() {
 
         println!("Black VCF:");
         let start = Instant::now();
-        let result = solver.solve(u8::MAX, &board, true);
+        let result = solver::solve(u8::MAX, &board, true);
         let elapsed = start.elapsed();
         match result {
             Some(ps) => {
@@ -45,7 +44,7 @@ fn main() {
 
         println!("White VCF:");
         let start = Instant::now();
-        let result = solver.solve(u8::MAX, &board, false);
+        let result = solver::solve(u8::MAX, &board, false);
         let elapsed = start.elapsed();
         match result {
             Some(ps) => {

@@ -1,6 +1,5 @@
 use super::super::board::*;
-use super::row::*;
-use std::collections::HashMap;
+use super::row;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum ForbiddenKind {
@@ -9,100 +8,57 @@ pub enum ForbiddenKind {
     Overline,
 }
 
-pub struct ForbiddenSearcher {
-    caching: bool,
-    cache: HashMap<OrthogonalLines, Vec<(ForbiddenKind, Point)>>,
+pub fn forbiddens(board: &Board) -> Vec<(ForbiddenKind, Point)> {
+    (1..=BOARD_SIZE)
+        .flat_map(|x| (1..=BOARD_SIZE).map(move |y| Point { x: x, y: y }))
+        .map(|p| (forbidden(board, &p), p))
+        .filter(|(k, _)| k.is_some())
+        .map(|(k, p)| (k.unwrap(), p))
+        .collect()
 }
 
-impl ForbiddenSearcher {
-    pub fn new(caching: bool) -> ForbiddenSearcher {
-        ForbiddenSearcher {
-            caching: caching,
-            cache: HashMap::new(),
-        }
-    }
-
-    pub fn search(
-        &mut self,
-        board: &Board,
-        row_searcher: &mut RowSearcher,
-    ) -> Vec<(ForbiddenKind, Point)> {
-        if self.caching {
-            let key = board.vertical_lines();
-            match self.cache.get(&key) {
-                Some(result) => result.to_vec(),
-                None => {
-                    let result = self.all(board, row_searcher);
-                    self.cache.insert(key, result.to_vec());
-                    result
-                }
-            }
-        } else {
-            self.all(board, row_searcher)
-        }
-    }
-
-    pub fn judge(
-        &mut self,
-        board: &Board,
-        p: &Point,
-        row_searcher: &mut RowSearcher,
-    ) -> Option<ForbiddenKind> {
-        let next = board.put(true, p);
-        if self.overline(&next, p, row_searcher) {
-            Some(ForbiddenKind::Overline)
-        } else if self.double_four(&next, p, row_searcher) {
-            Some(ForbiddenKind::DoubleFour)
-        } else if self.double_three(&next, p, row_searcher) {
-            Some(ForbiddenKind::DoubleThree)
-        } else {
-            None
-        }
-    }
-
-    fn all(
-        &mut self,
-        board: &Board,
-        row_searcher: &mut RowSearcher,
-    ) -> Vec<(ForbiddenKind, Point)> {
-        (1..=BOARD_SIZE)
-            .flat_map(|x| (1..=BOARD_SIZE).map(move |y| Point { x: x, y: y }))
-            .map(|p| (self.judge(board, &p, row_searcher), p))
-            .filter(|(k, _)| k.is_some())
-            .map(|(k, p)| (k.unwrap(), p))
-            .collect()
-    }
-
-    fn overline(&mut self, next: &Board, p: &Point, row_searcher: &mut RowSearcher) -> bool {
-        let new_overlines = row_searcher.search_containing(&next, true, RowKind::Overline, p);
-        new_overlines.len() >= 1
-    }
-
-    fn double_four(&mut self, next: &Board, p: &Point, row_searcher: &mut RowSearcher) -> bool {
-        let new_fours = row_searcher.search_containing(&next, true, RowKind::Four, p);
-        if new_fours.len() < 2 {
-            return false;
-        }
-        distinctive(new_fours.iter().collect())
-    }
-
-    fn double_three(&mut self, next: &Board, p: &Point, row_searcher: &mut RowSearcher) -> bool {
-        let new_threes = row_searcher.search_containing(&next, true, RowKind::Three, p);
-        if new_threes.len() < 2 {
-            return false;
-        }
-        let truthy_threes = new_threes
-            .iter()
-            .filter(|r| self.judge(&next, &r.eyes[0], row_searcher).is_none())
-            .collect::<Vec<_>>();
-        if truthy_threes.len() < 2 {
-            return false;
-        }
-        distinctive(truthy_threes)
+pub fn forbidden(board: &Board, p: &Point) -> Option<ForbiddenKind> {
+    let next = board.put(true, p);
+    if overline(&next, p) {
+        Some(ForbiddenKind::Overline)
+    } else if double_four(&next, p) {
+        Some(ForbiddenKind::DoubleFour)
+    } else if double_three(&next, p) {
+        Some(ForbiddenKind::DoubleThree)
+    } else {
+        None
     }
 }
 
-fn distinctive(rows: Vec<&Row>) -> bool {
+fn overline(next: &Board, p: &Point) -> bool {
+    let new_overlines = row::rows_around(&next, true, row::RowKind::Overline, p);
+    new_overlines.len() >= 1
+}
+
+fn double_four(next: &Board, p: &Point) -> bool {
+    let new_fours = row::rows_around(&next, true, row::RowKind::Four, p);
+    if new_fours.len() < 2 {
+        return false;
+    }
+    distinctive(new_fours.iter().collect())
+}
+
+fn double_three(next: &Board, p: &Point) -> bool {
+    let new_threes = row::rows_around(&next, true, row::RowKind::Three, p);
+    if new_threes.len() < 2 {
+        return false;
+    }
+    let truthy_threes = new_threes
+        .iter()
+        .filter(|r| forbidden(&next, &r.eyes[0]).is_none())
+        .collect::<Vec<_>>();
+    if truthy_threes.len() < 2 {
+        return false;
+    }
+    distinctive(truthy_threes)
+}
+
+fn distinctive(rows: Vec<&row::Row>) -> bool {
     let first = rows[0];
     for row in rows.iter().skip(1) {
         if !adjacent(first, row) {
@@ -112,7 +68,7 @@ fn distinctive(rows: Vec<&Row>) -> bool {
     false
 }
 
-fn adjacent(a: &Row, b: &Row) -> bool {
+fn adjacent(a: &row::Row, b: &row::Row) -> bool {
     if a.direction != b.direction {
         return false;
     }

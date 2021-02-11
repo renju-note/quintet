@@ -1,3 +1,3 @@
 mod vcf;
 
-pub use vcf::VCFSolver;
+pub use vcf::solve;

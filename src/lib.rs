@@ -2,14 +2,12 @@ extern crate wasm_bindgen;
 
 use wasm_bindgen::prelude::*;
 
-pub(crate) mod analyzer;
-pub(crate) mod board;
+pub mod analyzer;
+pub mod board;
 pub mod encoding;
-pub(crate) mod solver;
+pub mod solver;
 
-pub use analyzer::{Analyzer, ForbiddenKind, Row, RowKind};
-pub use board::{Board, Point};
-pub use solver::VCFSolver;
+use board::{Board, Point};
 
 #[wasm_bindgen]
 pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> Option<Box<[u8]>> {
@@ -25,8 +23,7 @@ pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> 
         board = board.put(false, &Point { x: x, y: y });
     }
 
-    let mut solver = VCFSolver::new();
-    match solver.solve(depth_limit, &board, black) {
+    match solver::solve(depth_limit, &board, black) {
         Some(ps) => Some(
             ps.iter()
                 .map(|p| encode_xy(p.x, p.y))
