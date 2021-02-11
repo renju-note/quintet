@@ -32,7 +32,7 @@ fn main() {
 
         println!("Black VCF:");
         let start = Instant::now();
-        let result = solver.solve(&board, true, u8::MAX);
+        let result = solver.solve(u8::MAX, &board, true);
         let elapsed = start.elapsed();
         match result {
             Some(ps) => {
@@ -45,7 +45,7 @@ fn main() {
 
         println!("White VCF:");
         let start = Instant::now();
-        let result = solver.solve(&board, false, u8::MAX);
+        let result = solver.solve(u8::MAX, &board, false);
         let elapsed = start.elapsed();
         match result {
             Some(ps) => {

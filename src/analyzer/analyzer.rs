@@ -30,6 +30,22 @@ impl Analyzer {
             .collect()
     }
 
+    pub fn row_eyes_around(
+        &mut self,
+        board: &Board,
+        black: bool,
+        kind: RowKind,
+        p: &Point,
+    ) -> Vec<Point> {
+        self.row_searcher
+            .search_containing(board, black, kind, p)
+            .iter()
+            .flat_map(|r| r.eyes.to_vec())
+            .collect::<HashSet<_>>() // unique
+            .into_iter()
+            .collect()
+    }
+
     pub fn forbiddens(&mut self, board: &Board) -> Vec<(ForbiddenKind, Point)> {
         self.forbidden_seacher.search(board, &mut self.row_searcher)
     }
