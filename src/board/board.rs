@@ -1,4 +1,5 @@
 use super::line::*;
+use std::collections::HashSet;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
@@ -120,6 +121,34 @@ impl Board {
             ));
         }
         result
+    }
+
+    pub fn four_eyes_on(&self, black: bool, p: &Point) -> Vec<Point> {
+        let mut result = vec![];
+        for (d, i, l) in self.lines_on(p) {
+            let is = l.four_eyes(black);
+            let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
+            result.append(&mut ps.collect::<Vec<_>>());
+        }
+        result
+            .into_iter()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    pub fn sword_eyes(&self, black: bool) -> Vec<Point> {
+        let mut result = vec![];
+        for (d, i, l) in self.lines(black, !black) {
+            let is = l.sword_eyes(black);
+            let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
+            result.append(&mut ps.collect::<Vec<_>>());
+        }
+        result
+            .into_iter()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
     }
 
     pub fn vertical_lines(&self) -> OrthogonalLines {
