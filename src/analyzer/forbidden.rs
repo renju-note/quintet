@@ -18,7 +18,8 @@ pub fn forbiddens(board: &Board) -> Vec<(ForbiddenKind, Point)> {
 }
 
 pub fn forbidden(board: &Board, p: &Point) -> Option<ForbiddenKind> {
-    let next = board.put(true, p);
+    let mut next = board.clone();
+    next.put(true, p);
     if overline(&next, p) {
         Some(ForbiddenKind::Overline)
     } else if double_four(&next, p) {

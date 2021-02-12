@@ -33,92 +33,90 @@ impl Board {
         }
     }
 
-    pub fn put(&self, black: bool, p: &Point) -> Board {
+    pub fn put(&mut self, black: bool, p: &Point) {
         // Use const generics in the future.
         // fn put_lines<const size: usize>(lines: &[Line; size]) -> [Line; size]
-        let mut vlines = self.vlines.clone();
         let vidx = p.to_index(Direction::Vertical);
-        vlines[vidx.i as usize] = self.vlines[vidx.i as usize].put(black, vidx.j);
+        self.vlines[vidx.i as usize].put(black, vidx.j);
 
-        let mut hlines = self.hlines.clone();
         let hidx = p.to_index(Direction::Horizontal);
-        hlines[hidx.i as usize] = self.hlines[hidx.i as usize].put(black, hidx.j);
+        self.hlines[hidx.i as usize].put(black, hidx.j);
 
-        let mut alines = self.alines.clone();
         let aidx = p.to_index(Direction::Ascending);
         if 4 <= aidx.i && aidx.i < M + 4 {
             let i = (aidx.i - 4) as usize;
-            alines[i] = self.alines[i].put(black, aidx.j);
+            self.alines[i].put(black, aidx.j);
         }
 
-        let mut dlines = self.dlines.clone();
         let didx = p.to_index(Direction::Descending);
         if 4 <= didx.i && didx.i < M + 4 {
             let i = (didx.i - 4) as usize;
-            dlines[i] = self.dlines[i].put(black, didx.j);
-        }
-
-        Board {
-            vlines: vlines,
-            hlines: hlines,
-            alines: alines,
-            dlines: dlines,
+            self.dlines[i].put(black, didx.j);
         }
     }
 
-    pub fn iter_lines(
+    pub fn lines(
         &self,
         must_have_black: bool,
         must_have_white: bool,
-    ) -> impl Iterator<Item = (Direction, u8, &Line)> {
-        let viter = self
+    ) -> Vec<(Direction, u8, &Line)> {
+        let mut result = vec![];
+        let mut vresult = self
             .vlines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Vertical, i as u8, l));
-        let hiter = self
+            .map(|(i, l)| (Direction::Vertical, i as u8, l))
+            .collect();
+        result.append(&mut vresult);
+        let mut hresult = self
             .hlines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Horizontal, i as u8, l));
-        let aiter = self
+            .map(|(i, l)| (Direction::Horizontal, i as u8, l))
+            .collect();
+        result.append(&mut hresult);
+        let mut aresult = self
             .alines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
-        let diter = self
+            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l))
+            .collect();
+        result.append(&mut aresult);
+        let mut dresult = self
             .dlines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
-        viter.chain(hiter).chain(aiter).chain(diter)
+            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l))
+            .collect();
+        result.append(&mut dresult);
+        result
     }
 
-    pub fn lines_on(&self, p: &Point) -> Vec<(Direction, u8, Line)> {
+    pub fn lines_on(&self, p: &Point) -> Vec<(Direction, u8, &Line)> {
         let vidx = p.to_index(Direction::Vertical);
         let hidx = p.to_index(Direction::Horizontal);
         let aidx = p.to_index(Direction::Ascending);
         let didx = p.to_index(Direction::Descending);
         let mut result = vec![
-            (Direction::Vertical, vidx.i, self.vlines[vidx.i as usize]),
-            (Direction::Horizontal, hidx.i, self.hlines[hidx.i as usize]),
+            (Direction::Vertical, vidx.i, &self.vlines[vidx.i as usize]),
+            (Direction::Horizontal, hidx.i, &self.hlines[hidx.i as usize]),
         ];
         if 4 <= aidx.i && aidx.i < M + 4 {
             result.push((
                 Direction::Ascending,
                 aidx.i,
-                self.alines[(aidx.i - 4) as usize],
+                &self.alines[(aidx.i - 4) as usize],
             ));
         }
         if 4 <= didx.i && didx.i < M + 4 {
             result.push((
                 Direction::Descending,
                 didx.i,
-                self.dlines[(didx.i - 4) as usize],
+                &self.dlines[(didx.i - 4) as usize],
             ));
         }
         result
