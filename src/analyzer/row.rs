@@ -1,6 +1,6 @@
 use super::super::board::{Bits, Board, Direction, Index, Line, Point};
 use super::pattern::*;
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum RowKind {
@@ -12,112 +12,98 @@ pub enum RowKind {
     Overline,
 }
 
-pub struct RowSearcher {
-    cache: HashMap<(Line, bool, RowKind), Vec<Segment>>,
-}
-
-impl RowSearcher {
-    pub fn new() -> RowSearcher {
-        RowSearcher {
-            cache: HashMap::new(),
-        }
-    }
-
-    pub fn search(&mut self, board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
-        let mut result = Vec::new();
-        for (direction, i, line) in board.iter_lines(black, !black) {
-            let mut rows = self
-                .search_line(&line, black, kind)
-                .iter()
-                .map(|s| Row::from(s, direction, i))
-                .collect();
-            result.append(&mut rows);
-        }
-        result
-    }
-
-    pub fn search_containing(
-        &mut self,
-        board: &Board,
-        black: bool,
-        kind: RowKind,
-        p: &Point,
-    ) -> Vec<Row> {
-        let mut result = Vec::new();
-        for (direction, i, line) in board.lines_of(p) {
-            let mut rows = self
-                .search_line(&line, black, kind)
-                .iter()
-                .map(|s| Row::from(s, direction, i))
-                .filter(|r| r.overlap(p))
-                .collect();
-            result.append(&mut rows);
-        }
-        result
-    }
-
-    fn search_line(&mut self, line: &Line, black: bool, kind: RowKind) -> Vec<Segment> {
-        let key = (*line, black, kind);
-        match self.cache.get(&key) {
-            Some(result) => result.to_vec(),
-            None => {
-                let result = self.scan(line, black, kind);
-                self.cache.insert(key, result.to_vec());
-                result
-            }
-        }
-    }
-
-    fn scan(&self, line: &Line, black: bool, kind: RowKind) -> Vec<Segment> {
-        match (black, kind) {
-            (true, RowKind::Two) => self.scan_patterns(line, black, &BLACK_TWOS),
-            (true, RowKind::Sword) => self.scan_patterns(line, black, &BLACK_SWORDS),
-            (true, RowKind::Three) => self.scan_patterns(line, black, &BLACK_THREES),
-            (true, RowKind::Four) => self.scan_patterns(line, black, &BLACK_FOURS),
-            (true, RowKind::Five) => self.scan_patterns(line, black, &BLACK_FIVES),
-            (true, RowKind::Overline) => self.scan_patterns(line, black, &BLACK_OVERLINES),
-            (false, RowKind::Two) => self.scan_patterns(line, black, &WHITE_TWOS),
-            (false, RowKind::Sword) => self.scan_patterns(line, black, &WHITE_SWORDS),
-            (false, RowKind::Three) => self.scan_patterns(line, black, &WHITE_THREES),
-            (false, RowKind::Four) => self.scan_patterns(line, black, &WHITE_FOURS),
-            (false, RowKind::Five) => self.scan_patterns(line, black, &WHITE_FIVES),
-            _ => vec![],
-        }
-    }
-
-    fn scan_patterns(&self, line: &Line, black: bool, patterns: &[Pattern]) -> Vec<Segment> {
-        patterns
+pub fn rows(board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
+    let mut result = Vec::new();
+    for (direction, i, line) in board.iter_lines(black, !black) {
+        let mut rows = scan(&line, black, kind)
             .iter()
-            .flat_map(|p| self.scan_pattern(line, p, black))
-            .collect()
+            .map(|s| Row::from(s, direction, i))
+            .collect();
+        result.append(&mut rows);
     }
+    result
+}
 
-    fn scan_pattern(&self, line: &Line, pattern: &Pattern, black: bool) -> Vec<Segment> {
-        let pattern_size = pattern.size();
-        let scanned_size = line.size + 2;
-        if scanned_size < pattern_size {
-            return vec![];
-        }
+pub fn rows_on(board: &Board, black: bool, kind: RowKind, p: &Point) -> Vec<Row> {
+    let mut result = Vec::new();
+    for (direction, i, line) in board.lines_on(p) {
+        let mut rows = scan(&line, black, kind)
+            .iter()
+            .map(|s| Row::from(s, direction, i))
+            .filter(|r| r.overlap(p))
+            .collect();
+        result.append(&mut rows);
+    }
+    result
+}
 
-        let mut stones: Bits = if black { line.blacks } else { line.whites };
-        let mut blanks: Bits = line.blanks();
+pub fn row_eyes(board: &Board, black: bool, kind: RowKind) -> Vec<Point> {
+    rows(board, black, kind)
+        .iter()
+        .flat_map(|r| r.eyes.to_vec())
+        .collect::<HashSet<_>>() // unique
+        .into_iter()
+        .collect()
+}
 
-        let mut result = vec![];
-        stones <<= 1;
-        blanks <<= 1;
-        for i in 0..=(scanned_size - pattern_size) {
-            let segment = pattern.matches(stones, blanks, i as i8 - 1);
-            if segment.is_some() {
-                result.push(segment.unwrap())
-            }
-            stones >>= 1;
-            blanks >>= 1;
-        }
-        return result;
+pub fn row_eyes_on(board: &Board, black: bool, kind: RowKind, p: &Point) -> Vec<Point> {
+    rows_on(board, black, kind, p)
+        .iter()
+        .flat_map(|r| r.eyes.to_vec())
+        .collect::<HashSet<_>>() // unique
+        .into_iter()
+        .collect()
+}
+
+fn scan(line: &Line, black: bool, kind: RowKind) -> Vec<Segment> {
+    match (black, kind) {
+        (true, RowKind::Two) => scan_patterns(line, black, &BLACK_TWOS),
+        (true, RowKind::Sword) => scan_patterns(line, black, &BLACK_SWORDS),
+        (true, RowKind::Three) => scan_patterns(line, black, &BLACK_THREES),
+        (true, RowKind::Four) => scan_patterns(line, black, &BLACK_FOURS),
+        (true, RowKind::Five) => scan_patterns(line, black, &BLACK_FIVES),
+        (true, RowKind::Overline) => scan_patterns(line, black, &BLACK_OVERLINES),
+        (false, RowKind::Two) => scan_patterns(line, black, &WHITE_TWOS),
+        (false, RowKind::Sword) => scan_patterns(line, black, &WHITE_SWORDS),
+        (false, RowKind::Three) => scan_patterns(line, black, &WHITE_THREES),
+        (false, RowKind::Four) => scan_patterns(line, black, &WHITE_FOURS),
+        (false, RowKind::Five) => scan_patterns(line, black, &WHITE_FIVES),
+        _ => vec![],
     }
 }
 
-#[derive(Clone)]
+fn scan_patterns(line: &Line, black: bool, patterns: &[Pattern]) -> Vec<Segment> {
+    patterns
+        .iter()
+        .flat_map(|p| scan_pattern(line, p, black))
+        .collect()
+}
+
+fn scan_pattern(line: &Line, pattern: &Pattern, black: bool) -> Vec<Segment> {
+    let pattern_size = pattern.size();
+    let scanned_size = line.size + 2;
+    if scanned_size < pattern_size {
+        return vec![];
+    }
+
+    let mut stones: Bits = if black { line.blacks } else { line.whites };
+    let mut blanks: Bits = line.blanks();
+
+    let mut result = vec![];
+    stones <<= 1;
+    blanks <<= 1;
+    for i in 0..=(scanned_size - pattern_size) {
+        let segment = pattern.matches(stones, blanks, i as i8 - 1);
+        if segment.is_some() {
+            result.push(segment.unwrap())
+        }
+        stones >>= 1;
+        blanks >>= 1;
+    }
+    return result;
+}
+
+#[derive(Clone, Debug)]
 pub struct Row {
     pub direction: Direction,
     pub start: Point,

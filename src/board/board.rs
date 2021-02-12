@@ -98,7 +98,7 @@ impl Board {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    pub fn lines_of(&self, p: &Point) -> Vec<(Direction, u8, Line)> {
+    pub fn lines_on(&self, p: &Point) -> Vec<(Direction, u8, Line)> {
         let vidx = p.to_index(Direction::Vertical);
         let hidx = p.to_index(Direction::Horizontal);
         let aidx = p.to_index(Direction::Ascending);
