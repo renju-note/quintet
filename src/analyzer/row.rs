@@ -14,7 +14,7 @@ pub enum RowKind {
 
 pub fn rows(board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
     let mut result = Vec::new();
-    for (direction, i, line) in board.iter_lines(black, !black) {
+    for (direction, i, line) in board.lines(black, !black) {
         let mut rows = scan(&line, black, kind)
             .iter()
             .map(|s| Row::from(s, direction, i))

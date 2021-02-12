@@ -55,59 +55,68 @@ impl Board {
         }
     }
 
-    pub fn iter_lines(
+    pub fn lines(
         &self,
         must_have_black: bool,
         must_have_white: bool,
-    ) -> impl Iterator<Item = (Direction, u8, &Line)> {
-        let viter = self
+    ) -> Vec<(Direction, u8, &Line)> {
+        let mut result = vec![];
+        let mut vresult = self
             .vlines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Vertical, i as u8, l));
-        let hiter = self
+            .map(|(i, l)| (Direction::Vertical, i as u8, l))
+            .collect();
+        result.append(&mut vresult);
+        let mut hresult = self
             .hlines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Horizontal, i as u8, l));
-        let aiter = self
+            .map(|(i, l)| (Direction::Horizontal, i as u8, l))
+            .collect();
+        result.append(&mut hresult);
+        let mut aresult = self
             .alines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
-        let diter = self
+            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l))
+            .collect();
+        result.append(&mut aresult);
+        let mut dresult = self
             .dlines
             .iter()
             .enumerate()
             .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
-            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
-        viter.chain(hiter).chain(aiter).chain(diter)
+            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l))
+            .collect();
+        result.append(&mut dresult);
+        result
     }
 
-    pub fn lines_on(&self, p: &Point) -> Vec<(Direction, u8, Line)> {
+    pub fn lines_on(&self, p: &Point) -> Vec<(Direction, u8, &Line)> {
         let vidx = p.to_index(Direction::Vertical);
         let hidx = p.to_index(Direction::Horizontal);
         let aidx = p.to_index(Direction::Ascending);
         let didx = p.to_index(Direction::Descending);
         let mut result = vec![
-            (Direction::Vertical, vidx.i, self.vlines[vidx.i as usize]),
-            (Direction::Horizontal, hidx.i, self.hlines[hidx.i as usize]),
+            (Direction::Vertical, vidx.i, &self.vlines[vidx.i as usize]),
+            (Direction::Horizontal, hidx.i, &self.hlines[hidx.i as usize]),
         ];
         if 4 <= aidx.i && aidx.i < M + 4 {
             result.push((
                 Direction::Ascending,
                 aidx.i,
-                self.alines[(aidx.i - 4) as usize],
+                &self.alines[(aidx.i - 4) as usize],
             ));
         }
         if 4 <= didx.i && didx.i < M + 4 {
             result.push((
                 Direction::Descending,
                 didx.i,
-                self.dlines[(didx.i - 4) as usize],
+                &self.dlines[(didx.i - 4) as usize],
             ));
         }
         result
