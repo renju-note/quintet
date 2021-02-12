@@ -24,9 +24,9 @@ pub fn rows(board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
     result
 }
 
-pub fn rows_around(board: &Board, black: bool, kind: RowKind, p: &Point) -> Vec<Row> {
+pub fn rows_on(board: &Board, black: bool, kind: RowKind, p: &Point) -> Vec<Row> {
     let mut result = Vec::new();
-    for (direction, i, line) in board.lines_containing(p) {
+    for (direction, i, line) in board.lines_on(p) {
         let mut rows = scan(&line, black, kind)
             .iter()
             .map(|s| Row::from(s, direction, i))
@@ -46,8 +46,8 @@ pub fn row_eyes(board: &Board, black: bool, kind: RowKind) -> Vec<Point> {
         .collect()
 }
 
-pub fn row_eyes_around(board: &Board, black: bool, kind: RowKind, p: &Point) -> Vec<Point> {
-    rows_around(board, black, kind, p)
+pub fn row_eyes_on(board: &Board, black: bool, kind: RowKind, p: &Point) -> Vec<Point> {
+    rows_on(board, black, kind, p)
         .iter()
         .flat_map(|r| r.eyes.to_vec())
         .collect::<HashSet<_>>() // unique

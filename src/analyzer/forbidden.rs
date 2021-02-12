@@ -31,12 +31,12 @@ pub fn forbidden(board: &Board, p: &Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(next: &Board, p: &Point) -> bool {
-    let new_overlines = row::rows_around(&next, true, row::RowKind::Overline, p);
+    let new_overlines = row::rows_on(&next, true, row::RowKind::Overline, p);
     new_overlines.len() >= 1
 }
 
 fn double_four(next: &Board, p: &Point) -> bool {
-    let new_fours = row::rows_around(&next, true, row::RowKind::Four, p);
+    let new_fours = row::rows_on(&next, true, row::RowKind::Four, p);
     if new_fours.len() < 2 {
         return false;
     }
@@ -44,7 +44,7 @@ fn double_four(next: &Board, p: &Point) -> bool {
 }
 
 fn double_three(next: &Board, p: &Point) -> bool {
-    let new_threes = row::rows_around(&next, true, row::RowKind::Three, p);
+    let new_threes = row::rows_on(&next, true, row::RowKind::Three, p);
     if new_threes.len() < 2 {
         return false;
     }
