@@ -33,36 +33,25 @@ impl Board {
         }
     }
 
-    pub fn put(&self, black: bool, p: &Point) -> Board {
+    pub fn put(&mut self, black: bool, p: &Point) {
         // Use const generics in the future.
         // fn put_lines<const size: usize>(lines: &[Line; size]) -> [Line; size]
-        let mut vlines = self.vlines.clone();
         let vidx = p.to_index(Direction::Vertical);
-        vlines[vidx.i as usize] = self.vlines[vidx.i as usize].put(black, vidx.j);
+        self.vlines[vidx.i as usize].put(black, vidx.j);
 
-        let mut hlines = self.hlines.clone();
         let hidx = p.to_index(Direction::Horizontal);
-        hlines[hidx.i as usize] = self.hlines[hidx.i as usize].put(black, hidx.j);
+        self.hlines[hidx.i as usize].put(black, hidx.j);
 
-        let mut alines = self.alines.clone();
         let aidx = p.to_index(Direction::Ascending);
         if 4 <= aidx.i && aidx.i < M + 4 {
             let i = (aidx.i - 4) as usize;
-            alines[i] = self.alines[i].put(black, aidx.j);
+            self.alines[i].put(black, aidx.j);
         }
 
-        let mut dlines = self.dlines.clone();
         let didx = p.to_index(Direction::Descending);
         if 4 <= didx.i && didx.i < M + 4 {
             let i = (didx.i - 4) as usize;
-            dlines[i] = self.dlines[i].put(black, didx.j);
-        }
-
-        Board {
-            vlines: vlines,
-            hlines: hlines,
-            alines: alines,
-            dlines: dlines,
+            self.dlines[i].put(black, didx.j);
         }
     }
 

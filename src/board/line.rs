@@ -19,21 +19,14 @@ impl Line {
         }
     }
 
-    pub fn put(&self, black: bool, i: u8) -> Line {
+    pub fn put(&mut self, black: bool, i: u8) {
         let stones = 0b1 << i;
-        let blacks: Bits;
-        let whites: Bits;
         if black {
-            blacks = self.blacks | stones;
-            whites = self.whites & !stones;
+            self.blacks |= stones;
+            self.whites &= !stones;
         } else {
-            blacks = self.blacks & !stones;
-            whites = self.whites | stones;
-        }
-        Line {
-            size: self.size,
-            blacks: blacks,
-            whites: whites,
+            self.blacks &= !stones;
+            self.whites |= stones;
         }
     }
 

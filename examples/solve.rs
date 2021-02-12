@@ -22,10 +22,10 @@ fn main() {
         };
         let mut board = board::Board::new();
         for p in &blacks {
-            board = board.put(true, p);
+            board.put(true, p);
         }
         for p in &whites {
-            board = board.put(false, p);
+            board.put(false, p);
         }
         println!("\nBoard: \n{}", board.to_string());
 
