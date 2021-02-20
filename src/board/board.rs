@@ -8,7 +8,7 @@ const M: u8 = N * 2 - 1 - (4 * 2); // 21
 pub type OrthogonalLines = [Line; N as usize];
 pub type DiagonalLines = [Line; M as usize];
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
     Vertical,
     Horizontal,
@@ -16,7 +16,7 @@ pub enum Direction {
     Descending,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Clone)]
 pub struct Board {
     vlines: OrthogonalLines,
     hlines: OrthogonalLines,
@@ -151,10 +151,6 @@ impl Board {
             .collect()
     }
 
-    pub fn vertical_lines(&self) -> OrthogonalLines {
-        self.vlines
-    }
-
     pub fn to_string(&self) -> String {
         let mut result = self
             .hlines
@@ -168,7 +164,23 @@ impl Board {
     }
 
     fn orthogonal_lines() -> OrthogonalLines {
-        [Line::new(N); N as usize]
+        [
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+            Line::new(15),
+        ]
     }
 
     fn diagonal_lines() -> DiagonalLines {
@@ -224,7 +236,7 @@ impl Point {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Index {
     pub i: u8,
     pub j: u8,

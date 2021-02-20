@@ -1,7 +1,7 @@
 use super::super::board::*;
 use super::row;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ForbiddenKind {
     DoubleThree,
     DoubleFour,

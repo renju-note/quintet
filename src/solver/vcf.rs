@@ -29,14 +29,14 @@ fn solve_all(
     }
 
     // Exists opponent's four
-    let op_four_eyes = match prev_move {
+    let opponent_four_eyes = match prev_move {
         Some(p) => board.four_eyes_on(!black, p),
         None => row_eyes(board, !black, RowKind::Four),
     };
-    if op_four_eyes.len() >= 2 {
+    if opponent_four_eyes.len() >= 2 {
         return None;
-    } else if op_four_eyes.len() == 1 {
-        let next_move = &op_four_eyes[0];
+    } else if opponent_four_eyes.len() == 1 {
+        let next_move = &opponent_four_eyes[0];
         return solve_one(depth, board, black, next_move);
     }
 

@@ -2,7 +2,7 @@ use super::super::board::{Bits, Board, Direction, Index, Line, Point};
 use super::pattern::*;
 use std::collections::HashSet;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum RowKind {
     Two,
     Sword,
@@ -103,7 +103,7 @@ fn scan_pattern(line: &Line, pattern: &Pattern, black: bool) -> Vec<Segment> {
     return result;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Row {
     pub direction: Direction,
     pub start: Point,

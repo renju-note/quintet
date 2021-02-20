@@ -2,7 +2,7 @@ use super::pattern::*;
 
 const MAX_SIZE: u8 = 32;
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Clone)]
 pub struct Line {
     pub size: u8,
     pub blacks: Bits,
