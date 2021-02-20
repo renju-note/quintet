@@ -47,15 +47,16 @@ impl Board {
 
     pub fn lines(
         &self,
-        must_have_black: bool,
-        must_have_white: bool,
+        min_bcount: u8,
+        min_wcount: u8,
+        min_ncount: u8,
     ) -> Vec<(Direction, u8, &Line)> {
         let mut result = vec![];
         let mut vresult = self
             .vlines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
             .map(|(i, l)| (Direction::Vertical, i as u8, l))
             .collect();
         result.append(&mut vresult);
@@ -63,7 +64,7 @@ impl Board {
             .hlines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
             .map(|(i, l)| (Direction::Horizontal, i as u8, l))
             .collect();
         result.append(&mut hresult);
@@ -71,7 +72,7 @@ impl Board {
             .alines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
             .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l))
             .collect();
         result.append(&mut aresult);
@@ -79,42 +80,59 @@ impl Board {
             .dlines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.must_have(must_have_black, must_have_white))
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
             .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l))
             .collect();
         result.append(&mut dresult);
         result
     }
 
-    pub fn lines_on(&self, p: &Point) -> Vec<(Direction, u8, &Line)> {
+    pub fn lines_on(
+        &self,
+        p: &Point,
+        min_bcount: u8,
+        min_wcount: u8,
+        min_ncount: u8,
+    ) -> Vec<(Direction, u8, &Line)> {
+        let mut result = vec![];
+
         let vidx = p.to_index(Direction::Vertical);
+        let vline = &self.vlines[vidx.i as usize];
+        if vline.check(min_bcount, min_wcount, min_ncount) {
+            result.push((Direction::Vertical, vidx.i, vline))
+        }
+
         let hidx = p.to_index(Direction::Horizontal);
+        let hline = &self.hlines[hidx.i as usize];
+        if hline.check(min_bcount, min_wcount, min_ncount) {
+            result.push((Direction::Horizontal, hidx.i, hline))
+        }
+
         let aidx = p.to_index(Direction::Ascending);
-        let didx = p.to_index(Direction::Descending);
-        let mut result = vec![
-            (Direction::Vertical, vidx.i, &self.vlines[vidx.i as usize]),
-            (Direction::Horizontal, hidx.i, &self.hlines[hidx.i as usize]),
-        ];
         if 4 <= aidx.i && aidx.i < M + 4 {
-            result.push((
-                Direction::Ascending,
-                aidx.i,
-                &self.alines[(aidx.i - 4) as usize],
-            ));
+            let aline = &self.alines[(aidx.i - 4) as usize];
+            if aline.check(min_bcount, min_wcount, min_ncount) {
+                result.push((Direction::Ascending, aidx.i, aline));
+            }
         }
+
+        let didx = p.to_index(Direction::Descending);
         if 4 <= didx.i && didx.i < M + 4 {
-            result.push((
-                Direction::Descending,
-                didx.i,
-                &self.dlines[(didx.i - 4) as usize],
-            ));
+            let dline = &self.dlines[(didx.i - 4) as usize];
+            if dline.check(min_bcount, min_wcount, min_ncount) {
+                result.push((Direction::Descending, didx.i, dline));
+            }
         }
+
         result
     }
 
     pub fn four_eyes_on(&self, black: bool, p: &Point) -> Vec<Point> {
         let mut result = vec![];
-        for (d, i, l) in self.lines_on(p) {
+        let min_bcount = if black { 4 } else { 0 };
+        let min_wcount = if black { 0 } else { 4 };
+        let min_ncount = 1;
+        for (d, i, l) in self.lines_on(p, min_bcount, min_wcount, min_ncount) {
             let is = l.four_eyes(black);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
@@ -128,7 +146,10 @@ impl Board {
 
     pub fn sword_eyes(&self, black: bool) -> Vec<Point> {
         let mut result = vec![];
-        for (d, i, l) in self.lines(black, !black) {
+        let min_bcount = if black { 3 } else { 0 };
+        let min_wcount = if black { 0 } else { 3 };
+        let min_ncount = 2;
+        for (d, i, l) in self.lines(min_bcount, min_wcount, min_ncount) {
             let is = l.sword_eyes(black);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());

@@ -12,9 +12,25 @@ pub enum RowKind {
     Overline,
 }
 
+impl RowKind {
+    pub fn min_scount_ncount(&self) -> (u8, u8) {
+        match self {
+            RowKind::Two => (2, 4),
+            RowKind::Sword => (3, 2),
+            RowKind::Three => (3, 3),
+            RowKind::Four => (4, 1),
+            RowKind::Five => (5, 0),
+            RowKind::Overline => (6, 0),
+        }
+    }
+}
+
 pub fn rows(board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
     let mut result = Vec::new();
-    for (direction, i, line) in board.lines(black, !black) {
+    let (min_scount, min_ncount) = kind.min_scount_ncount();
+    let min_bcount = if black { min_scount } else { 0 };
+    let min_wcount = if black { 0 } else { min_scount };
+    for (direction, i, line) in board.lines(min_bcount, min_wcount, min_ncount) {
         let mut rows = scan(&line, black, kind)
             .iter()
             .map(|s| Row::from(s, direction, i))
@@ -26,7 +42,10 @@ pub fn rows(board: &Board, black: bool, kind: RowKind) -> Vec<Row> {
 
 pub fn rows_on(board: &Board, black: bool, kind: RowKind, p: &Point) -> Vec<Row> {
     let mut result = Vec::new();
-    for (direction, i, line) in board.lines_on(p) {
+    let (min_scount, min_ncount) = kind.min_scount_ncount();
+    let min_bcount = if black { min_scount } else { 0 };
+    let min_wcount = if black { 0 } else { min_scount };
+    for (direction, i, line) in board.lines_on(p, min_bcount, min_wcount, min_ncount) {
         let mut rows = scan(&line, black, kind)
             .iter()
             .map(|s| Row::from(s, direction, i))

@@ -8,6 +8,10 @@ pub struct Line {
     pub blacks: Bits,
     pub whites: Bits,
 
+    bcount: u8,
+    wcount: u8,
+    ncount: u8,
+
     b4eyes: Bits,
     w4eyes: Bits,
     bseyes: Bits,
@@ -21,6 +25,9 @@ impl Line {
             size: size,
             blacks: 0b0,
             whites: 0b0,
+            bcount: 0,
+            wcount: 0,
+            ncount: size,
             b4eyes: 0b0,
             w4eyes: 0b0,
             bseyes: 0b0,
@@ -30,14 +37,38 @@ impl Line {
 
     pub fn put(&mut self, black: bool, i: u8) {
         let stones = 0b1 << i;
+        let blacks: Bits;
+        let whites: Bits;
         if black {
-            self.blacks |= stones;
-            self.whites &= !stones;
+            blacks = self.blacks | stones;
+            whites = self.whites & !stones;
+            if self.blacks != blacks {
+                self.bcount += 1;
+                self.ncount -= 1;
+            }
+            if self.whites != whites {
+                self.wcount -= 1;
+                self.ncount += 1;
+            }
         } else {
-            self.blacks &= !stones;
-            self.whites |= stones;
+            blacks = self.blacks & !stones;
+            whites = self.whites | stones;
+            if self.blacks != blacks {
+                self.bcount -= 1;
+                self.ncount += 1;
+            }
+            if self.whites != whites {
+                self.wcount += 1;
+                self.ncount -= 1;
+            }
         }
+        self.blacks = blacks;
+        self.whites = whites;
         self.scan();
+    }
+
+    pub fn check(&self, min_bcount: u8, min_wcount: u8, min_ncount: u8) -> bool {
+        self.bcount >= min_bcount && self.wcount >= min_wcount && self.ncount >= min_ncount
     }
 
     fn scan(&mut self) {
@@ -75,10 +106,6 @@ impl Line {
 
     pub fn blanks(&self) -> Bits {
         !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
-    }
-
-    pub fn must_have(&self, black: bool, white: bool) -> bool {
-        (!black || self.blacks != 0b0) && (!white || self.whites != 0b0)
     }
 
     pub fn to_string(&self) -> String {
