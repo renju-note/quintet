@@ -74,38 +74,44 @@ impl Line {
         }
     }
 
-    pub fn eyes(&mut self, black: bool, kind: RowKind) -> Vec<u8> {
-        let scanned = self.scan_eyes(black, kind);
+    pub fn eyes(&mut self, black: bool, kind: RowKind, cache: bool) -> Vec<u8> {
+        let eyes = if black && kind == self.bcache_kind {
+            self.bcache
+        } else if !black && kind == self.wcache_kind {
+            self.wcache
+        } else {
+            self.scan_eyes(black, kind)
+        };
+
+        if cache {
+            if black {
+                self.bcache_kind = kind;
+                self.bcache = eyes;
+            } else {
+                self.wcache_kind = kind;
+                self.wcache = eyes;
+            }
+        }
+
         let mut result = vec![];
         for i in 0..self.size {
-            if (scanned >> i) & 0b1 == 0b1 {
+            if (eyes >> i) & 0b1 == 0b1 {
                 result.push(i);
             }
         }
         result
     }
 
-    fn scan_eyes(&mut self, black: bool, kind: RowKind) -> Bits {
-        if black && kind == self.bcache_kind {
-            return self.bcache;
-        }
-        if !black && kind == self.wcache_kind {
-            return self.wcache;
-        }
-
+    fn scan_eyes(&self, black: bool, kind: RowKind) -> Bits {
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
 
         if black {
-            self.bcache_kind = kind;
-            self.bcache = scan_eyes(true, kind, blacks_, blanks_, limit) >> 1;
-            self.bcache
+            scan_eyes(true, kind, blacks_, blanks_, limit) >> 1
         } else {
-            self.wcache_kind = kind;
-            self.wcache = scan_eyes(false, kind, whites_, blanks_, limit) >> 1;
-            self.wcache
+            scan_eyes(false, kind, whites_, blanks_, limit) >> 1
         }
     }
 

@@ -1,7 +1,6 @@
 use super::line::*;
 use super::row::*;
 use std::collections::HashSet;
-use std::iter;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
@@ -208,7 +207,7 @@ impl Board {
         let min_wcount = if black { 0 } else { 4 };
         let min_ncount = 1;
         for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
-            let is = l.eyes(black, RowKind::Four);
+            let is = l.eyes(black, RowKind::Four, true);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }
@@ -225,7 +224,7 @@ impl Board {
         let min_wcount = if black { 0 } else { 3 };
         let min_ncount = 2;
         for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
-            let is = l.eyes(black, RowKind::Sword);
+            let is = l.eyes(black, RowKind::Sword, true);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }
