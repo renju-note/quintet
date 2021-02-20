@@ -1,5 +1,7 @@
 use super::line::*;
+use super::row::*;
 use std::collections::HashSet;
+use std::iter;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
@@ -43,6 +45,79 @@ impl Board {
             let i = (didx.i - 4) as usize;
             self.dlines[i].put(black, didx.j);
         }
+    }
+
+    pub fn iter_mut_lines(
+        &mut self,
+        min_bcount: u8,
+        min_wcount: u8,
+        min_ncount: u8,
+    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+        let viter = self
+            .vlines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .map(|(i, l)| (Direction::Vertical, i as u8, l));
+        let hiter = self
+            .hlines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .map(|(i, l)| (Direction::Horizontal, i as u8, l));
+        let aiter = self
+            .alines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
+        let diter = self
+            .dlines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
+        viter.chain(hiter).chain(aiter).chain(diter)
+    }
+
+    pub fn iter_mut_lines_on(
+        &mut self,
+        p: &Point,
+        min_bcount: u8,
+        min_wcount: u8,
+        min_ncount: u8,
+    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+        let mut result = vec![];
+
+        let vidx = p.to_index(Direction::Vertical);
+        let vline = &mut self.vlines[vidx.i as usize];
+        if vline.check(min_bcount, min_wcount, min_ncount) {
+            result.push((Direction::Vertical, vidx.i, vline))
+        }
+
+        let hidx = p.to_index(Direction::Horizontal);
+        let hline = &mut self.hlines[hidx.i as usize];
+        if hline.check(min_bcount, min_wcount, min_ncount) {
+            result.push((Direction::Horizontal, hidx.i, hline))
+        }
+
+        let aidx = p.to_index(Direction::Ascending);
+        if 4 <= aidx.i && aidx.i < M + 4 {
+            let aline = &mut self.alines[(aidx.i - 4) as usize];
+            if aline.check(min_bcount, min_wcount, min_ncount) {
+                result.push((Direction::Ascending, aidx.i, aline));
+            }
+        }
+
+        let didx = p.to_index(Direction::Descending);
+        if 4 <= didx.i && didx.i < M + 4 {
+            let dline = &mut self.dlines[(didx.i - 4) as usize];
+            if dline.check(min_bcount, min_wcount, min_ncount) {
+                result.push((Direction::Descending, didx.i, dline));
+            }
+        }
+
+        result.into_iter()
     }
 
     pub fn lines(
@@ -127,13 +202,13 @@ impl Board {
         result
     }
 
-    pub fn four_eyes_on(&self, black: bool, p: &Point) -> Vec<Point> {
+    pub fn four_eyes_on(&mut self, black: bool, p: &Point) -> Vec<Point> {
         let mut result = vec![];
         let min_bcount = if black { 4 } else { 0 };
         let min_wcount = if black { 0 } else { 4 };
         let min_ncount = 1;
-        for (d, i, l) in self.lines_on(p, min_bcount, min_wcount, min_ncount) {
-            let is = l.four_eyes(black);
+        for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
+            let is = l.eyes(black, RowKind::Four);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }
@@ -144,13 +219,13 @@ impl Board {
             .collect()
     }
 
-    pub fn sword_eyes(&self, black: bool) -> Vec<Point> {
+    pub fn sword_eyes(&mut self, black: bool) -> Vec<Point> {
         let mut result = vec![];
         let min_bcount = if black { 3 } else { 0 };
         let min_wcount = if black { 0 } else { 3 };
         let min_ncount = 2;
-        for (d, i, l) in self.lines(min_bcount, min_wcount, min_ncount) {
-            let is = l.sword_eyes(black);
+        for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
+            let is = l.eyes(black, RowKind::Sword);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }

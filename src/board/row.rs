@@ -1,8 +1,42 @@
 pub type Bits = u16;
 
-pub fn scan_eyes(ps: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Bits {
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum RowKind {
+    Nothing,
+    Two,
+    Sword,
+    Three,
+    Four,
+    Five,
+    Overline,
+}
+
+pub fn scan_eyes(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Bits {
+    if black {
+        match kind {
+            RowKind::Two => scan_eyes_by_patterns(&BLACK_TWOS, stones, blanks, limit),
+            RowKind::Sword => scan_eyes_by_patterns(&BLACK_SWORDS, stones, blanks, limit),
+            RowKind::Three => scan_eyes_by_patterns(&BLACK_THREES, stones, blanks, limit),
+            RowKind::Four => scan_eyes_by_patterns(&BLACK_FOURS, stones, blanks, limit),
+            RowKind::Five => scan_eyes_by_patterns(&BLACK_FIVES, stones, blanks, limit),
+            RowKind::Overline => scan_eyes_by_patterns(&BLACK_OVERLINES, stones, blanks, limit),
+            _ => 0b0,
+        }
+    } else {
+        match kind {
+            RowKind::Two => scan_eyes_by_patterns(&WHITE_TWOS, stones, blanks, limit),
+            RowKind::Sword => scan_eyes_by_patterns(&WHITE_SWORDS, stones, blanks, limit),
+            RowKind::Three => scan_eyes_by_patterns(&WHITE_THREES, stones, blanks, limit),
+            RowKind::Four => scan_eyes_by_patterns(&WHITE_FOURS, stones, blanks, limit),
+            RowKind::Five => scan_eyes_by_patterns(&WHITE_FIVES, stones, blanks, limit),
+            _ => 0b0,
+        }
+    }
+}
+
+fn scan_eyes_by_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Bits {
     let mut result = 0b0;
-    for p in ps {
+    for p in patterns {
         if limit < p.size {
             continue;
         }
@@ -15,7 +49,7 @@ pub fn scan_eyes(ps: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Bits 
     result
 }
 
-pub struct Pattern {
+struct Pattern {
     pub size: u8,
     pub filter: Bits,
     pub stones: Bits,
@@ -29,7 +63,7 @@ impl Pattern {
     }
 }
 
-pub const BLACK_TWOS: [Pattern; 6] = [
+const BLACK_TWOS: [Pattern; 6] = [
     Pattern {
         size: 8,
         filter: 0b11111111,
@@ -74,7 +108,7 @@ pub const BLACK_TWOS: [Pattern; 6] = [
     },
 ];
 
-pub const BLACK_THREES: [Pattern; 4] = [
+const BLACK_THREES: [Pattern; 4] = [
     Pattern {
         size: 8,
         filter: 0b11111111,
@@ -105,7 +139,7 @@ pub const BLACK_THREES: [Pattern; 4] = [
     },
 ];
 
-pub const BLACK_SWORDS: [Pattern; 10] = [
+const BLACK_SWORDS: [Pattern; 10] = [
     Pattern {
         size: 7,
         filter: 0b1111111,
@@ -178,7 +212,7 @@ pub const BLACK_SWORDS: [Pattern; 10] = [
     },
 ];
 
-pub const BLACK_FOURS: [Pattern; 5] = [
+const BLACK_FOURS: [Pattern; 5] = [
     Pattern {
         size: 7,
         filter: 0b1111111,
@@ -216,7 +250,7 @@ pub const BLACK_FOURS: [Pattern; 5] = [
     },
 ];
 
-pub const BLACK_FIVES: [Pattern; 1] = [Pattern {
+const BLACK_FIVES: [Pattern; 1] = [Pattern {
     size: 7,
     filter: 0b1111111,
     stones: 0b0111110,
@@ -224,7 +258,7 @@ pub const BLACK_FIVES: [Pattern; 1] = [Pattern {
     eyes__: 0b0000000,
 }];
 
-pub const BLACK_OVERLINES: [Pattern; 1] = [Pattern {
+const BLACK_OVERLINES: [Pattern; 1] = [Pattern {
     size: 6,
     filter: 0b111111,
     stones: 0b111111,
@@ -232,7 +266,7 @@ pub const BLACK_OVERLINES: [Pattern; 1] = [Pattern {
     eyes__: 0b000000,
 }];
 
-pub const WHITE_TWOS: [Pattern; 6] = [
+const WHITE_TWOS: [Pattern; 6] = [
     Pattern {
         size: 6,
         filter: 0b111111,
@@ -277,7 +311,7 @@ pub const WHITE_TWOS: [Pattern; 6] = [
     },
 ];
 
-pub const WHITE_THREES: [Pattern; 4] = [
+const WHITE_THREES: [Pattern; 4] = [
     Pattern {
         size: 6,
         filter: 0b111111,
@@ -308,7 +342,7 @@ pub const WHITE_THREES: [Pattern; 4] = [
     },
 ];
 
-pub const WHITE_SWORDS: [Pattern; 10] = [
+const WHITE_SWORDS: [Pattern; 10] = [
     Pattern {
         size: 5,
         filter: 0b11111,
@@ -381,7 +415,7 @@ pub const WHITE_SWORDS: [Pattern; 10] = [
     },
 ];
 
-pub const WHITE_FOURS: [Pattern; 5] = [
+const WHITE_FOURS: [Pattern; 5] = [
     Pattern {
         size: 5,
         filter: 0b11111,
@@ -419,7 +453,7 @@ pub const WHITE_FOURS: [Pattern; 5] = [
     },
 ];
 
-pub const WHITE_FIVES: [Pattern; 1] = [Pattern {
+const WHITE_FIVES: [Pattern; 1] = [Pattern {
     size: 5,
     filter: 0b11111,
     stones: 0b11111,

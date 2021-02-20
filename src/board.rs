@@ -1,7 +1,7 @@
 mod board;
 mod line;
-mod pattern;
+mod row;
 
 pub use board::{Board, Direction, Index, Point, BOARD_SIZE};
 pub use line::Line;
-pub use pattern::Bits;
+pub use row::Bits;

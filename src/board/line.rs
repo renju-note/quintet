@@ -1,4 +1,4 @@
-use super::pattern::*;
+use super::row::*;
 
 const MAX_SIZE: u8 = 15;
 
@@ -12,10 +12,10 @@ pub struct Line {
     wcount: u8,
     ncount: u8,
 
-    b4eyes: Bits,
-    w4eyes: Bits,
-    bseyes: Bits,
-    wseyes: Bits,
+    bcache_kind: RowKind,
+    wcache_kind: RowKind,
+    bcache: Bits,
+    wcache: Bits,
 }
 
 impl Line {
@@ -25,13 +25,15 @@ impl Line {
             size: size,
             blacks: 0b0,
             whites: 0b0,
+
             bcount: 0,
             wcount: 0,
             ncount: size,
-            b4eyes: 0b0,
-            w4eyes: 0b0,
-            bseyes: 0b0,
-            wseyes: 0b0,
+
+            bcache_kind: RowKind::Nothing,
+            wcache_kind: RowKind::Nothing,
+            bcache: 0b0,
+            wcache: 0b0,
         }
     }
 
@@ -43,65 +45,72 @@ impl Line {
             blacks = self.blacks | stones;
             whites = self.whites & !stones;
             if self.blacks != blacks {
+                self.blacks = blacks;
                 self.bcount += 1;
                 self.ncount -= 1;
+                self.bcache_kind = RowKind::Nothing;
             }
             if self.whites != whites {
+                self.whites = whites;
                 self.wcount -= 1;
                 self.ncount += 1;
+                self.wcache_kind = RowKind::Nothing;
             }
         } else {
             blacks = self.blacks & !stones;
             whites = self.whites | stones;
             if self.blacks != blacks {
+                self.blacks = blacks;
                 self.bcount -= 1;
                 self.ncount += 1;
+                self.bcache_kind = RowKind::Nothing;
             }
             if self.whites != whites {
+                self.whites = whites;
                 self.wcount += 1;
                 self.ncount -= 1;
+                self.wcache_kind = RowKind::Nothing;
             }
         }
-        self.blacks = blacks;
-        self.whites = whites;
-        self.scan();
     }
 
-    pub fn check(&self, min_bcount: u8, min_wcount: u8, min_ncount: u8) -> bool {
-        self.bcount >= min_bcount && self.wcount >= min_wcount && self.ncount >= min_ncount
+    pub fn eyes(&mut self, black: bool, kind: RowKind) -> Vec<u8> {
+        let scanned = self.scan_eyes(black, kind);
+        let mut result = vec![];
+        for i in 0..self.size {
+            if (scanned >> i) & 0b1 == 0b1 {
+                result.push(i);
+            }
+        }
+        result
     }
 
-    fn scan(&mut self) {
+    fn scan_eyes(&mut self, black: bool, kind: RowKind) -> Bits {
+        if black && kind == self.bcache_kind {
+            return self.bcache;
+        }
+        if !black && kind == self.wcache_kind {
+            return self.wcache;
+        }
+
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
-        self.b4eyes = scan_eyes(&BLACK_FOURS, blacks_, blanks_, limit) >> 1;
-        self.w4eyes = scan_eyes(&WHITE_FOURS, whites_, blanks_, limit) >> 1;
-        self.bseyes = scan_eyes(&BLACK_SWORDS, blacks_, blanks_, limit) >> 1;
-        self.wseyes = scan_eyes(&WHITE_SWORDS, whites_, blanks_, limit) >> 1;
+
+        if black {
+            self.bcache_kind = kind;
+            self.bcache = scan_eyes(true, kind, blacks_, blanks_, limit) >> 1;
+            self.bcache
+        } else {
+            self.wcache_kind = kind;
+            self.wcache = scan_eyes(false, kind, whites_, blanks_, limit) >> 1;
+            self.wcache
+        }
     }
 
-    pub fn four_eyes(&self, black: bool) -> Vec<u8> {
-        let target = if black { self.b4eyes } else { self.w4eyes };
-        let mut result = vec![];
-        for i in 0..self.size {
-            if (target >> i) & 0b1 == 0b1 {
-                result.push(i);
-            }
-        }
-        result
-    }
-
-    pub fn sword_eyes(&self, black: bool) -> Vec<u8> {
-        let target = if black { self.bseyes } else { self.wseyes };
-        let mut result = vec![];
-        for i in 0..self.size {
-            if (target >> i) & 0b1 == 0b1 {
-                result.push(i);
-            }
-        }
-        result
+    pub fn check(&self, min_bcount: u8, min_wcount: u8, min_ncount: u8) -> bool {
+        self.bcount >= min_bcount && self.wcount >= min_wcount && self.ncount >= min_ncount
     }
 
     pub fn blanks(&self) -> Bits {
