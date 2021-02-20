@@ -5,17 +5,6 @@ pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
 const M: u8 = N * 2 - 1 - (4 * 2); // 21
 
-pub type OrthogonalLines = [Line; N as usize];
-pub type DiagonalLines = [Line; M as usize];
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Direction {
-    Vertical,
-    Horizontal,
-    Ascending,
-    Descending,
-}
-
 #[derive(Clone)]
 pub struct Board {
     vlines: OrthogonalLines,
@@ -27,10 +16,10 @@ pub struct Board {
 impl Board {
     pub fn new() -> Board {
         Board {
-            vlines: Board::orthogonal_lines(),
-            hlines: Board::orthogonal_lines(),
-            alines: Board::diagonal_lines(),
-            dlines: Board::diagonal_lines(),
+            vlines: orthogonal_lines(),
+            hlines: orthogonal_lines(),
+            alines: diagonal_lines(),
+            dlines: diagonal_lines(),
         }
     }
 
@@ -162,52 +151,6 @@ impl Board {
         result.push('\n');
         result
     }
-
-    fn orthogonal_lines() -> OrthogonalLines {
-        [
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-            Line::new(15),
-        ]
-    }
-
-    fn diagonal_lines() -> DiagonalLines {
-        [
-            Line::new(5),
-            Line::new(6),
-            Line::new(7),
-            Line::new(8),
-            Line::new(9),
-            Line::new(10),
-            Line::new(11),
-            Line::new(12),
-            Line::new(13),
-            Line::new(14),
-            Line::new(15),
-            Line::new(14),
-            Line::new(13),
-            Line::new(12),
-            Line::new(11),
-            Line::new(10),
-            Line::new(9),
-            Line::new(8),
-            Line::new(7),
-            Line::new(6),
-            Line::new(5),
-        ]
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -260,4 +203,61 @@ impl Index {
             }
         }
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Direction {
+    Vertical,
+    Horizontal,
+    Ascending,
+    Descending,
+}
+
+type OrthogonalLines = [Line; N as usize];
+type DiagonalLines = [Line; M as usize];
+
+fn orthogonal_lines() -> OrthogonalLines {
+    [
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+        Line::new(15),
+    ]
+}
+
+fn diagonal_lines() -> DiagonalLines {
+    [
+        Line::new(5),
+        Line::new(6),
+        Line::new(7),
+        Line::new(8),
+        Line::new(9),
+        Line::new(10),
+        Line::new(11),
+        Line::new(12),
+        Line::new(13),
+        Line::new(14),
+        Line::new(15),
+        Line::new(14),
+        Line::new(13),
+        Line::new(12),
+        Line::new(11),
+        Line::new(10),
+        Line::new(9),
+        Line::new(8),
+        Line::new(7),
+        Line::new(6),
+        Line::new(5),
+    ]
 }
