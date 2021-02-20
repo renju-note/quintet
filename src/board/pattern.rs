@@ -1,4 +1,4 @@
-pub type Bits = u32;
+pub type Bits = u16;
 
 pub fn scan_eyes(ps: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Bits {
     let mut result = 0b0;

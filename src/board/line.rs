@@ -1,6 +1,6 @@
 use super::pattern::*;
 
-const MAX_SIZE: u8 = 32;
+const MAX_SIZE: u8 = 15;
 
 #[derive(Clone)]
 pub struct Line {
