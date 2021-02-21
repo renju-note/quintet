@@ -25,7 +25,7 @@ impl RowKind {
     }
 }
 
-pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Bits {
+pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Trail {
     if black {
         match kind {
             RowKind::Two => scan_patterns(&BLACK_TWOS, stones, blanks, limit),
@@ -34,7 +34,7 @@ pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -
             RowKind::Four => scan_patterns(&BLACK_FOURS, stones, blanks, limit),
             RowKind::Five => scan_patterns(&BLACK_FIVES, stones, blanks, limit),
             RowKind::Overline => scan_patterns(&BLACK_OVERLINES, stones, blanks, limit),
-            _ => 0b0,
+            _ => Trail::default(),
         }
     } else {
         match kind {
@@ -43,24 +43,42 @@ pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -
             RowKind::Three => scan_patterns(&WHITE_THREES, stones, blanks, limit),
             RowKind::Four => scan_patterns(&WHITE_FOURS, stones, blanks, limit),
             RowKind::Five => scan_patterns(&WHITE_FIVES, stones, blanks, limit),
-            _ => 0b0,
+            _ => Trail::default(),
         }
     }
 }
 
-fn scan_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Bits {
-    let mut result = 0b0;
+fn scan_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Trail {
+    let mut starts = 0b0;
+    let mut eyes = 0b0;
     for p in patterns {
         if limit < p.size {
             continue;
         }
         for i in 0..=(limit - p.size) {
             if p.matches(stones >> i, blanks >> i) {
-                result |= p.eyes__ << i;
+                starts |= 0b1 << i;
+                eyes |= p.eyes__ << i;
             }
         }
     }
-    result
+    Trail {
+        starts: starts,
+        eyes: eyes,
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct Trail {
+    pub starts: Bits,
+    pub eyes: Bits,
+}
+
+impl Trail {
+    pub fn rshift(&mut self) {
+        self.starts = self.starts >> 1;
+        self.eyes = self.eyes >> 1;
+    }
 }
 
 struct Pattern {

@@ -14,8 +14,8 @@ pub struct Line {
 
     bcache_kind: RowKind,
     wcache_kind: RowKind,
-    bcache_eyes: Bits,
-    wcache_eyes: Bits,
+    bcache_rows: LineRows,
+    wcache_rows: LineRows,
 }
 
 impl Line {
@@ -32,8 +32,8 @@ impl Line {
 
             bcache_kind: RowKind::Nothing,
             wcache_kind: RowKind::Nothing,
-            bcache_eyes: 0b0,
-            wcache_eyes: 0b0,
+            bcache_rows: LineRows::default(),
+            wcache_rows: LineRows::default(),
         }
     }
 
@@ -76,43 +76,40 @@ impl Line {
         self.whites = whites;
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<u8> {
-        let eyes = if black && kind == self.bcache_kind {
-            self.bcache_eyes
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> LineRows {
+        if black && kind == self.bcache_kind {
+            return self.bcache_rows.clone();
         } else if !black && kind == self.wcache_kind {
-            self.wcache_eyes
-        } else {
-            self.scan_rows(black, kind)
-        };
+            return self.wcache_rows.clone();
+        }
+
+        let trail = self.scan(black, kind);
+        let result = LineRows::from(self.size, trail);
 
         if black {
             self.bcache_kind = kind;
-            self.bcache_eyes = eyes;
+            self.bcache_rows = result;
+            self.bcache_rows.clone()
         } else {
             self.wcache_kind = kind;
-            self.wcache_eyes = eyes;
+            self.wcache_rows = result;
+            self.wcache_rows.clone()
         }
-
-        let mut result = vec![];
-        for i in 0..self.size {
-            if (eyes >> i) & 0b1 == 0b1 {
-                result.push(i);
-            }
-        }
-        result
     }
 
-    fn scan_rows(&self, black: bool, kind: RowKind) -> Bits {
+    fn scan(&self, black: bool, kind: RowKind) -> Trail {
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
 
-        if black {
-            scan(true, kind, blacks_, blanks_, limit) >> 1
+        let mut result = if black {
+            scan(true, kind, blacks_, blanks_, limit)
         } else {
-            scan(false, kind, whites_, blanks_, limit) >> 1
-        }
+            scan(false, kind, whites_, blanks_, limit)
+        };
+        result.rshift();
+        result
     }
 
     pub fn check(&self, min_bcount: u8, min_wcount: u8, min_ncount: u8) -> bool {
@@ -136,5 +133,32 @@ impl Line {
                 }
             })
             .collect()
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct LineRows {
+    pub starts: Vec<u8>,
+    pub eyes: Vec<u8>,
+}
+
+impl LineRows {
+    pub fn from(size: u8, t: Trail) -> LineRows {
+        let mut starts = vec![];
+        for i in 0..size {
+            if (t.starts >> i) & 0b1 == 0b1 {
+                starts.push(i);
+            }
+        }
+        let mut eyes = vec![];
+        for i in 0..size {
+            if (t.eyes >> i) & 0b1 == 0b1 {
+                eyes.push(i);
+            }
+        }
+        LineRows {
+            starts: starts,
+            eyes: eyes,
+        }
     }
 }

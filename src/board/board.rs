@@ -207,7 +207,7 @@ impl Board {
         let min_bcount = if black { min_scount } else { 0 };
         let min_wcount = if black { 0 } else { min_scount };
         for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
-            let is = l.row_eyes(black, kind);
+            let is = l.rows(black, kind).eyes;
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }
@@ -224,7 +224,7 @@ impl Board {
         let min_bcount = if black { min_scount } else { 0 };
         let min_wcount = if black { 0 } else { min_scount };
         for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
-            let is = l.row_eyes(black, kind);
+            let is = l.rows(black, kind).eyes;
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }
