@@ -211,16 +211,34 @@ impl Board {
         result
     }
 
+    pub fn rows_on(&mut self, p: &Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
+        let mut result = vec![];
+        let (min_scount, min_ncount) = kind.min_scount_ncount();
+        let min_bcount = if black { min_scount } else { 0 };
+        let min_wcount = if black { 0 } else { min_scount };
+        for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
+            let lrows = l.rows(black, kind);
+            let mut brows = lrows
+                .iter()
+                .map(|lr| BoardRow::from(lr, d, i))
+                .filter(|br| br.overlap(p))
+                .collect::<Vec<_>>();
+            result.append(&mut brows);
+        }
+        result
+    }
+
     pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> PointsMemory {
         let mut result = PointsMemory::default();
         let (min_scount, min_ncount) = kind.min_scount_ncount();
         let min_bcount = if black { min_scount } else { 0 };
         let min_wcount = if black { 0 } else { min_scount };
         for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
-            let is = l.rows(black, kind).eyes;
-            let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
-            for p in ps {
-                result.set(p);
+            let lrows = l.rows(black, kind);
+            let brows = lrows.iter().map(|lr| BoardRow::from(lr, d, i));
+            for brow in brows {
+                brow.eye1.map(|e| result.set(e));
+                brow.eye2.map(|e| result.set(e));
             }
         }
         result
@@ -232,10 +250,14 @@ impl Board {
         let min_bcount = if black { min_scount } else { 0 };
         let min_wcount = if black { 0 } else { min_scount };
         for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
-            let is = l.rows(black, kind).eyes;
-            let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
-            for p in ps {
-                result.set(p);
+            let lrows = l.rows(black, kind);
+            let brows = lrows
+                .iter()
+                .map(|lr| BoardRow::from(lr, d, i))
+                .filter(|br| br.overlap(p));
+            for brow in brows {
+                brow.eye1.map(|e| result.set(e));
+                brow.eye2.map(|e| result.set(e));
             }
         }
         result
@@ -338,6 +360,39 @@ impl PointsMemory {
     }
 }
 
+#[derive(Clone)]
+pub struct BoardRow {
+    pub direction: Direction,
+    pub start: Point,
+    pub end: Point,
+    pub eye1: Option<Point>,
+    pub eye2: Option<Point>,
+}
+
+impl BoardRow {
+    pub fn from(r: &LineRow, d: Direction, i: u8) -> BoardRow {
+        BoardRow {
+            direction: d,
+            start: Index { i: i, j: r.start }.to_point(d),
+            end: Index { i: i, j: r.end }.to_point(d),
+            eye1: r.eye1.map(|e| Index { i: i, j: e }.to_point(d)),
+            eye2: r.eye2.map(|e| Index { i: i, j: e }.to_point(d)),
+        }
+    }
+
+    pub fn overlap(&self, p: &Point) -> bool {
+        let (px, py) = (p.x, p.y);
+        let (sx, sy) = (self.start.x, self.start.y);
+        let (ex, ey) = (self.end.x, self.end.y);
+        match self.direction {
+            Direction::Vertical => px == sx && bw(sy, py, ey),
+            Direction::Horizontal => py == sy && bw(sx, px, ex),
+            Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
+            Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
+        }
+    }
+}
+
 fn orthogonal_lines() -> OrthogonalLines {
     [
         Line::new(15),
@@ -382,4 +437,8 @@ fn diagonal_lines() -> DiagonalLines {
         Line::new(6),
         Line::new(5),
     ]
+}
+
+fn bw(a: u8, x: u8, b: u8) -> bool {
+    a <= x && x <= b
 }

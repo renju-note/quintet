@@ -25,7 +25,14 @@ impl RowKind {
     }
 }
 
-pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Trail {
+pub struct Row {
+    pub start: u8,
+    pub end: u8,
+    pub eye1: Option<u8>,
+    pub eye2: Option<u8>,
+}
+
+pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Vec<Row> {
     if black {
         match kind {
             RowKind::Two => scan_patterns(&BLACK_TWOS, stones, blanks, limit),
@@ -34,7 +41,7 @@ pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -
             RowKind::Four => scan_patterns(&BLACK_FOURS, stones, blanks, limit),
             RowKind::Five => scan_patterns(&BLACK_FIVES, stones, blanks, limit),
             RowKind::Overline => scan_patterns(&BLACK_OVERLINES, stones, blanks, limit),
-            _ => Trail::default(),
+            _ => vec![],
         }
     } else {
         match kind {
@@ -43,35 +50,33 @@ pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -
             RowKind::Three => scan_patterns(&WHITE_THREES, stones, blanks, limit),
             RowKind::Four => scan_patterns(&WHITE_FOURS, stones, blanks, limit),
             RowKind::Five => scan_patterns(&WHITE_FIVES, stones, blanks, limit),
-            _ => Trail::default(),
+            _ => vec![],
         }
     }
 }
 
-fn scan_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Trail {
-    let mut starts = 0b0;
-    let mut eyes__ = 0b0;
+fn scan_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Vec<Row> {
+    let mut result = vec![];
     for p in patterns {
         if limit < p.size {
             continue;
         }
+        let start = p.start();
+        let end = p.end();
+        let eye1 = p.eye1();
+        let eye2 = p.eye2();
         for i in 0..=(limit - p.size) {
             if p.matches(stones >> i, blanks >> i) {
-                starts |= 0b1 << i;
-                eyes__ |= p.eyes__ << i;
+                result.push(Row {
+                    start: start + i,
+                    end: end + i,
+                    eye1: eye1.map(|e| e + i),
+                    eye2: eye2.map(|e| e + i),
+                });
             }
         }
     }
-    Trail {
-        starts: starts,
-        eyes__: eyes__,
-    }
-}
-
-#[derive(Clone, Default)]
-pub struct Trail {
-    pub starts: Bits,
-    pub eyes__: Bits,
+    result
 }
 
 struct Pattern {
@@ -85,6 +90,77 @@ struct Pattern {
 impl Pattern {
     pub fn matches(&self, stones: Bits, blanks: Bits) -> bool {
         (stones & self.filter == self.stones) && (blanks & self.filter & self.blanks == self.blanks)
+    }
+
+    pub fn start(&self) -> u8 {
+        match (self.stones | self.blanks) & 0b11 {
+            0b11 => 0,
+            0b10 => 1,
+            0b00 => 2,
+            _ => 0,
+        }
+    }
+
+    pub fn end(&self) -> u8 {
+        match self.stones | self.blanks {
+            0b1111 => 3,
+            0b11110 => 4,
+            0b111100 => 5,
+            0b11111 => 4,
+            0b111110 => 5,
+            0b1111100 => 6,
+            0b111111 => 5,
+            0b1111110 => 6,
+            0b11111100 => 7,
+            _ => 0,
+        }
+    }
+
+    pub fn eye1(&self) -> Option<u8> {
+        match self.eyes__ {
+            0b1 => Some(0),
+            0b10 => Some(1),
+            0b100 => Some(2),
+            0b1000 => Some(3),
+            0b10000 => Some(4),
+            0b100000 => Some(5),
+            0b1000000 => Some(6),
+            0b11 => Some(0),
+            0b101 => Some(0),
+            0b110 => Some(1),
+            0b1001 => Some(0),
+            0b1010 => Some(1),
+            0b1100 => Some(2),
+            0b10001 => Some(0),
+            0b10010 => Some(1),
+            0b10100 => Some(2),
+            0b11000 => Some(3),
+            0b100010 => Some(1),
+            0b100100 => Some(2),
+            0b101000 => Some(3),
+            0b110000 => Some(4),
+            _ => None,
+        }
+    }
+
+    pub fn eye2(&self) -> Option<u8> {
+        match self.eyes__ {
+            0b11 => Some(1),
+            0b101 => Some(2),
+            0b110 => Some(2),
+            0b1001 => Some(3),
+            0b1010 => Some(3),
+            0b1100 => Some(3),
+            0b10001 => Some(4),
+            0b10010 => Some(4),
+            0b10100 => Some(4),
+            0b11000 => Some(4),
+            0b100010 => Some(5),
+            0b100100 => Some(5),
+            0b101000 => Some(5),
+            0b110000 => Some(5),
+            _ => None,
+        }
     }
 }
 

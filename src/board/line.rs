@@ -14,8 +14,8 @@ pub struct Line {
 
     bcache_kind: RowKind,
     wcache_kind: RowKind,
-    bcache_rows: LineRows,
-    wcache_rows: LineRows,
+    bcache_rows: Vec<LineRow>,
+    wcache_rows: Vec<LineRow>,
 }
 
 impl Line {
@@ -32,8 +32,8 @@ impl Line {
 
             bcache_kind: RowKind::Nothing,
             wcache_kind: RowKind::Nothing,
-            bcache_rows: LineRows::default(),
-            wcache_rows: LineRows::default(),
+            bcache_rows: vec![],
+            wcache_rows: vec![],
         }
     }
 
@@ -76,7 +76,7 @@ impl Line {
         self.whites = whites;
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> LineRows {
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<LineRow> {
         if black && kind == self.bcache_kind {
             return self.bcache_rows.clone();
         } else if !black && kind == self.wcache_kind {
@@ -96,18 +96,26 @@ impl Line {
         }
     }
 
-    fn scan(&self, black: bool, kind: RowKind) -> LineRows {
+    fn scan(&self, black: bool, kind: RowKind) -> Vec<LineRow> {
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
 
-        let trail = if black {
+        let rows = if black {
             scan(true, kind, blacks_, blanks_, limit)
         } else {
             scan(false, kind, whites_, blanks_, limit)
         };
-        LineRows::from(self.size, trail.starts >> 1, trail.eyes__ >> 1)
+
+        rows.iter()
+            .map(|r| LineRow {
+                start: r.start - 1,
+                end: r.end - 1,
+                eye1: r.eye1.map(|e| e - 1),
+                eye2: r.eye2.map(|e| e - 1),
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn check(&self, min_bcount: u8, min_wcount: u8, min_ncount: u8) -> bool {
@@ -134,29 +142,10 @@ impl Line {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct LineRows {
-    pub starts: Vec<u8>,
-    pub eyes: Vec<u8>,
-}
-
-impl LineRows {
-    pub fn from(size: u8, starts: Bits, eyes__: Bits) -> LineRows {
-        let mut starts_result = vec![];
-        for i in 0..size {
-            if (starts >> i) & 0b1 == 0b1 {
-                starts_result.push(i);
-            }
-        }
-        let mut eyes_result = vec![];
-        for i in 0..size {
-            if (eyes__ >> i) & 0b1 == 0b1 {
-                eyes_result.push(i);
-            }
-        }
-        LineRows {
-            starts: starts_result,
-            eyes: eyes_result,
-        }
-    }
+#[derive(Clone)]
+pub struct LineRow {
+    pub start: u8,
+    pub end: u8,
+    pub eye1: Option<u8>,
+    pub eye2: Option<u8>,
 }
