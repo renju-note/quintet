@@ -1,7 +1,7 @@
-use super::super::board::*;
-use super::row;
+use super::board::*;
+use super::row::RowKind;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ForbiddenKind {
     DoubleThree,
     DoubleFour,
@@ -20,47 +20,47 @@ pub fn forbiddens(board: &Board) -> Vec<(ForbiddenKind, Point)> {
 pub fn forbidden(board: &Board, p: &Point) -> Option<ForbiddenKind> {
     let mut next = board.clone();
     next.put(true, p);
-    if overline(&next, p) {
+    if overline(&mut next, p) {
         Some(ForbiddenKind::Overline)
-    } else if double_four(&next, p) {
+    } else if double_four(&mut next, p) {
         Some(ForbiddenKind::DoubleFour)
-    } else if double_three(&next, p) {
+    } else if double_three(&mut next, p) {
         Some(ForbiddenKind::DoubleThree)
     } else {
         None
     }
 }
 
-fn overline(next: &Board, p: &Point) -> bool {
-    let new_overlines = row::rows_on(&next, true, row::RowKind::Overline, p);
+fn overline(next: &mut Board, p: &Point) -> bool {
+    let new_overlines = next.rows_on(p, true, RowKind::Overline);
     new_overlines.len() >= 1
 }
 
-fn double_four(next: &Board, p: &Point) -> bool {
-    let new_fours = row::rows_on(&next, true, row::RowKind::Four, p);
+fn double_four(next: &mut Board, p: &Point) -> bool {
+    let new_fours = next.rows_on(p, true, RowKind::Four);
     if new_fours.len() < 2 {
         return false;
     }
-    distinctive(new_fours.iter().collect())
+    distinctive(&new_fours)
 }
 
-fn double_three(next: &Board, p: &Point) -> bool {
-    let new_threes = row::rows_on(&next, true, row::RowKind::Three, p);
-    if new_threes.len() < 2 {
+fn double_three(next: &mut Board, p: &Point) -> bool {
+    let new_threes = next.rows_on(p, true, RowKind::Three);
+    if new_threes.len() < 2 || !distinctive(&new_threes) {
         return false;
     }
     let truthy_threes = new_threes
-        .iter()
-        .filter(|r| forbidden(&next, &r.eyes[0]).is_none())
+        .into_iter()
+        .filter(|r| forbidden(&next, &r.eye1.unwrap()).is_none())
         .collect::<Vec<_>>();
     if truthy_threes.len() < 2 {
         return false;
     }
-    distinctive(truthy_threes)
+    distinctive(&truthy_threes)
 }
 
-fn distinctive(rows: Vec<&row::Row>) -> bool {
-    let first = rows[0];
+fn distinctive(rows: &Vec<BoardRow>) -> bool {
+    let first = &rows[0];
     for row in rows.iter().skip(1) {
         if !adjacent(first, row) {
             return true;
@@ -69,7 +69,7 @@ fn distinctive(rows: Vec<&row::Row>) -> bool {
     false
 }
 
-fn adjacent(a: &row::Row, b: &row::Row) -> bool {
+fn adjacent(a: &BoardRow, b: &BoardRow) -> bool {
     if a.direction != b.direction {
         return false;
     }

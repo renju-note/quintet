@@ -2,7 +2,6 @@ extern crate wasm_bindgen;
 
 use wasm_bindgen::prelude::*;
 
-pub mod analyzer;
 pub mod board;
 pub mod encoding;
 pub mod solver;
