@@ -12,10 +12,10 @@ pub struct Line {
     wcount: u8,
     ncount: u8,
 
-    bkind: RowKind,
-    wkind: RowKind,
-    beyes: Bits,
-    weyes: Bits,
+    bcache_kind: RowKind,
+    wcache_kind: RowKind,
+    bcache_eyes: Bits,
+    wcache_eyes: Bits,
 }
 
 impl Line {
@@ -30,10 +30,10 @@ impl Line {
             wcount: 0,
             ncount: size,
 
-            bkind: RowKind::Nothing,
-            wkind: RowKind::Nothing,
-            beyes: 0b0,
-            weyes: 0b0,
+            bcache_kind: RowKind::Nothing,
+            wcache_kind: RowKind::Nothing,
+            bcache_eyes: 0b0,
+            wcache_eyes: 0b0,
         }
     }
 
@@ -66,33 +66,31 @@ impl Line {
         }
 
         if blacks != self.blacks {
-            self.bkind = RowKind::Nothing;
+            self.bcache_kind = RowKind::Nothing;
         }
         if whites != self.whites {
-            self.wkind = RowKind::Nothing;
+            self.wcache_kind = RowKind::Nothing;
         }
 
         self.blacks = blacks;
         self.whites = whites;
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind, cache: bool) -> Vec<u8> {
-        let eyes = if black && kind == self.bkind {
-            self.beyes
-        } else if !black && kind == self.wkind {
-            self.weyes
+    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<u8> {
+        let eyes = if black && kind == self.bcache_kind {
+            self.bcache_eyes
+        } else if !black && kind == self.wcache_kind {
+            self.wcache_eyes
         } else {
             self.scan_rows(black, kind)
         };
 
-        if cache {
-            if black {
-                self.bkind = kind;
-                self.beyes = eyes;
-            } else {
-                self.wkind = kind;
-                self.weyes = eyes;
-            }
+        if black {
+            self.bcache_kind = kind;
+            self.bcache_eyes = eyes;
+        } else {
+            self.wcache_kind = kind;
+            self.wcache_eyes = eyes;
         }
 
         let mut result = vec![];
