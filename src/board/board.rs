@@ -1,6 +1,7 @@
 use super::bits::*;
 use super::line::*;
 use super::row::*;
+use std::collections::HashSet;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
@@ -150,29 +151,29 @@ impl Board {
         result
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> PointsMemory {
-        let mut result = PointsMemory::default();
+    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> HashSet<Point> {
+        let mut result = HashSet::new();
         let checker = kind.checker(black);
         for (d, i, l) in self.iter_mut_lines(checker) {
             let lrows = l.rows(black, kind);
             let brows = lrows.map(|lr| BoardRow::from(lr, d, i));
             for brow in brows {
-                brow.eye1.map(|e| result.set(e));
-                brow.eye2.map(|e| result.set(e));
+                brow.eye1.map(|e| result.insert(e));
+                brow.eye2.map(|e| result.insert(e));
             }
         }
         result
     }
 
-    pub fn row_eyes_along(&mut self, p: &Point, black: bool, kind: RowKind) -> PointsMemory {
-        let mut result = PointsMemory::default();
+    pub fn row_eyes_along(&mut self, p: &Point, black: bool, kind: RowKind) -> HashSet<Point> {
+        let mut result = HashSet::new();
         let checker = kind.checker(black);
         for (d, i, l) in self.iter_mut_lines_along(p, checker) {
             let lrows = l.rows(black, kind);
             let brows = lrows.map(|lr| BoardRow::from(lr, d, i));
             for brow in brows {
-                brow.eye1.map(|e| result.set(e));
-                brow.eye2.map(|e| result.set(e));
+                brow.eye1.map(|e| result.insert(e));
+                brow.eye2.map(|e| result.insert(e));
             }
         }
         result
@@ -191,7 +192,7 @@ impl Board {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub struct Point {
     pub x: u8,
     pub y: u8,
@@ -273,38 +274,6 @@ impl BoardRow {
             Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
             Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
         }
-    }
-}
-
-#[derive(Default)]
-pub struct PointsMemory {
-    pub count: u8,
-    memory: [Bits; N as usize],
-}
-
-impl PointsMemory {
-    pub fn set(&mut self, p: Point) {
-        if !self.has(p) {
-            self.count += 1;
-            self.memory[(p.x - 1) as usize] |= 0b1 << (p.y - 1);
-        }
-    }
-
-    pub fn has(&self, p: Point) -> bool {
-        self.memory[(p.x - 1) as usize] & 0b1 << (p.y - 1) != 0b0
-    }
-
-    pub fn to_vec(&self) -> Vec<Point> {
-        let mut result = vec![];
-        for x in 0..N {
-            let xs = self.memory[x as usize];
-            for y in 0..N {
-                if xs & (0b1 << y) != 0b0 {
-                    result.push(Point { x: x + 1, y: y + 1 });
-                }
-            }
-        }
-        result
     }
 }
 
