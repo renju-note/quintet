@@ -92,14 +92,15 @@ fn scan_patterns(
 ) -> Vec<Row> {
     let mut result = vec![];
     for p in patterns {
-        if limit < p.size {
+        let size = p.size();
+        if limit < size {
             continue;
         }
         let start = p.start();
         let end = p.end();
         let eye1 = p.eye1();
         let eye2 = p.eye2();
-        for i in 0..=(limit - p.size) {
+        for i in 0..=(limit - size) {
             if p.matches(stones >> i, blanks >> i) {
                 result.push(Row {
                     start: start + i - offset,
