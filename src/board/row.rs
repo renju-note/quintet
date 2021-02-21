@@ -12,15 +12,27 @@ pub enum RowKind {
 }
 
 impl RowKind {
-    pub fn min_scount_ncount(&self) -> (u8, u8) {
-        match self {
-            RowKind::Two => (2, 4),
-            RowKind::Sword => (3, 2),
-            RowKind::Three => (3, 3),
-            RowKind::Four => (4, 1),
-            RowKind::Five => (5, 0),
-            RowKind::Overline => (6, 0),
-            RowKind::Nothing => (0, 0),
+    pub fn checker(&self, black: bool) -> Checker {
+        if black {
+            match self {
+                RowKind::Two => Checker { b: 2, w: 0, n: 4 },
+                RowKind::Sword => Checker { b: 3, w: 0, n: 2 },
+                RowKind::Three => Checker { b: 3, w: 0, n: 3 },
+                RowKind::Four => Checker { b: 4, w: 0, n: 1 },
+                RowKind::Five => Checker { b: 5, w: 0, n: 0 },
+                RowKind::Overline => Checker { b: 6, w: 0, n: 0 },
+                RowKind::Nothing => Checker { b: 0, w: 0, n: 0 },
+            }
+        } else {
+            match self {
+                RowKind::Two => Checker { b: 0, w: 2, n: 4 },
+                RowKind::Sword => Checker { b: 0, w: 3, n: 2 },
+                RowKind::Three => Checker { b: 0, w: 3, n: 3 },
+                RowKind::Four => Checker { b: 0, w: 4, n: 1 },
+                RowKind::Five => Checker { b: 0, w: 5, n: 0 },
+                RowKind::Overline => Checker { b: 0, w: 6, n: 0 },
+                RowKind::Nothing => Checker { b: 0, w: 0, n: 0 },
+            }
         }
     }
 }
@@ -30,6 +42,13 @@ pub struct Row {
     pub end: u8,
     pub eye1: Option<u8>,
     pub eye2: Option<u8>,
+}
+
+#[derive(Clone, Copy)]
+pub struct Checker {
+    pub b: u8,
+    pub w: u8,
+    pub n: u8,
 }
 
 pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Vec<Row> {

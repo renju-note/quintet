@@ -1,22 +1,26 @@
-use super::super::analyzer::*;
-use super::super::board;
-use super::super::board::{Board, Point};
+use super::super::board::{forbidden, Board, Point, RowKind};
 
 pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
+    let mut board = board.clone();
+
     // Already exists five
-    if rows(board, black, RowKind::Five).len() >= 1 {
+    if board.rows(black, RowKind::Five).len() >= 1 {
         return None;
     }
-    if rows(board, !black, RowKind::Five).len() >= 1 {
+    if board.rows(!black, RowKind::Five).len() >= 1 {
         return None;
     }
 
     // Already exists four
-    if rows(board, black, RowKind::Four).len() >= 1 {
+    if board.rows(black, RowKind::Four).len() >= 1 {
         return Some(vec![]);
     }
 
-    let mut board = board.clone();
+    // Already exists overline
+    if board.rows(true, RowKind::Overline).len() >= 1 {
+        return None;
+    }
+
     solve_all(depth, &mut board, black, None)
 }
 
@@ -32,18 +36,18 @@ fn solve_all(
 
     // Exists opponent's four
     let opponent_four_eyes = match prev_move {
-        Some(p) => board.row_eyes_on(p, !black, board::RowKind::Four).to_vec(),
-        None => row_eyes(board, !black, RowKind::Four),
+        Some(p) => board.row_eyes_on(p, !black, RowKind::Four),
+        None => board.row_eyes(!black, RowKind::Four),
     };
-    if opponent_four_eyes.len() >= 2 {
+    if opponent_four_eyes.count >= 2 {
         return None;
-    } else if opponent_four_eyes.len() == 1 {
-        let next_move = &opponent_four_eyes[0];
+    } else if opponent_four_eyes.count == 1 {
+        let next_move = &opponent_four_eyes.to_vec()[0];
         return solve_one(depth, board, black, next_move);
     }
 
     // Continue four move
-    let next_move_cands = board.row_eyes(black, board::RowKind::Sword).to_vec();
+    let next_move_cands = board.row_eyes(black, RowKind::Sword).to_vec();
     for next_move in &next_move_cands {
         let mut board = board.clone();
         match solve_one(depth, &mut board, black, next_move) {
@@ -61,13 +65,11 @@ fn solve_one(depth: u8, board: &mut Board, black: bool, next_move: &Point) -> Op
     }
 
     board.put(black, next_move);
-    let next_four_eyes = board
-        .row_eyes_on(next_move, black, board::RowKind::Four)
-        .to_vec();
-    if next_four_eyes.len() >= 2 {
+    let next_four_eyes = board.row_eyes_on(next_move, black, RowKind::Four);
+    if next_four_eyes.count >= 2 {
         Some(vec![*next_move])
-    } else if next_four_eyes.len() == 1 {
-        let next2_move = &next_four_eyes[0];
+    } else if next_four_eyes.count == 1 {
+        let next2_move = &next_four_eyes.to_vec()[0];
         if !black && forbidden(&board, next2_move).is_some() {
             return Some(vec![*next_move]);
         }

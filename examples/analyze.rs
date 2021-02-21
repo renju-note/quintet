@@ -1,5 +1,5 @@
+use quintet::board::{forbiddens, Board, RowKind};
 use quintet::encoding;
-use quintet::{analyzer, board};
 use std::io;
 
 fn main() {
@@ -19,7 +19,7 @@ fn main() {
             Ok(points) => points,
             Err(_) => continue,
         };
-        let mut board = board::Board::new();
+        let mut board = Board::new();
         for p in &blacks {
             board.put(true, p);
         }
@@ -29,47 +29,47 @@ fn main() {
         println!("\nBoard: \n{}", board.to_string());
 
         println!("Forbiddens:");
-        for (p, kind) in analyzer::forbiddens(&board) {
+        for (p, kind) in forbiddens(&board) {
             println!("\t{:?} {:?}", p, kind)
         }
 
         println!("Black twos:");
-        for row in analyzer::rows(&board, true, analyzer::RowKind::Two) {
+        for row in board.rows(true, RowKind::Two) {
             println!("\t{:?}", row)
         }
 
         println!("Black swords:");
-        for row in analyzer::rows(&board, true, analyzer::RowKind::Sword) {
+        for row in board.rows(true, RowKind::Sword) {
             println!("\t{:?}", row)
         }
 
         println!("Black threes:");
-        for row in analyzer::rows(&board, true, analyzer::RowKind::Three) {
+        for row in board.rows(true, RowKind::Three) {
             println!("\t{:?}", row)
         }
 
         println!("Black fours:");
-        for row in analyzer::rows(&board, true, analyzer::RowKind::Four) {
+        for row in board.rows(true, RowKind::Four) {
             println!("\t{:?}", row)
         }
 
         println!("White twos:");
-        for row in analyzer::rows(&board, false, analyzer::RowKind::Two) {
+        for row in board.rows(false, RowKind::Two) {
             println!("\t{:?}", row)
         }
 
         println!("White swords:");
-        for row in analyzer::rows(&board, false, analyzer::RowKind::Sword) {
+        for row in board.rows(false, RowKind::Sword) {
             println!("\t{:?}", row)
         }
 
         println!("White threes:");
-        for row in analyzer::rows(&board, false, analyzer::RowKind::Three) {
+        for row in board.rows(false, RowKind::Three) {
             println!("\t{:?}", row)
         }
 
         println!("White fours:");
-        for row in analyzer::rows(&board, false, analyzer::RowKind::Four) {
+        for row in board.rows(false, RowKind::Four) {
             println!("\t{:?}", row)
         }
     }

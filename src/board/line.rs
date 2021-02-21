@@ -118,8 +118,8 @@ impl Line {
             .collect::<Vec<_>>()
     }
 
-    pub fn check(&self, min_bcount: u8, min_wcount: u8, min_ncount: u8) -> bool {
-        self.bcount >= min_bcount && self.wcount >= min_wcount && self.ncount >= min_ncount
+    pub fn check(&self, checker: Checker) -> bool {
+        self.bcount >= checker.b && self.wcount >= checker.w && self.ncount >= checker.n
     }
 
     pub fn blanks(&self) -> Bits {

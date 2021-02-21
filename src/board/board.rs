@@ -58,33 +58,31 @@ impl Board {
 
     pub fn iter_mut_lines(
         &mut self,
-        min_bcount: u8,
-        min_wcount: u8,
-        min_ncount: u8,
+        checker: Checker,
     ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let viter = self
             .vlines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .filter(move |(_, l)| l.check(checker))
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
         let hiter = self
             .hlines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .filter(move |(_, l)| l.check(checker))
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
         let aiter = self
             .alines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .filter(move |(_, l)| l.check(checker))
             .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
+            .filter(move |(_, l)| l.check(checker))
             .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
     }
@@ -92,28 +90,26 @@ impl Board {
     pub fn iter_mut_lines_on(
         &mut self,
         p: &Point,
-        min_bcount: u8,
-        min_wcount: u8,
-        min_ncount: u8,
+        checker: Checker,
     ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let mut result = vec![];
 
         let vidx = p.to_index(Direction::Vertical);
         let vline = &mut self.vlines[vidx.i as usize];
-        if vline.check(min_bcount, min_wcount, min_ncount) {
+        if vline.check(checker) {
             result.push((Direction::Vertical, vidx.i, vline))
         }
 
         let hidx = p.to_index(Direction::Horizontal);
         let hline = &mut self.hlines[hidx.i as usize];
-        if hline.check(min_bcount, min_wcount, min_ncount) {
+        if hline.check(checker) {
             result.push((Direction::Horizontal, hidx.i, hline))
         }
 
         let aidx = p.to_index(Direction::Ascending);
         if 4 <= aidx.i && aidx.i < M + 4 {
             let aline = &mut self.alines[(aidx.i - 4) as usize];
-            if aline.check(min_bcount, min_wcount, min_ncount) {
+            if aline.check(checker) {
                 result.push((Direction::Ascending, aidx.i, aline));
             }
         }
@@ -121,7 +117,7 @@ impl Board {
         let didx = p.to_index(Direction::Descending);
         if 4 <= didx.i && didx.i < M + 4 {
             let dline = &mut self.dlines[(didx.i - 4) as usize];
-            if dline.check(min_bcount, min_wcount, min_ncount) {
+            if dline.check(checker) {
                 result.push((Direction::Descending, didx.i, dline));
             }
         }
@@ -129,94 +125,24 @@ impl Board {
         result.into_iter()
     }
 
-    pub fn lines(
-        &self,
-        min_bcount: u8,
-        min_wcount: u8,
-        min_ncount: u8,
-    ) -> Vec<(Direction, u8, &Line)> {
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = vec![];
-        let mut vresult = self
-            .vlines
-            .iter()
-            .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
-            .map(|(i, l)| (Direction::Vertical, i as u8, l))
-            .collect();
-        result.append(&mut vresult);
-        let mut hresult = self
-            .hlines
-            .iter()
-            .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
-            .map(|(i, l)| (Direction::Horizontal, i as u8, l))
-            .collect();
-        result.append(&mut hresult);
-        let mut aresult = self
-            .alines
-            .iter()
-            .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
-            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l))
-            .collect();
-        result.append(&mut aresult);
-        let mut dresult = self
-            .dlines
-            .iter()
-            .enumerate()
-            .filter(move |(_, l)| l.check(min_bcount, min_wcount, min_ncount))
-            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l))
-            .collect();
-        result.append(&mut dresult);
-        result
-    }
-
-    pub fn lines_on(
-        &self,
-        p: &Point,
-        min_bcount: u8,
-        min_wcount: u8,
-        min_ncount: u8,
-    ) -> Vec<(Direction, u8, &Line)> {
-        let mut result = vec![];
-
-        let vidx = p.to_index(Direction::Vertical);
-        let vline = &self.vlines[vidx.i as usize];
-        if vline.check(min_bcount, min_wcount, min_ncount) {
-            result.push((Direction::Vertical, vidx.i, vline))
+        let checker = kind.checker(black);
+        for (d, i, l) in self.iter_mut_lines(checker) {
+            let lrows = l.rows(black, kind);
+            let mut brows = lrows
+                .iter()
+                .map(|lr| BoardRow::from(lr, d, i))
+                .collect::<Vec<_>>();
+            result.append(&mut brows);
         }
-
-        let hidx = p.to_index(Direction::Horizontal);
-        let hline = &self.hlines[hidx.i as usize];
-        if hline.check(min_bcount, min_wcount, min_ncount) {
-            result.push((Direction::Horizontal, hidx.i, hline))
-        }
-
-        let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < M + 4 {
-            let aline = &self.alines[(aidx.i - 4) as usize];
-            if aline.check(min_bcount, min_wcount, min_ncount) {
-                result.push((Direction::Ascending, aidx.i, aline));
-            }
-        }
-
-        let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < M + 4 {
-            let dline = &self.dlines[(didx.i - 4) as usize];
-            if dline.check(min_bcount, min_wcount, min_ncount) {
-                result.push((Direction::Descending, didx.i, dline));
-            }
-        }
-
         result
     }
 
     pub fn rows_on(&mut self, p: &Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = vec![];
-        let (min_scount, min_ncount) = kind.min_scount_ncount();
-        let min_bcount = if black { min_scount } else { 0 };
-        let min_wcount = if black { 0 } else { min_scount };
-        for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
+        let checker = kind.checker(black);
+        for (d, i, l) in self.iter_mut_lines_on(p, checker) {
             let lrows = l.rows(black, kind);
             let mut brows = lrows
                 .iter()
@@ -230,10 +156,8 @@ impl Board {
 
     pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> PointsMemory {
         let mut result = PointsMemory::default();
-        let (min_scount, min_ncount) = kind.min_scount_ncount();
-        let min_bcount = if black { min_scount } else { 0 };
-        let min_wcount = if black { 0 } else { min_scount };
-        for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
+        let checker = kind.checker(black);
+        for (d, i, l) in self.iter_mut_lines(checker) {
             let lrows = l.rows(black, kind);
             let brows = lrows.iter().map(|lr| BoardRow::from(lr, d, i));
             for brow in brows {
@@ -246,10 +170,8 @@ impl Board {
 
     pub fn row_eyes_on(&mut self, p: &Point, black: bool, kind: RowKind) -> PointsMemory {
         let mut result = PointsMemory::default();
-        let (min_scount, min_ncount) = kind.min_scount_ncount();
-        let min_bcount = if black { min_scount } else { 0 };
-        let min_wcount = if black { 0 } else { min_scount };
-        for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
+        let checker = kind.checker(black);
+        for (d, i, l) in self.iter_mut_lines_on(p, checker) {
             let lrows = l.rows(black, kind);
             let brows = lrows
                 .iter()
@@ -330,7 +252,7 @@ impl Index {
 
 #[derive(Default)]
 pub struct PointsMemory {
-    count: u8,
+    pub count: u8,
     memory: [Bits; N as usize],
 }
 
@@ -360,7 +282,7 @@ impl PointsMemory {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BoardRow {
     pub direction: Direction,
     pub start: Point,
