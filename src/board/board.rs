@@ -1,3 +1,4 @@
+use super::bits::*;
 use super::line::*;
 use super::row::*;
 
@@ -250,38 +251,6 @@ impl Index {
     }
 }
 
-#[derive(Default)]
-pub struct PointsMemory {
-    pub count: u8,
-    memory: [Bits; N as usize],
-}
-
-impl PointsMemory {
-    pub fn set(&mut self, p: Point) {
-        if !self.has(p) {
-            self.count += 1;
-            self.memory[(p.x - 1) as usize] |= 0b1 << (p.y - 1);
-        }
-    }
-
-    pub fn has(&self, p: Point) -> bool {
-        self.memory[(p.x - 1) as usize] & 0b1 << (p.y - 1) != 0b0
-    }
-
-    pub fn to_vec(&self) -> Vec<Point> {
-        let mut result = vec![];
-        for x in 0..N {
-            let xs = self.memory[x as usize];
-            for y in 0..N {
-                if xs & (0b1 << y) != 0b0 {
-                    result.push(Point { x: x + 1, y: y + 1 });
-                }
-            }
-        }
-        result
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct BoardRow {
     pub direction: Direction,
@@ -312,6 +281,38 @@ impl BoardRow {
             Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
             Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
         }
+    }
+}
+
+#[derive(Default)]
+pub struct PointsMemory {
+    pub count: u8,
+    memory: [Bits; N as usize],
+}
+
+impl PointsMemory {
+    pub fn set(&mut self, p: Point) {
+        if !self.has(p) {
+            self.count += 1;
+            self.memory[(p.x - 1) as usize] |= 0b1 << (p.y - 1);
+        }
+    }
+
+    pub fn has(&self, p: Point) -> bool {
+        self.memory[(p.x - 1) as usize] & 0b1 << (p.y - 1) != 0b0
+    }
+
+    pub fn to_vec(&self) -> Vec<Point> {
+        let mut result = vec![];
+        for x in 0..N {
+            let xs = self.memory[x as usize];
+            for y in 0..N {
+                if xs & (0b1 << y) != 0b0 {
+                    result.push(Point { x: x + 1, y: y + 1 });
+                }
+            }
+        }
+        result
     }
 }
 

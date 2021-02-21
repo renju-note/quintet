@@ -1,3 +1,4 @@
+use super::bits::*;
 use super::row::*;
 
 const MAX_SIZE: u8 = 15;
@@ -35,6 +36,10 @@ impl Line {
             bcache_rows: vec![],
             wcache_rows: vec![],
         }
+    }
+
+    pub fn check(&self, checker: Checker) -> bool {
+        self.bcount >= checker.b && self.wcount >= checker.w && self.ncount >= checker.n
     }
 
     pub fn put(&mut self, black: bool, i: u8) {
@@ -118,11 +123,7 @@ impl Line {
             .collect::<Vec<_>>()
     }
 
-    pub fn check(&self, checker: Checker) -> bool {
-        self.bcount >= checker.b && self.wcount >= checker.w && self.ncount >= checker.n
-    }
-
-    pub fn blanks(&self) -> Bits {
+    fn blanks(&self) -> Bits {
         !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
     }
 
