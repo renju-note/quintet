@@ -36,7 +36,7 @@ fn solve_all(
 
     // Exists opponent's four
     let opponent_four_eyes = match prev_move {
-        Some(p) => board.row_eyes_on(p, !black, RowKind::Four),
+        Some(p) => board.row_eyes_along(p, !black, RowKind::Four),
         None => board.row_eyes(!black, RowKind::Four),
     };
     if opponent_four_eyes.count >= 2 {
@@ -65,7 +65,7 @@ fn solve_one(depth: u8, board: &mut Board, black: bool, next_move: &Point) -> Op
     }
 
     board.put(black, next_move);
-    let next_four_eyes = board.row_eyes_on(next_move, black, RowKind::Four);
+    let next_four_eyes = board.row_eyes_along(next_move, black, RowKind::Four);
     if next_four_eyes.count >= 2 {
         Some(vec![*next_move])
     } else if next_four_eyes.count == 1 {

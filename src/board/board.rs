@@ -88,13 +88,12 @@ impl Board {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    pub fn iter_mut_lines_on(
+    pub fn iter_mut_lines_along(
         &mut self,
         p: &Point,
         checker: Checker,
     ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let mut result = vec![];
-
         let vidx = p.to_index(Direction::Vertical);
         let vline = &mut self.vlines[vidx.i as usize];
         if vline.check(checker) {
@@ -140,7 +139,7 @@ impl Board {
     pub fn rows_on(&mut self, p: &Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = vec![];
         let checker = kind.checker(black);
-        for (d, i, l) in self.iter_mut_lines_on(p, checker) {
+        for (d, i, l) in self.iter_mut_lines_along(p, checker) {
             let lrows = l.rows(black, kind);
             let mut brows = lrows
                 .map(|lr| BoardRow::from(lr, d, i))
@@ -165,14 +164,12 @@ impl Board {
         result
     }
 
-    pub fn row_eyes_on(&mut self, p: &Point, black: bool, kind: RowKind) -> PointsMemory {
+    pub fn row_eyes_along(&mut self, p: &Point, black: bool, kind: RowKind) -> PointsMemory {
         let mut result = PointsMemory::default();
         let checker = kind.checker(black);
-        for (d, i, l) in self.iter_mut_lines_on(p, checker) {
+        for (d, i, l) in self.iter_mut_lines_along(p, checker) {
             let lrows = l.rows(black, kind);
-            let brows = lrows
-                .map(|lr| BoardRow::from(lr, d, i))
-                .filter(|br| br.overlap(p));
+            let brows = lrows.map(|lr| BoardRow::from(lr, d, i));
             for brow in brows {
                 brow.eye1.map(|e| result.set(e));
                 brow.eye2.map(|e| result.set(e));
