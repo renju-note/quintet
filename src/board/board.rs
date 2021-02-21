@@ -256,7 +256,7 @@ pub struct BoardRow {
 }
 
 impl BoardRow {
-    pub fn from(r: &LineRow, d: Direction, i: u8) -> BoardRow {
+    pub fn from(r: &Row, d: Direction, i: u8) -> BoardRow {
         BoardRow {
             direction: d,
             start: Index { i: i, j: r.start }.to_point(d),

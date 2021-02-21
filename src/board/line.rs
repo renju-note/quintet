@@ -15,8 +15,8 @@ pub struct Line {
 
     bcache_kind: RowKind,
     wcache_kind: RowKind,
-    bcache_rows: Vec<LineRow>,
-    wcache_rows: Vec<LineRow>,
+    bcache_rows: Vec<Row>,
+    wcache_rows: Vec<Row>,
 }
 
 impl Line {
@@ -81,46 +81,39 @@ impl Line {
         self.whites = whites;
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> impl Iterator<Item = &LineRow> {
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> impl Iterator<Item = &Row> {
         if black && kind == self.bcache_kind {
             return self.bcache_rows.iter();
         } else if !black && kind == self.wcache_kind {
             return self.wcache_rows.iter();
         }
 
-        let result = self.scan(black, kind);
+        let mut result = self.scan(black, kind);
 
         if black {
             self.bcache_kind = kind;
-            self.bcache_rows = result;
+            self.bcache_rows.clear();
+            self.bcache_rows.append(&mut result);
             self.bcache_rows.iter()
         } else {
             self.wcache_kind = kind;
-            self.wcache_rows = result;
+            self.wcache_rows.clear();
+            self.wcache_rows.append(&mut result);
             self.wcache_rows.iter()
         }
     }
 
-    fn scan(&self, black: bool, kind: RowKind) -> Vec<LineRow> {
+    fn scan(&self, black: bool, kind: RowKind) -> Vec<Row> {
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
 
-        let rows = if black {
-            scan(true, kind, blacks_, blanks_, limit)
+        if black {
+            scan(true, kind, blacks_, blanks_, limit, 1)
         } else {
-            scan(false, kind, whites_, blanks_, limit)
-        };
-
-        rows.iter()
-            .map(|r| LineRow {
-                start: r.start - 1,
-                end: r.end - 1,
-                eye1: r.eye1.map(|e| e - 1),
-                eye2: r.eye2.map(|e| e - 1),
-            })
-            .collect::<Vec<_>>()
+            scan(false, kind, whites_, blanks_, limit, 1)
+        }
     }
 
     fn blanks(&self) -> Bits {
@@ -141,12 +134,4 @@ impl Line {
             })
             .collect()
     }
-}
-
-#[derive(Clone)]
-pub struct LineRow {
-    pub start: u8,
-    pub end: u8,
-    pub eye1: Option<u8>,
-    pub eye2: Option<u8>,
 }
