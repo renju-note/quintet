@@ -1,5 +1,6 @@
 use super::super::analyzer::*;
-use super::super::board::*;
+use super::super::board;
+use super::super::board::{Board, Point};
 
 pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
     // Already exists five
@@ -31,7 +32,7 @@ fn solve_all(
 
     // Exists opponent's four
     let opponent_four_eyes = match prev_move {
-        Some(p) => board.four_eyes_on(!black, p),
+        Some(p) => board.row_eyes_on(!black, board::RowKind::Four, p),
         None => row_eyes(board, !black, RowKind::Four),
     };
     if opponent_four_eyes.len() >= 2 {
@@ -42,7 +43,7 @@ fn solve_all(
     }
 
     // Continue four move
-    let next_move_cands = board.sword_eyes(black);
+    let next_move_cands = board.row_eyes(black, board::RowKind::Sword);
     for next_move in &next_move_cands {
         let mut board = board.clone();
         match solve_one(depth, &mut board, black, next_move) {
@@ -60,7 +61,7 @@ fn solve_one(depth: u8, board: &mut Board, black: bool, next_move: &Point) -> Op
     }
 
     board.put(black, next_move);
-    let next_four_eyes = board.four_eyes_on(black, next_move);
+    let next_four_eyes = board.row_eyes_on(black, board::RowKind::Four, next_move);
     if next_four_eyes.len() >= 2 {
         Some(vec![*next_move])
     } else if next_four_eyes.len() == 1 {

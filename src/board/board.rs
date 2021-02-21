@@ -201,13 +201,13 @@ impl Board {
         result
     }
 
-    pub fn four_eyes_on(&mut self, black: bool, p: &Point) -> Vec<Point> {
+    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<Point> {
         let mut result = vec![];
-        let min_bcount = if black { 4 } else { 0 };
-        let min_wcount = if black { 0 } else { 4 };
-        let min_ncount = 1;
-        for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
-            let is = l.eyes(black, RowKind::Four, true);
+        let (min_scount, min_ncount) = kind.min_scount_ncount();
+        let min_bcount = if black { min_scount } else { 0 };
+        let min_wcount = if black { 0 } else { min_scount };
+        for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
+            let is = l.row_eyes(black, kind, true);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }
@@ -218,13 +218,13 @@ impl Board {
             .collect()
     }
 
-    pub fn sword_eyes(&mut self, black: bool) -> Vec<Point> {
+    pub fn row_eyes_on(&mut self, black: bool, kind: RowKind, p: &Point) -> Vec<Point> {
         let mut result = vec![];
-        let min_bcount = if black { 3 } else { 0 };
-        let min_wcount = if black { 0 } else { 3 };
-        let min_ncount = 2;
-        for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
-            let is = l.eyes(black, RowKind::Sword, true);
+        let (min_scount, min_ncount) = kind.min_scount_ncount();
+        let min_bcount = if black { min_scount } else { 0 };
+        let min_wcount = if black { 0 } else { min_scount };
+        for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
+            let is = l.row_eyes(black, kind, true);
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
             result.append(&mut ps.collect::<Vec<_>>());
         }

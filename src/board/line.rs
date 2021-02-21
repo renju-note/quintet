@@ -12,10 +12,10 @@ pub struct Line {
     wcount: u8,
     ncount: u8,
 
-    bcache_kind: RowKind,
-    wcache_kind: RowKind,
-    bcache: Bits,
-    wcache: Bits,
+    bkind: RowKind,
+    wkind: RowKind,
+    beyes: Bits,
+    weyes: Bits,
 }
 
 impl Line {
@@ -30,10 +30,10 @@ impl Line {
             wcount: 0,
             ncount: size,
 
-            bcache_kind: RowKind::Nothing,
-            wcache_kind: RowKind::Nothing,
-            bcache: 0b0,
-            wcache: 0b0,
+            bkind: RowKind::Nothing,
+            wkind: RowKind::Nothing,
+            beyes: 0b0,
+            weyes: 0b0,
         }
     }
 
@@ -44,52 +44,54 @@ impl Line {
         if black {
             blacks = self.blacks | stones;
             whites = self.whites & !stones;
-            if self.blacks != blacks {
-                self.blacks = blacks;
-                self.bcount += 1;
-                self.ncount -= 1;
-                self.bcache_kind = RowKind::Nothing;
-            }
-            if self.whites != whites {
-                self.whites = whites;
-                self.wcount -= 1;
-                self.ncount += 1;
-                self.wcache_kind = RowKind::Nothing;
-            }
         } else {
             blacks = self.blacks & !stones;
             whites = self.whites | stones;
-            if self.blacks != blacks {
-                self.blacks = blacks;
-                self.bcount -= 1;
-                self.ncount += 1;
-                self.bcache_kind = RowKind::Nothing;
-            }
-            if self.whites != whites {
-                self.whites = whites;
-                self.wcount += 1;
-                self.ncount -= 1;
-                self.wcache_kind = RowKind::Nothing;
-            }
         }
+
+        if blacks > self.blacks {
+            self.bcount += 1;
+        } else if blacks < self.blacks {
+            self.bcount -= 1;
+        }
+        if whites > self.whites {
+            self.wcount += 1;
+        } else if whites < self.whites {
+            self.wcount -= 1;
+        }
+        if blacks > self.blacks && whites == self.whites
+            || blacks == self.blacks && whites >= self.whites
+        {
+            self.ncount += 1;
+        }
+
+        if blacks != self.blacks {
+            self.bkind = RowKind::Nothing;
+        }
+        if whites != self.whites {
+            self.wkind = RowKind::Nothing;
+        }
+
+        self.blacks = blacks;
+        self.whites = whites;
     }
 
-    pub fn eyes(&mut self, black: bool, kind: RowKind, cache: bool) -> Vec<u8> {
-        let eyes = if black && kind == self.bcache_kind {
-            self.bcache
-        } else if !black && kind == self.wcache_kind {
-            self.wcache
+    pub fn row_eyes(&mut self, black: bool, kind: RowKind, cache: bool) -> Vec<u8> {
+        let eyes = if black && kind == self.bkind {
+            self.beyes
+        } else if !black && kind == self.wkind {
+            self.weyes
         } else {
-            self.scan_eyes(black, kind)
+            self.scan_rows(black, kind)
         };
 
         if cache {
             if black {
-                self.bcache_kind = kind;
-                self.bcache = eyes;
+                self.bkind = kind;
+                self.beyes = eyes;
             } else {
-                self.wcache_kind = kind;
-                self.wcache = eyes;
+                self.wkind = kind;
+                self.weyes = eyes;
             }
         }
 
@@ -102,16 +104,16 @@ impl Line {
         result
     }
 
-    fn scan_eyes(&self, black: bool, kind: RowKind) -> Bits {
+    fn scan_rows(&self, black: bool, kind: RowKind) -> Bits {
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
 
         if black {
-            scan_eyes(true, kind, blacks_, blanks_, limit) >> 1
+            scan(true, kind, blacks_, blanks_, limit) >> 1
         } else {
-            scan_eyes(false, kind, whites_, blanks_, limit) >> 1
+            scan(false, kind, whites_, blanks_, limit) >> 1
         }
     }
 

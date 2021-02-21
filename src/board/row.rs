@@ -11,30 +11,44 @@ pub enum RowKind {
     Overline,
 }
 
-pub fn scan_eyes(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Bits {
+impl RowKind {
+    pub fn min_scount_ncount(&self) -> (u8, u8) {
+        match self {
+            RowKind::Two => (2, 4),
+            RowKind::Sword => (3, 2),
+            RowKind::Three => (3, 3),
+            RowKind::Four => (4, 1),
+            RowKind::Five => (5, 0),
+            RowKind::Overline => (6, 0),
+            RowKind::Nothing => (0, 0),
+        }
+    }
+}
+
+pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -> Bits {
     if black {
         match kind {
-            RowKind::Two => scan_eyes_by_patterns(&BLACK_TWOS, stones, blanks, limit),
-            RowKind::Sword => scan_eyes_by_patterns(&BLACK_SWORDS, stones, blanks, limit),
-            RowKind::Three => scan_eyes_by_patterns(&BLACK_THREES, stones, blanks, limit),
-            RowKind::Four => scan_eyes_by_patterns(&BLACK_FOURS, stones, blanks, limit),
-            RowKind::Five => scan_eyes_by_patterns(&BLACK_FIVES, stones, blanks, limit),
-            RowKind::Overline => scan_eyes_by_patterns(&BLACK_OVERLINES, stones, blanks, limit),
+            RowKind::Two => scan_patterns(&BLACK_TWOS, stones, blanks, limit),
+            RowKind::Sword => scan_patterns(&BLACK_SWORDS, stones, blanks, limit),
+            RowKind::Three => scan_patterns(&BLACK_THREES, stones, blanks, limit),
+            RowKind::Four => scan_patterns(&BLACK_FOURS, stones, blanks, limit),
+            RowKind::Five => scan_patterns(&BLACK_FIVES, stones, blanks, limit),
+            RowKind::Overline => scan_patterns(&BLACK_OVERLINES, stones, blanks, limit),
             _ => 0b0,
         }
     } else {
         match kind {
-            RowKind::Two => scan_eyes_by_patterns(&WHITE_TWOS, stones, blanks, limit),
-            RowKind::Sword => scan_eyes_by_patterns(&WHITE_SWORDS, stones, blanks, limit),
-            RowKind::Three => scan_eyes_by_patterns(&WHITE_THREES, stones, blanks, limit),
-            RowKind::Four => scan_eyes_by_patterns(&WHITE_FOURS, stones, blanks, limit),
-            RowKind::Five => scan_eyes_by_patterns(&WHITE_FIVES, stones, blanks, limit),
+            RowKind::Two => scan_patterns(&WHITE_TWOS, stones, blanks, limit),
+            RowKind::Sword => scan_patterns(&WHITE_SWORDS, stones, blanks, limit),
+            RowKind::Three => scan_patterns(&WHITE_THREES, stones, blanks, limit),
+            RowKind::Four => scan_patterns(&WHITE_FOURS, stones, blanks, limit),
+            RowKind::Five => scan_patterns(&WHITE_FIVES, stones, blanks, limit),
             _ => 0b0,
         }
     }
 }
 
-fn scan_eyes_by_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Bits {
+fn scan_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Bits {
     let mut result = 0b0;
     for p in patterns {
         if limit < p.size {
