@@ -1,10 +1,20 @@
 use super::line::*;
 use super::row::*;
-use std::collections::HashSet;
 
 pub const BOARD_SIZE: u8 = 15;
 const N: u8 = BOARD_SIZE;
 const M: u8 = N * 2 - 1 - (4 * 2); // 21
+
+type OrthogonalLines = [Line; N as usize];
+type DiagonalLines = [Line; M as usize];
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Direction {
+    Vertical,
+    Horizontal,
+    Ascending,
+    Descending,
+}
 
 #[derive(Clone)]
 pub struct Board {
@@ -201,38 +211,34 @@ impl Board {
         result
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<Point> {
-        let mut result = vec![];
+    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> PointsMemory {
+        let mut result = PointsMemory::default();
         let (min_scount, min_ncount) = kind.min_scount_ncount();
         let min_bcount = if black { min_scount } else { 0 };
         let min_wcount = if black { 0 } else { min_scount };
         for (d, i, l) in self.iter_mut_lines(min_bcount, min_wcount, min_ncount) {
             let is = l.rows(black, kind).eyes;
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
-            result.append(&mut ps.collect::<Vec<_>>());
+            for p in ps {
+                result.set(p);
+            }
         }
         result
-            .into_iter()
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect()
     }
 
-    pub fn row_eyes_on(&mut self, p: &Point, black: bool, kind: RowKind) -> Vec<Point> {
-        let mut result = vec![];
+    pub fn row_eyes_on(&mut self, p: &Point, black: bool, kind: RowKind) -> PointsMemory {
+        let mut result = PointsMemory::default();
         let (min_scount, min_ncount) = kind.min_scount_ncount();
         let min_bcount = if black { min_scount } else { 0 };
         let min_wcount = if black { 0 } else { min_scount };
         for (d, i, l) in self.iter_mut_lines_on(p, min_bcount, min_wcount, min_ncount) {
             let is = l.rows(black, kind).eyes;
             let ps = is.iter().map(|&j| Index { i: i, j: j }.to_point(d));
-            result.append(&mut ps.collect::<Vec<_>>());
+            for p in ps {
+                result.set(p);
+            }
         }
         result
-            .into_iter()
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect()
     }
 
     pub fn to_string(&self) -> String {
@@ -300,16 +306,37 @@ impl Index {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Direction {
-    Vertical,
-    Horizontal,
-    Ascending,
-    Descending,
+#[derive(Default)]
+pub struct PointsMemory {
+    count: u8,
+    memory: [Bits; N as usize],
 }
 
-type OrthogonalLines = [Line; N as usize];
-type DiagonalLines = [Line; M as usize];
+impl PointsMemory {
+    pub fn set(&mut self, p: Point) {
+        if !self.has(p) {
+            self.count += 1;
+            self.memory[(p.x - 1) as usize] |= 0b1 << (p.y - 1);
+        }
+    }
+
+    pub fn has(&self, p: Point) -> bool {
+        self.memory[(p.x - 1) as usize] & 0b1 << (p.y - 1) != 0b0
+    }
+
+    pub fn to_vec(&self) -> Vec<Point> {
+        let mut result = vec![];
+        for x in 0..N {
+            let xs = self.memory[x as usize];
+            for y in 0..N {
+                if xs & (0b1 << y) != 0b0 {
+                    result.push(Point { x: x + 1, y: y + 1 });
+                }
+            }
+        }
+        result
+    }
+}
 
 fn orthogonal_lines() -> OrthogonalLines {
     [

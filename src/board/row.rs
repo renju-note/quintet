@@ -50,7 +50,7 @@ pub fn scan(black: bool, kind: RowKind, stones: Bits, blanks: Bits, limit: u8) -
 
 fn scan_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) -> Trail {
     let mut starts = 0b0;
-    let mut eyes = 0b0;
+    let mut eyes__ = 0b0;
     for p in patterns {
         if limit < p.size {
             continue;
@@ -58,27 +58,20 @@ fn scan_patterns(patterns: &[Pattern], stones: Bits, blanks: Bits, limit: u8) ->
         for i in 0..=(limit - p.size) {
             if p.matches(stones >> i, blanks >> i) {
                 starts |= 0b1 << i;
-                eyes |= p.eyes__ << i;
+                eyes__ |= p.eyes__ << i;
             }
         }
     }
     Trail {
         starts: starts,
-        eyes: eyes,
+        eyes__: eyes__,
     }
 }
 
 #[derive(Clone, Default)]
 pub struct Trail {
     pub starts: Bits,
-    pub eyes: Bits,
-}
-
-impl Trail {
-    pub fn rshift(&mut self) {
-        self.starts = self.starts >> 1;
-        self.eyes = self.eyes >> 1;
-    }
+    pub eyes__: Bits,
 }
 
 struct Pattern {
