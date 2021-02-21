@@ -41,12 +41,12 @@ fn double_four(next: &mut Board, p: &Point) -> bool {
     if new_fours.len() < 2 {
         return false;
     }
-    distinctive(new_fours)
+    distinctive(&new_fours)
 }
 
 fn double_three(next: &mut Board, p: &Point) -> bool {
     let new_threes = next.rows_on(p, true, RowKind::Three);
-    if new_threes.len() < 2 {
+    if new_threes.len() < 2 || !distinctive(&new_threes) {
         return false;
     }
     let truthy_threes = new_threes
@@ -56,10 +56,10 @@ fn double_three(next: &mut Board, p: &Point) -> bool {
     if truthy_threes.len() < 2 {
         return false;
     }
-    distinctive(truthy_threes)
+    distinctive(&truthy_threes)
 }
 
-fn distinctive(rows: Vec<BoardRow>) -> bool {
+fn distinctive(rows: &Vec<BoardRow>) -> bool {
     let first = &rows[0];
     for row in rows.iter().skip(1) {
         if !adjacent(first, row) {
