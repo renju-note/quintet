@@ -81,11 +81,11 @@ impl Line {
         self.whites = whites;
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<LineRow> {
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> impl Iterator<Item = &LineRow> {
         if black && kind == self.bcache_kind {
-            return self.bcache_rows.clone();
+            return self.bcache_rows.iter();
         } else if !black && kind == self.wcache_kind {
-            return self.wcache_rows.clone();
+            return self.wcache_rows.iter();
         }
 
         let result = self.scan(black, kind);
@@ -93,11 +93,11 @@ impl Line {
         if black {
             self.bcache_kind = kind;
             self.bcache_rows = result;
-            self.bcache_rows.clone()
+            self.bcache_rows.iter()
         } else {
             self.wcache_kind = kind;
             self.wcache_rows = result;
-            self.wcache_rows.clone()
+            self.wcache_rows.iter()
         }
     }
 

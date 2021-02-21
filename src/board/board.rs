@@ -131,10 +131,7 @@ impl Board {
         let checker = kind.checker(black);
         for (d, i, l) in self.iter_mut_lines(checker) {
             let lrows = l.rows(black, kind);
-            let mut brows = lrows
-                .iter()
-                .map(|lr| BoardRow::from(lr, d, i))
-                .collect::<Vec<_>>();
+            let mut brows = lrows.map(|lr| BoardRow::from(lr, d, i)).collect::<Vec<_>>();
             result.append(&mut brows);
         }
         result
@@ -146,7 +143,6 @@ impl Board {
         for (d, i, l) in self.iter_mut_lines_on(p, checker) {
             let lrows = l.rows(black, kind);
             let mut brows = lrows
-                .iter()
                 .map(|lr| BoardRow::from(lr, d, i))
                 .filter(|br| br.overlap(p))
                 .collect::<Vec<_>>();
@@ -160,7 +156,7 @@ impl Board {
         let checker = kind.checker(black);
         for (d, i, l) in self.iter_mut_lines(checker) {
             let lrows = l.rows(black, kind);
-            let brows = lrows.iter().map(|lr| BoardRow::from(lr, d, i));
+            let brows = lrows.map(|lr| BoardRow::from(lr, d, i));
             for brow in brows {
                 brow.eye1.map(|e| result.set(e));
                 brow.eye2.map(|e| result.set(e));
@@ -175,7 +171,6 @@ impl Board {
         for (d, i, l) in self.iter_mut_lines_on(p, checker) {
             let lrows = l.rows(black, kind);
             let brows = lrows
-                .iter()
                 .map(|lr| BoardRow::from(lr, d, i))
                 .filter(|br| br.overlap(p));
             for brow in brows {
