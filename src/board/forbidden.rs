@@ -11,13 +11,13 @@ pub enum ForbiddenKind {
 pub fn forbiddens(board: &Board) -> Vec<(ForbiddenKind, Point)> {
     (1..=BOARD_SIZE)
         .flat_map(|x| (1..=BOARD_SIZE).map(move |y| Point { x: x, y: y }))
-        .map(|p| (forbidden(board, &p), p))
+        .map(|p| (forbidden(board, p), p))
         .filter(|(k, _)| k.is_some())
         .map(|(k, p)| (k.unwrap(), p))
         .collect()
 }
 
-pub fn forbidden(board: &Board, p: &Point) -> Option<ForbiddenKind> {
+pub fn forbidden(board: &Board, p: Point) -> Option<ForbiddenKind> {
     let mut next = board.clone();
     next.put(true, p);
     if overline(&mut next, p) {
@@ -31,12 +31,12 @@ pub fn forbidden(board: &Board, p: &Point) -> Option<ForbiddenKind> {
     }
 }
 
-fn overline(next: &mut Board, p: &Point) -> bool {
+fn overline(next: &mut Board, p: Point) -> bool {
     let new_overlines = next.rows_on(p, true, RowKind::Overline);
     new_overlines.len() >= 1
 }
 
-fn double_four(next: &mut Board, p: &Point) -> bool {
+fn double_four(next: &mut Board, p: Point) -> bool {
     let new_fours = next.rows_on(p, true, RowKind::Four);
     if new_fours.len() < 2 {
         return false;
@@ -44,14 +44,14 @@ fn double_four(next: &mut Board, p: &Point) -> bool {
     distinctive(&new_fours)
 }
 
-fn double_three(next: &mut Board, p: &Point) -> bool {
+fn double_three(next: &mut Board, p: Point) -> bool {
     let new_threes = next.rows_on(p, true, RowKind::Three);
     if new_threes.len() < 2 || !distinctive(&new_threes) {
         return false;
     }
     let truthy_threes = new_threes
         .into_iter()
-        .filter(|r| forbidden(&next, &r.eye1.unwrap()).is_none())
+        .filter(|r| forbidden(&next, r.eye1.unwrap()).is_none())
         .collect::<Vec<_>>();
     if truthy_threes.len() < 2 {
         return false;

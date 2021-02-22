@@ -35,7 +35,7 @@ impl Board {
         }
     }
 
-    pub fn put(&mut self, black: bool, p: &Point) {
+    pub fn put(&mut self, black: bool, p: Point) {
         // Use const generics in the future.
         // fn put_lines<const size: usize>(lines: &[Line; size]) -> [Line; size]
         let vidx = p.to_index(Direction::Vertical);
@@ -90,7 +90,7 @@ impl Board {
 
     pub fn iter_mut_lines_along(
         &mut self,
-        p: &Point,
+        p: Point,
         checker: Checker,
     ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let mut result = vec![];
@@ -136,7 +136,7 @@ impl Board {
         result
     }
 
-    pub fn rows_on(&mut self, p: &Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
+    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = vec![];
         let checker = kind.checker(black);
         for (d, i, l) in self.iter_mut_lines_along(p, checker) {
@@ -164,7 +164,7 @@ impl Board {
         result
     }
 
-    pub fn row_eyes_along(&mut self, p: &Point, black: bool, kind: RowKind) -> HashSet<Point> {
+    pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> HashSet<Point> {
         let mut result = HashSet::new();
         let checker = kind.checker(black);
         for (d, i, l) in self.iter_mut_lines_along(p, checker) {
@@ -263,7 +263,7 @@ impl BoardRow {
         }
     }
 
-    pub fn overlap(&self, p: &Point) -> bool {
+    pub fn overlap(&self, p: Point) -> bool {
         let (px, py) = (p.x, p.y);
         let (sx, sy) = (self.start.x, self.start.y);
         let (ex, ey) = (self.end.x, self.end.y);

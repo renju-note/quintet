@@ -20,10 +20,10 @@ fn main() {
             Err(_) => continue,
         };
         let mut board = Board::new();
-        for p in &blacks {
+        for p in blacks {
             board.put(true, p);
         }
-        for p in &whites {
+        for p in whites {
             board.put(false, p);
         }
         println!("\nBoard: \n{}", board.to_string());
