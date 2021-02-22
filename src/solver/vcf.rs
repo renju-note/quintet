@@ -1,8 +1,6 @@
 use super::super::board::{forbidden, Board, Point, RowKind};
 
 pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
-    let mut board = board.clone();
-
     // Already exists five
     if board.rows(black, RowKind::Five).len() >= 1 {
         return None;
@@ -21,12 +19,12 @@ pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
         return None;
     }
 
-    solve_all(depth, &mut board, black, None)
+    solve_all(depth, board, black, None)
 }
 
 fn solve_all(
     depth: u8,
-    board: &mut Board,
+    board: &Board,
     black: bool,
     prev_move: Option<Point>,
 ) -> Option<Vec<Point>> {
@@ -43,7 +41,8 @@ fn solve_all(
         return None;
     } else if opponent_four_eyes.len() == 1 {
         let next_move = opponent_four_eyes.into_iter().next().unwrap();
-        return solve_one(depth, board, black, next_move);
+        let mut board = board.clone();
+        return solve_one(depth, &mut board, black, next_move);
     }
 
     // Continue four move
