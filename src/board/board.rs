@@ -1,13 +1,14 @@
-use super::bits::*;
 use super::line::*;
 use super::row::*;
+use std::collections::HashSet;
 
 pub const BOARD_SIZE: u8 = 15;
-const N: u8 = BOARD_SIZE;
-const M: u8 = N * 2 - 1 - (4 * 2); // 21
+const O_LINE_NUM: u8 = BOARD_SIZE;
+const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
+const N: u8 = BOARD_SIZE - 1;
 
-type OrthogonalLines = [Line; N as usize];
-type DiagonalLines = [Line; M as usize];
+type OrthogonalLines = [Line; O_LINE_NUM as usize];
+type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -35,7 +36,7 @@ impl Board {
         }
     }
 
-    pub fn put(&mut self, black: bool, p: &Point) {
+    pub fn put(&mut self, black: bool, p: Point) {
         // Use const generics in the future.
         // fn put_lines<const size: usize>(lines: &[Line; size]) -> [Line; size]
         let vidx = p.to_index(Direction::Vertical);
@@ -45,13 +46,13 @@ impl Board {
         self.hlines[hidx.i as usize].put(black, hidx.j);
 
         let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < M + 4 {
+        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
             let i = (aidx.i - 4) as usize;
             self.alines[i].put(black, aidx.j);
         }
 
         let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < M + 4 {
+        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
             let i = (didx.i - 4) as usize;
             self.dlines[i].put(black, didx.j);
         }
@@ -88,13 +89,12 @@ impl Board {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    pub fn iter_mut_lines_on(
+    pub fn iter_mut_lines_along(
         &mut self,
-        p: &Point,
+        p: Point,
         checker: Checker,
     ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let mut result = vec![];
-
         let vidx = p.to_index(Direction::Vertical);
         let vline = &mut self.vlines[vidx.i as usize];
         if vline.check(checker) {
@@ -108,7 +108,7 @@ impl Board {
         }
 
         let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < M + 4 {
+        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
             let aline = &mut self.alines[(aidx.i - 4) as usize];
             if aline.check(checker) {
                 result.push((Direction::Ascending, aidx.i, aline));
@@ -116,7 +116,7 @@ impl Board {
         }
 
         let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < M + 4 {
+        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
             let dline = &mut self.dlines[(didx.i - 4) as usize];
             if dline.check(checker) {
                 result.push((Direction::Descending, didx.i, dline));
@@ -137,10 +137,10 @@ impl Board {
         result
     }
 
-    pub fn rows_on(&mut self, p: &Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
+    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = vec![];
         let checker = kind.checker(black);
-        for (d, i, l) in self.iter_mut_lines_on(p, checker) {
+        for (d, i, l) in self.iter_mut_lines_along(p, checker) {
             let lrows = l.rows(black, kind);
             let mut brows = lrows
                 .map(|lr| BoardRow::from(lr, d, i))
@@ -151,31 +151,29 @@ impl Board {
         result
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> PointsMemory {
-        let mut result = PointsMemory::default();
+    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> HashSet<Point> {
+        let mut result = HashSet::new();
         let checker = kind.checker(black);
         for (d, i, l) in self.iter_mut_lines(checker) {
             let lrows = l.rows(black, kind);
             let brows = lrows.map(|lr| BoardRow::from(lr, d, i));
             for brow in brows {
-                brow.eye1.map(|e| result.set(e));
-                brow.eye2.map(|e| result.set(e));
+                brow.eye1.map(|e| result.insert(e));
+                brow.eye2.map(|e| result.insert(e));
             }
         }
         result
     }
 
-    pub fn row_eyes_on(&mut self, p: &Point, black: bool, kind: RowKind) -> PointsMemory {
-        let mut result = PointsMemory::default();
+    pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> HashSet<Point> {
+        let mut result = HashSet::new();
         let checker = kind.checker(black);
-        for (d, i, l) in self.iter_mut_lines_on(p, checker) {
+        for (d, i, l) in self.iter_mut_lines_along(p, checker) {
             let lrows = l.rows(black, kind);
-            let brows = lrows
-                .map(|lr| BoardRow::from(lr, d, i))
-                .filter(|br| br.overlap(p));
+            let brows = lrows.map(|lr| BoardRow::from(lr, d, i));
             for brow in brows {
-                brow.eye1.map(|e| result.set(e));
-                brow.eye2.map(|e| result.set(e));
+                brow.eye1.map(|e| result.insert(e));
+                brow.eye2.map(|e| result.insert(e));
             }
         }
         result
@@ -194,7 +192,7 @@ impl Board {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub struct Point {
     pub x: u8,
     pub y: u8,
@@ -204,16 +202,16 @@ impl Point {
     pub fn to_index(&self, direction: Direction) -> Index {
         let (x, y) = (self.x, self.y);
         match direction {
-            Direction::Vertical => Index { i: x - 1, j: y - 1 },
-            Direction::Horizontal => Index { i: y - 1, j: x - 1 },
+            Direction::Vertical => Index { i: x, j: y },
+            Direction::Horizontal => Index { i: y, j: x },
             Direction::Ascending => {
-                let i = x - 1 + N - y;
-                let j = if i < N { x - 1 } else { y - 1 };
+                let i = x + N - y;
+                let j = if i < N { x } else { y };
                 Index { i: i, j: j }
             }
             Direction::Descending => {
-                let i = x - 1 + y - 1;
-                let j = if i < N { x - 1 } else { N - y };
+                let i = x + y;
+                let j = if i < N { x } else { N - y };
                 Index { i: i, j: j }
             }
         }
@@ -230,16 +228,16 @@ impl Index {
     pub fn to_point(&self, direction: Direction) -> Point {
         let (i, j) = (self.i, self.j);
         match direction {
-            Direction::Vertical => Point { x: i + 1, y: j + 1 },
-            Direction::Horizontal => Point { x: j + 1, y: i + 1 },
+            Direction::Vertical => Point { x: i, y: j },
+            Direction::Horizontal => Point { x: j, y: i },
             Direction::Ascending => {
-                let x = if i < N { j + 1 } else { i + 1 + j + 1 - N };
-                let y = if i < N { N - (i + 1) + j + 1 } else { j + 1 };
+                let x = if i < N { j } else { i + j - N };
+                let y = if i < N { N - i + j } else { j };
                 Point { x: x, y: y }
             }
             Direction::Descending => {
-                let x = if i < N { j + 1 } else { i + 1 + j + 1 - N };
-                let y = if i < N { i + 1 - j } else { N - j };
+                let x = if i < N { j } else { i + j - N };
+                let y = if i < N { i - j } else { N - j };
                 Point { x: x, y: y }
             }
         }
@@ -256,7 +254,7 @@ pub struct BoardRow {
 }
 
 impl BoardRow {
-    pub fn from(r: &LineRow, d: Direction, i: u8) -> BoardRow {
+    pub fn from(r: &Row, d: Direction, i: u8) -> BoardRow {
         BoardRow {
             direction: d,
             start: Index { i: i, j: r.start }.to_point(d),
@@ -266,7 +264,7 @@ impl BoardRow {
         }
     }
 
-    pub fn overlap(&self, p: &Point) -> bool {
+    pub fn overlap(&self, p: Point) -> bool {
         let (px, py) = (p.x, p.y);
         let (sx, sy) = (self.start.x, self.start.y);
         let (ex, ey) = (self.end.x, self.end.y);
@@ -276,38 +274,6 @@ impl BoardRow {
             Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
             Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
         }
-    }
-}
-
-#[derive(Default)]
-pub struct PointsMemory {
-    pub count: u8,
-    memory: [Bits; N as usize],
-}
-
-impl PointsMemory {
-    pub fn set(&mut self, p: Point) {
-        if !self.has(p) {
-            self.count += 1;
-            self.memory[(p.x - 1) as usize] |= 0b1 << (p.y - 1);
-        }
-    }
-
-    pub fn has(&self, p: Point) -> bool {
-        self.memory[(p.x - 1) as usize] & 0b1 << (p.y - 1) != 0b0
-    }
-
-    pub fn to_vec(&self) -> Vec<Point> {
-        let mut result = vec![];
-        for x in 0..N {
-            let xs = self.memory[x as usize];
-            for y in 0..N {
-                if xs & (0b1 << y) != 0b0 {
-                    result.push(Point { x: x + 1, y: y + 1 });
-                }
-            }
-        }
-        result
     }
 }
 
