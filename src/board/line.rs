@@ -67,7 +67,7 @@ impl Line {
         if blacks > self.blacks && whites == self.whites
             || blacks == self.blacks && whites >= self.whites
         {
-            self.ncount += 1;
+            self.ncount -= 1;
         }
 
         if blacks != self.blacks {

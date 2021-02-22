@@ -22,7 +22,7 @@ impl RowKind {
                 RowKind::Four => Checker { b: 4, w: 0, n: 1 },
                 RowKind::Five => Checker { b: 5, w: 0, n: 0 },
                 RowKind::Overline => Checker { b: 6, w: 0, n: 0 },
-                RowKind::Nothing => Checker { b: 0, w: 0, n: 0 },
+                _ => Checker { b: 0, w: 0, n: 0 },
             }
         } else {
             match self {
@@ -31,8 +31,7 @@ impl RowKind {
                 RowKind::Three => Checker { b: 0, w: 3, n: 3 },
                 RowKind::Four => Checker { b: 0, w: 4, n: 1 },
                 RowKind::Five => Checker { b: 0, w: 5, n: 0 },
-                RowKind::Overline => Checker { b: 0, w: 6, n: 0 },
-                RowKind::Nothing => Checker { b: 0, w: 0, n: 0 },
+                _ => Checker { b: 0, w: 0, n: 0 },
             }
         }
     }

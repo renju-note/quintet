@@ -1,4 +1,3 @@
-use super::bits::*;
 use super::line::*;
 use super::row::*;
 use std::collections::HashSet;
