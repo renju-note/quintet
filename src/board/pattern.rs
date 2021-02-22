@@ -1,25 +1,26 @@
 use super::bits::*;
 
+pub struct Window {
+    pub size: u8,
+    target: Bits,
+}
+
+impl Window {
+    pub fn matches(&self, stones: Bits, blanks: Bits) -> bool {
+        self.target & (stones | blanks) == self.target
+    }
+}
+
 pub struct Pattern {
-    pub filter: Bits,
-    pub stones: Bits,
-    pub blanks: Bits,
-    pub eyes__: Bits,
+    filter: Bits,
+    stones: Bits,
+    blanks: Bits,
+    eyes__: Bits,
 }
 
 impl Pattern {
     pub fn matches(&self, stones: Bits, blanks: Bits) -> bool {
         (stones & self.filter == self.stones) && (blanks & self.filter & self.blanks == self.blanks)
-    }
-
-    pub fn size(&self) -> u8 {
-        match self.filter {
-            0b11111 => 5,
-            0b111111 => 6,
-            0b1111111 => 7,
-            0b11111111 => 8,
-            _ => 0,
-        }
     }
 
     pub fn start(&self) -> u8 {
@@ -94,7 +95,12 @@ impl Pattern {
     }
 }
 
-pub const BLACK_TWOS: [Pattern; 6] = [
+pub const B_TWO: Window = Window {
+    size: 8,
+    target: 0b01111110,
+};
+
+pub const B_TWOS: [Pattern; 6] = [
     Pattern {
         filter: 0b11111111,
         stones: 0b00001100,
@@ -133,7 +139,12 @@ pub const BLACK_TWOS: [Pattern; 6] = [
     },
 ];
 
-pub const BLACK_THREES: [Pattern; 4] = [
+pub const B_THREE: Window = Window {
+    size: 8,
+    target: 0b01111110,
+};
+
+pub const B_THREES: [Pattern; 4] = [
     Pattern {
         filter: 0b11111111,
         stones: 0b00011100,
@@ -160,7 +171,12 @@ pub const BLACK_THREES: [Pattern; 4] = [
     },
 ];
 
-pub const BLACK_SWORDS: [Pattern; 10] = [
+pub const B_SWORD: Window = Window {
+    size: 7,
+    target: 0b0111110,
+};
+
+pub const B_SWORDS: [Pattern; 10] = [
     Pattern {
         filter: 0b1111111,
         stones: 0b0001110,
@@ -223,7 +239,12 @@ pub const BLACK_SWORDS: [Pattern; 10] = [
     },
 ];
 
-pub const BLACK_FOURS: [Pattern; 5] = [
+pub const B_FOUR: Window = Window {
+    size: 7,
+    target: 0b0111110,
+};
+
+pub const B_FOURS: [Pattern; 5] = [
     Pattern {
         filter: 0b1111111,
         stones: 0b0011110,
@@ -256,21 +277,36 @@ pub const BLACK_FOURS: [Pattern; 5] = [
     },
 ];
 
-pub const BLACK_FIVES: [Pattern; 1] = [Pattern {
+pub const B_FIVE: Window = Window {
+    size: 7,
+    target: 0b0111110,
+};
+
+pub const B_FIVES: [Pattern; 1] = [Pattern {
     filter: 0b1111111,
     stones: 0b0111110,
     blanks: 0b0000000,
     eyes__: 0b0000000,
 }];
 
-pub const BLACK_OVERLINES: [Pattern; 1] = [Pattern {
+pub const B_OVERLINE: Window = Window {
+    size: 6,
+    target: 0b111111,
+};
+
+pub const B_OVERLINES: [Pattern; 1] = [Pattern {
     filter: 0b111111,
     stones: 0b111111,
     blanks: 0b000000,
     eyes__: 0b000000,
 }];
 
-pub const WHITE_TWOS: [Pattern; 6] = [
+pub const W_TWO: Window = Window {
+    size: 6,
+    target: 0b111111,
+};
+
+pub const W_TWOS: [Pattern; 6] = [
     Pattern {
         filter: 0b111111,
         stones: 0b000110,
@@ -309,7 +345,12 @@ pub const WHITE_TWOS: [Pattern; 6] = [
     },
 ];
 
-pub const WHITE_THREES: [Pattern; 4] = [
+pub const W_THREE: Window = Window {
+    size: 6,
+    target: 0b111111,
+};
+
+pub const W_THREES: [Pattern; 4] = [
     Pattern {
         filter: 0b111111,
         stones: 0b001110,
@@ -336,7 +377,12 @@ pub const WHITE_THREES: [Pattern; 4] = [
     },
 ];
 
-pub const WHITE_SWORDS: [Pattern; 10] = [
+pub const W_SWORD: Window = Window {
+    size: 5,
+    target: 0b11111,
+};
+
+pub const W_SWORDS: [Pattern; 10] = [
     Pattern {
         filter: 0b11111,
         stones: 0b00111,
@@ -399,7 +445,12 @@ pub const WHITE_SWORDS: [Pattern; 10] = [
     },
 ];
 
-pub const WHITE_FOURS: [Pattern; 5] = [
+pub const W_FOUR: Window = Window {
+    size: 5,
+    target: 0b11111,
+};
+
+pub const W_FOURS: [Pattern; 5] = [
     Pattern {
         filter: 0b11111,
         stones: 0b01111,
@@ -432,7 +483,12 @@ pub const WHITE_FOURS: [Pattern; 5] = [
     },
 ];
 
-pub const WHITE_FIVES: [Pattern; 1] = [Pattern {
+pub const W_FIVE: Window = Window {
+    size: 5,
+    target: 0b11111,
+};
+
+pub const W_FIVES: [Pattern; 1] = [Pattern {
     filter: 0b11111,
     stones: 0b11111,
     blanks: 0b00000,

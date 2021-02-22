@@ -61,27 +61,30 @@ pub fn scan(
 ) -> Vec<Row> {
     if black {
         match kind {
-            RowKind::Two => scan_patterns(&BLACK_TWOS, stones, blanks, limit, offset),
-            RowKind::Sword => scan_patterns(&BLACK_SWORDS, stones, blanks, limit, offset),
-            RowKind::Three => scan_patterns(&BLACK_THREES, stones, blanks, limit, offset),
-            RowKind::Four => scan_patterns(&BLACK_FOURS, stones, blanks, limit, offset),
-            RowKind::Five => scan_patterns(&BLACK_FIVES, stones, blanks, limit, offset),
-            RowKind::Overline => scan_patterns(&BLACK_OVERLINES, stones, blanks, limit, offset),
+            RowKind::Two => scan_patterns(&B_TWO, &B_TWOS, stones, blanks, limit, offset),
+            RowKind::Sword => scan_patterns(&B_SWORD, &B_SWORDS, stones, blanks, limit, offset),
+            RowKind::Three => scan_patterns(&B_THREE, &B_THREES, stones, blanks, limit, offset),
+            RowKind::Four => scan_patterns(&B_FOUR, &B_FOURS, stones, blanks, limit, offset),
+            RowKind::Five => scan_patterns(&B_FIVE, &B_FIVES, stones, blanks, limit, offset),
+            RowKind::Overline => {
+                scan_patterns(&B_OVERLINE, &B_OVERLINES, stones, blanks, limit, offset)
+            }
             _ => vec![],
         }
     } else {
         match kind {
-            RowKind::Two => scan_patterns(&WHITE_TWOS, stones, blanks, limit, offset),
-            RowKind::Sword => scan_patterns(&WHITE_SWORDS, stones, blanks, limit, offset),
-            RowKind::Three => scan_patterns(&WHITE_THREES, stones, blanks, limit, offset),
-            RowKind::Four => scan_patterns(&WHITE_FOURS, stones, blanks, limit, offset),
-            RowKind::Five => scan_patterns(&WHITE_FIVES, stones, blanks, limit, offset),
+            RowKind::Two => scan_patterns(&W_TWO, &W_TWOS, stones, blanks, limit, offset),
+            RowKind::Sword => scan_patterns(&W_SWORD, &W_SWORDS, stones, blanks, limit, offset),
+            RowKind::Three => scan_patterns(&W_THREE, &W_THREES, stones, blanks, limit, offset),
+            RowKind::Four => scan_patterns(&W_FOUR, &W_FOURS, stones, blanks, limit, offset),
+            RowKind::Five => scan_patterns(&W_FIVE, &W_FIVES, stones, blanks, limit, offset),
             _ => vec![],
         }
     }
 }
 
 fn scan_patterns(
+    window: &Window,
     patterns: &[Pattern],
     stones: Bits,
     blanks: Bits,
@@ -89,24 +92,26 @@ fn scan_patterns(
     offset: u8,
 ) -> Vec<Row> {
     let mut result = vec![];
-    for p in patterns {
-        let size = p.size();
-        if limit < size {
+    let size = window.size;
+    if limit < size {
+        return result;
+    }
+    for i in 0..=(limit - size) {
+        let stones = stones >> i;
+        let blanks = blanks >> i;
+        if !window.matches(stones, blanks) {
             continue;
         }
-        let start = p.start();
-        let end = p.end();
-        let eye1 = p.eye1();
-        let eye2 = p.eye2();
-        for i in 0..=(limit - size) {
-            if p.matches(stones >> i, blanks >> i) {
-                result.push(Row {
-                    start: start + i - offset,
-                    end: end + i - offset,
-                    eye1: eye1.map(|e| e + i - offset),
-                    eye2: eye2.map(|e| e + i - offset),
-                });
+        for p in patterns {
+            if !p.matches(stones, blanks) {
+                continue;
             }
+            result.push(Row {
+                start: p.start() + i - offset,
+                end: p.end() + i - offset,
+                eye1: p.eye1().map(|e| e + i - offset),
+                eye2: p.eye2().map(|e| e + i - offset),
+            });
         }
     }
     result
