@@ -11,11 +11,6 @@ pub struct Line {
 
     bcount: u8,
     wcount: u8,
-
-    bcache_kind: RowKind,
-    wcache_kind: RowKind,
-    bcache_rows: Vec<Row>,
-    wcache_rows: Vec<Row>,
 }
 
 impl Line {
@@ -28,11 +23,6 @@ impl Line {
 
             bcount: 0,
             wcount: 0,
-
-            bcache_kind: RowKind::Nothing,
-            wcache_kind: RowKind::Nothing,
-            bcache_rows: vec![],
-            wcache_rows: vec![],
         }
     }
 
@@ -63,40 +53,11 @@ impl Line {
             self.wcount -= 1;
         }
 
-        if blacks != self.blacks {
-            self.bcache_kind = RowKind::Nothing;
-        }
-        if whites != self.whites {
-            self.wcache_kind = RowKind::Nothing;
-        }
-
         self.blacks = blacks;
         self.whites = whites;
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> impl Iterator<Item = &Row> {
-        if black && kind == self.bcache_kind {
-            return self.bcache_rows.iter();
-        } else if !black && kind == self.wcache_kind {
-            return self.wcache_rows.iter();
-        }
-
-        let mut result = self.scan(black, kind);
-
-        if black {
-            self.bcache_kind = kind;
-            self.bcache_rows.clear();
-            self.bcache_rows.append(&mut result);
-            self.bcache_rows.iter()
-        } else {
-            self.wcache_kind = kind;
-            self.wcache_rows.clear();
-            self.wcache_rows.append(&mut result);
-            self.wcache_rows.iter()
-        }
-    }
-
-    fn scan(&self, black: bool, kind: RowKind) -> Vec<Row> {
+    pub fn rows(&self, black: bool, kind: RowKind) -> Vec<Row> {
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
