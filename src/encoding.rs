@@ -1,6 +1,6 @@
 use super::board::*;
 
-const N_RANGE: std::ops::RangeInclusive<u8> = 1..=BOARD_SIZE;
+const N_RANGE: std::ops::Range<u8> = 0..BOARD_SIZE;
 
 pub fn encode(ps: &[Point]) -> Result<String, String> {
     let result = ps
@@ -36,19 +36,19 @@ pub fn decode_one(s: &str) -> Result<Point, String> {
 }
 
 fn x_to_str(x: u8) -> String {
-    let code = ('A' as u8 + x - 1) as u32;
+    let code = ('A' as u8 + x) as u32;
     std::char::from_u32(code).unwrap().to_string()
 }
 
 fn y_to_str(y: u8) -> String {
-    y.to_string()
+    (y + 1).to_string()
 }
 
 fn x_from_str(s: &str) -> u8 {
     match s.chars().nth(0) {
         Some(c) => match c {
-            'A'..='O' => c as u8 - 'A' as u8 + 1,
-            'a'..='o' => c as u8 - 'a' as u8 + 1,
+            'A'..='O' => c as u8 - 'A' as u8,
+            'a'..='o' => c as u8 - 'a' as u8,
             _ => 0,
         },
         None => 0,
@@ -56,5 +56,5 @@ fn x_from_str(s: &str) -> u8 {
 }
 
 fn y_from_str(s: &str) -> u8 {
-    s.parse::<u8>().unwrap_or(0)
+    s.parse::<u8>().unwrap_or(0) - 1
 }

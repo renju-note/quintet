@@ -3,11 +3,12 @@ use super::row::*;
 use std::collections::HashSet;
 
 pub const BOARD_SIZE: u8 = 15;
-const N: u8 = BOARD_SIZE;
-const M: u8 = N * 2 - 1 - (4 * 2); // 21
+const O_LINE_NUM: u8 = BOARD_SIZE;
+const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
+const N: u8 = BOARD_SIZE - 1;
 
-type OrthogonalLines = [Line; N as usize];
-type DiagonalLines = [Line; M as usize];
+type OrthogonalLines = [Line; O_LINE_NUM as usize];
+type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -45,13 +46,13 @@ impl Board {
         self.hlines[hidx.i as usize].put(black, hidx.j);
 
         let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < M + 4 {
+        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
             let i = (aidx.i - 4) as usize;
             self.alines[i].put(black, aidx.j);
         }
 
         let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < M + 4 {
+        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
             let i = (didx.i - 4) as usize;
             self.dlines[i].put(black, didx.j);
         }
@@ -107,7 +108,7 @@ impl Board {
         }
 
         let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < M + 4 {
+        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
             let aline = &mut self.alines[(aidx.i - 4) as usize];
             if aline.check(checker) {
                 result.push((Direction::Ascending, aidx.i, aline));
@@ -115,7 +116,7 @@ impl Board {
         }
 
         let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < M + 4 {
+        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
             let dline = &mut self.dlines[(didx.i - 4) as usize];
             if dline.check(checker) {
                 result.push((Direction::Descending, didx.i, dline));
@@ -201,16 +202,16 @@ impl Point {
     pub fn to_index(&self, direction: Direction) -> Index {
         let (x, y) = (self.x, self.y);
         match direction {
-            Direction::Vertical => Index { i: x - 1, j: y - 1 },
-            Direction::Horizontal => Index { i: y - 1, j: x - 1 },
+            Direction::Vertical => Index { i: x, j: y },
+            Direction::Horizontal => Index { i: y, j: x },
             Direction::Ascending => {
-                let i = x - 1 + N - y;
-                let j = if i < N { x - 1 } else { y - 1 };
+                let i = x + N - y;
+                let j = if i < N { x } else { y };
                 Index { i: i, j: j }
             }
             Direction::Descending => {
-                let i = x - 1 + y - 1;
-                let j = if i < N { x - 1 } else { N - y };
+                let i = x + y;
+                let j = if i < N { x } else { N - y };
                 Index { i: i, j: j }
             }
         }
@@ -227,16 +228,16 @@ impl Index {
     pub fn to_point(&self, direction: Direction) -> Point {
         let (i, j) = (self.i, self.j);
         match direction {
-            Direction::Vertical => Point { x: i + 1, y: j + 1 },
-            Direction::Horizontal => Point { x: j + 1, y: i + 1 },
+            Direction::Vertical => Point { x: i, y: j },
+            Direction::Horizontal => Point { x: j, y: i },
             Direction::Ascending => {
-                let x = if i < N { j + 1 } else { i + 1 + j + 1 - N };
-                let y = if i < N { N - (i + 1) + j + 1 } else { j + 1 };
+                let x = if i < N { j } else { i + j - N };
+                let y = if i < N { N - i + j } else { j };
                 Point { x: x, y: y }
             }
             Direction::Descending => {
-                let x = if i < N { j + 1 } else { i + 1 + j + 1 - N };
-                let y = if i < N { i + 1 - j } else { N - j };
+                let x = if i < N { j } else { i + j - N };
+                let y = if i < N { i - j } else { N - j };
                 Point { x: x, y: y }
             }
         }
