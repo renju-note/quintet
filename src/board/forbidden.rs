@@ -9,8 +9,8 @@ pub enum ForbiddenKind {
 }
 
 pub fn forbiddens(board: &Board) -> Vec<(ForbiddenKind, Point)> {
-    (1..=BOARD_SIZE)
-        .flat_map(|x| (1..=BOARD_SIZE).map(move |y| Point { x: x, y: y }))
+    (0..BOARD_SIZE)
+        .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point { x: x, y: y }))
         .map(|p| (forbidden(board, p), p))
         .filter(|(k, _)| k.is_some())
         .map(|(k, p)| (k.unwrap(), p))
