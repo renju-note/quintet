@@ -1,5 +1,5 @@
 use quintet::encoding;
-use quintet::{board, solver};
+use quintet::solver;
 use std::io;
 use std::time::Instant;
 
@@ -8,25 +8,13 @@ fn main() {
         println!("\nBoard code (blacks/whites):");
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
-        let codes = code.trim().split('/').collect::<Vec<_>>();
-        if codes.len() != 2 {
-            continue;
-        }
-        let blacks = match encoding::decode(codes[0]) {
-            Ok(points) => points,
-            Err(_) => continue,
+        let board = match encoding::decode_board(&code) {
+            Ok(board) => board,
+            Err(s) => {
+                println!("{}", s);
+                continue;
+            }
         };
-        let whites = match encoding::decode(codes[1]) {
-            Ok(points) => points,
-            Err(_) => continue,
-        };
-        let mut board = board::Board::new();
-        for p in blacks {
-            board.put(true, p);
-        }
-        for p in whites {
-            board.put(false, p);
-        }
         println!("\nBoard:\n{}", board.to_string());
 
         println!("\nBlack VCF:");

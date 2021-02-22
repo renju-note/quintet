@@ -2,6 +2,29 @@ use super::board::*;
 
 const N_RANGE: std::ops::Range<u8> = 0..BOARD_SIZE;
 
+pub fn decode_board(code: &str) -> Result<Board, String> {
+    let codes = code.trim().split('/').collect::<Vec<_>>();
+    if codes.len() != 2 {
+        return Err("Invalid".to_owned());
+    }
+    let blacks = match decode(codes[0]) {
+        Ok(points) => points,
+        Err(s) => return Err(s),
+    };
+    let whites = match decode(codes[1]) {
+        Ok(points) => points,
+        Err(s) => return Err(s),
+    };
+    let mut board = Board::new();
+    for p in blacks {
+        board.put(true, p);
+    }
+    for p in whites {
+        board.put(false, p);
+    }
+    Ok(board)
+}
+
 pub fn encode(ps: &[Point]) -> Result<String, String> {
     let result = ps
         .iter()
