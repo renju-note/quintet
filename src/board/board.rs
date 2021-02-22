@@ -58,7 +58,7 @@ impl Board {
         }
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<BoardRow> {
+    pub fn rows(&self, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let checker = kind.checker(black);
         self.iter_lines(checker)
             .map(|(d, i, l)| {
@@ -70,7 +70,7 @@ impl Board {
             .collect::<Vec<_>>()
     }
 
-    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
+    pub fn rows_on(&self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let checker = kind.checker(black);
         self.iter_lines_along(p, checker)
             .map(|(d, i, l)| {
@@ -83,7 +83,7 @@ impl Board {
             .collect::<Vec<_>>()
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> HashSet<Point> {
+    pub fn row_eyes(&self, black: bool, kind: RowKind) -> HashSet<Point> {
         let checker = kind.checker(black);
         self.iter_lines(checker)
             .map(|(d, i, l)| {
@@ -97,7 +97,7 @@ impl Board {
             .collect::<HashSet<_>>()
     }
 
-    pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> HashSet<Point> {
+    pub fn row_eyes_along(&self, p: Point, black: bool, kind: RowKind) -> HashSet<Point> {
         let checker = kind.checker(black);
         self.iter_lines_along(p, checker)
             .map(|(d, i, l)| {
