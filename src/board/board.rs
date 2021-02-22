@@ -58,74 +58,6 @@ impl Board {
         }
     }
 
-    pub fn iter_mut_lines(
-        &mut self,
-        checker: Checker,
-    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
-        let viter = self
-            .vlines
-            .iter_mut()
-            .enumerate()
-            .filter(move |(_, l)| l.check(checker))
-            .map(|(i, l)| (Direction::Vertical, i as u8, l));
-        let hiter = self
-            .hlines
-            .iter_mut()
-            .enumerate()
-            .filter(move |(_, l)| l.check(checker))
-            .map(|(i, l)| (Direction::Horizontal, i as u8, l));
-        let aiter = self
-            .alines
-            .iter_mut()
-            .enumerate()
-            .filter(move |(_, l)| l.check(checker))
-            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
-        let diter = self
-            .dlines
-            .iter_mut()
-            .enumerate()
-            .filter(move |(_, l)| l.check(checker))
-            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
-        viter.chain(hiter).chain(aiter).chain(diter)
-    }
-
-    pub fn iter_mut_lines_along(
-        &mut self,
-        p: Point,
-        checker: Checker,
-    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
-        let mut result = vec![];
-        let vidx = p.to_index(Direction::Vertical);
-        let vline = &mut self.vlines[vidx.i as usize];
-        if vline.check(checker) {
-            result.push((Direction::Vertical, vidx.i, vline))
-        }
-
-        let hidx = p.to_index(Direction::Horizontal);
-        let hline = &mut self.hlines[hidx.i as usize];
-        if hline.check(checker) {
-            result.push((Direction::Horizontal, hidx.i, hline))
-        }
-
-        let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
-            let aline = &mut self.alines[(aidx.i - 4) as usize];
-            if aline.check(checker) {
-                result.push((Direction::Ascending, aidx.i, aline));
-            }
-        }
-
-        let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
-            let dline = &mut self.dlines[(didx.i - 4) as usize];
-            if dline.check(checker) {
-                result.push((Direction::Descending, didx.i, dline));
-            }
-        }
-
-        result.into_iter()
-    }
-
     pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<BoardRow> {
         let mut result = vec![];
         let checker = kind.checker(black);
@@ -177,6 +109,74 @@ impl Board {
             }
         }
         result
+    }
+
+    fn iter_mut_lines(
+        &mut self,
+        checker: Checker,
+    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+        let viter = self
+            .vlines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(checker))
+            .map(|(i, l)| (Direction::Vertical, i as u8, l));
+        let hiter = self
+            .hlines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(checker))
+            .map(|(i, l)| (Direction::Horizontal, i as u8, l));
+        let aiter = self
+            .alines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(checker))
+            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
+        let diter = self
+            .dlines
+            .iter_mut()
+            .enumerate()
+            .filter(move |(_, l)| l.check(checker))
+            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
+        viter.chain(hiter).chain(aiter).chain(diter)
+    }
+
+    fn iter_mut_lines_along(
+        &mut self,
+        p: Point,
+        checker: Checker,
+    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+        let mut result = vec![];
+        let vidx = p.to_index(Direction::Vertical);
+        let vline = &mut self.vlines[vidx.i as usize];
+        if vline.check(checker) {
+            result.push((Direction::Vertical, vidx.i, vline))
+        }
+
+        let hidx = p.to_index(Direction::Horizontal);
+        let hline = &mut self.hlines[hidx.i as usize];
+        if hline.check(checker) {
+            result.push((Direction::Horizontal, hidx.i, hline))
+        }
+
+        let aidx = p.to_index(Direction::Ascending);
+        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
+            let aline = &mut self.alines[(aidx.i - 4) as usize];
+            if aline.check(checker) {
+                result.push((Direction::Ascending, aidx.i, aline));
+            }
+        }
+
+        let didx = p.to_index(Direction::Descending);
+        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
+            let dline = &mut self.dlines[(didx.i - 4) as usize];
+            if dline.check(checker) {
+                result.push((Direction::Descending, didx.i, dline));
+            }
+        }
+
+        result.into_iter()
     }
 
     pub fn to_string(&self) -> String {

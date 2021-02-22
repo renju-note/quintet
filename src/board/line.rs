@@ -103,9 +103,9 @@ impl Line {
         let limit = self.size + 2;
 
         if black {
-            scan(true, kind, blacks_, blanks_, limit, 1)
+            scan_rows(true, kind, blacks_, blanks_, limit, 1)
         } else {
-            scan(false, kind, whites_, blanks_, limit, 1)
+            scan_rows(false, kind, whites_, blanks_, limit, 1)
         }
     }
 
