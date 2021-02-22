@@ -27,12 +27,13 @@ fn main() {
         for p in whites {
             board.put(false, p);
         }
-        println!("\nBoard: \n{}", board.to_string());
+        println!("\nBoard:\n{}", board.to_string());
 
-        println!("Black VCF:");
+        println!("\nBlack VCF:");
         let start = Instant::now();
         let result = solver::solve(u8::MAX, &board, true);
         let elapsed = start.elapsed();
+        println!("\tElapsed: {:?}", elapsed);
         match result {
             Some(ps) => {
                 println!("\t{} times", (ps.len() + 1) / 2);
@@ -40,12 +41,12 @@ fn main() {
             }
             None => println!("\tNone"),
         }
-        println!("\tElapsed: {:?}\n", elapsed);
 
-        println!("White VCF:");
+        println!("\nWhite VCF:");
         let start = Instant::now();
         let result = solver::solve(u8::MAX, &board, false);
         let elapsed = start.elapsed();
+        println!("\tElapsed: {:?}", elapsed);
         match result {
             Some(ps) => {
                 println!("\t{} times", (ps.len() + 1) / 2);
@@ -53,6 +54,5 @@ fn main() {
             }
             None => println!("\tNone"),
         }
-        println!("\tElapsed: {:?}\n", elapsed);
     }
 }

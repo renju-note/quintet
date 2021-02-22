@@ -26,51 +26,28 @@ fn main() {
         for p in whites {
             board.put(false, p);
         }
-        println!("\nBoard: \n{}", board.to_string());
+        println!("\nBoard:\n{}", board.to_string());
 
-        println!("Forbiddens:");
+        println!("\nRows:");
+        for black in &[true, false] {
+            println!("  {}", if *black { "Black:" } else { "White:" });
+            for kind in &[
+                RowKind::Two,
+                RowKind::Three,
+                RowKind::Sword,
+                RowKind::Four,
+                RowKind::Five,
+            ] {
+                println!("    {:?}:", kind);
+                for row in board.rows(*black, *kind) {
+                    println!("      {:?}", row)
+                }
+            }
+        }
+
+        println!("\nForbiddens:");
         for (p, kind) in forbiddens(&board) {
-            println!("\t{:?} {:?}", p, kind)
-        }
-
-        println!("Black twos:");
-        for row in board.rows(true, RowKind::Two) {
-            println!("\t{:?}", row)
-        }
-
-        println!("Black swords:");
-        for row in board.rows(true, RowKind::Sword) {
-            println!("\t{:?}", row)
-        }
-
-        println!("Black threes:");
-        for row in board.rows(true, RowKind::Three) {
-            println!("\t{:?}", row)
-        }
-
-        println!("Black fours:");
-        for row in board.rows(true, RowKind::Four) {
-            println!("\t{:?}", row)
-        }
-
-        println!("White twos:");
-        for row in board.rows(false, RowKind::Two) {
-            println!("\t{:?}", row)
-        }
-
-        println!("White swords:");
-        for row in board.rows(false, RowKind::Sword) {
-            println!("\t{:?}", row)
-        }
-
-        println!("White threes:");
-        for row in board.rows(false, RowKind::Three) {
-            println!("\t{:?}", row)
-        }
-
-        println!("White fours:");
-        for row in board.rows(false, RowKind::Four) {
-            println!("\t{:?}", row)
+            println!("  {:?}\t{:?}", kind, p)
         }
     }
 }
