@@ -51,7 +51,7 @@ pub struct Checker {
     pub w: u8,
 }
 
-pub fn scan(
+pub fn scan_rows(
     black: bool,
     kind: RowKind,
     stones: Bits,
@@ -61,29 +61,27 @@ pub fn scan(
 ) -> Vec<Row> {
     if black {
         match kind {
-            RowKind::Two => scan_patterns(&B_TWO, &B_TWOS, stones, blanks, limit, offset),
-            RowKind::Sword => scan_patterns(&B_SWORD, &B_SWORDS, stones, blanks, limit, offset),
-            RowKind::Three => scan_patterns(&B_THREE, &B_THREES, stones, blanks, limit, offset),
-            RowKind::Four => scan_patterns(&B_FOUR, &B_FOURS, stones, blanks, limit, offset),
-            RowKind::Five => scan_patterns(&B_FIVE, &B_FIVES, stones, blanks, limit, offset),
-            RowKind::Overline => {
-                scan_patterns(&B_OVERLINE, &B_OVERLINES, stones, blanks, limit, offset)
-            }
+            RowKind::Two => scan(&B_TWO, &B_TWOS, stones, blanks, limit, offset),
+            RowKind::Sword => scan(&B_SWORD, &B_SWORDS, stones, blanks, limit, offset),
+            RowKind::Three => scan(&B_THREE, &B_THREES, stones, blanks, limit, offset),
+            RowKind::Four => scan(&B_FOUR, &B_FOURS, stones, blanks, limit, offset),
+            RowKind::Five => scan(&B_FIVE, &B_FIVES, stones, blanks, limit, offset),
+            RowKind::Overline => scan(&B_OVERLINE, &B_OVERLINES, stones, blanks, limit, offset),
             _ => vec![],
         }
     } else {
         match kind {
-            RowKind::Two => scan_patterns(&W_TWO, &W_TWOS, stones, blanks, limit, offset),
-            RowKind::Sword => scan_patterns(&W_SWORD, &W_SWORDS, stones, blanks, limit, offset),
-            RowKind::Three => scan_patterns(&W_THREE, &W_THREES, stones, blanks, limit, offset),
-            RowKind::Four => scan_patterns(&W_FOUR, &W_FOURS, stones, blanks, limit, offset),
-            RowKind::Five => scan_patterns(&W_FIVE, &W_FIVES, stones, blanks, limit, offset),
+            RowKind::Two => scan(&W_TWO, &W_TWOS, stones, blanks, limit, offset),
+            RowKind::Sword => scan(&W_SWORD, &W_SWORDS, stones, blanks, limit, offset),
+            RowKind::Three => scan(&W_THREE, &W_THREES, stones, blanks, limit, offset),
+            RowKind::Four => scan(&W_FOUR, &W_FOURS, stones, blanks, limit, offset),
+            RowKind::Five => scan(&W_FIVE, &W_FIVES, stones, blanks, limit, offset),
             _ => vec![],
         }
     }
 }
 
-fn scan_patterns(
+fn scan(
     window: &Window,
     patterns: &[Pattern],
     stones: Bits,
