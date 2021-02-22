@@ -16,22 +16,22 @@ impl RowKind {
     pub fn checker(&self, black: bool) -> Checker {
         if black {
             match self {
-                RowKind::Two => Checker { b: 2, w: 0, n: 4 },
-                RowKind::Sword => Checker { b: 3, w: 0, n: 2 },
-                RowKind::Three => Checker { b: 3, w: 0, n: 3 },
-                RowKind::Four => Checker { b: 4, w: 0, n: 1 },
-                RowKind::Five => Checker { b: 5, w: 0, n: 0 },
-                RowKind::Overline => Checker { b: 6, w: 0, n: 0 },
-                _ => Checker { b: 0, w: 0, n: 0 },
+                RowKind::Two => Checker { b: 2, w: 0 },
+                RowKind::Sword => Checker { b: 3, w: 0 },
+                RowKind::Three => Checker { b: 3, w: 0 },
+                RowKind::Four => Checker { b: 4, w: 0 },
+                RowKind::Five => Checker { b: 5, w: 0 },
+                RowKind::Overline => Checker { b: 6, w: 0 },
+                _ => Checker { b: 0, w: 0 },
             }
         } else {
             match self {
-                RowKind::Two => Checker { b: 0, w: 2, n: 4 },
-                RowKind::Sword => Checker { b: 0, w: 3, n: 2 },
-                RowKind::Three => Checker { b: 0, w: 3, n: 3 },
-                RowKind::Four => Checker { b: 0, w: 4, n: 1 },
-                RowKind::Five => Checker { b: 0, w: 5, n: 0 },
-                _ => Checker { b: 0, w: 0, n: 0 },
+                RowKind::Two => Checker { b: 0, w: 2 },
+                RowKind::Sword => Checker { b: 0, w: 3 },
+                RowKind::Three => Checker { b: 0, w: 3 },
+                RowKind::Four => Checker { b: 0, w: 4 },
+                RowKind::Five => Checker { b: 0, w: 5 },
+                _ => Checker { b: 0, w: 0 },
             }
         }
     }
@@ -49,7 +49,6 @@ pub struct Row {
 pub struct Checker {
     pub b: u8,
     pub w: u8,
-    pub n: u8,
 }
 
 pub fn scan(

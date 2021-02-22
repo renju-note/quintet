@@ -11,7 +11,6 @@ pub struct Line {
 
     bcount: u8,
     wcount: u8,
-    ncount: u8,
 
     bcache_kind: RowKind,
     wcache_kind: RowKind,
@@ -29,7 +28,6 @@ impl Line {
 
             bcount: 0,
             wcount: 0,
-            ncount: size,
 
             bcache_kind: RowKind::Nothing,
             wcache_kind: RowKind::Nothing,
@@ -39,7 +37,7 @@ impl Line {
     }
 
     pub fn check(&self, checker: Checker) -> bool {
-        self.bcount >= checker.b && self.wcount >= checker.w && self.ncount >= checker.n
+        self.bcount >= checker.b && self.wcount >= checker.w
     }
 
     pub fn put(&mut self, black: bool, i: u8) {
@@ -63,11 +61,6 @@ impl Line {
             self.wcount += 1;
         } else if whites < self.whites {
             self.wcount -= 1;
-        }
-        if blacks > self.blacks && whites == self.whites
-            || blacks == self.blacks && whites >= self.whites
-        {
-            self.ncount -= 1;
         }
 
         if blacks != self.blacks {
