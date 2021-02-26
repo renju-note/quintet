@@ -1,4 +1,5 @@
-use super::super::board::{forbidden, Board, Point, RowKind};
+use super::super::board::*;
+use std::collections::HashSet;
 
 pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
     // Already exists five
@@ -19,7 +20,8 @@ pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
         return None;
     }
 
-    solve_all(depth, board, black, None)
+    let mut cache = HashSet::new();
+    solve_all(depth, board, black, None, &mut cache)
 }
 
 fn solve_all(
@@ -27,8 +29,15 @@ fn solve_all(
     board: &Board,
     black: bool,
     prev_move: Option<Point>,
+    cache: &mut HashSet<MiniBoard>,
 ) -> Option<Vec<Point>> {
     if depth == 0 {
+        return None;
+    }
+
+    // cache hit
+    let mini_board = board.mini_board();
+    if cache.contains(&mini_board) {
         return None;
     }
 
@@ -38,29 +47,39 @@ fn solve_all(
         None => board.row_eyes(!black, RowKind::Four),
     };
     if opponent_four_eyes.len() >= 2 {
+        cache.insert(mini_board);
         return None;
     } else if opponent_four_eyes.len() == 1 {
         let next_move = opponent_four_eyes.into_iter().next().unwrap();
         let mut board = board.clone();
-        return solve_one(depth, &mut board, black, next_move);
+        let result = solve_one(depth, &mut board, black, next_move, cache);
+        if result.is_none() {
+            cache.insert(mini_board);
+        }
+        return result;
     }
 
     // Continue four move
     let next_move_cands = board.row_eyes(black, RowKind::Sword);
-    let mut next_move_cands = next_move_cands.into_iter().collect::<Vec<_>>();
-    next_move_cands.sort_unstable();
     for next_move in next_move_cands {
         let mut board = board.clone();
-        match solve_one(depth, &mut board, black, next_move) {
+        match solve_one(depth, &mut board, black, next_move, cache) {
             Some(ps) => return Some(ps),
             None => continue,
         }
     }
 
+    cache.insert(mini_board);
     None
 }
 
-fn solve_one(depth: u8, board: &mut Board, black: bool, next_move: Point) -> Option<Vec<Point>> {
+fn solve_one(
+    depth: u8,
+    board: &mut Board,
+    black: bool,
+    next_move: Point,
+    cache: &mut HashSet<MiniBoard>,
+) -> Option<Vec<Point>> {
     if black && forbidden(board, next_move).is_some() {
         return None;
     }
@@ -76,7 +95,7 @@ fn solve_one(depth: u8, board: &mut Board, black: bool, next_move: Point) -> Opt
         }
 
         board.put(!black, next2_move);
-        solve_all(depth - 1, board, black, Some(next2_move)).map(|mut ps| {
+        solve_all(depth - 1, board, black, Some(next2_move), cache).map(|mut ps| {
             let mut result = vec![next_move, next2_move];
             result.append(&mut ps);
             result
