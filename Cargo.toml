@@ -1,6 +1,6 @@
 [package]
 name = "quintet"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["yubessy <yubessy0@gmail.com>"]
 description = "Renju mate solver compiled to wasm"
 license = "MIT"
