@@ -33,10 +33,9 @@ function getArrayU8FromWasm0(ptr, len) {
 * @param {Uint8Array} whites
 * @param {boolean} black
 * @param {number} depth_limit
-* @param {boolean} shortest
 * @returns {Uint8Array | undefined}
 */
-export function solve_vcf(blacks, whites, black, depth_limit, shortest) {
+export function solve_vcf(blacks, whites, black, depth_limit) {
     try {
         const retptr = wasm.__wbindgen_export_0.value - 16;
         wasm.__wbindgen_export_0.value = retptr;
@@ -44,7 +43,7 @@ export function solve_vcf(blacks, whites, black, depth_limit, shortest) {
         var len0 = WASM_VECTOR_LEN;
         var ptr1 = passArray8ToWasm0(whites, wasm.__wbindgen_malloc);
         var len1 = WASM_VECTOR_LEN;
-        wasm.solve_vcf(retptr, ptr0, len0, ptr1, len1, black, depth_limit, shortest);
+        wasm.solve_vcf(retptr, ptr0, len0, ptr1, len1, black, depth_limit);
         var r0 = getInt32Memory0()[retptr / 4 + 0];
         var r1 = getInt32Memory0()[retptr / 4 + 1];
         let v2;

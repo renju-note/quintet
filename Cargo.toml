@@ -1,8 +1,8 @@
 [package]
 name = "quintet"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["yubessy <yubessy0@gmail.com>"]
-description = "Renju library with wasm-pack"
+description = "Renju mate solver compiled to wasm"
 license = "MIT"
 edition = "2018"
 repository = "https://github.com/renju-note/quintet"

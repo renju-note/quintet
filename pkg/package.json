@@ -2,7 +2,7 @@
   "collaborators": [
     "yubessy <yubessy0@gmail.com>"
   ],
-  "description": "Renju library with wasm-pack",
+  "description": "Renju mate solver compiled to wasm",
   "files": [
     "quintet_bg.js",
     "quintet_bg.wasm",
@@ -19,5 +19,5 @@
   },
   "sideEffects": false,
   "types": "quintet.d.ts",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }
