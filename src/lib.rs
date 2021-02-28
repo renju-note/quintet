@@ -34,13 +34,13 @@ pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> 
 }
 
 fn encode_xy(x: u8, y: u8) -> u8 {
-    (x - 1) * 15 + (y - 1)
+    x * 15 + y
 }
 
 fn decode_x(code: u8) -> u8 {
-    code / 15 + 1
+    code / 15
 }
 
 fn decode_y(code: u8) -> u8 {
-    code % 15 + 1
+    code % 15
 }
