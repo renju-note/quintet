@@ -5,10 +5,10 @@
   "description": "Renju mate solver compiled to wasm",
   "files": [
     "quintet_bg.js",
-    "quintet_bg.wasm",
     "quintet_bg.wasm.d.ts",
-    "quintet.js",
-    "quintet.d.ts"
+    "quintet_bg.wasm",
+    "quintet.d.ts",
+    "quintet.js"
   ],
   "license": "MIT",
   "module": "quintet.js",
@@ -19,5 +19,5 @@
   },
   "sideEffects": false,
   "types": "quintet.d.ts",
-  "version": "0.3.0"
+  "version": "0.3.1"
 }
