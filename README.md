@@ -1,6 +1,6 @@
 # quintet
 
-Renju library with wasm-pack
+Renju mate solver compilable to WebAssemby
 
 ## Run
 

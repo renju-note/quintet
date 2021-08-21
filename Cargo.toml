@@ -2,7 +2,7 @@
 name = "quintet"
 version = "0.3.2"
 authors = ["yubessy <yubessy0@gmail.com>"]
-description = "Renju mate solver compiled to wasm"
+description = "Renju mate solver compilable to WebAssemby"
 license = "MIT"
 edition = "2018"
 repository = "https://github.com/renju-note/quintet"
