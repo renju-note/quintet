@@ -21,7 +21,7 @@ pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
         return None;
     }
 
-    let table = ZobristHashTable::new();
+    let table = ZobristTable::new();
     let mut cache = HashSet::new();
     solve_all(depth, board, 0, black, None, &table, &mut cache)
 }
@@ -32,7 +32,7 @@ fn solve_all(
     zhash: u64,
     black: bool,
     prev_move: Option<Point>,
-    table: &ZobristHashTable,
+    table: &ZobristTable,
     cache: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
     if depth == 0 {
@@ -82,7 +82,7 @@ fn solve_one(
     zhash: u64,
     black: bool,
     next_move: Point,
-    table: &ZobristHashTable,
+    table: &ZobristTable,
     cache: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
     if black && forbidden(board, next_move).is_some() {

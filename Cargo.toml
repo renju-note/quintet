@@ -11,5 +11,4 @@ repository = "https://github.com/renju-note/quintet"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-rand = "0.8.4"
 wasm-bindgen = "0.2"
