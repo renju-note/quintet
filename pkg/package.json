@@ -4,7 +4,7 @@
     "yubessy <yubessy0@gmail.com>"
   ],
   "description": "Renju mate solver compilable to WebAssemby",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "license": "MIT",
   "repository": {
     "type": "git",

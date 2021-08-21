@@ -37,8 +37,7 @@ function getArrayU8FromWasm0(ptr, len) {
 */
 export function solve_vcf(blacks, whites, black, depth_limit) {
     try {
-        const retptr = wasm.__wbindgen_export_0.value - 16;
-        wasm.__wbindgen_export_0.value = retptr;
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         var ptr0 = passArray8ToWasm0(blacks, wasm.__wbindgen_malloc);
         var len0 = WASM_VECTOR_LEN;
         var ptr1 = passArray8ToWasm0(whites, wasm.__wbindgen_malloc);
@@ -53,7 +52,7 @@ export function solve_vcf(blacks, whites, black, depth_limit) {
         }
         return v2;
     } finally {
-        wasm.__wbindgen_export_0.value += 16;
+        wasm.__wbindgen_add_to_stack_pointer(16);
     }
 }
 

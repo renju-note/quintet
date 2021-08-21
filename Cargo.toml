@@ -1,6 +1,6 @@
 [package]
 name = "quintet"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["yubessy <yubessy0@gmail.com>"]
 description = "Renju mate solver compilable to WebAssemby"
 license = "MIT"
