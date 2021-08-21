@@ -9,7 +9,6 @@ const N: u8 = BOARD_SIZE - 1;
 
 type OrthogonalLines = [Line; O_LINE_NUM as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
-pub type MiniBoard = [Bits; (BOARD_SIZE * 2) as usize];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -127,16 +126,6 @@ impl Board {
             })
             .flatten()
             .collect::<HashSet<_>>()
-    }
-
-    pub fn mini_board(&self) -> MiniBoard {
-        let mut result = [0b0; (BOARD_SIZE * 2) as usize];
-        for i in 0..(BOARD_SIZE as usize) {
-            let vline = &self.vlines[i];
-            result[i * 2] = vline.blacks;
-            result[i * 2 + 1] = vline.whites;
-        }
-        result
     }
 
     pub fn to_string(&self) -> String {

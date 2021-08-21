@@ -1,4 +1,5 @@
 use super::super::board::*;
+use super::zhash::*;
 use std::collections::HashSet;
 
 pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
@@ -20,24 +21,26 @@ pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
         return None;
     }
 
+    let table = ZobristHashTable::new();
     let mut cache = HashSet::new();
-    solve_all(depth, board, black, None, &mut cache)
+    solve_all(depth, board, 0, black, None, &table, &mut cache)
 }
 
 fn solve_all(
     depth: u8,
     board: &Board,
+    zhash: u64,
     black: bool,
     prev_move: Option<Point>,
-    cache: &mut HashSet<MiniBoard>,
+    table: &ZobristHashTable,
+    cache: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
 
     // cache hit
-    let mini_board = board.mini_board();
-    if cache.contains(&mini_board) {
+    if cache.contains(&zhash) {
         return None;
     }
 
@@ -47,14 +50,14 @@ fn solve_all(
         None => board.row_eyes(!black, RowKind::Four),
     };
     if opponent_four_eyes.len() >= 2 {
-        cache.insert(mini_board);
+        cache.insert(zhash);
         return None;
     } else if opponent_four_eyes.len() == 1 {
         let next_move = opponent_four_eyes.into_iter().next().unwrap();
         let mut board = board.clone();
-        let result = solve_one(depth, &mut board, black, next_move, cache);
+        let result = solve_one(depth, &mut board, zhash, black, next_move, table, cache);
         if result.is_none() {
-            cache.insert(mini_board);
+            cache.insert(zhash);
         }
         return result;
     }
@@ -65,28 +68,31 @@ fn solve_all(
     next_move_cands.sort_unstable();
     for next_move in next_move_cands {
         let mut board = board.clone();
-        match solve_one(depth, &mut board, black, next_move, cache) {
+        match solve_one(depth, &mut board, zhash, black, next_move, table, cache) {
             Some(ps) => return Some(ps),
             None => continue,
         }
     }
 
-    cache.insert(mini_board);
+    cache.insert(zhash);
     None
 }
 
 fn solve_one(
     depth: u8,
     board: &mut Board,
+    zhash: u64,
     black: bool,
     next_move: Point,
-    cache: &mut HashSet<MiniBoard>,
+    table: &ZobristHashTable,
+    cache: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
     if black && forbidden(board, next_move).is_some() {
         return None;
     }
 
     board.put(black, next_move);
+    let mut zhash = zhash ^ table.get(black, next_move);
     let next_four_eyes = board.row_eyes_along(next_move, black, RowKind::Four);
     if next_four_eyes.len() >= 2 {
         Some(vec![next_move])
@@ -97,7 +103,17 @@ fn solve_one(
         }
 
         board.put(!black, next2_move);
-        solve_all(depth - 1, board, black, Some(next2_move), cache).map(|mut ps| {
+        zhash ^= table.get(!black, next2_move);
+        solve_all(
+            depth - 1,
+            board,
+            zhash,
+            black,
+            Some(next2_move),
+            table,
+            cache,
+        )
+        .map(|mut ps| {
             let mut result = vec![next_move, next2_move];
             result.append(&mut ps);
             result
