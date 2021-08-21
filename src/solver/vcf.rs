@@ -64,8 +64,6 @@ fn solve_all(
 
     // Continue four move
     let next_move_cands = board.row_eyes(black, RowKind::Sword);
-    let mut next_move_cands = next_move_cands.into_iter().collect::<Vec<_>>();
-    next_move_cands.sort_unstable();
     for next_move in next_move_cands {
         let mut board = board.clone();
         match solve_one(depth, &mut board, zhash, black, next_move, table, cache) {

@@ -1,6 +1,5 @@
 use super::line::*;
 use super::row::*;
-use std::collections::HashSet;
 
 pub const BOARD_SIZE: u8 = 15;
 const O_LINE_NUM: u8 = BOARD_SIZE;
@@ -102,8 +101,9 @@ impl Board {
             .collect::<Vec<_>>()
     }
 
-    pub fn row_eyes(&self, black: bool, kind: RowKind) -> HashSet<Point> {
-        self.iter_lines_for(black, kind)
+    pub fn row_eyes(&self, black: bool, kind: RowKind) -> Vec<Point> {
+        let mut result = self
+            .iter_lines_for(black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -112,11 +112,15 @@ impl Board {
                     .flatten()
             })
             .flatten()
-            .collect::<HashSet<_>>()
+            .collect::<Vec<_>>();
+        result.sort_unstable();
+        result.dedup();
+        result
     }
 
-    pub fn row_eyes_along(&self, p: Point, black: bool, kind: RowKind) -> HashSet<Point> {
-        self.iter_lines_along_for(p, black, kind)
+    pub fn row_eyes_along(&self, p: Point, black: bool, kind: RowKind) -> Vec<Point> {
+        let mut result = self
+            .iter_lines_along_for(p, black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -125,7 +129,10 @@ impl Board {
                     .flatten()
             })
             .flatten()
-            .collect::<HashSet<_>>()
+            .collect::<Vec<_>>();
+        result.sort_unstable();
+        result.dedup();
+        result
     }
 
     pub fn to_string(&self) -> String {
