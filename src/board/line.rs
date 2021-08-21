@@ -1,4 +1,3 @@
-use super::bits::*;
 use super::row::*;
 
 const MAX_SIZE: u8 = 15;
@@ -24,10 +23,6 @@ impl Line {
             bcount: 0,
             wcount: 0,
         }
-    }
-
-    pub fn check(&self, checker: Checker) -> bool {
-        self.bcount >= checker.b && self.wcount >= checker.w
     }
 
     pub fn put(&mut self, black: bool, i: u8) {
@@ -70,8 +65,30 @@ impl Line {
         }
     }
 
-    fn blanks(&self) -> Bits {
-        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
+    pub fn may_have(&self, black: bool, kind: RowKind) -> bool {
+        let min_stone_count = match kind {
+            RowKind::Two => 2,
+            RowKind::Sword => 3,
+            RowKind::Three => 3,
+            RowKind::Four => 4,
+            RowKind::Five => 5,
+            RowKind::Overline => 6,
+        };
+        let min_blank_count = match kind {
+            RowKind::Two => 4,
+            RowKind::Sword => 2,
+            RowKind::Three => 3,
+            RowKind::Four => 1,
+            RowKind::Five => 0,
+            RowKind::Overline => 0,
+        };
+        let blank_count = self.size - (self.bcount + self.wcount);
+        blank_count >= min_blank_count
+            && if black {
+                self.bcount >= min_stone_count
+            } else {
+                self.wcount >= min_stone_count
+            }
     }
 
     pub fn to_string(&self) -> String {
@@ -87,5 +104,9 @@ impl Line {
                 }
             })
             .collect()
+    }
+
+    fn blanks(&self) -> Bits {
+        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
     }
 }

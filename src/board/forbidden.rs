@@ -1,5 +1,5 @@
 use super::board::*;
-use super::row::RowKind;
+use super::row::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ForbiddenKind {
