@@ -27,6 +27,27 @@ pub struct Board {
     dlines: DiagonalLines,
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
+pub struct Point {
+    pub x: u8,
+    pub y: u8,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Index {
+    pub i: u8,
+    pub j: u8,
+}
+
+#[derive(Debug, Clone)]
+pub struct BoardRow {
+    pub direction: Direction,
+    pub start: Point,
+    pub end: Point,
+    pub eye1: Option<Point>,
+    pub eye2: Option<Point>,
+}
+
 impl Board {
     pub fn new() -> Board {
         Board {
@@ -108,6 +129,28 @@ impl Board {
             .collect::<HashSet<_>>()
     }
 
+    pub fn mini_board(&self) -> MiniBoard {
+        let mut result = [0b0; (BOARD_SIZE * 2) as usize];
+        for i in 0..(BOARD_SIZE as usize) {
+            let vline = &self.vlines[i];
+            result[i * 2] = vline.blacks;
+            result[i * 2 + 1] = vline.whites;
+        }
+        result
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut result = self
+            .hlines
+            .iter()
+            .rev()
+            .map(|l| l.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        result.push('\n');
+        result
+    }
+
     fn iter_lines_for(
         &self,
         black: bool,
@@ -177,34 +220,6 @@ impl Board {
 
         result.into_iter()
     }
-
-    pub fn mini_board(&self) -> MiniBoard {
-        let mut result = [0b0; (BOARD_SIZE * 2) as usize];
-        for i in 0..(BOARD_SIZE as usize) {
-            let vline = &self.vlines[i];
-            result[i * 2] = vline.blacks;
-            result[i * 2 + 1] = vline.whites;
-        }
-        result
-    }
-
-    pub fn to_string(&self) -> String {
-        let mut result = self
-            .hlines
-            .iter()
-            .rev()
-            .map(|l| l.to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
-        result.push('\n');
-        result
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
-pub struct Point {
-    pub x: u8,
-    pub y: u8,
 }
 
 impl Point {
@@ -227,12 +242,6 @@ impl Point {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Index {
-    pub i: u8,
-    pub j: u8,
-}
-
 impl Index {
     pub fn to_point(&self, direction: Direction) -> Point {
         let (i, j) = (self.i, self.j);
@@ -251,15 +260,6 @@ impl Index {
             }
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct BoardRow {
-    pub direction: Direction,
-    pub start: Point,
-    pub end: Point,
-    pub eye1: Option<Point>,
-    pub eye2: Option<Point>,
 }
 
 impl BoardRow {
