@@ -12,12 +12,6 @@ pub struct Line {
     wcount: u8,
 }
 
-#[derive(Clone, Copy)]
-pub struct Checker {
-    pub b: u8,
-    pub w: u8,
-}
-
 impl Line {
     pub fn new(size: u8) -> Line {
         let size = std::cmp::min(size, MAX_SIZE);
@@ -29,10 +23,6 @@ impl Line {
             bcount: 0,
             wcount: 0,
         }
-    }
-
-    pub fn check(&self, checker: Checker) -> bool {
-        self.bcount >= checker.b && self.wcount >= checker.w
     }
 
     pub fn put(&mut self, black: bool, i: u8) {
@@ -75,8 +65,30 @@ impl Line {
         }
     }
 
-    fn blanks(&self) -> Bits {
-        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
+    pub fn may_have(&self, black: bool, kind: RowKind) -> bool {
+        let min_stone_count = match kind {
+            RowKind::Two => 2,
+            RowKind::Sword => 3,
+            RowKind::Three => 3,
+            RowKind::Four => 4,
+            RowKind::Five => 5,
+            RowKind::Overline => 6,
+        };
+        let min_blank_count = match kind {
+            RowKind::Two => 4,
+            RowKind::Sword => 2,
+            RowKind::Three => 3,
+            RowKind::Four => 1,
+            RowKind::Five => 0,
+            RowKind::Overline => 0,
+        };
+        let blank_count = self.size - (self.bcount + self.wcount);
+        blank_count >= min_blank_count
+            && if black {
+                self.bcount >= min_stone_count
+            } else {
+                self.wcount >= min_stone_count
+            }
     }
 
     pub fn to_string(&self) -> String {
@@ -93,27 +105,8 @@ impl Line {
             })
             .collect()
     }
-}
 
-pub fn get_checker(kind: RowKind, black: bool) -> Checker {
-    if black {
-        match kind {
-            RowKind::Two => Checker { b: 2, w: 0 },
-            RowKind::Sword => Checker { b: 3, w: 0 },
-            RowKind::Three => Checker { b: 3, w: 0 },
-            RowKind::Four => Checker { b: 4, w: 0 },
-            RowKind::Five => Checker { b: 5, w: 0 },
-            RowKind::Overline => Checker { b: 6, w: 0 },
-            _ => Checker { b: 0, w: 0 },
-        }
-    } else {
-        match kind {
-            RowKind::Two => Checker { b: 0, w: 2 },
-            RowKind::Sword => Checker { b: 0, w: 3 },
-            RowKind::Three => Checker { b: 0, w: 3 },
-            RowKind::Four => Checker { b: 0, w: 4 },
-            RowKind::Five => Checker { b: 0, w: 5 },
-            _ => Checker { b: 0, w: 0 },
-        }
+    fn blanks(&self) -> Bits {
+        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
     }
 }

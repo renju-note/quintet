@@ -2,7 +2,6 @@ pub type Bits = u16;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum RowKind {
-    Nothing,
     Two,
     Sword,
     Three,
@@ -35,7 +34,6 @@ pub fn scan_rows(
             RowKind::Four => scan(&B_FOUR, &B_FOURS, stones, blanks, limit, offset),
             RowKind::Five => scan(&B_FIVE, &B_FIVES, stones, blanks, limit, offset),
             RowKind::Overline => scan(&B_OVERLINE, &B_OVERLINES, stones, blanks, limit, offset),
-            _ => vec![],
         }
     } else {
         match kind {

@@ -60,8 +60,7 @@ impl Board {
     }
 
     pub fn rows(&self, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        let checker = get_checker(kind, black);
-        self.iter_lines(checker)
+        self.iter_lines_for(black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -72,8 +71,7 @@ impl Board {
     }
 
     pub fn rows_on(&self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        let checker = get_checker(kind, black);
-        self.iter_lines_along(p, checker)
+        self.iter_lines_along_for(p, black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -85,8 +83,7 @@ impl Board {
     }
 
     pub fn row_eyes(&self, black: bool, kind: RowKind) -> HashSet<Point> {
-        let checker = get_checker(kind, black);
-        self.iter_lines(checker)
+        self.iter_lines_for(black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -99,8 +96,7 @@ impl Board {
     }
 
     pub fn row_eyes_along(&self, p: Point, black: bool, kind: RowKind) -> HashSet<Point> {
-        let checker = get_checker(kind, black);
-        self.iter_lines_along(p, checker)
+        self.iter_lines_along_for(p, black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -112,56 +108,61 @@ impl Board {
             .collect::<HashSet<_>>()
     }
 
-    fn iter_lines(&self, checker: Checker) -> impl Iterator<Item = (Direction, u8, &Line)> {
+    fn iter_lines_for(
+        &self,
+        black: bool,
+        kind: RowKind,
+    ) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let viter = self
             .vlines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.check(checker))
+            .filter(move |(_, l)| l.may_have(black, kind))
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
         let hiter = self
             .hlines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.check(checker))
+            .filter(move |(_, l)| l.may_have(black, kind))
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
         let aiter = self
             .alines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.check(checker))
+            .filter(move |(_, l)| l.may_have(black, kind))
             .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
             .iter()
             .enumerate()
-            .filter(move |(_, l)| l.check(checker))
+            .filter(move |(_, l)| l.may_have(black, kind))
             .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    fn iter_lines_along(
+    fn iter_lines_along_for(
         &self,
         p: Point,
-        checker: Checker,
+        black: bool,
+        kind: RowKind,
     ) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let mut result = vec![];
         let vidx = p.to_index(Direction::Vertical);
         let vline = &self.vlines[vidx.i as usize];
-        if vline.check(checker) {
+        if vline.may_have(black, kind) {
             result.push((Direction::Vertical, vidx.i, vline))
         }
 
         let hidx = p.to_index(Direction::Horizontal);
         let hline = &self.hlines[hidx.i as usize];
-        if hline.check(checker) {
+        if hline.may_have(black, kind) {
             result.push((Direction::Horizontal, hidx.i, hline))
         }
 
         let aidx = p.to_index(Direction::Ascending);
         if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
             let aline = &self.alines[(aidx.i - 4) as usize];
-            if aline.check(checker) {
+            if aline.may_have(black, kind) {
                 result.push((Direction::Ascending, aidx.i, aline));
             }
         }
@@ -169,7 +170,7 @@ impl Board {
         let didx = p.to_index(Direction::Descending);
         if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
             let dline = &self.dlines[(didx.i - 4) as usize];
-            if dline.check(checker) {
+            if dline.may_have(black, kind) {
                 result.push((Direction::Descending, didx.i, dline));
             }
         }
