@@ -1,4 +1,3 @@
-use super::bits::*;
 use super::row::*;
 
 const MAX_SIZE: u8 = 15;
@@ -11,6 +10,12 @@ pub struct Line {
 
     bcount: u8,
     wcount: u8,
+}
+
+#[derive(Clone, Copy)]
+pub struct Checker {
+    pub b: u8,
+    pub w: u8,
 }
 
 impl Line {
@@ -87,5 +92,28 @@ impl Line {
                 }
             })
             .collect()
+    }
+}
+
+pub fn get_checker(kind: RowKind, black: bool) -> Checker {
+    if black {
+        match kind {
+            RowKind::Two => Checker { b: 2, w: 0 },
+            RowKind::Sword => Checker { b: 3, w: 0 },
+            RowKind::Three => Checker { b: 3, w: 0 },
+            RowKind::Four => Checker { b: 4, w: 0 },
+            RowKind::Five => Checker { b: 5, w: 0 },
+            RowKind::Overline => Checker { b: 6, w: 0 },
+            _ => Checker { b: 0, w: 0 },
+        }
+    } else {
+        match kind {
+            RowKind::Two => Checker { b: 0, w: 2 },
+            RowKind::Sword => Checker { b: 0, w: 3 },
+            RowKind::Three => Checker { b: 0, w: 3 },
+            RowKind::Four => Checker { b: 0, w: 4 },
+            RowKind::Five => Checker { b: 0, w: 5 },
+            _ => Checker { b: 0, w: 0 },
+        }
     }
 }

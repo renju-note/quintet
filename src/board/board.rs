@@ -1,4 +1,3 @@
-use super::bits::Bits;
 use super::line::*;
 use super::row::*;
 use std::collections::HashSet;
@@ -61,7 +60,7 @@ impl Board {
     }
 
     pub fn rows(&self, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        let checker = kind.checker(black);
+        let checker = get_checker(kind, black);
         self.iter_lines(checker)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
@@ -73,7 +72,7 @@ impl Board {
     }
 
     pub fn rows_on(&self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        let checker = kind.checker(black);
+        let checker = get_checker(kind, black);
         self.iter_lines_along(p, checker)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
@@ -86,7 +85,7 @@ impl Board {
     }
 
     pub fn row_eyes(&self, black: bool, kind: RowKind) -> HashSet<Point> {
-        let checker = kind.checker(black);
+        let checker = get_checker(kind, black);
         self.iter_lines(checker)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
@@ -100,7 +99,7 @@ impl Board {
     }
 
     pub fn row_eyes_along(&self, p: Point, black: bool, kind: RowKind) -> HashSet<Point> {
-        let checker = kind.checker(black);
+        let checker = get_checker(kind, black);
         self.iter_lines_along(p, checker)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
