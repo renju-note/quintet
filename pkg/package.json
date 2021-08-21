@@ -1,23 +1,22 @@
 {
+  "name": "@renju-note/quintet",
   "collaborators": [
     "yubessy <yubessy0@gmail.com>"
   ],
-  "description": "Renju mate solver compiled to wasm",
-  "files": [
-    "quintet_bg.js",
-    "quintet_bg.wasm.d.ts",
-    "quintet_bg.wasm",
-    "quintet.d.ts",
-    "quintet.js"
-  ],
+  "description": "Renju mate solver compilable to WebAssemby",
+  "version": "0.3.3",
   "license": "MIT",
-  "module": "quintet.js",
-  "name": "@renju-note/quintet",
   "repository": {
     "type": "git",
     "url": "https://github.com/renju-note/quintet"
   },
-  "sideEffects": false,
+  "files": [
+    "quintet_bg.wasm",
+    "quintet.js",
+    "quintet_bg.js",
+    "quintet.d.ts"
+  ],
+  "module": "quintet.js",
   "types": "quintet.d.ts",
-  "version": "0.3.2"
+  "sideEffects": false
 }
