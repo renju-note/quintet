@@ -172,28 +172,33 @@ impl Board {
     }
 
     fn iter_lines_along(&mut self, p: Point) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
-        let mut result: Vec<(Direction, u8, &mut Line)> = vec![];
         let vidx = p.to_index(Direction::Vertical);
         let vline = &mut self.vlines[vidx.i as usize];
-        result.push((Direction::Vertical, vidx.i, vline));
+        let viter = Some((Direction::Vertical, vidx.i, vline)).into_iter();
 
         let hidx = p.to_index(Direction::Horizontal);
         let hline = &mut self.hlines[hidx.i as usize];
-        result.push((Direction::Horizontal, hidx.i, hline));
+        let hiter = Some((Direction::Horizontal, hidx.i, hline)).into_iter();
 
         let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
+        let aiter = if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
             let aline = &mut self.alines[(aidx.i - 4) as usize];
-            result.push((Direction::Ascending, aidx.i, aline));
+            Some((Direction::Ascending, aidx.i, aline))
+        } else {
+            None
         }
+        .into_iter();
 
         let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
+        let diter = if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
             let dline = &mut self.dlines[(didx.i - 4) as usize];
-            result.push((Direction::Descending, didx.i, dline));
+            Some((Direction::Descending, didx.i, dline))
+        } else {
+            None
         }
+        .into_iter();
 
-        result.into_iter()
+        viter.chain(hiter).chain(aiter).chain(diter)
     }
 }
 
