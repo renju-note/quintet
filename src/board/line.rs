@@ -1,7 +1,5 @@
 use super::row::*;
 
-const MAX_SIZE: u8 = 15;
-
 #[derive(Clone)]
 pub struct Line {
     pub size: u8,
@@ -11,17 +9,9 @@ pub struct Line {
     row_checker: RowChecker,
 }
 
-#[derive(Clone)]
-struct RowChecker {
-    bfree: u8,
-    wfree: u8,
-    bcount: u8,
-    wcount: u8,
-}
-
 impl Line {
     pub fn new(size: u8) -> Line {
-        let size = std::cmp::min(size, MAX_SIZE);
+        let size = std::cmp::min(size, 15);
         Line {
             size: size,
             blacks: 0b0,
@@ -94,6 +84,14 @@ impl Line {
     }
 }
 
+#[derive(Clone)]
+struct RowChecker {
+    bfree: u8,
+    wfree: u8,
+    bcount: u8,
+    wcount: u8,
+}
+
 impl RowChecker {
     pub fn new() -> RowChecker {
         RowChecker {
@@ -105,7 +103,7 @@ impl RowChecker {
     }
 
     pub fn memoize_free(&mut self, black: bool, kind: RowKind) {
-        let mask = self.free_mask(kind);
+        let mask = free_mask(kind);
         if black {
             self.bfree |= mask
         } else {
@@ -138,7 +136,7 @@ impl RowChecker {
     }
 
     pub fn may_contain(&self, size: u8, black: bool, kind: RowKind) -> bool {
-        let mask = self.free_mask(kind);
+        let mask = free_mask(kind);
         if (black && (self.bfree & mask != 0b0)) || (!black && (self.wfree & mask != 0b0)) {
             return false;
         }
@@ -166,15 +164,15 @@ impl RowChecker {
                 self.wcount >= min_stone_count
             }
     }
+}
 
-    fn free_mask(&self, kind: RowKind) -> u8 {
-        match kind {
-            RowKind::Two => 0b000010,
-            RowKind::Sword => 0b000001,
-            RowKind::Three => 0b000100,
-            RowKind::Four => 0b001000,
-            RowKind::Five => 0b010000,
-            RowKind::Overline => 0b100000,
-        }
+fn free_mask(kind: RowKind) -> u8 {
+    match kind {
+        RowKind::Two => 0b000010,
+        RowKind::Sword => 0b000001,
+        RowKind::Three => 0b000100,
+        RowKind::Four => 0b001000,
+        RowKind::Five => 0b010000,
+        RowKind::Overline => 0b100000,
     }
 }

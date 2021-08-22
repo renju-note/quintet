@@ -2,12 +2,6 @@ use super::line::*;
 use super::row::*;
 
 pub const BOARD_SIZE: u8 = 15;
-const O_LINE_NUM: u8 = BOARD_SIZE;
-const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
-const N: u8 = BOARD_SIZE - 1;
-
-type OrthogonalLines = [Line; O_LINE_NUM as usize];
-type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -57,8 +51,6 @@ impl Board {
     }
 
     pub fn put(&mut self, black: bool, p: Point) {
-        // Use const generics in the future.
-        // fn put_lines<const size: usize>(lines: &[Line; size]) -> [Line; size]
         let vidx = p.to_index(Direction::Vertical);
         self.vlines[vidx.i as usize].put(black, vidx.j);
 
@@ -66,13 +58,13 @@ impl Board {
         self.hlines[hidx.i as usize].put(black, hidx.j);
 
         let aidx = p.to_index(Direction::Ascending);
-        if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
+        if bw(4, aidx.i, D_LINE_NUM + 3) {
             let i = (aidx.i - 4) as usize;
             self.alines[i].put(black, aidx.j);
         }
 
         let didx = p.to_index(Direction::Descending);
-        if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
+        if bw(4, didx.i, D_LINE_NUM + 3) {
             let i = (didx.i - 4) as usize;
             self.dlines[i].put(black, didx.j);
         }
@@ -181,7 +173,7 @@ impl Board {
         let hiter = Some((Direction::Horizontal, hidx.i, hline)).into_iter();
 
         let aidx = p.to_index(Direction::Ascending);
-        let aiter = if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
+        let aiter = if bw(4, aidx.i, D_LINE_NUM + 3) {
             let aline = &mut self.alines[(aidx.i - 4) as usize];
             Some((Direction::Ascending, aidx.i, aline))
         } else {
@@ -190,7 +182,7 @@ impl Board {
         .into_iter();
 
         let didx = p.to_index(Direction::Descending);
-        let diter = if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
+        let diter = if bw(4, didx.i, D_LINE_NUM + 3) {
             let dline = &mut self.dlines[(didx.i - 4) as usize];
             Some((Direction::Descending, didx.i, dline))
         } else {
@@ -269,6 +261,13 @@ impl BoardRow {
         self.eye1.into_iter().chain(self.eye2.into_iter())
     }
 }
+
+const N: u8 = BOARD_SIZE - 1;
+const O_LINE_NUM: u8 = BOARD_SIZE;
+const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
+
+type OrthogonalLines = [Line; O_LINE_NUM as usize];
+type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 fn orthogonal_lines() -> OrthogonalLines {
     [
