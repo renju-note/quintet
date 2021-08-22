@@ -1,0 +1,21 @@
+name: Publish to npm using wasm-pack on release
+on:
+  release:
+    types:
+    - published
+jobs:
+  build_and_publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    - run: |
+        NPM_PACKAGE_VERSION="$(echo $RELEASE_TAG_NAME | sed s/v//)"
+        sed -i -e 's/version = "0.0.0-dev"/version = "'"$NPM_PACKAGE_VERSION"'"/' Cargo.toml
+      env:
+        RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+    - run: wasm-pack build --scope renju-note
+    - run: ls -al pkg
+    - run: cat pkg/package.json
+      # env:
+      #   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
