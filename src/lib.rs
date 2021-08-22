@@ -6,7 +6,7 @@ pub mod board;
 pub mod encoding;
 pub mod solver;
 
-use board::{Board, Point};
+use board::{Board, Point, BOARD_SIZE};
 
 #[wasm_bindgen]
 pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> Option<Box<[u8]>> {
@@ -34,13 +34,13 @@ pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> 
 }
 
 fn encode_xy(x: u8, y: u8) -> u8 {
-    x * 15 + y
+    x * BOARD_SIZE + y
 }
 
 fn decode_x(code: u8) -> u8 {
-    code / 15
+    code / BOARD_SIZE
 }
 
 fn decode_y(code: u8) -> u8 {
-    code % 15
+    code % BOARD_SIZE
 }

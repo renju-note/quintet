@@ -1,6 +1,6 @@
 use super::super::board::*;
 
-const TABLE_SIZE: usize = 2 * (BOARD_SIZE as usize) * (BOARD_SIZE as usize);
+const TABLE_SIZE: usize = 2 * (BOARD_SIZE as usize) * (BOARD_SIZE as usize); // 450
 const LCG_MULTIPLIER: u128 = 0x2d99787926d46932a4c1f32680f70c55;
 const LCG_INCREMENT: u128 = 0x1;
 
