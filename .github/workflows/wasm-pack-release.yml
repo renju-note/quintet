@@ -21,7 +21,9 @@ jobs:
         node-version: '16'
         scope: '@renju-note'
     - run: |
+        mv .npmrc ./pkg
         cd pkg
+        cat .npmrc
         npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
