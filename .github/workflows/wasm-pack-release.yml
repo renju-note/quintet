@@ -14,7 +14,7 @@ jobs:
         NPM_PACKAGE_VERSION="$(echo $RELEASE_TAG_NAME | sed s/v//)"
         sed -i -e 's/version = "0.0.0-dev"/version = "'"$NPM_PACKAGE_VERSION"'"/' Cargo.toml
       env:
-        RELEASE_TAG_NAME: v0.0.0-dev
+        RELEASE_TAG_NAME: v0.4.0
     - run: wasm-pack build --scope renju-note
     - run: wasm-pack publish
       env:
