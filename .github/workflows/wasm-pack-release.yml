@@ -1,5 +1,6 @@
 name: Publish to npm using wasm-pack on release
 on:
+  push: {}
   release:
     types:
     - published
