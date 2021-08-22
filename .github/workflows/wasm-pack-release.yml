@@ -16,14 +16,12 @@ jobs:
       env:
         RELEASE_TAG_NAME: v0.4.0
     - run: wasm-pack build --scope renju-note
-    - uses: actions/setup-node@v2
+    - working-directory: ./pkg
+      uses: actions/setup-node@v2
       with:
         node-version: '16'
         scope: '@renju-note'
-    - run: |
-        mv .npmrc ./pkg
-        cd pkg
-        cat .npmrc
-        npm publish --access public
+    - working-directory: ./pkg
+      run: npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
