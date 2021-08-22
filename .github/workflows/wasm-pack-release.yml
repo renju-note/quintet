@@ -14,7 +14,7 @@ jobs:
         NPM_PACKAGE_VERSION="$(echo $RELEASE_TAG_NAME | sed s/v//)"
         sed -i -e 's/version = "0.0.0-dev"/version = "'"$NPM_PACKAGE_VERSION"'"/' Cargo.toml
       env:
-        RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        RELEASE_TAG_NAME: v0.0.1
     - run: wasm-pack build --scope renju-note
     - run: ls -al pkg
     - run: cat pkg/package.json
