@@ -8,7 +8,7 @@ fn main() {
         println!("\nBoard code (blacks/whites):");
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
-        let board = match encoding::decode_board(&code) {
+        let mut board = match encoding::decode_board(&code) {
             Ok(board) => board,
             Err(s) => {
                 println!("{}", s);
@@ -19,7 +19,7 @@ fn main() {
 
         println!("\nBlack VCF:");
         let start = Instant::now();
-        let result = solver::solve(u8::MAX, &board, true);
+        let result = solver::solve(u8::MAX, &mut board, true);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {
@@ -32,7 +32,7 @@ fn main() {
 
         println!("\nWhite VCF:");
         let start = Instant::now();
-        let result = solver::solve(u8::MAX, &board, false);
+        let result = solver::solve(u8::MAX, &mut board, false);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {
