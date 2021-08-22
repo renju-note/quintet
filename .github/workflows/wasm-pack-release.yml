@@ -9,9 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-node@v2
-      with:
-        scope: '@renju-note'
     - run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - run: |
         NPM_PACKAGE_VERSION="$(echo $RELEASE_TAG_NAME | sed s/v//)"
@@ -19,6 +16,11 @@ jobs:
       env:
         RELEASE_TAG_NAME: v0.4.0
     - run: wasm-pack build --scope renju-note
-    - run: wasm-pack publish
+    - uses: actions/setup-node@v2
+      with:
+        scope: '@renju-note'
+    - run: |
+        cd pkg
+        npm publish --access public --dry-run
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
