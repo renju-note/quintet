@@ -79,7 +79,7 @@ impl Board {
     }
 
     pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        self.iter_lines_for(black, kind)
+        self.iter_lines()
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -90,7 +90,7 @@ impl Board {
     }
 
     pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        self.iter_lines_along_for(p, black, kind)
+        self.iter_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -103,7 +103,7 @@ impl Board {
 
     pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<Point> {
         let mut result = self
-            .iter_lines_for(black, kind)
+            .iter_lines()
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -120,7 +120,7 @@ impl Board {
 
     pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<Point> {
         let mut result = self
-            .iter_lines_along_for(p, black, kind)
+            .iter_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -147,71 +147,50 @@ impl Board {
         result
     }
 
-    fn iter_lines_for(
-        &mut self,
-        black: bool,
-        kind: RowKind,
-    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+    fn iter_lines(&mut self) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let viter = self
             .vlines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
         let hiter = self
             .hlines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
         let aiter = self
             .alines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
             .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    fn iter_lines_along_for(
-        &mut self,
-        p: Point,
-        black: bool,
-        kind: RowKind,
-    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+    fn iter_lines_along(&mut self, p: Point) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let mut result: Vec<(Direction, u8, &mut Line)> = vec![];
         let vidx = p.to_index(Direction::Vertical);
         let vline = &mut self.vlines[vidx.i as usize];
-        if vline.may_contain(black, kind) {
-            result.push((Direction::Vertical, vidx.i, vline))
-        }
+        result.push((Direction::Vertical, vidx.i, vline));
 
         let hidx = p.to_index(Direction::Horizontal);
         let hline = &mut self.hlines[hidx.i as usize];
-        if hline.may_contain(black, kind) {
-            result.push((Direction::Horizontal, hidx.i, hline))
-        }
+        result.push((Direction::Horizontal, hidx.i, hline));
 
         let aidx = p.to_index(Direction::Ascending);
         if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
             let aline = &mut self.alines[(aidx.i - 4) as usize];
-            if aline.may_contain(black, kind) {
-                result.push((Direction::Ascending, aidx.i, aline));
-            }
+            result.push((Direction::Ascending, aidx.i, aline));
         }
 
         let didx = p.to_index(Direction::Descending);
         if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
             let dline = &mut self.dlines[(didx.i - 4) as usize];
-            if dline.may_contain(black, kind) {
-                result.push((Direction::Descending, didx.i, dline));
-            }
+            result.push((Direction::Descending, didx.i, dline));
         }
 
         result.into_iter()

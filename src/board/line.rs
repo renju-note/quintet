@@ -52,7 +52,7 @@ impl Line {
     }
 
     pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<Row> {
-        if !self.may_contain(black, kind) {
+        if !self.row_checker.may_contain(self.size, black, kind) {
             return vec![];
         }
 
@@ -72,10 +72,6 @@ impl Line {
         }
 
         return result;
-    }
-
-    pub fn may_contain(&self, black: bool, kind: RowKind) -> bool {
-        self.row_checker.may_contain(self.size, black, kind)
     }
 
     pub fn to_string(&self) -> String {
