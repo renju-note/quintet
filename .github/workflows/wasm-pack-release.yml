@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/setup-node@v2
+      with:
+        scope: '@renju-note'
     - run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - run: |
         NPM_PACKAGE_VERSION="$(echo $RELEASE_TAG_NAME | sed s/v//)"
