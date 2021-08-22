@@ -22,7 +22,7 @@ pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> 
         board.put(false, Point { x: x, y: y });
     }
 
-    match solver::solve(depth_limit, &board, black) {
+    match solver::solve(depth_limit, &mut board, black) {
         Some(ps) => Some(
             ps.iter()
                 .map(|p| encode_xy(p.x, p.y))

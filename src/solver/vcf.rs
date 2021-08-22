@@ -2,7 +2,7 @@ use super::super::board::*;
 use super::zhash::*;
 use std::collections::HashSet;
 
-pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
+pub fn solve(depth: u8, board: &mut Board, black: bool) -> Option<Vec<Point>> {
     // Already exists five
     if board.rows(black, RowKind::Five).len() >= 1 {
         return None;
@@ -28,7 +28,7 @@ pub fn solve(depth: u8, board: &Board, black: bool) -> Option<Vec<Point>> {
 
 fn solve_all(
     depth: u8,
-    board: &Board,
+    board: &mut Board,
     zhash: u64,
     black: bool,
     prev_move: Option<Point>,

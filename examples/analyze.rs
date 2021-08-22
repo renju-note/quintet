@@ -7,7 +7,7 @@ fn main() {
         println!("\nBoard code (blacks/whites):");
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
-        let board = match encoding::decode_board(&code) {
+        let mut board = match encoding::decode_board(&code) {
             Ok(board) => board,
             Err(s) => {
                 println!("{}", s);

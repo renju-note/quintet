@@ -78,7 +78,7 @@ impl Board {
         }
     }
 
-    pub fn rows(&self, black: bool, kind: RowKind) -> Vec<BoardRow> {
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<BoardRow> {
         self.iter_lines_for(black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
@@ -89,7 +89,7 @@ impl Board {
             .collect::<Vec<_>>()
     }
 
-    pub fn rows_on(&self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
+    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
         self.iter_lines_along_for(p, black, kind)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
@@ -101,7 +101,7 @@ impl Board {
             .collect::<Vec<_>>()
     }
 
-    pub fn row_eyes(&self, black: bool, kind: RowKind) -> Vec<Point> {
+    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<Point> {
         let mut result = self
             .iter_lines_for(black, kind)
             .map(|(d, i, l)| {
@@ -118,7 +118,7 @@ impl Board {
         result
     }
 
-    pub fn row_eyes_along(&self, p: Point, black: bool, kind: RowKind) -> Vec<Point> {
+    pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<Point> {
         let mut result = self
             .iter_lines_along_for(p, black, kind)
             .map(|(d, i, l)| {
@@ -148,68 +148,68 @@ impl Board {
     }
 
     fn iter_lines_for(
-        &self,
+        &mut self,
         black: bool,
         kind: RowKind,
-    ) -> impl Iterator<Item = (Direction, u8, &Line)> {
+    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let viter = self
             .vlines
-            .iter()
+            .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_have(black, kind))
+            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
         let hiter = self
             .hlines
-            .iter()
+            .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_have(black, kind))
+            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
         let aiter = self
             .alines
-            .iter()
+            .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_have(black, kind))
+            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
-            .iter()
+            .iter_mut()
             .enumerate()
-            .filter(move |(_, l)| l.may_have(black, kind))
+            .filter(move |(_, l)| l.may_contain(black, kind))
             .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
     fn iter_lines_along_for(
-        &self,
+        &mut self,
         p: Point,
         black: bool,
         kind: RowKind,
-    ) -> impl Iterator<Item = (Direction, u8, &Line)> {
-        let mut result = vec![];
+    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+        let mut result: Vec<(Direction, u8, &mut Line)> = vec![];
         let vidx = p.to_index(Direction::Vertical);
-        let vline = &self.vlines[vidx.i as usize];
-        if vline.may_have(black, kind) {
+        let vline = &mut self.vlines[vidx.i as usize];
+        if vline.may_contain(black, kind) {
             result.push((Direction::Vertical, vidx.i, vline))
         }
 
         let hidx = p.to_index(Direction::Horizontal);
-        let hline = &self.hlines[hidx.i as usize];
-        if hline.may_have(black, kind) {
+        let hline = &mut self.hlines[hidx.i as usize];
+        if hline.may_contain(black, kind) {
             result.push((Direction::Horizontal, hidx.i, hline))
         }
 
         let aidx = p.to_index(Direction::Ascending);
         if 4 <= aidx.i && aidx.i < D_LINE_NUM + 4 {
-            let aline = &self.alines[(aidx.i - 4) as usize];
-            if aline.may_have(black, kind) {
+            let aline = &mut self.alines[(aidx.i - 4) as usize];
+            if aline.may_contain(black, kind) {
                 result.push((Direction::Ascending, aidx.i, aline));
             }
         }
 
         let didx = p.to_index(Direction::Descending);
         if 4 <= didx.i && didx.i < D_LINE_NUM + 4 {
-            let dline = &self.dlines[(didx.i - 4) as usize];
-            if dline.may_have(black, kind) {
+            let dline = &mut self.dlines[(didx.i - 4) as usize];
+            if dline.may_contain(black, kind) {
                 result.push((Direction::Descending, didx.i, dline));
             }
         }
