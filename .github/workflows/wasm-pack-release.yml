@@ -15,13 +15,12 @@ jobs:
         sed -i -e 's/version = "0.0.0-dev"/version = "'"$NPM_PACKAGE_VERSION"'"/' Cargo.toml
       env:
         RELEASE_TAG_NAME: v0.4.0
-    - run: wasm-pack build --scope renju-note
+    - run: wasm-pack build --scope renju-note --out-dir quintet
     - uses: actions/setup-node@v2
       with:
         node-version: '16'
         registry-url: 'https://registry.npmjs.org/'
         scope: '@renju-note'
-    - run: ls -al
     - run: npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
