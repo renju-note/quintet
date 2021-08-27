@@ -3,8 +3,8 @@ mod board;
 mod forbidden;
 mod line;
 mod row;
+mod square;
 
-pub use board::{Board, Direction, Index, Point, BOARD_SIZE};
-pub use forbidden::{forbidden, forbiddens};
-pub use line::Line;
+pub use board::{Board, BOARD_SIZE};
 pub use row::RowKind;
+pub use square::Point;

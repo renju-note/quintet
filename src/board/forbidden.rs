@@ -1,5 +1,5 @@
-use super::board::*;
 use super::row::*;
+use super::square::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ForbiddenKind {
@@ -8,17 +8,8 @@ pub enum ForbiddenKind {
     Overline,
 }
 
-pub fn forbiddens(board: &Board) -> Vec<(ForbiddenKind, Point)> {
-    (0..BOARD_SIZE)
-        .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point { x: x, y: y }))
-        .map(|p| (forbidden(board, p), p))
-        .filter(|(k, _)| k.is_some())
-        .map(|(k, p)| (k.unwrap(), p))
-        .collect()
-}
-
-pub fn forbidden(board: &Board, p: Point) -> Option<ForbiddenKind> {
-    let mut next = board.clone();
+pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
+    let mut next = square.clone();
     next.put(true, p);
     if overline(&mut next, p) {
         Some(ForbiddenKind::Overline)
@@ -31,12 +22,12 @@ pub fn forbidden(board: &Board, p: Point) -> Option<ForbiddenKind> {
     }
 }
 
-fn overline(next: &mut Board, p: Point) -> bool {
+fn overline(next: &mut Square, p: Point) -> bool {
     let new_overlines = next.rows_on(p, true, RowKind::Overline);
     new_overlines.len() >= 1
 }
 
-fn double_four(next: &mut Board, p: Point) -> bool {
+fn double_four(next: &mut Square, p: Point) -> bool {
     let new_fours = next.rows_on(p, true, RowKind::Four);
     if new_fours.len() < 2 {
         return false;
@@ -44,7 +35,7 @@ fn double_four(next: &mut Board, p: Point) -> bool {
     distinctive(&new_fours)
 }
 
-fn double_three(next: &mut Board, p: Point) -> bool {
+fn double_three(next: &mut Square, p: Point) -> bool {
     let new_threes = next.rows_on(p, true, RowKind::Three);
     if new_threes.len() < 2 || !distinctive(&new_threes) {
         return false;
@@ -59,7 +50,7 @@ fn double_three(next: &mut Board, p: Point) -> bool {
     distinctive(&truthy_threes)
 }
 
-fn distinctive(rows: &Vec<BoardRow>) -> bool {
+fn distinctive(rows: &Vec<SquareRow>) -> bool {
     let first = &rows[0];
     for row in rows.iter().skip(1) {
         if !adjacent(first, row) {
@@ -69,7 +60,7 @@ fn distinctive(rows: &Vec<BoardRow>) -> bool {
     false
 }
 
-fn adjacent(a: &BoardRow, b: &BoardRow) -> bool {
+fn adjacent(a: &SquareRow, b: &SquareRow) -> bool {
     if a.direction != b.direction {
         return false;
     }

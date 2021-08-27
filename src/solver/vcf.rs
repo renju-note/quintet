@@ -86,7 +86,7 @@ fn solve_one(
     ztable: &ZobristTable,
     zcache: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
-    if black && forbidden(board, next_move).is_some() {
+    if black && board.forbidden(next_move).is_some() {
         return None;
     }
 
@@ -97,7 +97,7 @@ fn solve_one(
         Some(vec![next_move])
     } else if next_four_eyes.len() == 1 {
         let next2_move = next_four_eyes.into_iter().next().unwrap();
-        if !black && forbidden(&board, next2_move).is_some() {
+        if !black && board.forbidden(next2_move).is_some() {
             return Some(vec![next_move]);
         }
 
