@@ -71,7 +71,7 @@ impl Board {
     }
 
     pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        self.iter_lines()
+        self.iter_mut_lines()
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -82,7 +82,7 @@ impl Board {
     }
 
     pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<BoardRow> {
-        self.iter_lines_along(p)
+        self.iter_mut_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -95,7 +95,7 @@ impl Board {
 
     pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<Point> {
         let mut result = self
-            .iter_lines()
+            .iter_mut_lines()
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -112,7 +112,7 @@ impl Board {
 
     pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<Point> {
         let mut result = self
-            .iter_lines_along(p)
+            .iter_mut_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
@@ -139,7 +139,7 @@ impl Board {
         result
     }
 
-    fn iter_lines(&mut self) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+    fn iter_mut_lines(&mut self) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let viter = self
             .vlines
             .iter_mut()
@@ -163,7 +163,10 @@ impl Board {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    fn iter_lines_along(&mut self, p: Point) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+    fn iter_mut_lines_along(
+        &mut self,
+        p: Point,
+    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let vidx = p.to_index(Direction::Vertical);
         let vline = &mut self.vlines[vidx.i as usize];
         let viter = Some((Direction::Vertical, vidx.i, vline)).into_iter();
