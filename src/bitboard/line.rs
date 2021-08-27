@@ -8,8 +8,7 @@ pub struct Line {
     pub size: u8,
     pub blacks: Bits,
     pub whites: Bits,
-
-    row_checker: RowChecker,
+    checker: RowChecker,
 }
 
 impl Line {
@@ -19,8 +18,7 @@ impl Line {
             size: size,
             blacks: 0b0,
             whites: 0b0,
-
-            row_checker: RowChecker::new(),
+            checker: RowChecker::new(),
         }
     }
 
@@ -36,8 +34,8 @@ impl Line {
             whites = self.whites | stones;
         }
 
-        self.row_checker.reset_free();
-        self.row_checker
+        self.checker.reset_free();
+        self.checker
             .memoize_count(blacks, whites, self.blacks, self.whites);
 
         self.blacks = blacks;
@@ -45,7 +43,7 @@ impl Line {
     }
 
     pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<Row> {
-        if !self.row_checker.may_contain(self.size, black, kind) {
+        if !self.checker.may_contain(self.size, black, kind) {
             return vec![];
         }
 
@@ -61,7 +59,7 @@ impl Line {
         };
 
         if result.is_empty() {
-            self.row_checker.memoize_free(black, kind)
+            self.checker.memoize_free(black, kind)
         }
 
         result
