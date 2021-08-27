@@ -1,3 +1,4 @@
+mod bits;
 mod board;
 mod forbidden;
 mod line;

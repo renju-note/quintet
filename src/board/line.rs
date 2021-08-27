@@ -1,3 +1,4 @@
+use super::bits::Bits;
 use super::row::*;
 
 #[derive(Clone)]
