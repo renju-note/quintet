@@ -1,4 +1,4 @@
-use super::board::*;
+use super::bitboard::*;
 
 const N_RANGE: std::ops::Range<u8> = 0..BOARD_SIZE;
 

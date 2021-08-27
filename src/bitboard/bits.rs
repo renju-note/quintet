@@ -1,92 +1,11 @@
 pub type Bits = u16;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum RowKind {
-    Two,
-    Sword,
-    Three,
-    Four,
-    Five,
-    Overline,
-}
-
-#[derive(Clone)]
-pub struct Row {
-    pub start: u8,
-    pub end: u8,
-    pub eye1: Option<u8>,
-    pub eye2: Option<u8>,
-}
-
-pub fn scan_rows(
-    black: bool,
-    kind: RowKind,
-    stones: Bits,
-    blanks: Bits,
-    limit: u8,
-    offset: u8,
-) -> Vec<Row> {
-    if black {
-        match kind {
-            RowKind::Two => scan(&B_TWO, &B_TWOS, stones, blanks, limit, offset),
-            RowKind::Sword => scan(&B_SWORD, &B_SWORDS, stones, blanks, limit, offset),
-            RowKind::Three => scan(&B_THREE, &B_THREES, stones, blanks, limit, offset),
-            RowKind::Four => scan(&B_FOUR, &B_FOURS, stones, blanks, limit, offset),
-            RowKind::Five => scan(&B_FIVE, &B_FIVES, stones, blanks, limit, offset),
-            RowKind::Overline => scan(&B_OVERLINE, &B_OVERLINES, stones, blanks, limit, offset),
-        }
-    } else {
-        match kind {
-            RowKind::Two => scan(&W_TWO, &W_TWOS, stones, blanks, limit, offset),
-            RowKind::Sword => scan(&W_SWORD, &W_SWORDS, stones, blanks, limit, offset),
-            RowKind::Three => scan(&W_THREE, &W_THREES, stones, blanks, limit, offset),
-            RowKind::Four => scan(&W_FOUR, &W_FOURS, stones, blanks, limit, offset),
-            RowKind::Five => scan(&W_FIVE, &W_FIVES, stones, blanks, limit, offset),
-            _ => vec![],
-        }
-    }
-}
-
-fn scan(
-    window: &Window,
-    patterns: &[Pattern],
-    stones: Bits,
-    blanks: Bits,
-    limit: u8,
-    offset: u8,
-) -> Vec<Row> {
-    let mut result = vec![];
-    let size = window.size;
-    if limit < size {
-        return result;
-    }
-    for i in 0..=(limit - size) {
-        let stones = stones >> i;
-        let blanks = blanks >> i;
-        if !window.matches(stones, blanks) {
-            continue;
-        }
-        for p in patterns {
-            if !p.matches(stones, blanks) {
-                continue;
-            }
-            result.push(Row {
-                start: p.start() + i - offset,
-                end: p.end() + i - offset,
-                eye1: p.eye1().map(|e| e + i - offset),
-                eye2: p.eye2().map(|e| e + i - offset),
-            });
-        }
-    }
-    result
-}
-
-struct Window {
+pub struct Window {
     pub size: u8,
     target: Bits,
 }
 
-struct Pattern {
+pub struct Pattern {
     filter: Bits,
     stones: Bits,
     blanks: Bits,
@@ -176,12 +95,12 @@ impl Pattern {
     }
 }
 
-const B_TWO: Window = Window {
+pub const B_TWO: Window = Window {
     size: 8,
     target: 0b01111110,
 };
 
-const B_TWOS: [Pattern; 6] = [
+pub const B_TWOS: [Pattern; 6] = [
     Pattern {
         filter: 0b11111111,
         stones: 0b00001100,
@@ -220,12 +139,12 @@ const B_TWOS: [Pattern; 6] = [
     },
 ];
 
-const B_THREE: Window = Window {
+pub const B_THREE: Window = Window {
     size: 8,
     target: 0b01111110,
 };
 
-const B_THREES: [Pattern; 4] = [
+pub const B_THREES: [Pattern; 4] = [
     Pattern {
         filter: 0b11111111,
         stones: 0b00011100,
@@ -252,12 +171,12 @@ const B_THREES: [Pattern; 4] = [
     },
 ];
 
-const B_SWORD: Window = Window {
+pub const B_SWORD: Window = Window {
     size: 7,
     target: 0b0111110,
 };
 
-const B_SWORDS: [Pattern; 10] = [
+pub const B_SWORDS: [Pattern; 10] = [
     Pattern {
         filter: 0b1111111,
         stones: 0b0001110,
@@ -320,12 +239,12 @@ const B_SWORDS: [Pattern; 10] = [
     },
 ];
 
-const B_FOUR: Window = Window {
+pub const B_FOUR: Window = Window {
     size: 7,
     target: 0b0111110,
 };
 
-const B_FOURS: [Pattern; 5] = [
+pub const B_FOURS: [Pattern; 5] = [
     Pattern {
         filter: 0b1111111,
         stones: 0b0011110,
@@ -358,36 +277,36 @@ const B_FOURS: [Pattern; 5] = [
     },
 ];
 
-const B_FIVE: Window = Window {
+pub const B_FIVE: Window = Window {
     size: 7,
     target: 0b0111110,
 };
 
-const B_FIVES: [Pattern; 1] = [Pattern {
+pub const B_FIVES: [Pattern; 1] = [Pattern {
     filter: 0b1111111,
     stones: 0b0111110,
     blanks: 0b0000000,
     eyes__: 0b0000000,
 }];
 
-const B_OVERLINE: Window = Window {
+pub const B_OVERLINE: Window = Window {
     size: 6,
     target: 0b111111,
 };
 
-const B_OVERLINES: [Pattern; 1] = [Pattern {
+pub const B_OVERLINES: [Pattern; 1] = [Pattern {
     filter: 0b111111,
     stones: 0b111111,
     blanks: 0b000000,
     eyes__: 0b000000,
 }];
 
-const W_TWO: Window = Window {
+pub const W_TWO: Window = Window {
     size: 6,
     target: 0b111111,
 };
 
-const W_TWOS: [Pattern; 6] = [
+pub const W_TWOS: [Pattern; 6] = [
     Pattern {
         filter: 0b111111,
         stones: 0b000110,
@@ -426,12 +345,12 @@ const W_TWOS: [Pattern; 6] = [
     },
 ];
 
-const W_THREE: Window = Window {
+pub const W_THREE: Window = Window {
     size: 6,
     target: 0b111111,
 };
 
-const W_THREES: [Pattern; 4] = [
+pub const W_THREES: [Pattern; 4] = [
     Pattern {
         filter: 0b111111,
         stones: 0b001110,
@@ -458,12 +377,12 @@ const W_THREES: [Pattern; 4] = [
     },
 ];
 
-const W_SWORD: Window = Window {
+pub const W_SWORD: Window = Window {
     size: 5,
     target: 0b11111,
 };
 
-const W_SWORDS: [Pattern; 10] = [
+pub const W_SWORDS: [Pattern; 10] = [
     Pattern {
         filter: 0b11111,
         stones: 0b00111,
@@ -526,12 +445,12 @@ const W_SWORDS: [Pattern; 10] = [
     },
 ];
 
-const W_FOUR: Window = Window {
+pub const W_FOUR: Window = Window {
     size: 5,
     target: 0b11111,
 };
 
-const W_FOURS: [Pattern; 5] = [
+pub const W_FOURS: [Pattern; 5] = [
     Pattern {
         filter: 0b11111,
         stones: 0b01111,
@@ -564,12 +483,12 @@ const W_FOURS: [Pattern; 5] = [
     },
 ];
 
-const W_FIVE: Window = Window {
+pub const W_FIVE: Window = Window {
     size: 5,
     target: 0b11111,
 };
 
-const W_FIVES: [Pattern; 1] = [Pattern {
+pub const W_FIVES: [Pattern; 1] = [Pattern {
     filter: 0b11111,
     stones: 0b11111,
     blanks: 0b00000,

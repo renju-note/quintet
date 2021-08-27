@@ -1,33 +1,24 @@
+use super::bits::Bits;
 use super::row::*;
 
-const MAX_SIZE: u8 = 15;
+pub const MAX_LINE_LENGTH: u8 = 15;
 
 #[derive(Clone)]
 pub struct Line {
     pub size: u8,
     pub blacks: Bits,
     pub whites: Bits,
-
-    row_checker: RowChecker,
-}
-
-#[derive(Clone)]
-struct RowChecker {
-    bfree: u8,
-    wfree: u8,
-    bcount: u8,
-    wcount: u8,
+    checker: RowChecker,
 }
 
 impl Line {
     pub fn new(size: u8) -> Line {
-        let size = std::cmp::min(size, MAX_SIZE);
+        let size = std::cmp::min(size, MAX_LINE_LENGTH);
         Line {
             size: size,
             blacks: 0b0,
             whites: 0b0,
-
-            row_checker: RowChecker::new(),
+            checker: RowChecker::new(),
         }
     }
 
@@ -43,8 +34,8 @@ impl Line {
             whites = self.whites | stones;
         }
 
-        self.row_checker.reset_free();
-        self.row_checker
+        self.checker.reset_free();
+        self.checker
             .memoize_count(blacks, whites, self.blacks, self.whites);
 
         self.blacks = blacks;
@@ -52,7 +43,7 @@ impl Line {
     }
 
     pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<Row> {
-        if !self.row_checker.may_contain(self.size, black, kind) {
+        if !self.checker.may_contain(self.size, black, kind) {
             return vec![];
         }
 
@@ -68,10 +59,10 @@ impl Line {
         };
 
         if result.is_empty() {
-            self.row_checker.memoize_free(black, kind)
+            self.checker.memoize_free(black, kind)
         }
 
-        return result;
+        result
     }
 
     pub fn to_string(&self) -> String {
@@ -94,6 +85,14 @@ impl Line {
     }
 }
 
+#[derive(Clone)]
+struct RowChecker {
+    bfree: u8,
+    wfree: u8,
+    bcount: u8,
+    wcount: u8,
+}
+
 impl RowChecker {
     pub fn new() -> RowChecker {
         RowChecker {
@@ -105,7 +104,7 @@ impl RowChecker {
     }
 
     pub fn memoize_free(&mut self, black: bool, kind: RowKind) {
-        let mask = self.free_mask(kind);
+        let mask = free_mask(kind);
         if black {
             self.bfree |= mask
         } else {
@@ -138,7 +137,7 @@ impl RowChecker {
     }
 
     pub fn may_contain(&self, size: u8, black: bool, kind: RowKind) -> bool {
-        let mask = self.free_mask(kind);
+        let mask = free_mask(kind);
         if (black && (self.bfree & mask != 0b0)) || (!black && (self.wfree & mask != 0b0)) {
             return false;
         }
@@ -166,15 +165,15 @@ impl RowChecker {
                 self.wcount >= min_stone_count
             }
     }
+}
 
-    fn free_mask(&self, kind: RowKind) -> u8 {
-        match kind {
-            RowKind::Two => 0b000010,
-            RowKind::Sword => 0b000001,
-            RowKind::Three => 0b000100,
-            RowKind::Four => 0b001000,
-            RowKind::Five => 0b010000,
-            RowKind::Overline => 0b100000,
-        }
+fn free_mask(kind: RowKind) -> u8 {
+    match kind {
+        RowKind::Two => 0b000010,
+        RowKind::Sword => 0b000001,
+        RowKind::Three => 0b000100,
+        RowKind::Four => 0b001000,
+        RowKind::Five => 0b010000,
+        RowKind::Overline => 0b100000,
     }
 }

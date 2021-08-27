@@ -1,4 +1,4 @@
-use quintet::board::{forbiddens, RowKind};
+use quintet::bitboard::RowKind;
 use quintet::encoding;
 use std::io;
 
@@ -34,7 +34,7 @@ fn main() {
         }
 
         println!("\nForbiddens:");
-        for (p, kind) in forbiddens(&board) {
+        for (p, kind) in board.forbiddens() {
             println!("  {:?}\t{:?}", kind, p)
         }
     }
