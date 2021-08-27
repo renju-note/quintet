@@ -1,4 +1,4 @@
-use quintet::board::RowKind;
+use quintet::bitboard::RowKind;
 use quintet::encoding;
 use std::io;
 

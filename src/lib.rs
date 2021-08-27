@@ -2,11 +2,11 @@ extern crate wasm_bindgen;
 
 use wasm_bindgen::prelude::*;
 
-pub mod board;
+pub mod bitboard;
 pub mod encoding;
 pub mod solver;
 
-use board::{Board, Point, BOARD_SIZE};
+use bitboard::{Board, Point, BOARD_SIZE};
 
 #[wasm_bindgen]
 pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> Option<Box<[u8]>> {

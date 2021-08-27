@@ -1,4 +1,4 @@
-use super::super::board::*;
+use super::super::bitboard::*;
 
 pub struct ZobristTable {
     pub table: [u64; TABLE_SIZE],

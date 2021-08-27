@@ -1,4 +1,4 @@
-use super::super::board::*;
+use super::super::bitboard::*;
 use super::zhash::*;
 use std::collections::HashSet;
 
