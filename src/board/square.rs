@@ -19,6 +19,15 @@ pub struct Square {
     dlines: DiagonalLines,
 }
 
+#[derive(Debug, Clone)]
+pub struct RowSegment {
+    pub direction: Direction,
+    pub start: Point,
+    pub end: Point,
+    pub eye1: Option<Point>,
+    pub eye2: Option<Point>,
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub struct Point {
     pub x: u8,
@@ -29,15 +38,6 @@ pub struct Point {
 pub struct Index {
     pub i: u8,
     pub j: u8,
-}
-
-#[derive(Debug, Clone)]
-pub struct SquareRow {
-    pub direction: Direction,
-    pub start: Point,
-    pub end: Point,
-    pub eye1: Option<Point>,
-    pub eye2: Option<Point>,
 }
 
 impl Square {
@@ -70,24 +70,24 @@ impl Square {
         }
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<SquareRow> {
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<RowSegment> {
         self.iter_mut_lines()
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
-                    .map(move |r| SquareRow::from(&r, d, i))
+                    .map(move |r| RowSegment::from(&r, d, i))
             })
             .flatten()
             .collect::<Vec<_>>()
     }
 
-    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<SquareRow> {
+    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<RowSegment> {
         self.iter_mut_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
-                    .map(move |r| SquareRow::from(&r, d, i))
-                    .filter(|sr| sr.overlap(p))
+                    .map(move |r| RowSegment::from(&r, d, i))
+                    .filter(|r| r.overlap(p))
             })
             .flatten()
             .collect::<Vec<_>>()
@@ -99,8 +99,8 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
-                    .map(move |r| SquareRow::from(&r, d, i))
-                    .map(|sr| sr.into_iter_eyes())
+                    .map(move |r| RowSegment::from(&r, d, i))
+                    .map(|r| r.into_iter_eyes())
                     .flatten()
             })
             .flatten()
@@ -116,8 +116,8 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(black, kind)
                     .into_iter()
-                    .map(move |r| SquareRow::from(&r, d, i))
-                    .map(|sr| sr.into_iter_eyes())
+                    .map(move |r| RowSegment::from(&r, d, i))
+                    .map(|r| r.into_iter_eyes())
                     .flatten()
             })
             .flatten()
@@ -197,6 +197,34 @@ impl Square {
     }
 }
 
+impl RowSegment {
+    pub fn from(r: &Row, d: Direction, i: u8) -> RowSegment {
+        RowSegment {
+            direction: d,
+            start: Index { i: i, j: r.start }.to_point(d),
+            end: Index { i: i, j: r.end }.to_point(d),
+            eye1: r.eye1.map(|e| Index { i: i, j: e }.to_point(d)),
+            eye2: r.eye2.map(|e| Index { i: i, j: e }.to_point(d)),
+        }
+    }
+
+    pub fn overlap(&self, p: Point) -> bool {
+        let (px, py) = (p.x, p.y);
+        let (sx, sy) = (self.start.x, self.start.y);
+        let (ex, ey) = (self.end.x, self.end.y);
+        match self.direction {
+            Direction::Vertical => px == sx && bw(sy, py, ey),
+            Direction::Horizontal => py == sy && bw(sx, px, ex),
+            Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
+            Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
+        }
+    }
+
+    pub fn into_iter_eyes(&self) -> impl IntoIterator<Item = Point> {
+        self.eye1.into_iter().chain(self.eye2.into_iter())
+    }
+}
+
 impl Point {
     pub fn to_index(&self, direction: Direction) -> Index {
         let (x, y) = (self.x, self.y);
@@ -234,34 +262,6 @@ impl Index {
                 Point { x: x, y: y }
             }
         }
-    }
-}
-
-impl SquareRow {
-    pub fn from(r: &Row, d: Direction, i: u8) -> SquareRow {
-        SquareRow {
-            direction: d,
-            start: Index { i: i, j: r.start }.to_point(d),
-            end: Index { i: i, j: r.end }.to_point(d),
-            eye1: r.eye1.map(|e| Index { i: i, j: e }.to_point(d)),
-            eye2: r.eye2.map(|e| Index { i: i, j: e }.to_point(d)),
-        }
-    }
-
-    pub fn overlap(&self, p: Point) -> bool {
-        let (px, py) = (p.x, p.y);
-        let (sx, sy) = (self.start.x, self.start.y);
-        let (ex, ey) = (self.end.x, self.end.y);
-        match self.direction {
-            Direction::Vertical => px == sx && bw(sy, py, ey),
-            Direction::Horizontal => py == sy && bw(sx, px, ex),
-            Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
-            Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
-        }
-    }
-
-    pub fn into_iter_eyes(&self) -> impl IntoIterator<Item = Point> {
-        self.eye1.into_iter().chain(self.eye2.into_iter())
     }
 }
 

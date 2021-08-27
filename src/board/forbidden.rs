@@ -50,7 +50,7 @@ fn double_three(next: &mut Square, p: Point) -> bool {
     distinctive(&truthy_threes)
 }
 
-fn distinctive(rows: &Vec<SquareRow>) -> bool {
+fn distinctive(rows: &Vec<RowSegment>) -> bool {
     let first = &rows[0];
     for row in rows.iter().skip(1) {
         if !adjacent(first, row) {
@@ -60,7 +60,7 @@ fn distinctive(rows: &Vec<SquareRow>) -> bool {
     false
 }
 
-fn adjacent(a: &SquareRow, b: &SquareRow) -> bool {
+fn adjacent(a: &RowSegment, b: &RowSegment) -> bool {
     if a.direction != b.direction {
         return false;
     }

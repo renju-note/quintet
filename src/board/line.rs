@@ -64,7 +64,7 @@ impl Line {
             self.row_checker.memoize_free(black, kind)
         }
 
-        return result;
+        result
     }
 
     pub fn to_string(&self) -> String {

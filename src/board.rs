@@ -7,4 +7,4 @@ mod square;
 
 pub use board::{Board, BOARD_SIZE};
 pub use row::RowKind;
-pub use square::Point;
+pub use square::{Point, RowSegment};

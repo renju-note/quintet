@@ -20,11 +20,11 @@ impl Board {
         self.square.put(black, p);
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<SquareRow> {
+    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<RowSegment> {
         self.square.rows(black, kind)
     }
 
-    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<SquareRow> {
+    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<RowSegment> {
         self.square.rows_on(p, black, kind)
     }
 
