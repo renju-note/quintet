@@ -1,5 +1,6 @@
 use super::line::*;
 use super::row::*;
+use std::fmt;
 
 pub const SQUARE_SIZE: u8 = MAX_LINE_LENGTH;
 
@@ -127,18 +128,6 @@ impl Square {
         result
     }
 
-    pub fn to_string(&self) -> String {
-        let mut result = self
-            .hlines
-            .iter()
-            .rev()
-            .map(|l| l.to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
-        result.push('\n');
-        result
-    }
-
     fn iter_mut_lines(&mut self) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
         let viter = self
             .vlines
@@ -194,6 +183,19 @@ impl Square {
         .into_iter();
 
         viter.chain(hiter).chain(aiter).chain(diter)
+    }
+}
+
+impl fmt::Display for Square {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = self
+            .hlines
+            .iter()
+            .rev()
+            .map(|l| format!("{}", l))
+            .collect::<Vec<_>>()
+            .join("\n");
+        write!(f, "{}", s)
     }
 }
 

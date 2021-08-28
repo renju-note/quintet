@@ -1,6 +1,7 @@
 use super::forbidden::*;
 use super::row::*;
 use super::square::*;
+use std::fmt;
 
 pub const BOARD_SIZE: u8 = SQUARE_SIZE;
 
@@ -48,8 +49,10 @@ impl Board {
             .map(|(k, p)| (k.unwrap(), p))
             .collect()
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.square.to_string()
+impl fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.square)
     }
 }

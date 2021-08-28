@@ -14,7 +14,7 @@ fn main() {
                 continue;
             }
         };
-        println!("\nBoard:\n{}", board.to_string());
+        println!("\nBoard:\n{}", board);
 
         println!("\nRows:");
         for black in &[true, false] {
