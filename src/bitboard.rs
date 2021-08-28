@@ -9,5 +9,5 @@ mod square;
 pub use bits::BOARD_SIZE;
 pub use board::Board;
 pub use point::Point;
-pub use row::RowKind;
+pub use row::{Player, RowKind};
 pub use square::RowSegment;

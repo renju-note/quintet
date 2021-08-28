@@ -1,4 +1,5 @@
 use super::super::bitboard::*;
+use std::convert::From;
 
 pub struct ZobristTable {
     pub table: [u64; TABLE_SIZE],
@@ -15,8 +16,8 @@ impl ZobristTable {
         ZobristTable { table: table }
     }
 
-    pub fn apply(&self, current: u64, black: bool, p: Point) -> u64 {
-        let i = 2 * ((p.x * BOARD_SIZE + p.y) as usize) + if black { 0 } else { 1 };
+    pub fn apply(&self, current: u64, player: Player, p: Point) -> u64 {
+        let i = 2 * (u8::from(p) as usize) + if player.is_black() { 0 } else { 1 };
         let zhash = self.table[i];
         current ^ zhash
     }

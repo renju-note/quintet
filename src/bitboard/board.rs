@@ -18,24 +18,24 @@ impl Board {
         }
     }
 
-    pub fn put(&mut self, black: bool, p: Point) {
-        self.square.put(black, p);
+    pub fn put(&mut self, player: Player, p: Point) {
+        self.square.put(player, p);
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<RowSegment> {
-        self.square.rows(black, kind)
+    pub fn rows(&mut self, player: Player, kind: RowKind) -> Vec<RowSegment> {
+        self.square.rows(player, kind)
     }
 
-    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<RowSegment> {
-        self.square.rows_on(p, black, kind)
+    pub fn rows_on(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
+        self.square.rows_on(player, kind, p)
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<Point> {
-        self.square.row_eyes(black, kind)
+    pub fn row_eyes(&mut self, player: Player, kind: RowKind) -> Vec<Point> {
+        self.square.row_eyes(player, kind)
     }
 
-    pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<Point> {
-        self.square.row_eyes_along(p, black, kind)
+    pub fn row_eyes_along(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
+        self.square.row_eyes_along(player, kind, p)
     }
 
     pub fn forbidden(&self, p: Point) -> Option<ForbiddenKind> {
@@ -70,10 +70,10 @@ impl FromStr for Board {
         let whites = parse_points(codes[1])?;
         let mut board = Board::new();
         for p in blacks {
-            board.put(true, p);
+            board.put(Player::Black, p);
         }
         for p in whites {
-            board.put(false, p);
+            board.put(Player::White, p);
         }
         Ok(board)
     }

@@ -1,4 +1,11 @@
 use super::bits::*;
+use std::convert::From;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Player {
+    Black,
+    White,
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum RowKind {
@@ -18,32 +25,58 @@ pub struct Row {
     pub eye2: Option<u8>,
 }
 
+impl Player {
+    pub fn opponent(&self) -> Player {
+        match self {
+            Player::Black => Player::White,
+            Player::White => Player::Black,
+        }
+    }
+
+    pub fn is_black(self) -> bool {
+        self == Player::Black
+    }
+
+    pub fn is_white(self) -> bool {
+        self == Player::White
+    }
+}
+
+impl From<bool> for Player {
+    fn from(value: bool) -> Player {
+        if value {
+            Player::Black
+        } else {
+            Player::White
+        }
+    }
+}
+
 pub fn scan_rows(
-    black: bool,
+    player: Player,
     kind: RowKind,
     stones: Bits,
     blanks: Bits,
     limit: u8,
     offset: u8,
 ) -> Vec<Row> {
-    if black {
-        match kind {
+    match player {
+        Player::Black => match kind {
             RowKind::Two => scan(&B_TWO, &B_TWOS, stones, blanks, limit, offset),
             RowKind::Sword => scan(&B_SWORD, &B_SWORDS, stones, blanks, limit, offset),
             RowKind::Three => scan(&B_THREE, &B_THREES, stones, blanks, limit, offset),
             RowKind::Four => scan(&B_FOUR, &B_FOURS, stones, blanks, limit, offset),
             RowKind::Five => scan(&B_FIVE, &B_FIVES, stones, blanks, limit, offset),
             RowKind::Overline => scan(&B_OVERLINE, &B_OVERLINES, stones, blanks, limit, offset),
-        }
-    } else {
-        match kind {
+        },
+        Player::White => match kind {
             RowKind::Two => scan(&W_TWO, &W_TWOS, stones, blanks, limit, offset),
             RowKind::Sword => scan(&W_SWORD, &W_SWORDS, stones, blanks, limit, offset),
             RowKind::Three => scan(&W_THREE, &W_THREES, stones, blanks, limit, offset),
             RowKind::Four => scan(&W_FOUR, &W_FOURS, stones, blanks, limit, offset),
             RowKind::Five => scan(&W_FIVE, &W_FIVES, stones, blanks, limit, offset),
             _ => vec![],
-        }
+        },
     }
 }
 

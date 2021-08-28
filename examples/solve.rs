@@ -20,7 +20,7 @@ fn main() {
 
         println!("\nBlack VCF:");
         let start = Instant::now();
-        let result = solver::solve(u8::MAX, &mut board, true);
+        let result = solver::solve(u8::MAX, &mut board, Player::Black);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {
@@ -33,7 +33,7 @@ fn main() {
 
         println!("\nWhite VCF:");
         let start = Instant::now();
-        let result = solver::solve(u8::MAX, &mut board, false);
+        let result = solver::solve(u8::MAX, &mut board, Player::White);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {

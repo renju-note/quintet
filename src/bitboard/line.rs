@@ -21,17 +21,20 @@ impl Line {
         }
     }
 
-    pub fn put(&mut self, black: bool, i: u8) {
+    pub fn put(&mut self, player: Player, i: u8) {
         let stones = 0b1 << i;
         let blacks: Bits;
         let whites: Bits;
-        if black {
-            blacks = self.blacks | stones;
-            whites = self.whites & !stones;
-        } else {
-            blacks = self.blacks & !stones;
-            whites = self.whites | stones;
-        }
+        match player {
+            Player::Black => {
+                blacks = self.blacks | stones;
+                whites = self.whites & !stones;
+            }
+            Player::White => {
+                blacks = self.blacks & !stones;
+                whites = self.whites | stones;
+            }
+        };
 
         self.checker.reset_free();
         self.checker
@@ -41,8 +44,8 @@ impl Line {
         self.whites = whites;
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<Row> {
-        if !self.checker.may_contain(self.size, black, kind) {
+    pub fn rows(&mut self, player: Player, kind: RowKind) -> Vec<Row> {
+        if !self.checker.may_contain(self.size, player, kind) {
             return vec![];
         }
 
@@ -51,14 +54,13 @@ impl Line {
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
 
-        let result = if black {
-            scan_rows(true, kind, blacks_, blanks_, limit, 1)
-        } else {
-            scan_rows(false, kind, whites_, blanks_, limit, 1)
+        let result = match player {
+            Player::Black => scan_rows(Player::Black, kind, blacks_, blanks_, limit, 1),
+            Player::White => scan_rows(Player::White, kind, whites_, blanks_, limit, 1),
         };
 
         if result.is_empty() {
-            self.checker.memoize_free(black, kind)
+            self.checker.memoize_free(player, kind)
         }
 
         result
@@ -105,13 +107,16 @@ impl RowChecker {
         }
     }
 
-    pub fn memoize_free(&mut self, black: bool, kind: RowKind) {
+    pub fn memoize_free(&mut self, player: Player, kind: RowKind) {
         let mask = free_mask(kind);
-        if black {
-            self.bfree |= mask
-        } else {
-            self.wfree |= mask
-        }
+        match player {
+            Player::Black => {
+                self.bfree |= mask;
+            }
+            Player::White => {
+                self.wfree |= mask;
+            }
+        };
     }
 
     pub fn reset_free(&mut self) {
@@ -138,9 +143,11 @@ impl RowChecker {
         }
     }
 
-    pub fn may_contain(&self, size: u8, black: bool, kind: RowKind) -> bool {
+    pub fn may_contain(&self, size: u8, player: Player, kind: RowKind) -> bool {
         let mask = free_mask(kind);
-        if (black && (self.bfree & mask != 0b0)) || (!black && (self.wfree & mask != 0b0)) {
+        if (player.is_black() && (self.bfree & mask != 0b0))
+            || (player.is_white() && (self.wfree & mask != 0b0))
+        {
             return false;
         }
         let min_stone_count = match kind {
@@ -161,10 +168,9 @@ impl RowChecker {
         };
         let blank_count = size - (self.bcount + self.wcount);
         blank_count >= min_blank_count
-            && if black {
-                self.bcount >= min_stone_count
-            } else {
-                self.wcount >= min_stone_count
+            && match player {
+                Player::Black => self.bcount >= min_stone_count,
+                Player::White => self.wcount >= min_stone_count,
             }
     }
 }
