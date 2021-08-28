@@ -11,7 +11,7 @@ pub enum ForbiddenKind {
 
 pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
     let mut next = square.clone();
-    next.put(true, p);
+    next.put(Player::Black, p);
     if overline(&mut next, p) {
         Some(ForbiddenKind::Overline)
     } else if double_four(&mut next, p) {
@@ -24,12 +24,12 @@ pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(next: &mut Square, p: Point) -> bool {
-    let new_overlines = next.rows_on(p, true, RowKind::Overline);
+    let new_overlines = next.rows_on(p, Player::Black, RowKind::Overline);
     new_overlines.len() >= 1
 }
 
 fn double_four(next: &mut Square, p: Point) -> bool {
-    let new_fours = next.rows_on(p, true, RowKind::Four);
+    let new_fours = next.rows_on(p, Player::Black, RowKind::Four);
     if new_fours.len() < 2 {
         return false;
     }
@@ -37,7 +37,7 @@ fn double_four(next: &mut Square, p: Point) -> bool {
 }
 
 fn double_three(next: &mut Square, p: Point) -> bool {
-    let new_threes = next.rows_on(p, true, RowKind::Three);
+    let new_threes = next.rows_on(p, Player::Black, RowKind::Three);
     if new_threes.len() < 2 || !distinctive(&new_threes) {
         return false;
     }

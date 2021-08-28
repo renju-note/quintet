@@ -17,8 +17,8 @@ fn main() {
         println!("\nBoard:\n{}", board);
 
         println!("\nRows:");
-        for black in &[true, false] {
-            println!("  {}", if *black { "Black:" } else { "White:" });
+        for player in &[Player::Black, Player::White] {
+            println!("  {:?}", player);
             for kind in &[
                 RowKind::Two,
                 RowKind::Three,
@@ -27,7 +27,7 @@ fn main() {
                 RowKind::Five,
             ] {
                 println!("    {:?}:", kind);
-                for row in board.rows(*black, *kind) {
+                for row in board.rows(*player, *kind) {
                     println!("      {}", row)
                 }
             }

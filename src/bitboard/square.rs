@@ -31,30 +31,30 @@ impl Square {
         }
     }
 
-    pub fn put(&mut self, black: bool, p: Point) {
+    pub fn put(&mut self, player: Player, p: Point) {
         let vidx = p.to_index(Direction::Vertical);
-        self.vlines[vidx.i as usize].put(black, vidx.j);
+        self.vlines[vidx.i as usize].put(player, vidx.j);
 
         let hidx = p.to_index(Direction::Horizontal);
-        self.hlines[hidx.i as usize].put(black, hidx.j);
+        self.hlines[hidx.i as usize].put(player, hidx.j);
 
         let aidx = p.to_index(Direction::Ascending);
         if bw(4, aidx.i, D_LINE_NUM + 3) {
             let i = (aidx.i - 4) as usize;
-            self.alines[i].put(black, aidx.j);
+            self.alines[i].put(player, aidx.j);
         }
 
         let didx = p.to_index(Direction::Descending);
         if bw(4, didx.i, D_LINE_NUM + 3) {
             let i = (didx.i - 4) as usize;
-            self.dlines[i].put(black, didx.j);
+            self.dlines[i].put(player, didx.j);
         }
     }
 
-    pub fn rows(&mut self, black: bool, kind: RowKind) -> Vec<RowSegment> {
+    pub fn rows(&mut self, player: Player, kind: RowKind) -> Vec<RowSegment> {
         self.iter_mut_lines()
             .map(|(d, i, l)| {
-                l.rows(black, kind)
+                l.rows(player, kind)
                     .into_iter()
                     .map(move |r| RowSegment::from(&r, d, i))
             })
@@ -62,10 +62,10 @@ impl Square {
             .collect::<Vec<_>>()
     }
 
-    pub fn rows_on(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<RowSegment> {
+    pub fn rows_on(&mut self, p: Point, player: Player, kind: RowKind) -> Vec<RowSegment> {
         self.iter_mut_lines_along(p)
             .map(|(d, i, l)| {
-                l.rows(black, kind)
+                l.rows(player, kind)
                     .into_iter()
                     .map(move |r| RowSegment::from(&r, d, i))
                     .filter(|r| r.overlap(p))
@@ -74,11 +74,11 @@ impl Square {
             .collect::<Vec<_>>()
     }
 
-    pub fn row_eyes(&mut self, black: bool, kind: RowKind) -> Vec<Point> {
+    pub fn row_eyes(&mut self, player: Player, kind: RowKind) -> Vec<Point> {
         let mut result = self
             .iter_mut_lines()
             .map(|(d, i, l)| {
-                l.rows(black, kind)
+                l.rows(player, kind)
                     .into_iter()
                     .map(move |r| RowSegment::from(&r, d, i))
                     .map(|r| r.into_iter_eyes())
@@ -91,11 +91,11 @@ impl Square {
         result
     }
 
-    pub fn row_eyes_along(&mut self, p: Point, black: bool, kind: RowKind) -> Vec<Point> {
+    pub fn row_eyes_along(&mut self, p: Point, player: Player, kind: RowKind) -> Vec<Point> {
         let mut result = self
             .iter_mut_lines_along(p)
             .map(|(d, i, l)| {
-                l.rows(black, kind)
+                l.rows(player, kind)
                     .into_iter()
                     .map(move |r| RowSegment::from(&r, d, i))
                     .map(|r| r.into_iter_eyes())
