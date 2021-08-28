@@ -145,8 +145,8 @@ impl RowChecker {
 
     pub fn may_contain(&self, size: u8, player: Player, kind: RowKind) -> bool {
         let mask = free_mask(kind);
-        if (player == Player::Black && (self.bfree & mask != 0b0))
-            || (player == Player::White && (self.wfree & mask != 0b0))
+        if (player.is_black() && (self.bfree & mask != 0b0))
+            || (player.is_white() && (self.wfree & mask != 0b0))
         {
             return false;
         }

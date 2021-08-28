@@ -17,11 +17,7 @@ impl ZobristTable {
     }
 
     pub fn apply(&self, current: u64, player: Player, p: Point) -> u64 {
-        let pflag = match player {
-            Player::Black => 0,
-            Player::White => 1,
-        };
-        let i = 2 * (u8::from(&p) as usize) + pflag;
+        let i = 2 * (u8::from(&p) as usize) + if player.is_black() { 0 } else { 1 };
         let zhash = self.table[i];
         current ^ zhash
     }

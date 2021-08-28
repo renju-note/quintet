@@ -14,7 +14,7 @@ pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> 
     for p in whites {
         board.put(Player::White, p);
     }
-    solver::solve(depth_limit, &mut board, Player::new(black)).map(|ps| {
+    solver::solve(depth_limit, &mut board, Player::from(black)).map(|ps| {
         ps.iter()
             .map(|p| u8::from(p))
             .collect::<Vec<_>>()

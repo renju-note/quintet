@@ -87,7 +87,7 @@ fn solve_one(
     ztable: &ZobristTable,
     zcache: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
-    if player == Player::Black && board.forbidden(next_move).is_some() {
+    if player.is_black() && board.forbidden(next_move).is_some() {
         return None;
     }
 
@@ -99,7 +99,7 @@ fn solve_one(
     } else if next_four_eyes.len() == 1 {
         let opponent = player.opponent();
         let next2_move = next_four_eyes.into_iter().next().unwrap();
-        if opponent == Player::Black && board.forbidden(next2_move).is_some() {
+        if opponent.is_black() && board.forbidden(next2_move).is_some() {
             return Some(vec![next_move]);
         }
 
