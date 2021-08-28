@@ -3,7 +3,6 @@ extern crate wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
 pub mod bitboard;
-pub mod encoding;
 pub mod solver;
 
 use bitboard::{Board, Point, BOARD_SIZE};

@@ -1,4 +1,7 @@
 use super::bits::*;
+use std::fmt;
+use std::str::FromStr;
+use std::string::ToString;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -19,6 +22,8 @@ pub struct Index {
     pub i: u8,
     pub j: u8,
 }
+
+const N: u8 = BOARD_SIZE - 1;
 
 impl Point {
     pub fn to_index(&self, direction: Direction) -> Index {
@@ -60,4 +65,43 @@ impl Index {
     }
 }
 
-const N: u8 = BOARD_SIZE - 1;
+#[derive(Debug, Clone)]
+pub struct ParseError;
+
+const N_RANGE: std::ops::Range<u8> = 0..BOARD_SIZE;
+
+impl FromStr for Point {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let x = s
+            .chars()
+            .nth(0)
+            .map(|c| match c {
+                'A'..='O' => Some(c as u8 - 'A' as u8),
+                'a'..='o' => Some(c as u8 - 'a' as u8),
+                _ => None,
+            })
+            .flatten()
+            .ok_or(ParseError)?;
+        let y = s
+            .chars()
+            .skip(1)
+            .collect::<String>()
+            .parse::<u8>()
+            .map(|y| y - 1)
+            .map_err(|_| ParseError)?;
+        let is_valid = N_RANGE.contains(&x) && N_RANGE.contains(&y);
+        is_valid.then(|| Point { x: x, y: y }).ok_or(ParseError)
+    }
+}
+
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let xs = std::char::from_u32(('A' as u8 + self.x) as u32)
+            .unwrap()
+            .to_string();
+        let ys = (self.y + 1).to_string();
+        write!(f, "{}{}", xs, ys)
+    }
+}

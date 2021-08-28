@@ -1,9 +1,10 @@
 use super::bits::*;
-use super::coordinates::*;
 use super::forbidden::*;
+use super::point::*;
 use super::row::*;
 use super::square::*;
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct Board {
@@ -55,4 +56,29 @@ impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.square)
     }
+}
+
+impl FromStr for Board {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let codes = s.trim().split('/').collect::<Vec<_>>();
+        if codes.len() != 2 {
+            return Err(ParseError);
+        }
+        let blacks = parse_points(codes[0])?;
+        let whites = parse_points(codes[1])?;
+        let mut board = Board::new();
+        for p in blacks {
+            board.put(true, p);
+        }
+        for p in whites {
+            board.put(false, p);
+        }
+        Ok(board)
+    }
+}
+
+pub fn parse_points(s: &str) -> Result<Vec<Point>, ParseError> {
+    s.split(',').map(|m| m.parse::<Point>()).collect()
 }

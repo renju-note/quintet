@@ -1,4 +1,4 @@
-use super::coordinates::*;
+use super::point::*;
 use super::row::*;
 use super::square::*;
 

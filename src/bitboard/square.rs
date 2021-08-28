@@ -1,6 +1,6 @@
 use super::bits::*;
-use super::coordinates::*;
 use super::line::*;
+use super::point::*;
 use super::row::*;
 use std::fmt;
 
@@ -172,7 +172,7 @@ impl fmt::Display for Square {
             .hlines
             .iter()
             .rev()
-            .map(|l| format!("{}", l))
+            .map(|l| l.to_string())
             .collect::<Vec<_>>()
             .join("\n");
         write!(f, "{}", s)
