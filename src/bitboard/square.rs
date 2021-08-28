@@ -62,7 +62,7 @@ impl Square {
             .collect::<Vec<_>>()
     }
 
-    pub fn rows_on(&mut self, p: Point, player: Player, kind: RowKind) -> Vec<RowSegment> {
+    pub fn rows_on(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
         self.iter_mut_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(player, kind)
@@ -91,7 +91,7 @@ impl Square {
         result
     }
 
-    pub fn row_eyes_along(&mut self, p: Point, player: Player, kind: RowKind) -> Vec<Point> {
+    pub fn row_eyes_along(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
         let mut result = self
             .iter_mut_lines_along(p)
             .map(|(d, i, l)| {

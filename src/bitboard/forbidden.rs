@@ -24,12 +24,12 @@ pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(next: &mut Square, p: Point) -> bool {
-    let new_overlines = next.rows_on(p, Player::Black, RowKind::Overline);
+    let new_overlines = next.rows_on(Player::Black, RowKind::Overline, p);
     new_overlines.len() >= 1
 }
 
 fn double_four(next: &mut Square, p: Point) -> bool {
-    let new_fours = next.rows_on(p, Player::Black, RowKind::Four);
+    let new_fours = next.rows_on(Player::Black, RowKind::Four, p);
     if new_fours.len() < 2 {
         return false;
     }
@@ -37,7 +37,7 @@ fn double_four(next: &mut Square, p: Point) -> bool {
 }
 
 fn double_three(next: &mut Square, p: Point) -> bool {
-    let new_threes = next.rows_on(p, Player::Black, RowKind::Three);
+    let new_threes = next.rows_on(Player::Black, RowKind::Three, p);
     if new_threes.len() < 2 || !distinctive(&new_threes) {
         return false;
     }

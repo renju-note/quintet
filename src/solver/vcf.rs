@@ -48,7 +48,7 @@ fn solve_all(
     // Exists opponent's four
     let opponent = player.opponent();
     let opponent_four_eyes = match prev_move {
-        Some(p) => board.row_eyes_along(p, opponent, RowKind::Four),
+        Some(p) => board.row_eyes_along(opponent, RowKind::Four, p),
         None => board.row_eyes(opponent, RowKind::Four),
     };
     if opponent_four_eyes.len() >= 2 {
@@ -93,7 +93,7 @@ fn solve_one(
 
     board.put(player, next_move);
     let next_zhash = ztable.apply(zhash, player, next_move);
-    let next_four_eyes = board.row_eyes_along(next_move, player, RowKind::Four);
+    let next_four_eyes = board.row_eyes_along(player, RowKind::Four, next_move);
     if next_four_eyes.len() >= 2 {
         Some(vec![next_move])
     } else if next_four_eyes.len() == 1 {

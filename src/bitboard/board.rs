@@ -26,16 +26,16 @@ impl Board {
         self.square.rows(player, kind)
     }
 
-    pub fn rows_on(&mut self, p: Point, player: Player, kind: RowKind) -> Vec<RowSegment> {
-        self.square.rows_on(p, player, kind)
+    pub fn rows_on(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
+        self.square.rows_on(player, kind, p)
     }
 
     pub fn row_eyes(&mut self, player: Player, kind: RowKind) -> Vec<Point> {
         self.square.row_eyes(player, kind)
     }
 
-    pub fn row_eyes_along(&mut self, p: Point, player: Player, kind: RowKind) -> Vec<Point> {
-        self.square.row_eyes_along(p, player, kind)
+    pub fn row_eyes_along(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
+        self.square.row_eyes_along(player, kind, p)
     }
 
     pub fn forbidden(&self, p: Point) -> Option<ForbiddenKind> {
