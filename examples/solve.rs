@@ -11,8 +11,8 @@ fn main() {
         let result = code.parse::<Board>();
         let mut board = match result {
             Ok(board) => board,
-            Err(_) => {
-                println!("ParseError");
+            Err(err) => {
+                println!("{}", err);
                 continue;
             }
         };

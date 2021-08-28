@@ -23,8 +23,6 @@ pub struct Index {
     pub j: u8,
 }
 
-const N: u8 = BOARD_SIZE - 1;
-
 impl Point {
     pub fn to_index(&self, direction: Direction) -> Index {
         let (x, y) = (self.x, self.y);
@@ -65,15 +63,11 @@ impl Index {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ParseError;
-
-const N_RANGE: std::ops::Range<u8> = 0..BOARD_SIZE;
-
 impl FromStr for Point {
-    type Err = ParseError;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
         let x = s
             .chars()
             .nth(0)
@@ -83,25 +77,31 @@ impl FromStr for Point {
                 _ => None,
             })
             .flatten()
-            .ok_or(ParseError)?;
+            .ok_or("Failed to parse x part.".to_string())?;
         let y = s
             .chars()
             .skip(1)
             .collect::<String>()
             .parse::<u8>()
-            .map(|y| y - 1)
-            .map_err(|_| ParseError)?;
-        let is_valid = N_RANGE.contains(&x) && N_RANGE.contains(&y);
-        is_valid.then(|| Point { x: x, y: y }).ok_or(ParseError)
+            .ok()
+            .map(|n| match n {
+                1..=15 => Some(n - 1),
+                _ => None,
+            })
+            .flatten()
+            .ok_or("Failed to parse y part.".to_string())?;
+        Ok(Point { x: x, y: y })
     }
 }
 
 impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let xs = std::char::from_u32(('A' as u8 + self.x) as u32)
+        let xs = char::from_u32(('A' as u8 + self.x) as u32)
             .unwrap()
             .to_string();
         let ys = (self.y + 1).to_string();
         write!(f, "{}{}", xs, ys)
     }
 }
+
+const N: u8 = BOARD_SIZE - 1;
