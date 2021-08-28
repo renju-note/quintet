@@ -1,16 +1,8 @@
+use super::bits::*;
+use super::coordinates::*;
 use super::line::*;
 use super::row::*;
 use std::fmt;
-
-pub const SQUARE_SIZE: u8 = MAX_LINE_LENGTH;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Direction {
-    Vertical,
-    Horizontal,
-    Ascending,
-    Descending,
-}
 
 #[derive(Clone)]
 pub struct Square {
@@ -27,18 +19,6 @@ pub struct RowSegment {
     pub end: Point,
     pub eye1: Option<Point>,
     pub eye2: Option<Point>,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
-pub struct Point {
-    pub x: u8,
-    pub y: u8,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Index {
-    pub i: u8,
-    pub j: u8,
 }
 
 impl Square {
@@ -227,96 +207,55 @@ impl RowSegment {
     }
 }
 
-impl Point {
-    pub fn to_index(&self, direction: Direction) -> Index {
-        let (x, y) = (self.x, self.y);
-        match direction {
-            Direction::Vertical => Index { i: x, j: y },
-            Direction::Horizontal => Index { i: y, j: x },
-            Direction::Ascending => {
-                let i = x + N - y;
-                let j = if i < N { x } else { y };
-                Index { i: i, j: j }
-            }
-            Direction::Descending => {
-                let i = x + y;
-                let j = if i < N { x } else { N - y };
-                Index { i: i, j: j }
-            }
-        }
-    }
-}
-
-impl Index {
-    pub fn to_point(&self, direction: Direction) -> Point {
-        let (i, j) = (self.i, self.j);
-        match direction {
-            Direction::Vertical => Point { x: i, y: j },
-            Direction::Horizontal => Point { x: j, y: i },
-            Direction::Ascending => {
-                let x = if i < N { j } else { i + j - N };
-                let y = if i < N { N - i + j } else { j };
-                Point { x: x, y: y }
-            }
-            Direction::Descending => {
-                let x = if i < N { j } else { i + j - N };
-                let y = if i < N { i - j } else { N - j };
-                Point { x: x, y: y }
-            }
-        }
-    }
-}
-
-const N: u8 = SQUARE_SIZE - 1;
-const O_LINE_NUM: u8 = SQUARE_SIZE;
-const D_LINE_NUM: u8 = SQUARE_SIZE * 2 - 1 - (4 * 2); // 21
+const O_LINE_NUM: u8 = BOARD_SIZE;
+const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
 
 type OrthogonalLines = [Line; O_LINE_NUM as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 fn orthogonal_lines() -> OrthogonalLines {
     [
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE),
     ]
 }
 
 fn diagonal_lines() -> DiagonalLines {
     [
-        Line::new(SQUARE_SIZE - 10),
-        Line::new(SQUARE_SIZE - 9),
-        Line::new(SQUARE_SIZE - 8),
-        Line::new(SQUARE_SIZE - 7),
-        Line::new(SQUARE_SIZE - 6),
-        Line::new(SQUARE_SIZE - 5),
-        Line::new(SQUARE_SIZE - 4),
-        Line::new(SQUARE_SIZE - 3),
-        Line::new(SQUARE_SIZE - 2),
-        Line::new(SQUARE_SIZE - 1),
-        Line::new(SQUARE_SIZE),
-        Line::new(SQUARE_SIZE - 1),
-        Line::new(SQUARE_SIZE - 2),
-        Line::new(SQUARE_SIZE - 3),
-        Line::new(SQUARE_SIZE - 4),
-        Line::new(SQUARE_SIZE - 5),
-        Line::new(SQUARE_SIZE - 6),
-        Line::new(SQUARE_SIZE - 7),
-        Line::new(SQUARE_SIZE - 8),
-        Line::new(SQUARE_SIZE - 9),
-        Line::new(SQUARE_SIZE - 10),
+        Line::new(BOARD_SIZE - 10),
+        Line::new(BOARD_SIZE - 9),
+        Line::new(BOARD_SIZE - 8),
+        Line::new(BOARD_SIZE - 7),
+        Line::new(BOARD_SIZE - 6),
+        Line::new(BOARD_SIZE - 5),
+        Line::new(BOARD_SIZE - 4),
+        Line::new(BOARD_SIZE - 3),
+        Line::new(BOARD_SIZE - 2),
+        Line::new(BOARD_SIZE - 1),
+        Line::new(BOARD_SIZE),
+        Line::new(BOARD_SIZE - 1),
+        Line::new(BOARD_SIZE - 2),
+        Line::new(BOARD_SIZE - 3),
+        Line::new(BOARD_SIZE - 4),
+        Line::new(BOARD_SIZE - 5),
+        Line::new(BOARD_SIZE - 6),
+        Line::new(BOARD_SIZE - 7),
+        Line::new(BOARD_SIZE - 8),
+        Line::new(BOARD_SIZE - 9),
+        Line::new(BOARD_SIZE - 10),
     ]
 }
 

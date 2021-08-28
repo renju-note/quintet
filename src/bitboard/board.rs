@@ -1,9 +1,9 @@
+use super::bits::*;
+use super::coordinates::*;
 use super::forbidden::*;
 use super::row::*;
 use super::square::*;
 use std::fmt;
-
-pub const BOARD_SIZE: u8 = SQUARE_SIZE;
 
 #[derive(Clone)]
 pub struct Board {

@@ -1,8 +1,6 @@
-use super::bits::Bits;
+use super::bits::*;
 use super::row::*;
 use std::fmt;
-
-pub const MAX_LINE_LENGTH: u8 = 15;
 
 #[derive(Clone)]
 pub struct Line {
@@ -14,7 +12,7 @@ pub struct Line {
 
 impl Line {
     pub fn new(size: u8) -> Line {
-        let size = std::cmp::min(size, MAX_LINE_LENGTH);
+        let size = std::cmp::min(size, BOARD_SIZE);
         Line {
             size: size,
             blacks: 0b0,
