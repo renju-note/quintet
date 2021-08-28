@@ -1,7 +1,7 @@
 use super::bits::*;
+use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
-use std::string::ToString;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -63,8 +63,16 @@ impl Index {
     }
 }
 
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let x = char::from_u32(('A' as u8 + self.x) as u32).unwrap();
+        let y = self.y + 1;
+        write!(f, "{}{}", x, y)
+    }
+}
+
 impl FromStr for Point {
-    type Err = String;
+    type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim();
@@ -77,7 +85,7 @@ impl FromStr for Point {
                 _ => None,
             })
             .flatten()
-            .ok_or("Failed to parse x part.".to_string())?;
+            .ok_or("Failed to parse x part.")?;
         let y = s
             .chars()
             .skip(1)
@@ -85,23 +93,37 @@ impl FromStr for Point {
             .parse::<u8>()
             .ok()
             .map(|n| match n {
-                1..=15 => Some(n - 1),
+                1..=BOARD_SIZE => Some(n - 1),
                 _ => None,
             })
             .flatten()
-            .ok_or("Failed to parse y part.".to_string())?;
+            .ok_or("Failed to parse y part.")?;
         Ok(Point { x: x, y: y })
     }
 }
 
-impl fmt::Display for Point {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let xs = char::from_u32(('A' as u8 + self.x) as u32)
-            .unwrap()
-            .to_string();
-        let ys = (self.y + 1).to_string();
-        write!(f, "{}{}", xs, ys)
+impl TryFrom<&u8> for Point {
+    type Error = &'static str;
+
+    fn try_from(code: &u8) -> Result<Self, Self::Error> {
+        let x = code / BOARD_SIZE;
+        let y = code % BOARD_SIZE;
+        if is_valid(x) && is_valid(y) {
+            Ok(Point { x: x, y: y })
+        } else {
+            Err("Invalid code")
+        }
+    }
+}
+
+impl From<&Point> for u8 {
+    fn from(p: &Point) -> u8 {
+        p.x * BOARD_SIZE + p.y
     }
 }
 
 const N: u8 = BOARD_SIZE - 1;
+
+fn is_valid(n: u8) -> bool {
+    (1..=BOARD_SIZE).contains(&n)
+}

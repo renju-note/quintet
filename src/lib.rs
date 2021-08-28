@@ -5,41 +5,24 @@ use wasm_bindgen::prelude::*;
 pub mod bitboard;
 pub mod solver;
 
-use bitboard::{Board, Point, BOARD_SIZE};
+use bitboard::{Board, Point};
+use std::convert::{From, TryFrom};
 
 #[wasm_bindgen]
 pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> Option<Box<[u8]>> {
     let mut board = Board::new();
-    for &code in blacks {
-        let x = decode_x(code);
-        let y = decode_y(code);
-        board.put(true, Point { x: x, y: y });
+    let blacks = blacks.iter().map(|c| Point::try_from(c)).flatten();
+    for p in blacks {
+        board.put(true, p);
     }
-    for &code in whites {
-        let x = decode_x(code);
-        let y = decode_y(code);
-        board.put(false, Point { x: x, y: y });
+    let whites = whites.iter().map(|c| Point::try_from(c)).flatten();
+    for p in whites {
+        board.put(false, p);
     }
-
-    match solver::solve(depth_limit, &mut board, black) {
-        Some(ps) => Some(
-            ps.iter()
-                .map(|p| encode_xy(p.x, p.y))
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        ),
-        None => None,
-    }
-}
-
-fn encode_xy(x: u8, y: u8) -> u8 {
-    x * BOARD_SIZE + y
-}
-
-fn decode_x(code: u8) -> u8 {
-    code / BOARD_SIZE
-}
-
-fn decode_y(code: u8) -> u8 {
-    code % BOARD_SIZE
+    solver::solve(depth_limit, &mut board, black).map(|ps| {
+        ps.iter()
+            .map(|p| u8::from(p))
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+    })
 }

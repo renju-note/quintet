@@ -59,12 +59,12 @@ impl fmt::Display for Board {
 }
 
 impl FromStr for Board {
-    type Err = String;
+    type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let codes = s.trim().split('/').collect::<Vec<_>>();
         if codes.len() != 2 {
-            return Err("Unknown format.".to_string());
+            return Err("Unknown format.");
         }
         let blacks = parse_points(codes[0])?;
         let whites = parse_points(codes[1])?;
@@ -79,6 +79,6 @@ impl FromStr for Board {
     }
 }
 
-pub fn parse_points(s: &str) -> Result<Vec<Point>, String> {
+pub fn parse_points(s: &str) -> Result<Vec<Point>, &'static str> {
     s.split(',').map(|m| m.parse::<Point>()).collect()
 }
