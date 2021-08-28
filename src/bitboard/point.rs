@@ -102,12 +102,12 @@ impl FromStr for Point {
     }
 }
 
-impl TryFrom<&u8> for Point {
+impl TryFrom<u8> for Point {
     type Error = &'static str;
 
-    fn try_from(code: &u8) -> Result<Self, Self::Error> {
-        let x = code / BOARD_SIZE;
-        let y = code % BOARD_SIZE;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        let x = value / BOARD_SIZE;
+        let y = value % BOARD_SIZE;
         if is_valid(x) && is_valid(y) {
             Ok(Point { x: x, y: y })
         } else {
@@ -116,9 +116,9 @@ impl TryFrom<&u8> for Point {
     }
 }
 
-impl From<&Point> for u8 {
-    fn from(p: &Point) -> u8 {
-        p.x * BOARD_SIZE + p.y
+impl From<Point> for u8 {
+    fn from(value: Point) -> u8 {
+        value.x * BOARD_SIZE + value.y
     }
 }
 
