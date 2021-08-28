@@ -56,7 +56,7 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from(&r, d, i))
+                    .map(move |r| RowSegment::new(&r, d, i))
             })
             .flatten()
             .collect::<Vec<_>>()
@@ -67,7 +67,7 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from(&r, d, i))
+                    .map(move |r| RowSegment::new(&r, d, i))
                     .filter(|r| r.overlap(p))
             })
             .flatten()
@@ -80,7 +80,7 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from(&r, d, i))
+                    .map(move |r| RowSegment::new(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
@@ -97,7 +97,7 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from(&r, d, i))
+                    .map(move |r| RowSegment::new(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
@@ -180,7 +180,7 @@ impl fmt::Display for Square {
 }
 
 impl RowSegment {
-    pub fn from(r: &Row, d: Direction, i: u8) -> RowSegment {
+    pub fn new(r: &Row, d: Direction, i: u8) -> RowSegment {
         RowSegment {
             direction: d,
             start: Index { i: i, j: r.start }.to_point(d),
