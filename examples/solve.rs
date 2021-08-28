@@ -1,4 +1,4 @@
-use quintet::encoding;
+use quintet::bitboard::*;
 use quintet::solver;
 use std::io;
 use std::time::Instant;
@@ -8,14 +8,15 @@ fn main() {
         println!("\nBoard code (blacks/whites):");
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
-        let mut board = match encoding::decode_board(&code) {
+        let result = code.parse::<Board>();
+        let mut board = match result {
             Ok(board) => board,
-            Err(s) => {
-                println!("{}", s);
+            Err(err) => {
+                println!("{}", err);
                 continue;
             }
         };
-        println!("\nBoard:\n{}", board.to_string());
+        println!("\nBoard:\n{}", board);
 
         println!("\nBlack VCF:");
         let start = Instant::now();
@@ -25,7 +26,7 @@ fn main() {
         match result {
             Some(ps) => {
                 println!("\t{} times", (ps.len() + 1) / 2);
-                println!("\t{}", encoding::encode(&ps).unwrap());
+                println!("\t{}", points_to_string(&ps));
             }
             None => println!("\tNone"),
         }
@@ -38,9 +39,16 @@ fn main() {
         match result {
             Some(ps) => {
                 println!("\t{} times", (ps.len() + 1) / 2);
-                println!("\t{}", encoding::encode(&ps).unwrap());
+                println!("\t{}", points_to_string(&ps));
             }
             None => println!("\tNone"),
         }
     }
+}
+
+fn points_to_string(ps: &[Point]) -> String {
+    ps.iter()
+        .map(|p| p.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
 }

@@ -1,5 +1,4 @@
-use quintet::bitboard::RowKind;
-use quintet::encoding;
+use quintet::bitboard::*;
 use std::io;
 
 fn main() {
@@ -7,14 +6,15 @@ fn main() {
         println!("\nBoard code (blacks/whites):");
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
-        let mut board = match encoding::decode_board(&code) {
+        let result = code.parse::<Board>();
+        let mut board = match result {
             Ok(board) => board,
-            Err(s) => {
-                println!("{}", s);
+            Err(err) => {
+                println!("{}", err);
                 continue;
             }
         };
-        println!("\nBoard:\n{}", board.to_string());
+        println!("\nBoard:\n{}", board);
 
         println!("\nRows:");
         for black in &[true, false] {
@@ -28,14 +28,14 @@ fn main() {
             ] {
                 println!("    {:?}:", kind);
                 for row in board.rows(*black, *kind) {
-                    println!("      {:?}", row)
+                    println!("      {}", row)
                 }
             }
         }
 
         println!("\nForbiddens:");
-        for (p, kind) in board.forbiddens() {
-            println!("  {:?}\t{:?}", kind, p)
+        for (kind, p) in board.forbiddens() {
+            println!("  {:?}\t{}", kind, p)
         }
     }
 }

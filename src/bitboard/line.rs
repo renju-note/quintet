@@ -1,7 +1,6 @@
-use super::bits::Bits;
+use super::bits::*;
 use super::row::*;
-
-pub const MAX_LINE_LENGTH: u8 = 15;
+use std::fmt;
 
 #[derive(Clone)]
 pub struct Line {
@@ -13,7 +12,7 @@ pub struct Line {
 
 impl Line {
     pub fn new(size: u8) -> Line {
-        let size = std::cmp::min(size, MAX_LINE_LENGTH);
+        let size = std::cmp::min(size, BOARD_SIZE);
         Line {
             size: size,
             blacks: 0b0,
@@ -65,8 +64,14 @@ impl Line {
         result
     }
 
-    pub fn to_string(&self) -> String {
-        (0..self.size)
+    fn blanks(&self) -> Bits {
+        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
+    }
+}
+
+impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s: String = (0..self.size)
             .map(|i| {
                 let pat = 0b1 << i;
                 if self.blacks & pat != 0b0 {
@@ -77,11 +82,8 @@ impl Line {
                     '-'
                 }
             })
-            .collect()
-    }
-
-    fn blanks(&self) -> Bits {
-        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
+            .collect();
+        write!(f, "{}", s)
     }
 }
 
