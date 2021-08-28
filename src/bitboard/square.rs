@@ -207,6 +207,23 @@ impl RowSegment {
     }
 }
 
+impl fmt::Display for RowSegment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{:?} start: {} end: {}",
+            self.direction, self.start, self.end
+        )?;
+        for eye1 in self.eye1 {
+            write!(f, " eye1: {}", eye1)?;
+        }
+        for eye2 in self.eye2 {
+            write!(f, " eye2: {}", eye2)?;
+        }
+        Ok(())
+    }
+}
+
 const O_LINE_NUM: u8 = BOARD_SIZE;
 const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
 

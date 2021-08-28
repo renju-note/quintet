@@ -28,14 +28,14 @@ fn main() {
             ] {
                 println!("    {:?}:", kind);
                 for row in board.rows(*black, *kind) {
-                    println!("      {:?}", row)
+                    println!("      {}", row)
                 }
             }
         }
 
         println!("\nForbiddens:");
-        for (p, kind) in board.forbiddens() {
-            println!("  {:?}\t{:?}", kind, p)
+        for (kind, p) in board.forbiddens() {
+            println!("  {:?}\t{}", kind, p)
         }
     }
 }
