@@ -24,6 +24,10 @@ pub struct Index {
 }
 
 impl Point {
+    pub fn new(x: u8, y: u8) -> Point {
+        Point { x: x, y: y }
+    }
+
     pub fn to_index(&self, direction: Direction) -> Index {
         let (x, y) = (self.x, self.y);
         match direction {
@@ -44,6 +48,10 @@ impl Point {
 }
 
 impl Index {
+    pub fn new(i: u8, j: u8) -> Index {
+        Index { i: i, j: j }
+    }
+
     pub fn to_point(&self, direction: Direction) -> Point {
         let (i, j) = (self.i, self.j);
         match direction {

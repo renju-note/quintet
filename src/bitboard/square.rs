@@ -5,7 +5,7 @@ use super::row::*;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Square {
     vlines: OrthogonalLines,
     hlines: OrthogonalLines,
@@ -13,7 +13,7 @@ pub struct Square {
     dlines: DiagonalLines,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct RowSegment {
     pub direction: Direction,
     pub start: Point,
@@ -330,8 +330,8 @@ mod tests {
         square.put(Player::White, Point { x: 1, y: 13 });
         square.put(Player::Black, Point { x: 13, y: 1 });
         square.put(Player::White, Point { x: 13, y: 13 });
-        let result_hlines_s = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
-        let expected_hlines_s = trim_lines_string(
+        let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
             "
             ---------------
             -o-----------o-
@@ -350,9 +350,9 @@ mod tests {
             ---------------
             ",
         );
-        assert_eq!(result_hlines_s, expected_hlines_s);
-        let result_vlines_s = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
-        let expected_vlines_s = trim_lines_string(
+        assert_eq!(result, expected);
+        let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
             "
             ---------------
             -o-----------x-
@@ -371,9 +371,9 @@ mod tests {
             ---------------
             ",
         );
-        assert_eq!(result_vlines_s, expected_vlines_s);
-        let result_alines_s = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
-        let expected_alines_s = trim_lines_string(
+        assert_eq!(result, expected);
+        let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
             "
             -----
             ------
@@ -398,9 +398,9 @@ mod tests {
             -----
             ",
         );
-        assert_eq!(result_alines_s, expected_alines_s);
-        let result_dlines_s = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
-        let expected_dlines_s = trim_lines_string(
+        assert_eq!(result, expected);
+        let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
             "
             -----
             ------
@@ -425,7 +425,48 @@ mod tests {
             -----
             ",
         );
-        assert_eq!(result_dlines_s, expected_dlines_s);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_rows() -> Result<(), String> {
+        let mut square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------xxxo----
+            -------o-------
+            ---------------
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = square.rows(Player::Black, RowKind::Two);
+        let expected = [RowSegment {
+            direction: Direction::Ascending,
+            start: Point { x: 6, y: 4 },
+            end: Point { x: 11, y: 9 },
+            eye1: Some(Point { x: 8, y: 6 }),
+            eye2: Some(Point { x: 9, y: 7 }),
+        }];
+        assert_eq!(result, expected);
+        let result = square.rows(Player::White, RowKind::Sword);
+        let expected = [RowSegment {
+            direction: Direction::Horizontal,
+            start: Point { x: 5, y: 8 },
+            end: Point { x: 9, y: 8 },
+            eye1: Some(Point { x: 5, y: 8 }),
+            eye2: Some(Point { x: 6, y: 8 }),
+        }];
+        assert_eq!(result, expected);
+        Ok(())
     }
 
     #[test]
