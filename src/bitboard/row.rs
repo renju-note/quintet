@@ -17,7 +17,7 @@ pub enum RowKind {
     Overline,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Row {
     pub start: u8,
     pub end: u8,
@@ -48,6 +48,17 @@ impl From<bool> for Player {
             Player::Black
         } else {
             Player::White
+        }
+    }
+}
+
+impl Row {
+    fn new(start: u8, end: u8, eye1: Option<u8>, eye2: Option<u8>) -> Row {
+        Row {
+            start: start,
+            end: end,
+            eye1: eye1,
+            eye2: eye2,
         }
     }
 }
@@ -112,4 +123,69 @@ fn scan(
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Player::*;
+    use super::RowKind::*;
+    use super::*;
+
+    #[test]
+    fn test_scan_rows_limit_offset() {
+        let stones = 0b0011100;
+        let blanks = 0b1100010;
+        let result = scan_rows(White, Three, stones, blanks, 7, 0);
+        let expected = [Row::new(1, 6, Some(5), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Three, stones, blanks, 5, 0);
+        let expected = [];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Three, stones, blanks, 7, 1);
+        let expected = [Row::new(0, 5, Some(4), None)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_scan_rows_black_five() {
+        let result = scan_rows(Black, Five, 0b0111110, 0b0000000, 7, 0);
+        let expected = [Row::new(1, 5, None, None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Five, 0b0111110, 0b0000000, 6, 0);
+        let expected = [];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Five, 0b1111110, 0b0000000, 7, 0);
+        let expected = [];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_scan_rows_black_overline() {
+        let result = scan_rows(Black, Overline, 0b111111, 0b000000, 6, 0);
+        let expected = [Row::new(0, 5, None, None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Overline, 0b1111111, 0b0000000, 6, 0);
+        let expected = [Row::new(0, 5, None, None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Overline, 0b1111111, 0b0000000, 7, 0);
+        let expected = [Row::new(0, 5, None, None), Row::new(1, 6, None, None)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_scan_rows_white_five() {
+        let result = scan_rows(White, Five, 0b11111, 0b00000, 5, 0);
+        let expected = [Row::new(0, 4, None, None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Five, 0b111111, 0b00000, 6, 0);
+        let expected = [Row::new(0, 4, None, None), Row::new(1, 5, None, None)];
+        assert_eq!(result, expected);
+    }
 }
