@@ -176,11 +176,11 @@ mod tests {
     }
 
     #[test]
-    fn test_format() {
-        let result = format!("{}", Point { x: 3, y: 5 });
-        assert_eq!(result, "D6");
-        let result = format!("{}", Point { x: 11, y: 10 });
-        assert_eq!(result, "L11");
+    fn test_to_string() {
+        let point = Point { x: 3, y: 5 };
+        assert_eq!(point.to_string(), "D6");
+        let point = Point { x: 11, y: 10 };
+        assert_eq!(point.to_string(), "L11");
     }
 
     #[test]

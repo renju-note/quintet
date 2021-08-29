@@ -286,7 +286,7 @@ mod tests {
         line.put(Player::Black, 4);
         line.put(Player::White, 8);
         line.put(Player::White, 11);
-
+        // black
         let result = line.rows(Player::Black, RowKind::Four);
         let expected = vec![
             Row {
@@ -303,7 +303,7 @@ mod tests {
             },
         ];
         assert_eq!(result, expected);
-
+        // white
         let result = line.rows(Player::White, RowKind::Two);
         let expected = vec![Row {
             start: 7,
@@ -312,6 +312,15 @@ mod tests {
             eye2: Some(10),
         }];
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_to_string() {
+        let mut line = Line::new(7);
+        line.put(Player::Black, 0);
+        line.put(Player::Black, 4);
+        line.put(Player::White, 2);
+        assert_eq!(line.to_string(), "o-x-o--");
     }
 
     #[test]
