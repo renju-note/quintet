@@ -429,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rows() -> Result<(), String> {
+    fn test_rows_and_so_on() -> Result<(), String> {
         let mut square = "
             ---------------
             ---------------
@@ -448,24 +448,50 @@ mod tests {
             ---------------
         "
         .parse::<Square>()?;
-        let result = square.rows(Player::Black, RowKind::Two);
-        let expected = [RowSegment {
+        let black_twos = vec![RowSegment {
             direction: Direction::Ascending,
             start: Point { x: 6, y: 4 },
             end: Point { x: 11, y: 9 },
             eye1: Some(Point { x: 8, y: 6 }),
             eye2: Some(Point { x: 9, y: 7 }),
         }];
-        assert_eq!(result, expected);
-        let result = square.rows(Player::White, RowKind::Sword);
-        let expected = [RowSegment {
+        let white_swords = [RowSegment {
             direction: Direction::Horizontal,
             start: Point { x: 5, y: 8 },
             end: Point { x: 9, y: 8 },
             eye1: Some(Point { x: 5, y: 8 }),
             eye2: Some(Point { x: 6, y: 8 }),
         }];
-        assert_eq!(result, expected);
+        // rows
+        assert_eq!(square.rows(Player::Black, RowKind::Two), black_twos);
+        assert_eq!(square.rows(Player::White, RowKind::Sword), white_swords);
+        // rows_on
+        assert_eq!(
+            square.rows_on(Player::Black, RowKind::Two, Point { x: 10, y: 8 }),
+            black_twos
+        );
+        assert_eq!(
+            square.rows_on(Player::Black, RowKind::Two, Point { x: 7, y: 7 }),
+            vec![]
+        );
+        // row_eyes
+        assert_eq!(
+            square.row_eyes(Player::Black, RowKind::Two),
+            vec![Point { x: 8, y: 6 }, Point { x: 9, y: 7 }]
+        );
+        assert_eq!(
+            square.row_eyes(Player::White, RowKind::Sword),
+            vec![Point { x: 5, y: 8 }, Point { x: 6, y: 8 }]
+        );
+        // row_eyes_along
+        assert_eq!(
+            square.row_eyes_along(Player::White, RowKind::Sword, Point { x: 0, y: 8 }),
+            vec![Point { x: 5, y: 8 }, Point { x: 6, y: 8 }]
+        );
+        assert_eq!(
+            square.row_eyes_along(Player::White, RowKind::Sword, Point { x: 0, y: 7 }),
+            vec![]
+        );
         Ok(())
     }
 
