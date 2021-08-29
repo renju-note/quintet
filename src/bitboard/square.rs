@@ -57,10 +57,10 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
             })
             .flatten()
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn rows_on(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
@@ -68,42 +68,42 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
                     .filter(|r| r.overlap(p))
             })
             .flatten()
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn row_eyes(&mut self, player: Player, kind: RowKind) -> Vec<Point> {
-        let mut result = self
+        let mut result: Vec<_> = self
             .iter_mut_lines()
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
             .flatten()
-            .collect::<Vec<_>>();
+            .collect();
         result.sort_unstable();
         result.dedup();
         result
     }
 
     pub fn row_eyes_along(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
-        let mut result = self
+        let mut result: Vec<_> = self
             .iter_mut_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
             .flatten()
-            .collect::<Vec<_>>();
+            .collect();
         result.sort_unstable();
         result.dedup();
         result
@@ -193,10 +193,7 @@ impl FromStr for Square {
                 return Err("Wrong line size");
             }
             for (x, s) in hline.stones().iter().enumerate() {
-                let point = Point {
-                    x: x as u8,
-                    y: y as u8,
-                };
+                let point = Point::new(x as u8, y as u8);
                 match s {
                     Some(player) => square.put(*player, point),
                     None => (),
@@ -208,7 +205,23 @@ impl FromStr for Square {
 }
 
 impl RowSegment {
-    pub fn new(r: &Row, d: Direction, i: u8) -> RowSegment {
+    pub fn new(
+        direction: Direction,
+        start: Point,
+        end: Point,
+        eye1: Option<Point>,
+        eye2: Option<Point>,
+    ) -> RowSegment {
+        RowSegment {
+            direction: direction,
+            start: start,
+            end: end,
+            eye1: eye1,
+            eye2: eye2,
+        }
+    }
+
+    pub fn from_row(r: &Row, d: Direction, i: u8) -> RowSegment {
         RowSegment {
             direction: d,
             start: Index { i: i, j: r.start }.to_point(d),
@@ -455,20 +468,20 @@ mod tests {
             ---------------
         "
         .parse::<Square>()?;
-        let black_twos = vec![RowSegment {
-            direction: Ascending,
-            start: Point::new(6, 4),
-            end: Point::new(11, 9),
-            eye1: Some(Point::new(8, 6)),
-            eye2: Some(Point::new(9, 7)),
-        }];
-        let white_swords = [RowSegment {
-            direction: Horizontal,
-            start: Point::new(5, 8),
-            end: Point::new(9, 8),
-            eye1: Some(Point::new(5, 8)),
-            eye2: Some(Point::new(6, 8)),
-        }];
+        let black_twos = [RowSegment::new(
+            Ascending,
+            Point::new(6, 4),
+            Point::new(11, 9),
+            Some(Point::new(8, 6)),
+            Some(Point::new(9, 7)),
+        )];
+        let white_swords = [RowSegment::new(
+            Horizontal,
+            Point::new(5, 8),
+            Point::new(9, 8),
+            Some(Point::new(5, 8)),
+            Some(Point::new(6, 8)),
+        )];
 
         // rows
         assert_eq!(square.rows(Black, Two), black_twos);

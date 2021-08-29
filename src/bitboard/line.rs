@@ -121,10 +121,9 @@ impl FromStr for Line {
         }
         let mut line = Line::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
-            let i = i as u8;
             match c {
-                'o' => line.put(Player::Black, i),
-                'x' => line.put(Player::White, i),
+                'o' => line.put(Player::Black, i as u8),
+                'x' => line.put(Player::White, i as u8),
                 _ => (),
             }
         }
@@ -239,13 +238,9 @@ mod tests {
     fn test_new() {
         let result = Line::new(10);
         assert_eq!(result.size, 10);
-        assert_eq!(result.blacks, 0b000000000000000);
-        assert_eq!(result.whites, 0b000000000000000);
 
         let result = Line::new(16);
         assert_eq!(result.size, BOARD_SIZE);
-        assert_eq!(result.blacks, 0b000000000000000);
-        assert_eq!(result.whites, 0b000000000000000);
     }
 
     #[test]
@@ -267,7 +262,7 @@ mod tests {
     fn test_stones() -> Result<(), String> {
         let line = "o-ox-".parse::<Line>()?;
         let result = line.stones();
-        let expected = vec![Some(Black), None, Some(Black), Some(White), None];
+        let expected = [Some(Black), None, Some(Black), Some(White), None];
         assert_eq!(result, expected);
         Ok(())
     }

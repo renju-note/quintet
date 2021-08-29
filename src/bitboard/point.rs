@@ -189,11 +189,11 @@ mod tests {
 
     #[test]
     fn test_to_string() {
-        let point = Point::new(3, 5);
-        assert_eq!(point.to_string(), "D6");
+        let result = Point::new(3, 5).to_string();
+        assert_eq!(result, "D6");
 
-        let point = Point::new(11, 10);
-        assert_eq!(point.to_string(), "L11");
+        let result = Point::new(11, 10).to_string();
+        assert_eq!(result, "L11");
     }
 
     #[test]
