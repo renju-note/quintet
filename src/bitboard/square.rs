@@ -3,8 +3,9 @@ use super::line::*;
 use super::point::*;
 use super::row::*;
 use std::fmt;
+use std::str::FromStr;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Square {
     vlines: OrthogonalLines,
     hlines: OrthogonalLines,
@@ -224,6 +225,38 @@ impl fmt::Display for RowSegment {
     }
 }
 
+impl FromStr for Square {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let hlines_rev = s
+            .trim()
+            .split("\n")
+            .map(|ls| ls.trim().parse::<Line>())
+            .collect::<Result<Vec<_>, _>>()?;
+        if hlines_rev.len() != BOARD_SIZE as usize {
+            return Err("Wrong num of lines");
+        }
+        let mut square = Square::new();
+        for (y, hline) in hlines_rev.iter().rev().enumerate() {
+            if hline.size != BOARD_SIZE {
+                return Err("Wrong line size");
+            }
+            for (x, s) in hline.stones().iter().enumerate() {
+                let point = Point {
+                    x: x as u8,
+                    y: y as u8,
+                };
+                match s {
+                    Some(player) => square.put(*player, point),
+                    None => (),
+                }
+            }
+        }
+        Ok(square)
+    }
+}
+
 const O_LINE_NUM: u8 = BOARD_SIZE;
 const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
 
@@ -278,4 +311,41 @@ fn diagonal_lines() -> DiagonalLines {
 
 fn bw(a: u8, x: u8, b: u8) -> bool {
     a <= x && x <= b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() -> Result<(), String> {
+        let result = "
+            x-------------o
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------xo------
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            o-------------x
+        "
+        .parse::<Square>()?;
+        let mut expected = Square::new();
+        expected.put(Player::Black, Point { x: 7, y: 7 });
+        expected.put(Player::White, Point { x: 7, y: 8 });
+        expected.put(Player::Black, Point { x: 8, y: 8 });
+        expected.put(Player::Black, Point { x: 0, y: 0 });
+        expected.put(Player::White, Point { x: 0, y: 14 });
+        expected.put(Player::White, Point { x: 14, y: 0 });
+        expected.put(Player::Black, Point { x: 14, y: 14 });
+        assert_eq!(result, expected);
+        Ok(())
+    }
 }
