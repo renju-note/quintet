@@ -132,7 +132,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_scan_rows_limit_offset() {
+    fn test_scan_rows_limit_and_offset() {
         let stones = 0b0011100;
         let blanks = 0b1100010;
         let result = scan_rows(White, Three, stones, blanks, 7, 0);

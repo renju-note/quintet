@@ -333,6 +333,7 @@ mod tests {
         square.put(White, Point::new(1, 13));
         square.put(Black, Point::new(13, 1));
         square.put(White, Point::new(13, 13));
+
         let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
@@ -354,6 +355,7 @@ mod tests {
             ",
         );
         assert_eq!(result, expected);
+
         let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
@@ -375,6 +377,7 @@ mod tests {
             ",
         );
         assert_eq!(result, expected);
+
         let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
@@ -402,6 +405,7 @@ mod tests {
             ",
         );
         assert_eq!(result, expected);
+
         let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "

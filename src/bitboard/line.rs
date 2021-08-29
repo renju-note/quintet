@@ -264,25 +264,17 @@ mod tests {
     }
 
     #[test]
-    fn test_stones() {
-        let mut line = Line::new(5);
-        line.put(Black, 0);
-        line.put(Black, 2);
-        line.put(White, 3);
+    fn test_stones() -> Result<(), String> {
+        let line = "o-ox-".parse::<Line>()?;
         let result = line.stones();
         let expected = vec![Some(Black), None, Some(Black), Some(White), None];
         assert_eq!(result, expected);
+        Ok(())
     }
 
     #[test]
-    fn test_rows() {
-        let mut line = Line::new(BOARD_SIZE);
-        line.put(Black, 1);
-        line.put(Black, 2);
-        line.put(Black, 3);
-        line.put(Black, 4);
-        line.put(White, 8);
-        line.put(White, 11);
+    fn test_rows() -> Result<(), String> {
+        let mut line = "-oooo---x--x---".parse::<Line>()?;
 
         let result = line.rows(Black, Four);
         let expected = [Row::new(0, 4, Some(0), None), Row::new(1, 5, Some(5), None)];
@@ -291,6 +283,8 @@ mod tests {
         let result = line.rows(White, Two);
         let expected = [Row::new(7, 12, Some(9), Some(10))];
         assert_eq!(result, expected);
+
+        Ok(())
     }
 
     #[test]
