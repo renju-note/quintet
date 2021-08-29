@@ -17,7 +17,7 @@ pub enum RowKind {
     Overline,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Row {
     pub start: u8,
     pub end: u8,

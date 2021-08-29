@@ -45,6 +45,21 @@ impl Line {
         self.whites = whites;
     }
 
+    pub fn stones(&self) -> Vec<Option<Player>> {
+        (0..self.size)
+            .map(|i| {
+                let pat = 0b1 << i;
+                if self.blacks & pat != 0b0 {
+                    Some(Player::Black)
+                } else if self.whites & pat != 0b0 {
+                    Some(Player::White)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     pub fn rows(&mut self, player: Player, kind: RowKind) -> Vec<Row> {
         if !self.checker.may_contain(self.size, player, kind) {
             return vec![];
@@ -65,21 +80,6 @@ impl Line {
         }
 
         result
-    }
-
-    pub fn stones(&self) -> Vec<Option<Player>> {
-        (0..self.size)
-            .map(|i| {
-                let pat = 0b1 << i;
-                if self.blacks & pat != 0b0 {
-                    Some(Player::Black)
-                } else if self.whites & pat != 0b0 {
-                    Some(Player::White)
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 
     fn blanks(&self) -> Bits {
@@ -232,6 +232,87 @@ fn free_mask(kind: RowKind) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_new() {
+        let result = Line::new(10);
+        assert_eq!(result.size, 10);
+        assert_eq!(result.blacks, 0b000000000000000);
+        assert_eq!(result.whites, 0b000000000000000);
+
+        let result = Line::new(16);
+        assert_eq!(result.size, BOARD_SIZE);
+        assert_eq!(result.blacks, 0b000000000000000);
+        assert_eq!(result.whites, 0b000000000000000);
+    }
+
+    #[test]
+    fn test_put() {
+        let mut line = Line::new(BOARD_SIZE);
+        line.put(Player::Black, 0);
+        line.put(Player::White, 2);
+        assert_eq!(line.blacks, 0b000000000000001);
+        assert_eq!(line.whites, 0b000000000000100);
+        // overwrite
+        line.put(Player::Black, 5);
+        line.put(Player::White, 5);
+        assert_eq!(line.blacks, 0b000000000000001);
+        assert_eq!(line.whites, 0b000000000100100);
+    }
+
+    #[test]
+    fn test_stones() {
+        let mut line = Line::new(5);
+        line.put(Player::Black, 0);
+        line.put(Player::Black, 2);
+        line.put(Player::White, 3);
+        let result = line.stones();
+        let expected = vec![
+            Some(Player::Black),
+            None,
+            Some(Player::Black),
+            Some(Player::White),
+            None,
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_rows() {
+        let mut line = Line::new(BOARD_SIZE);
+        line.put(Player::Black, 1);
+        line.put(Player::Black, 2);
+        line.put(Player::Black, 3);
+        line.put(Player::Black, 4);
+        line.put(Player::White, 8);
+        line.put(Player::White, 11);
+
+        let result = line.rows(Player::Black, RowKind::Four);
+        let expected = vec![
+            Row {
+                start: 0,
+                end: 4,
+                eye1: Some(0),
+                eye2: None,
+            },
+            Row {
+                start: 1,
+                end: 5,
+                eye1: Some(5),
+                eye2: None,
+            },
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.rows(Player::White, RowKind::Two);
+        let expected = vec![Row {
+            start: 7,
+            end: 12,
+            eye1: Some(9),
+            eye2: Some(10),
+        }];
+        assert_eq!(result, expected);
+    }
 
     #[test]
     fn test_parse() -> Result<(), String> {
