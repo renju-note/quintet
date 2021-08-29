@@ -96,7 +96,7 @@ fn scan(
     for i in 0..=(limit - size) {
         let stones = stones >> i;
         let blanks = blanks >> i;
-        if !window.matches(stones, blanks) {
+        if !window.satisfies(stones, blanks) {
             continue;
         }
         for p in patterns {
