@@ -132,7 +132,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_scan_rows_limit_and_offset() {
+    fn test_scan_rows() {
         let stones = 0b0011100;
         let blanks = 0b1100010;
         let result = scan_rows(White, Three, stones, blanks, 7, 0);
@@ -145,6 +145,64 @@ mod tests {
 
         let result = scan_rows(White, Three, stones, blanks, 7, 1);
         let expected = [Row::new(0, 5, Some(4), None)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_scan_rows_black_four() {
+        let result = scan_rows(Black, Four, 0b0011110, 0b0100000, 7, 0);
+        let expected = [Row::new(1, 5, Some(5), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Four, 0b0101110, 0b0010000, 7, 0);
+        let expected = [Row::new(1, 5, Some(4), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Four, 0b0110110, 0b0001000, 7, 0);
+        let expected = [Row::new(1, 5, Some(3), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Four, 0b0111010, 0b0000100, 7, 0);
+        let expected = [Row::new(1, 5, Some(2), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Four, 0b0111100, 0b00000010, 7, 0);
+        let expected = [Row::new(1, 5, Some(1), None)];
+        assert_eq!(result, expected);
+
+        // open four
+        let result = scan_rows(Black, Four, 0b00111100, 0b01000010, 8, 0);
+        let expected = [Row::new(1, 5, Some(1), None), Row::new(2, 6, Some(6), None)];
+        assert_eq!(result, expected);
+
+        // not open four
+        let result = scan_rows(Black, Four, 0b00111100, 0b00000010, 8, 0);
+        let expected = [Row::new(1, 5, Some(1), None)];
+        assert_eq!(result, expected);
+
+        // not open four
+        let result = scan_rows(Black, Four, 0b00111100, 0b01000000, 8, 0);
+        let expected = [Row::new(2, 6, Some(6), None)];
+        assert_eq!(result, expected);
+
+        // not open four (overline)
+        let result = scan_rows(Black, Four, 0b10111100, 0b01000010, 8, 0);
+        let expected = [Row::new(1, 5, Some(1), None)];
+        assert_eq!(result, expected);
+
+        // not open four (overline)
+        let result = scan_rows(Black, Four, 0b00111101, 0b01000010, 8, 0);
+        let expected = [Row::new(2, 6, Some(6), None)];
+        assert_eq!(result, expected);
+
+        // not four (overline)
+        let result = scan_rows(Black, Four, 0b10111101, 0b01000010, 8, 0);
+        let expected = [];
+        assert_eq!(result, expected);
+
+        // not four (overline)
+        let result = scan_rows(Black, Four, 0b01110110, 0b10001001, 8, 0);
+        let expected = [];
         assert_eq!(result, expected);
     }
 
@@ -175,6 +233,44 @@ mod tests {
 
         let result = scan_rows(Black, Overline, 0b1111111, 0b0000000, 7, 0);
         let expected = [Row::new(0, 5, None, None), Row::new(1, 6, None, None)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_scan_rows_white_four() {
+        let result = scan_rows(White, Four, 0b01111, 0b10000, 5, 0);
+        let expected = [Row::new(0, 4, Some(4), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Four, 0b10111, 0b01000, 5, 0);
+        let expected = [Row::new(0, 4, Some(3), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Four, 0b11011, 0b00100, 5, 0);
+        let expected = [Row::new(0, 4, Some(2), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Four, 0b11101, 0b00010, 5, 0);
+        let expected = [Row::new(0, 4, Some(1), None)];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Four, 0b11110, 0b000001, 5, 0);
+        let expected = [Row::new(0, 4, Some(0), None)];
+        assert_eq!(result, expected);
+
+        // open four
+        let result = scan_rows(White, Four, 0b011110, 0b100001, 6, 0);
+        let expected = [Row::new(0, 4, Some(0), None), Row::new(1, 5, Some(5), None)];
+        assert_eq!(result, expected);
+
+        // not open four
+        let result = scan_rows(White, Four, 0b011110, 0b000001, 6, 0);
+        let expected = [Row::new(0, 4, Some(0), None)];
+        assert_eq!(result, expected);
+
+        // not open four
+        let result = scan_rows(White, Four, 0b011110, 0b100000, 6, 0);
+        let expected = [Row::new(1, 5, Some(5), None)];
         assert_eq!(result, expected);
     }
 
