@@ -138,78 +138,85 @@ fn is_valid(n: u8) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::Direction::*;
     use super::*;
 
     #[test]
     fn test_to_index_and_to_point() {
         fn assert_eq_point_index(p: Point, iv: Index, ih: Index, ia: Index, id: Index) {
-            assert_eq!(p.to_index(Direction::Vertical), iv);
-            assert_eq!(p.to_index(Direction::Horizontal), ih);
-            assert_eq!(p.to_index(Direction::Ascending), ia);
-            assert_eq!(p.to_index(Direction::Descending), id);
-            assert_eq!(iv.to_point(Direction::Vertical), p);
-            assert_eq!(ih.to_point(Direction::Horizontal), p);
-            assert_eq!(ia.to_point(Direction::Ascending), p);
-            assert_eq!(id.to_point(Direction::Descending), p);
+            assert_eq!(p.to_index(Vertical), iv);
+            assert_eq!(p.to_index(Horizontal), ih);
+            assert_eq!(p.to_index(Ascending), ia);
+            assert_eq!(p.to_index(Descending), id);
+            assert_eq!(iv.to_point(Vertical), p);
+            assert_eq!(ih.to_point(Horizontal), p);
+            assert_eq!(ia.to_point(Ascending), p);
+            assert_eq!(id.to_point(Descending), p);
         }
 
         // lower-left quadrant
-        let p = Point { x: 3, y: 6 };
-        let iv = Index { i: 3, j: 6 };
-        let ih = Index { i: 6, j: 3 };
-        let ia = Index { i: 11, j: 3 };
-        let id = Index { i: 9, j: 3 };
+        let p = Point::new(3, 6);
+        let iv = Index::new(3, 6);
+        let ih = Index::new(6, 3);
+        let ia = Index::new(11, 3);
+        let id = Index::new(9, 3);
         assert_eq_point_index(p, iv, ih, ia, id);
+
         // lower-right quadrant
-        let p = Point { x: 9, y: 6 };
-        let iv = Index { i: 9, j: 6 };
-        let ih = Index { i: 6, j: 9 };
-        let ia = Index { i: 17, j: 6 };
-        let id = Index { i: 15, j: 8 };
+        let p = Point::new(9, 6);
+        let iv = Index::new(9, 6);
+        let ih = Index::new(6, 9);
+        let ia = Index::new(17, 6);
+        let id = Index::new(15, 8);
         assert_eq_point_index(p, iv, ih, ia, id);
+
         // upper-left quadrant
-        let p = Point { x: 3, y: 12 };
-        let iv = Index { i: 3, j: 12 };
-        let ih = Index { i: 12, j: 3 };
-        let ia = Index { i: 5, j: 3 };
-        let id = Index { i: 15, j: 2 };
+        let p = Point::new(3, 12);
+        let iv = Index::new(3, 12);
+        let ih = Index::new(12, 3);
+        let ia = Index::new(5, 3);
+        let id = Index::new(15, 2);
         assert_eq_point_index(p, iv, ih, ia, id);
+
         // upper-right quadrant
-        let p = Point { x: 9, y: 12 };
-        let iv = Index { i: 9, j: 12 };
-        let ih = Index { i: 12, j: 9 };
-        let ia = Index { i: 11, j: 9 };
-        let id = Index { i: 21, j: 2 };
+        let p = Point::new(9, 12);
+        let iv = Index::new(9, 12);
+        let ih = Index::new(12, 9);
+        let ia = Index::new(11, 9);
+        let id = Index::new(21, 2);
         assert_eq_point_index(p, iv, ih, ia, id);
     }
 
     #[test]
     fn test_to_string() {
-        let point = Point { x: 3, y: 5 };
+        let point = Point::new(3, 5);
         assert_eq!(point.to_string(), "D6");
-        let point = Point { x: 11, y: 10 };
+
+        let point = Point::new(11, 10);
         assert_eq!(point.to_string(), "L11");
     }
 
     #[test]
     fn test_parse() -> Result<(), String> {
         let result = "E2".parse::<Point>()?;
-        assert_eq!(result, Point { x: 4, y: 1 });
+        assert_eq!(result, Point::new(4, 1));
+
         let result = "M15".parse::<Point>()?;
-        assert_eq!(result, Point { x: 12, y: 14 });
+        assert_eq!(result, Point::new(12, 14));
+
         Ok(())
     }
 
     #[test]
     fn test_try_from_u8() -> Result<(), String> {
         let result = Point::try_from(72)?;
-        assert_eq!(result, Point { x: 4, y: 12 });
+        assert_eq!(result, Point::new(4, 12));
         Ok(())
     }
 
     #[test]
     fn test_into_u8() {
-        let result = u8::from(Point { x: 4, y: 12 });
+        let result = u8::from(Point::new(4, 12));
         assert_eq!(result, 72);
     }
 }

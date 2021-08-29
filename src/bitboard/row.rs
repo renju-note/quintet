@@ -53,7 +53,7 @@ impl From<bool> for Player {
 }
 
 impl Row {
-    fn new(start: u8, end: u8, eye1: Option<u8>, eye2: Option<u8>) -> Row {
+    pub fn new(start: u8, end: u8, eye1: Option<u8>, eye2: Option<u8>) -> Row {
         Row {
             start: start,
             end: end,

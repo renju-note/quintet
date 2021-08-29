@@ -231,6 +231,8 @@ fn free_mask(kind: RowKind) -> u8 {
 
 #[cfg(test)]
 mod tests {
+    use super::Player::*;
+    use super::RowKind::*;
     use super::*;
 
     #[test]
@@ -249,13 +251,14 @@ mod tests {
     #[test]
     fn test_put() {
         let mut line = Line::new(BOARD_SIZE);
-        line.put(Player::Black, 0);
-        line.put(Player::White, 2);
+        line.put(Black, 0);
+        line.put(White, 2);
         assert_eq!(line.blacks, 0b000000000000001);
         assert_eq!(line.whites, 0b000000000000100);
+
         // overwrite
-        line.put(Player::Black, 5);
-        line.put(Player::White, 5);
+        line.put(Black, 5);
+        line.put(White, 5);
         assert_eq!(line.blacks, 0b000000000000001);
         assert_eq!(line.whites, 0b000000000100100);
     }
@@ -263,63 +266,39 @@ mod tests {
     #[test]
     fn test_stones() {
         let mut line = Line::new(5);
-        line.put(Player::Black, 0);
-        line.put(Player::Black, 2);
-        line.put(Player::White, 3);
+        line.put(Black, 0);
+        line.put(Black, 2);
+        line.put(White, 3);
         let result = line.stones();
-        let expected = vec![
-            Some(Player::Black),
-            None,
-            Some(Player::Black),
-            Some(Player::White),
-            None,
-        ];
+        let expected = vec![Some(Black), None, Some(Black), Some(White), None];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_rows() {
         let mut line = Line::new(BOARD_SIZE);
-        line.put(Player::Black, 1);
-        line.put(Player::Black, 2);
-        line.put(Player::Black, 3);
-        line.put(Player::Black, 4);
-        line.put(Player::White, 8);
-        line.put(Player::White, 11);
-        // black
-        let result = line.rows(Player::Black, RowKind::Four);
-        let expected = vec![
-            Row {
-                start: 0,
-                end: 4,
-                eye1: Some(0),
-                eye2: None,
-            },
-            Row {
-                start: 1,
-                end: 5,
-                eye1: Some(5),
-                eye2: None,
-            },
-        ];
+        line.put(Black, 1);
+        line.put(Black, 2);
+        line.put(Black, 3);
+        line.put(Black, 4);
+        line.put(White, 8);
+        line.put(White, 11);
+
+        let result = line.rows(Black, Four);
+        let expected = [Row::new(0, 4, Some(0), None), Row::new(1, 5, Some(5), None)];
         assert_eq!(result, expected);
-        // white
-        let result = line.rows(Player::White, RowKind::Two);
-        let expected = vec![Row {
-            start: 7,
-            end: 12,
-            eye1: Some(9),
-            eye2: Some(10),
-        }];
+
+        let result = line.rows(White, Two);
+        let expected = [Row::new(7, 12, Some(9), Some(10))];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_to_string() {
         let mut line = Line::new(7);
-        line.put(Player::Black, 0);
-        line.put(Player::Black, 4);
-        line.put(Player::White, 2);
+        line.put(Black, 0);
+        line.put(Black, 4);
+        line.put(White, 2);
         assert_eq!(line.to_string(), "o-x-o--");
     }
 
@@ -327,8 +306,8 @@ mod tests {
     fn test_parse() -> Result<(), String> {
         let result = "-o---x----".parse::<Line>()?;
         let mut expected = Line::new(10);
-        expected.put(Player::Black, 1);
-        expected.put(Player::White, 5);
+        expected.put(Black, 1);
+        expected.put(White, 5);
         assert_eq!(result, expected);
         Ok(())
     }

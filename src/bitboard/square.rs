@@ -318,18 +318,21 @@ fn lines_to_string(lines: &[&Line]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::Direction::*;
+    use super::Player::*;
+    use super::RowKind::*;
     use super::*;
 
     #[test]
     fn test_put() {
         let mut square = Square::new();
-        square.put(Player::Black, Point { x: 7, y: 7 });
-        square.put(Player::White, Point { x: 8, y: 8 });
-        square.put(Player::Black, Point { x: 9, y: 8 });
-        square.put(Player::Black, Point { x: 1, y: 1 });
-        square.put(Player::White, Point { x: 1, y: 13 });
-        square.put(Player::Black, Point { x: 13, y: 1 });
-        square.put(Player::White, Point { x: 13, y: 13 });
+        square.put(Black, Point::new(7, 7));
+        square.put(White, Point::new(8, 8));
+        square.put(Black, Point::new(9, 8));
+        square.put(Black, Point::new(1, 1));
+        square.put(White, Point::new(1, 13));
+        square.put(Black, Point::new(13, 1));
+        square.put(White, Point::new(13, 13));
         let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
@@ -449,49 +452,45 @@ mod tests {
         "
         .parse::<Square>()?;
         let black_twos = vec![RowSegment {
-            direction: Direction::Ascending,
-            start: Point { x: 6, y: 4 },
-            end: Point { x: 11, y: 9 },
-            eye1: Some(Point { x: 8, y: 6 }),
-            eye2: Some(Point { x: 9, y: 7 }),
+            direction: Ascending,
+            start: Point::new(6, 4),
+            end: Point::new(11, 9),
+            eye1: Some(Point::new(8, 6)),
+            eye2: Some(Point::new(9, 7)),
         }];
         let white_swords = [RowSegment {
-            direction: Direction::Horizontal,
-            start: Point { x: 5, y: 8 },
-            end: Point { x: 9, y: 8 },
-            eye1: Some(Point { x: 5, y: 8 }),
-            eye2: Some(Point { x: 6, y: 8 }),
+            direction: Horizontal,
+            start: Point::new(5, 8),
+            end: Point::new(9, 8),
+            eye1: Some(Point::new(5, 8)),
+            eye2: Some(Point::new(6, 8)),
         }];
+
         // rows
-        assert_eq!(square.rows(Player::Black, RowKind::Two), black_twos);
-        assert_eq!(square.rows(Player::White, RowKind::Sword), white_swords);
+        assert_eq!(square.rows(Black, Two), black_twos);
+        assert_eq!(square.rows(White, Sword), white_swords);
+
         // rows_on
-        assert_eq!(
-            square.rows_on(Player::Black, RowKind::Two, Point { x: 10, y: 8 }),
-            black_twos
-        );
-        assert_eq!(
-            square.rows_on(Player::Black, RowKind::Two, Point { x: 7, y: 7 }),
-            vec![]
-        );
+        assert_eq!(square.rows_on(Black, Two, Point::new(10, 8)), black_twos);
+        assert_eq!(square.rows_on(Black, Two, Point::new(7, 7)), []);
+
         // row_eyes
         assert_eq!(
-            square.row_eyes(Player::Black, RowKind::Two),
-            vec![Point { x: 8, y: 6 }, Point { x: 9, y: 7 }]
+            square.row_eyes(Black, Two),
+            [Point::new(8, 6), Point::new(9, 7)]
         );
         assert_eq!(
-            square.row_eyes(Player::White, RowKind::Sword),
-            vec![Point { x: 5, y: 8 }, Point { x: 6, y: 8 }]
+            square.row_eyes(White, Sword),
+            [Point::new(5, 8), Point::new(6, 8)]
         );
+
         // row_eyes_along
         assert_eq!(
-            square.row_eyes_along(Player::White, RowKind::Sword, Point { x: 0, y: 8 }),
-            vec![Point { x: 5, y: 8 }, Point { x: 6, y: 8 }]
+            square.row_eyes_along(White, Sword, Point::new(0, 8)),
+            [Point::new(5, 8), Point::new(6, 8)]
         );
-        assert_eq!(
-            square.row_eyes_along(Player::White, RowKind::Sword, Point { x: 0, y: 7 }),
-            vec![]
-        );
+        assert_eq!(square.row_eyes_along(White, Sword, Point::new(0, 7)), []);
+
         Ok(())
     }
 
@@ -516,13 +515,13 @@ mod tests {
         "
         .parse::<Square>()?;
         let mut expected = Square::new();
-        expected.put(Player::Black, Point { x: 7, y: 7 });
-        expected.put(Player::White, Point { x: 8, y: 8 });
-        expected.put(Player::Black, Point { x: 9, y: 8 });
-        expected.put(Player::Black, Point { x: 0, y: 0 });
-        expected.put(Player::White, Point { x: 0, y: 14 });
-        expected.put(Player::Black, Point { x: 14, y: 0 });
-        expected.put(Player::White, Point { x: 14, y: 14 });
+        expected.put(Black, Point::new(7, 7));
+        expected.put(White, Point::new(8, 8));
+        expected.put(Black, Point::new(9, 8));
+        expected.put(Black, Point::new(0, 0));
+        expected.put(White, Point::new(0, 14));
+        expected.put(Black, Point::new(14, 0));
+        expected.put(White, Point::new(14, 14));
         assert_eq!(result, expected);
         Ok(())
     }
