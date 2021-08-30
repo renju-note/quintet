@@ -149,6 +149,75 @@ mod tests {
     }
 
     #[test]
+    fn test_scan_rows_black_sword() {
+        let result = scan_rows(Black, Sword, 0b0001110, 0b0110000, 7, 0);
+        let expected = [Row::new(1, 5, Some(4), Some(5))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0010110, 0b0101000, 7, 0);
+        let expected = [Row::new(1, 5, Some(3), Some(5))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0011010, 0b0100100, 7, 0);
+        let expected = [Row::new(1, 5, Some(2), Some(5))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0011100, 0b0100010, 7, 0);
+        let expected = [Row::new(1, 5, Some(1), Some(5))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0100110, 0b0011000, 7, 0);
+        let expected = [Row::new(1, 5, Some(3), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0101010, 0b0010100, 7, 0);
+        let expected = [Row::new(1, 5, Some(2), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0101100, 0b0010010, 7, 0);
+        let expected = [Row::new(1, 5, Some(1), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0110010, 0b0001100, 7, 0);
+        let expected = [Row::new(1, 5, Some(2), Some(3))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0110100, 0b0001010, 7, 0);
+        let expected = [Row::new(1, 5, Some(1), Some(3))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Sword, 0b0111000, 0b0000110, 7, 0);
+        let expected = [Row::new(1, 5, Some(1), Some(2))];
+        assert_eq!(result, expected);
+
+        // multiple
+        let result = scan_rows(Black, Sword, 0b00011100, 0b11100011, 8, 0);
+        let expected = [
+            Row::new(1, 5, Some(1), Some(5)),
+            Row::new(2, 6, Some(5), Some(6)),
+        ];
+        assert_eq!(result, expected);
+
+        // maybe overline
+        let result = scan_rows(Black, Sword, 0b1001110, 0b0110001, 7, 0);
+        let expected = [];
+        assert_eq!(result, expected);
+
+        // not overline
+        let result = scan_rows(Black, Sword, 0b10011100, 0b01100010, 8, 0);
+        let expected = [Row::new(1, 5, Some(1), Some(5))];
+        assert_eq!(result, expected);
+
+        // multiple
+        let result = scan_rows(Black, Sword, 0b0010110100, 0b1101001011, 10, 0);
+        let expected = [
+            Row::new(1, 5, Some(1), Some(3)),
+            Row::new(4, 8, Some(6), Some(8)),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_scan_rows_black_four() {
         let result = scan_rows(Black, Four, 0b0011110, 0b0100000, 7, 0);
         let expected = [Row::new(1, 5, Some(5), None)];
@@ -233,6 +302,74 @@ mod tests {
 
         let result = scan_rows(Black, Overline, 0b1111111, 0b0000000, 7, 0);
         let expected = [Row::new(0, 5, None, None), Row::new(1, 6, None, None)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_scan_rows_white_sword() {
+        let result = scan_rows(White, Sword, 0b00111, 0b11000, 5, 0);
+        let expected = [Row::new(0, 4, Some(3), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b01011, 0b10100, 5, 0);
+        let expected = [Row::new(0, 4, Some(2), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b01101, 0b10010, 5, 0);
+        let expected = [Row::new(0, 4, Some(1), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b01110, 0b10001, 5, 0);
+        let expected = [Row::new(0, 4, Some(0), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b10011, 0b01100, 5, 0);
+        let expected = [Row::new(0, 4, Some(2), Some(3))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b10101, 0b01010, 5, 0);
+        let expected = [Row::new(0, 4, Some(1), Some(3))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b10110, 0b01001, 5, 0);
+        let expected = [Row::new(0, 4, Some(0), Some(3))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b11001, 0b00110, 5, 0);
+        let expected = [Row::new(0, 4, Some(1), Some(2))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b11010, 0b00101, 5, 0);
+        let expected = [Row::new(0, 4, Some(0), Some(2))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Sword, 0b11100, 0b00011, 5, 0);
+        let expected = [Row::new(0, 4, Some(0), Some(1))];
+        assert_eq!(result, expected);
+
+        // multiple
+        let result = scan_rows(White, Sword, 0b101011, 0b010100, 6, 0);
+        let expected = [
+            Row::new(0, 4, Some(2), Some(4)),
+            Row::new(1, 5, Some(2), Some(4)),
+        ];
+        assert_eq!(result, expected);
+
+        // multiple
+        let result = scan_rows(White, Sword, 0b110011, 0b001100, 6, 0);
+        let expected = [
+            Row::new(0, 4, Some(2), Some(3)),
+            Row::new(1, 5, Some(2), Some(3)),
+        ];
+        assert_eq!(result, expected);
+
+        // multiple
+        let result = scan_rows(White, Sword, 0b0011100, 0b1100011, 7, 0);
+        let expected = [
+            Row::new(0, 4, Some(0), Some(1)),
+            Row::new(1, 5, Some(1), Some(5)),
+            Row::new(2, 6, Some(5), Some(6)),
+        ];
         assert_eq!(result, expected);
     }
 
