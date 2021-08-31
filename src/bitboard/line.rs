@@ -8,7 +8,8 @@ pub struct Line {
     pub size: u8,
     pub blacks: Bits,
     pub whites: Bits,
-    checker: RowChecker,
+    n_black: u8,
+    n_white: u8,
 }
 
 impl Line {
@@ -18,29 +19,18 @@ impl Line {
             size: size,
             blacks: 0b0,
             whites: 0b0,
-            checker: RowChecker::new(),
+            n_black: 0,
+            n_white: 0,
         }
     }
 
     pub fn put(&mut self, player: Player, i: u8) {
         let stones = 0b1 << i;
-        let blacks: Bits;
-        let whites: Bits;
-        match player {
-            Player::Black => {
-                blacks = self.blacks | stones;
-                whites = self.whites & !stones;
-            }
-            Player::White => {
-                blacks = self.blacks & !stones;
-                whites = self.whites | stones;
-            }
+        let (blacks, whites) = match player {
+            Player::Black => (self.blacks | stones, self.whites & !stones),
+            Player::White => (self.blacks & !stones, self.whites | stones),
         };
-
-        self.checker.reset_free();
-        self.checker
-            .memoize_count(blacks, whites, self.blacks, self.whites);
-
+        self.update_counts(blacks, whites);
         self.blacks = blacks;
         self.whites = whites;
     }
@@ -60,30 +50,63 @@ impl Line {
             .collect()
     }
 
-    pub fn rows(&mut self, player: Player, kind: RowKind) -> Vec<Row> {
-        if !self.checker.may_contain(self.size, player, kind) {
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+        if !self.may_contain(player, kind) {
             return vec![];
         }
-
         let blacks_ = self.blacks << 1;
         let whites_ = self.whites << 1;
         let blanks_ = self.blanks() << 1;
         let limit = self.size + 2;
-
-        let result = match player {
+        match player {
             Player::Black => scan_rows(Player::Black, kind, blacks_, blanks_, limit, 1),
             Player::White => scan_rows(Player::White, kind, whites_, blanks_, limit, 1),
-        };
-
-        if result.is_empty() {
-            self.checker.memoize_free(player, kind)
         }
+    }
 
-        result
+    fn update_counts(&mut self, blacks: Bits, whites: Bits) {
+        if blacks > self.blacks {
+            self.n_black += 1;
+        } else if blacks < self.blacks {
+            self.n_black -= 1;
+        }
+        if whites > self.whites {
+            self.n_white += 1;
+        } else if whites < self.whites {
+            self.n_white -= 1;
+        }
+    }
+
+    fn may_contain(&self, player: Player, kind: RowKind) -> bool {
+        let min_stone = match kind {
+            RowKind::Two => 2,
+            RowKind::Sword => 3,
+            RowKind::Three => 3,
+            RowKind::Four => 4,
+            RowKind::Five => 5,
+            RowKind::Overline => 6,
+        };
+        let min_blank = match kind {
+            RowKind::Two => 4,
+            RowKind::Sword => 2,
+            RowKind::Three => 3,
+            RowKind::Four => 1,
+            RowKind::Five => 0,
+            RowKind::Overline => 0,
+        };
+        self.n_blank() >= min_blank
+            && match player {
+                Player::Black => self.n_black >= min_stone,
+                Player::White => self.n_white >= min_stone,
+            }
     }
 
     fn blanks(&self) -> Bits {
         !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
+    }
+
+    fn n_blank(&self) -> u8 {
+        self.size - (self.n_black + self.n_white)
     }
 }
 
@@ -131,103 +154,6 @@ impl FromStr for Line {
     }
 }
 
-#[derive(Clone, Debug)]
-struct RowChecker {
-    bfree: u8,
-    wfree: u8,
-    bcount: u8,
-    wcount: u8,
-}
-
-impl RowChecker {
-    pub fn new() -> RowChecker {
-        RowChecker {
-            bfree: 0b111111,
-            wfree: 0b111111,
-            bcount: 0,
-            wcount: 0,
-        }
-    }
-
-    pub fn memoize_free(&mut self, player: Player, kind: RowKind) {
-        let mask = free_mask(kind);
-        match player {
-            Player::Black => {
-                self.bfree |= mask;
-            }
-            Player::White => {
-                self.wfree |= mask;
-            }
-        };
-    }
-
-    pub fn reset_free(&mut self) {
-        self.bfree = 0b0;
-        self.wfree = 0b0;
-    }
-
-    pub fn memoize_count(
-        &mut self,
-        blacks: Bits,
-        whites: Bits,
-        prev_blacks: Bits,
-        prev_whites: Bits,
-    ) {
-        if blacks > prev_blacks {
-            self.bcount += 1;
-        } else if blacks < prev_blacks {
-            self.bcount -= 1;
-        }
-        if whites > prev_whites {
-            self.wcount += 1;
-        } else if whites < prev_whites {
-            self.wcount -= 1;
-        }
-    }
-
-    pub fn may_contain(&self, size: u8, player: Player, kind: RowKind) -> bool {
-        let mask = free_mask(kind);
-        if (player.is_black() && (self.bfree & mask != 0b0))
-            || (player.is_white() && (self.wfree & mask != 0b0))
-        {
-            return false;
-        }
-        let min_stone_count = match kind {
-            RowKind::Two => 2,
-            RowKind::Sword => 3,
-            RowKind::Three => 3,
-            RowKind::Four => 4,
-            RowKind::Five => 5,
-            RowKind::Overline => 6,
-        };
-        let min_blank_count = match kind {
-            RowKind::Two => 4,
-            RowKind::Sword => 2,
-            RowKind::Three => 3,
-            RowKind::Four => 1,
-            RowKind::Five => 0,
-            RowKind::Overline => 0,
-        };
-        let blank_count = size - (self.bcount + self.wcount);
-        blank_count >= min_blank_count
-            && match player {
-                Player::Black => self.bcount >= min_stone_count,
-                Player::White => self.wcount >= min_stone_count,
-            }
-    }
-}
-
-fn free_mask(kind: RowKind) -> u8 {
-    match kind {
-        RowKind::Two => 0b000010,
-        RowKind::Sword => 0b000001,
-        RowKind::Three => 0b000100,
-        RowKind::Four => 0b001000,
-        RowKind::Five => 0b010000,
-        RowKind::Overline => 0b100000,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::Player::*;
@@ -269,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_rows() -> Result<(), String> {
-        let mut line = "-oooo---x--x---".parse::<Line>()?;
+        let line = "-oooo---x--x---".parse::<Line>()?;
 
         let result = line.rows(Black, Four);
         let expected = [Row::new(0, 4, Some(0), None), Row::new(1, 5, Some(5), None)];
