@@ -52,8 +52,8 @@ impl Square {
         }
     }
 
-    pub fn rows(&mut self, player: Player, kind: RowKind) -> Vec<RowSegment> {
-        self.iter_mut_lines()
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<RowSegment> {
+        self.iter_lines()
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
@@ -63,8 +63,8 @@ impl Square {
             .collect()
     }
 
-    pub fn rows_on(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
-        self.iter_mut_lines_along(p)
+    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
+        self.iter_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
@@ -75,9 +75,9 @@ impl Square {
             .collect()
     }
 
-    pub fn row_eyes(&mut self, player: Player, kind: RowKind) -> Vec<Point> {
+    pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
         let mut result: Vec<_> = self
-            .iter_mut_lines()
+            .iter_lines()
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
@@ -92,9 +92,9 @@ impl Square {
         result
     }
 
-    pub fn row_eyes_along(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
+    pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
         let mut result: Vec<_> = self
-            .iter_mut_lines_along(p)
+            .iter_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
@@ -109,59 +109,54 @@ impl Square {
         result
     }
 
-    fn iter_mut_lines(&mut self) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+    fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let viter = self
             .vlines
-            .iter_mut()
+            .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
         let hiter = self
             .hlines
-            .iter_mut()
+            .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
         let aiter = self
             .alines
-            .iter_mut()
+            .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
         let diter = self
             .dlines
-            .iter_mut()
+            .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    fn iter_mut_lines_along(
-        &mut self,
-        p: Point,
-    ) -> impl Iterator<Item = (Direction, u8, &mut Line)> {
+    fn iter_lines_along(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let vidx = p.to_index(Direction::Vertical);
-        let vline = &mut self.vlines[vidx.i as usize];
+        let vline = &self.vlines[vidx.i as usize];
         let viter = Some((Direction::Vertical, vidx.i, vline)).into_iter();
 
         let hidx = p.to_index(Direction::Horizontal);
-        let hline = &mut self.hlines[hidx.i as usize];
+        let hline = &self.hlines[hidx.i as usize];
         let hiter = Some((Direction::Horizontal, hidx.i, hline)).into_iter();
 
         let aidx = p.to_index(Direction::Ascending);
-        let aiter = if bw(4, aidx.i, D_LINE_NUM + 3) {
-            let aline = &mut self.alines[(aidx.i - 4) as usize];
-            Some((Direction::Ascending, aidx.i, aline))
-        } else {
-            None
-        }
-        .into_iter();
+        let aiter = bw(4, aidx.i, D_LINE_NUM + 3)
+            .then(|| {
+                let aline = &self.alines[(aidx.i - 4) as usize];
+                (Direction::Ascending, aidx.i, aline)
+            })
+            .into_iter();
 
         let didx = p.to_index(Direction::Descending);
-        let diter = if bw(4, didx.i, D_LINE_NUM + 3) {
-            let dline = &mut self.dlines[(didx.i - 4) as usize];
-            Some((Direction::Descending, didx.i, dline))
-        } else {
-            None
-        }
-        .into_iter();
+        let diter = bw(4, didx.i, D_LINE_NUM + 3)
+            .then(|| {
+                let dline = &self.dlines[(didx.i - 4) as usize];
+                (Direction::Descending, didx.i, dline)
+            })
+            .into_iter();
 
         viter.chain(hiter).chain(aiter).chain(diter)
     }
@@ -450,7 +445,7 @@ mod tests {
 
     #[test]
     fn test_rows_and_so_on() -> Result<(), String> {
-        let mut square = "
+        let square = "
             ---------------
             ---------------
             ---------------

@@ -2,7 +2,7 @@ use super::super::bitboard::*;
 use super::zhash::*;
 use std::collections::HashSet;
 
-pub fn solve(depth: u8, board: &mut Board, player: Player) -> Option<Vec<Point>> {
+pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
     // Already exists five
     if board.rows(player, RowKind::Five).len() >= 1 {
         return None;
@@ -29,7 +29,7 @@ pub fn solve(depth: u8, board: &mut Board, player: Player) -> Option<Vec<Point>>
 
 fn solve_all(
     depth: u8,
-    board: &mut Board,
+    board: &Board,
     player: Player,
     prev_move: Option<Point>,
     zhash: u64,
