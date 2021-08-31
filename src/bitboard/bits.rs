@@ -15,7 +15,7 @@ pub struct Pattern {
 }
 
 impl Window {
-    pub fn matches(&self, stones: Bits, blanks: Bits) -> bool {
+    pub fn satisfies(&self, stones: Bits, blanks: Bits) -> bool {
         self.target & (stones | blanks) == self.target
     }
 }
@@ -94,6 +94,50 @@ impl Pattern {
             0b110000 => Some(5),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_satisfies() {
+        let window = Window {
+            size: 7,
+            target: 0b0111110,
+        };
+        assert!(window.satisfies(0b0101010, 0b0010100));
+        assert!(window.satisfies(0b0101011, 0b0010100));
+        assert!(!window.satisfies(0b0101010, 0b0010000));
+    }
+
+    #[test]
+    fn test_matches() {
+        let pattern = Pattern {
+            filter: 0b1111111,
+            stones: 0b0101010,
+            blanks: 0b0010100,
+            eyes__: 0b0010100,
+        };
+        assert!(pattern.matches(0b0101010, 0b0010100));
+        assert!(pattern.matches(0b0101010, 0b1010101));
+        assert!(!pattern.matches(0b0101000, 0b0010100));
+        assert!(!pattern.matches(0b0101001, 0b0010100));
+    }
+
+    #[test]
+    fn test_start_end_eye1_eye2() {
+        let pattern = Pattern {
+            filter: 0b1111111,
+            stones: 0b0101010,
+            blanks: 0b0010100,
+            eyes__: 0b0010100,
+        };
+        assert_eq!(pattern.start(), 1);
+        assert_eq!(pattern.end(), 5);
+        assert_eq!(pattern.eye1(), Some(2));
+        assert_eq!(pattern.eye2(), Some(4));
     }
 }
 

@@ -24,6 +24,10 @@ pub struct Index {
 }
 
 impl Point {
+    pub fn new(x: u8, y: u8) -> Point {
+        Point { x: x, y: y }
+    }
+
     pub fn to_index(&self, direction: Direction) -> Index {
         let (x, y) = (self.x, self.y);
         match direction {
@@ -44,6 +48,10 @@ impl Point {
 }
 
 impl Index {
+    pub fn new(i: u8, j: u8) -> Index {
+        Index { i: i, j: j }
+    }
+
     pub fn to_point(&self, direction: Direction) -> Point {
         let (i, j) = (self.i, self.j);
         match direction {
@@ -126,4 +134,89 @@ const N: u8 = BOARD_SIZE - 1;
 
 fn is_valid(n: u8) -> bool {
     (1..=BOARD_SIZE).contains(&n)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Direction::*;
+    use super::*;
+
+    #[test]
+    fn test_to_index_and_to_point() {
+        fn assert_eq_point_index(p: Point, iv: Index, ih: Index, ia: Index, id: Index) {
+            assert_eq!(p.to_index(Vertical), iv);
+            assert_eq!(p.to_index(Horizontal), ih);
+            assert_eq!(p.to_index(Ascending), ia);
+            assert_eq!(p.to_index(Descending), id);
+            assert_eq!(iv.to_point(Vertical), p);
+            assert_eq!(ih.to_point(Horizontal), p);
+            assert_eq!(ia.to_point(Ascending), p);
+            assert_eq!(id.to_point(Descending), p);
+        }
+
+        // lower-left quadrant
+        let p = Point::new(3, 6);
+        let iv = Index::new(3, 6);
+        let ih = Index::new(6, 3);
+        let ia = Index::new(11, 3);
+        let id = Index::new(9, 3);
+        assert_eq_point_index(p, iv, ih, ia, id);
+
+        // lower-right quadrant
+        let p = Point::new(9, 6);
+        let iv = Index::new(9, 6);
+        let ih = Index::new(6, 9);
+        let ia = Index::new(17, 6);
+        let id = Index::new(15, 8);
+        assert_eq_point_index(p, iv, ih, ia, id);
+
+        // upper-left quadrant
+        let p = Point::new(3, 12);
+        let iv = Index::new(3, 12);
+        let ih = Index::new(12, 3);
+        let ia = Index::new(5, 3);
+        let id = Index::new(15, 2);
+        assert_eq_point_index(p, iv, ih, ia, id);
+
+        // upper-right quadrant
+        let p = Point::new(9, 12);
+        let iv = Index::new(9, 12);
+        let ih = Index::new(12, 9);
+        let ia = Index::new(11, 9);
+        let id = Index::new(21, 2);
+        assert_eq_point_index(p, iv, ih, ia, id);
+    }
+
+    #[test]
+    fn test_to_string() {
+        let result = Point::new(3, 5).to_string();
+        assert_eq!(result, "D6");
+
+        let result = Point::new(11, 10).to_string();
+        assert_eq!(result, "L11");
+    }
+
+    #[test]
+    fn test_parse() -> Result<(), String> {
+        let result = "E2".parse::<Point>()?;
+        assert_eq!(result, Point::new(4, 1));
+
+        let result = "M15".parse::<Point>()?;
+        assert_eq!(result, Point::new(12, 14));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_try_from_u8() -> Result<(), String> {
+        let result = Point::try_from(72)?;
+        assert_eq!(result, Point::new(4, 12));
+        Ok(())
+    }
+
+    #[test]
+    fn test_into_u8() {
+        let result = u8::from(Point::new(4, 12));
+        assert_eq!(result, 72);
+    }
 }

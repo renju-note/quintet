@@ -3,8 +3,9 @@ use super::line::*;
 use super::point::*;
 use super::row::*;
 use std::fmt;
+use std::str::FromStr;
 
-#[derive(Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Square {
     vlines: OrthogonalLines,
     hlines: OrthogonalLines,
@@ -12,7 +13,7 @@ pub struct Square {
     dlines: DiagonalLines,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct RowSegment {
     pub direction: Direction,
     pub start: Point,
@@ -56,10 +57,10 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
             })
             .flatten()
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn rows_on(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
@@ -67,42 +68,42 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
                     .filter(|r| r.overlap(p))
             })
             .flatten()
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn row_eyes(&mut self, player: Player, kind: RowKind) -> Vec<Point> {
-        let mut result = self
+        let mut result: Vec<_> = self
             .iter_mut_lines()
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
             .flatten()
-            .collect::<Vec<_>>();
+            .collect();
         result.sort_unstable();
         result.dedup();
         result
     }
 
     pub fn row_eyes_along(&mut self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
-        let mut result = self
+        let mut result: Vec<_> = self
             .iter_mut_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::new(&r, d, i))
+                    .map(move |r| RowSegment::from_row(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
             .flatten()
-            .collect::<Vec<_>>();
+            .collect();
         result.sort_unstable();
         result.dedup();
         result
@@ -168,19 +169,59 @@ impl Square {
 
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = self
-            .hlines
-            .iter()
-            .rev()
-            .map(|l| l.to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
+        let rev_hlines: Vec<_> = self.hlines.iter().rev().collect();
+        let s = lines_to_string(&rev_hlines);
         write!(f, "{}", s)
     }
 }
 
+impl FromStr for Square {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let hlines_rev = s
+            .trim()
+            .split("\n")
+            .map(|ls| ls.trim().parse::<Line>())
+            .collect::<Result<Vec<_>, _>>()?;
+        if hlines_rev.len() != BOARD_SIZE as usize {
+            return Err("Wrong num of lines");
+        }
+        let mut square = Square::new();
+        for (y, hline) in hlines_rev.iter().rev().enumerate() {
+            if hline.size != BOARD_SIZE {
+                return Err("Wrong line size");
+            }
+            for (x, s) in hline.stones().iter().enumerate() {
+                let point = Point::new(x as u8, y as u8);
+                match s {
+                    Some(player) => square.put(*player, point),
+                    None => (),
+                }
+            }
+        }
+        Ok(square)
+    }
+}
+
 impl RowSegment {
-    pub fn new(r: &Row, d: Direction, i: u8) -> RowSegment {
+    pub fn new(
+        direction: Direction,
+        start: Point,
+        end: Point,
+        eye1: Option<Point>,
+        eye2: Option<Point>,
+    ) -> RowSegment {
+        RowSegment {
+            direction: direction,
+            start: start,
+            end: end,
+            eye1: eye1,
+            eye2: eye2,
+        }
+    }
+
+    pub fn from_row(r: &Row, d: Direction, i: u8) -> RowSegment {
         RowSegment {
             direction: d,
             start: Index { i: i, j: r.start }.to_point(d),
@@ -278,4 +319,235 @@ fn diagonal_lines() -> DiagonalLines {
 
 fn bw(a: u8, x: u8, b: u8) -> bool {
     a <= x && x <= b
+}
+
+fn lines_to_string(lines: &[&Line]) -> String {
+    lines
+        .iter()
+        .map(|l| l.to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Direction::*;
+    use super::Player::*;
+    use super::RowKind::*;
+    use super::*;
+
+    #[test]
+    fn test_put() {
+        let mut square = Square::new();
+        square.put(Black, Point::new(7, 7));
+        square.put(White, Point::new(8, 8));
+        square.put(Black, Point::new(9, 8));
+        square.put(Black, Point::new(1, 1));
+        square.put(White, Point::new(1, 13));
+        square.put(Black, Point::new(13, 1));
+        square.put(White, Point::new(13, 13));
+
+        let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            ---------------
+            -o-----------o-
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------o-------
+            --------xo-----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -x-----------x-
+            ---------------
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            ---------------
+            -o-----------x-
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------o-------
+            --------x------
+            --------o------
+            ---------------
+            ---------------
+            ---------------
+            -o-----------x-
+            ---------------
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            -----
+            ------
+            -------
+            --------
+            ---------
+            ----------
+            -----------
+            ------------
+            -------------
+            --------------
+            -o-----ox----x-
+            --------o-----
+            -------------
+            ------------
+            -----------
+            ----------
+            ---------
+            --------
+            -------
+            ------
+            -----
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            -----
+            ------
+            -------
+            --------
+            ---------
+            ----------
+            -----------
+            ------------
+            -------------
+            --------------
+            -x-----o-----o-
+            --------------
+            ------x------
+            ------o-----
+            -----------
+            ----------
+            ---------
+            --------
+            -------
+            ------
+            -----
+            ",
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_rows_and_so_on() -> Result<(), String> {
+        let mut square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------xxxo----
+            -------o-------
+            ---------------
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let black_twos = [RowSegment::new(
+            Ascending,
+            Point::new(6, 4),
+            Point::new(11, 9),
+            Some(Point::new(8, 6)),
+            Some(Point::new(9, 7)),
+        )];
+        let white_swords = [RowSegment::new(
+            Horizontal,
+            Point::new(5, 8),
+            Point::new(9, 8),
+            Some(Point::new(5, 8)),
+            Some(Point::new(6, 8)),
+        )];
+
+        // rows
+        assert_eq!(square.rows(Black, Two), black_twos);
+        assert_eq!(square.rows(White, Sword), white_swords);
+
+        // rows_on
+        assert_eq!(square.rows_on(Black, Two, Point::new(10, 8)), black_twos);
+        assert_eq!(square.rows_on(Black, Two, Point::new(7, 7)), []);
+
+        // row_eyes
+        assert_eq!(
+            square.row_eyes(Black, Two),
+            [Point::new(8, 6), Point::new(9, 7)]
+        );
+        assert_eq!(
+            square.row_eyes(White, Sword),
+            [Point::new(5, 8), Point::new(6, 8)]
+        );
+
+        // row_eyes_along
+        assert_eq!(
+            square.row_eyes_along(White, Sword, Point::new(0, 8)),
+            [Point::new(5, 8), Point::new(6, 8)]
+        );
+        assert_eq!(square.row_eyes_along(White, Sword, Point::new(0, 7)), []);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse() -> Result<(), String> {
+        let result = "
+            x-------------x
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------xo-----
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            o-------------o
+        "
+        .parse::<Square>()?;
+        let mut expected = Square::new();
+        expected.put(Black, Point::new(7, 7));
+        expected.put(White, Point::new(8, 8));
+        expected.put(Black, Point::new(9, 8));
+        expected.put(Black, Point::new(0, 0));
+        expected.put(White, Point::new(0, 14));
+        expected.put(Black, Point::new(14, 0));
+        expected.put(White, Point::new(14, 14));
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    fn trim_lines_string(s: &str) -> String {
+        s.trim()
+            .split("\n")
+            .map(|ls| ls.trim())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
