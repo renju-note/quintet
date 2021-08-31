@@ -149,6 +149,59 @@ mod tests {
     }
 
     #[test]
+    fn test_scan_rows_black_two() {
+        let result = scan_rows(Black, Two, 0b00001100, 0b01110010, 8, 0);
+        let expected = [Row::new(1, 6, Some(4), Some(5))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Two, 0b00010100, 0b01101010, 8, 0);
+        let expected = [Row::new(1, 6, Some(3), Some(5))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Two, 0b00011000, 0b01100110, 8, 0);
+        let expected = [Row::new(1, 6, Some(2), Some(5))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Two, 0b00100100, 0b01011010, 8, 0);
+        let expected = [Row::new(1, 6, Some(3), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Two, 0b00101000, 0b01010110, 8, 0);
+        let expected = [Row::new(1, 6, Some(2), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(Black, Two, 0b00110000, 0b01001110, 8, 0);
+        let expected = [Row::new(1, 6, Some(2), Some(3))];
+        assert_eq!(result, expected);
+
+        // two twos
+        let result = scan_rows(Black, Two, 0b000101000, 0b111010111, 9, 0);
+        let expected = [
+            Row::new(1, 6, Some(2), Some(4)),
+            Row::new(2, 7, Some(4), Some(6)),
+        ];
+        assert_eq!(result, expected);
+
+        // two twos
+        let result = scan_rows(Black, Two, 0b00100100100, 0b01011011010, 11, 0);
+        let expected = [
+            Row::new(1, 6, Some(3), Some(4)),
+            Row::new(4, 9, Some(6), Some(7)),
+        ];
+        assert_eq!(result, expected);
+
+        // not two
+        let result = scan_rows(Black, Two, 0b00011100, 0b00100010, 8, 0);
+        let expected = [];
+        assert_eq!(result, expected);
+
+        // not two (overline)
+        let result = scan_rows(Black, Two, 0b100101001, 0b011010110, 9, 0);
+        let expected = [];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_scan_rows_black_three() {
         let result = scan_rows(Black, Three, 0b00011100, 0b01100010, 8, 0);
         let expected = [Row::new(1, 6, Some(5), None)];
@@ -336,6 +389,46 @@ mod tests {
 
         let result = scan_rows(Black, Overline, 0b1111111, 0b0000000, 7, 0);
         let expected = [Row::new(0, 5, None, None), Row::new(1, 6, None, None)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_scan_rows_white_two() {
+        let result = scan_rows(White, Two, 0b000110, 0b111001, 6, 0);
+        let expected = [Row::new(0, 5, Some(3), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Two, 0b001010, 0b110101, 6, 0);
+        let expected = [Row::new(0, 5, Some(2), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Two, 0b001100, 0b110011, 6, 0);
+        let expected = [Row::new(0, 5, Some(1), Some(4))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Two, 0b010010, 0b101101, 6, 0);
+        let expected = [Row::new(0, 5, Some(2), Some(3))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Two, 0b010100, 0b101011, 6, 0);
+        let expected = [Row::new(0, 5, Some(1), Some(3))];
+        assert_eq!(result, expected);
+
+        let result = scan_rows(White, Two, 0b011000, 0b100111, 6, 0);
+        let expected = [Row::new(0, 5, Some(1), Some(2))];
+        assert_eq!(result, expected);
+
+        // two twos
+        let result = scan_rows(White, Two, 0b010010010, 0b101101101, 9, 0);
+        let expected = [
+            Row::new(0, 5, Some(2), Some(3)),
+            Row::new(3, 8, Some(5), Some(6)),
+        ];
+        assert_eq!(result, expected);
+
+        // not two
+        let result = scan_rows(White, Two, 0b001110, 0b010001, 6, 0);
+        let expected = [];
         assert_eq!(result, expected);
     }
 
