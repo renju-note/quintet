@@ -65,10 +65,9 @@ fn adjacent(a: &RowSegment, b: &RowSegment) -> bool {
     if a.direction != b.direction {
         return false;
     }
-    let (xd, yd) = (
-        a.start.x as i32 - b.start.x as i32,
-        a.start.y as i32 - b.start.y as i32,
-    );
+    let (ax, ay) = (a.start.0, a.start.1);
+    let (bx, by) = (b.start.0, b.start.1);
+    let (xd, yd) = (ax as i8 - bx as i8, ay as i8 - by as i8);
     match a.direction {
         Direction::Vertical => xd == 0 && yd.abs() == 1,
         Direction::Horizontal => xd.abs() == 1 && yd == 0,

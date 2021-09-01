@@ -12,62 +12,50 @@ pub enum Direction {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
-pub struct Point {
-    pub x: u8,
-    pub y: u8,
-}
+pub struct Point(pub u8, pub u8);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Index {
-    pub i: u8,
-    pub j: u8,
-}
+pub struct Index(pub u8, pub u8);
 
 pub struct Points(pub Vec<Point>);
 
 impl Point {
-    pub fn new(x: u8, y: u8) -> Point {
-        Point { x: x, y: y }
-    }
-
     pub fn to_index(&self, direction: Direction) -> Index {
-        let (x, y) = (self.x, self.y);
+        let (x, y) = (self.0, self.1);
+        let n = BOARD_SIZE - 1;
         match direction {
-            Direction::Vertical => Index { i: x, j: y },
-            Direction::Horizontal => Index { i: y, j: x },
+            Direction::Vertical => Index(x, y),
+            Direction::Horizontal => Index(y, x),
             Direction::Ascending => {
-                let i = x + N - y;
-                let j = if i < N { x } else { y };
-                Index { i: i, j: j }
+                let i = x + n - y;
+                let j = if i < n { x } else { y };
+                Index(i, j)
             }
             Direction::Descending => {
                 let i = x + y;
-                let j = if i < N { x } else { N - y };
-                Index { i: i, j: j }
+                let j = if i < n { x } else { n - y };
+                Index(i, j)
             }
         }
     }
 }
 
 impl Index {
-    pub fn new(i: u8, j: u8) -> Index {
-        Index { i: i, j: j }
-    }
-
     pub fn to_point(&self, direction: Direction) -> Point {
-        let (i, j) = (self.i, self.j);
+        let (i, j) = (self.0, self.1);
+        let n = BOARD_SIZE - 1;
         match direction {
-            Direction::Vertical => Point { x: i, y: j },
-            Direction::Horizontal => Point { x: j, y: i },
+            Direction::Vertical => Point(i, j),
+            Direction::Horizontal => Point(j, i),
             Direction::Ascending => {
-                let x = if i < N { j } else { i + j - N };
-                let y = if i < N { N - i + j } else { j };
-                Point { x: x, y: y }
+                let x = if i < n { j } else { i + j - n };
+                let y = if i < n { n - i + j } else { j };
+                Point(x, y)
             }
             Direction::Descending => {
-                let x = if i < N { j } else { i + j - N };
-                let y = if i < N { i - j } else { N - j };
-                Point { x: x, y: y }
+                let x = if i < n { j } else { i + j - n };
+                let y = if i < n { i - j } else { n - j };
+                Point(x, y)
             }
         }
     }
@@ -75,8 +63,8 @@ impl Index {
 
 impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let x = char::from_u32(('A' as u8 + self.x) as u32).unwrap();
-        let y = self.y + 1;
+        let x = char::from_u32(('A' as u8 + self.0) as u32).unwrap();
+        let y = self.1 + 1;
         write!(f, "{}{}", x, y)
     }
 }
@@ -108,7 +96,7 @@ impl FromStr for Point {
             })
             .flatten()
             .ok_or("Failed to parse y part.")?;
-        Ok(Point { x: x, y: y })
+        Ok(Point(x, y))
     }
 }
 
@@ -119,7 +107,7 @@ impl TryFrom<u8> for Point {
         let x = value / BOARD_SIZE;
         let y = value % BOARD_SIZE;
         if x < BOARD_SIZE && y < BOARD_SIZE {
-            Ok(Point { x: x, y: y })
+            Ok(Point(x, y))
         } else {
             Err("Invalid code")
         }
@@ -128,7 +116,7 @@ impl TryFrom<u8> for Point {
 
 impl From<Point> for u8 {
     fn from(value: Point) -> u8 {
-        value.x * BOARD_SIZE + value.y
+        value.0 * BOARD_SIZE + value.1
     }
 }
 
@@ -175,8 +163,6 @@ impl From<Points> for Vec<u8> {
     }
 }
 
-const N: u8 = BOARD_SIZE - 1;
-
 #[cfg(test)]
 mod tests {
     use super::Direction::*;
@@ -196,54 +182,54 @@ mod tests {
         }
 
         // lower-left quadrant
-        let p = Point::new(3, 6);
-        let iv = Index::new(3, 6);
-        let ih = Index::new(6, 3);
-        let ia = Index::new(11, 3);
-        let id = Index::new(9, 3);
+        let p = Point(3, 6);
+        let iv = Index(3, 6);
+        let ih = Index(6, 3);
+        let ia = Index(11, 3);
+        let id = Index(9, 3);
         assert_eq_point_index(p, iv, ih, ia, id);
 
         // lower-right quadrant
-        let p = Point::new(9, 6);
-        let iv = Index::new(9, 6);
-        let ih = Index::new(6, 9);
-        let ia = Index::new(17, 6);
-        let id = Index::new(15, 8);
+        let p = Point(9, 6);
+        let iv = Index(9, 6);
+        let ih = Index(6, 9);
+        let ia = Index(17, 6);
+        let id = Index(15, 8);
         assert_eq_point_index(p, iv, ih, ia, id);
 
         // upper-left quadrant
-        let p = Point::new(3, 12);
-        let iv = Index::new(3, 12);
-        let ih = Index::new(12, 3);
-        let ia = Index::new(5, 3);
-        let id = Index::new(15, 2);
+        let p = Point(3, 12);
+        let iv = Index(3, 12);
+        let ih = Index(12, 3);
+        let ia = Index(5, 3);
+        let id = Index(15, 2);
         assert_eq_point_index(p, iv, ih, ia, id);
 
         // upper-right quadrant
-        let p = Point::new(9, 12);
-        let iv = Index::new(9, 12);
-        let ih = Index::new(12, 9);
-        let ia = Index::new(11, 9);
-        let id = Index::new(21, 2);
+        let p = Point(9, 12);
+        let iv = Index(9, 12);
+        let ih = Index(12, 9);
+        let ia = Index(11, 9);
+        let id = Index(21, 2);
         assert_eq_point_index(p, iv, ih, ia, id);
     }
 
     #[test]
     fn test_to_string() {
-        let result = Point::new(3, 5).to_string();
+        let result = Point(3, 5).to_string();
         assert_eq!(result, "D6");
 
-        let result = Point::new(11, 10).to_string();
+        let result = Point(11, 10).to_string();
         assert_eq!(result, "L11");
     }
 
     #[test]
     fn test_parse() -> Result<(), String> {
         let result = "E2".parse::<Point>()?;
-        assert_eq!(result, Point::new(4, 1));
+        assert_eq!(result, Point(4, 1));
 
         let result = "M15".parse::<Point>()?;
-        assert_eq!(result, Point::new(12, 14));
+        assert_eq!(result, Point(12, 14));
 
         Ok(())
     }
@@ -251,19 +237,19 @@ mod tests {
     #[test]
     fn test_try_from_u8() -> Result<(), String> {
         let result = Point::try_from(72)?;
-        assert_eq!(result, Point::new(4, 12));
+        assert_eq!(result, Point(4, 12));
         Ok(())
     }
 
     #[test]
     fn test_into_u8() {
-        let result = u8::from(Point::new(4, 12));
+        let result = u8::from(Point(4, 12));
         assert_eq!(result, 72);
     }
 
     #[test]
     fn test_points_to_string() {
-        let ps = vec![Point::new(7, 7), Point::new(7, 8), Point::new(8, 8)];
+        let ps = vec![Point(7, 7), Point(7, 8), Point(8, 8)];
         assert_eq!(Points(ps).to_string(), "H8,H9,I9");
     }
 }
