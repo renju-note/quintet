@@ -17,6 +17,7 @@ pub struct Point(pub u8, pub u8);
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Index(pub u8, pub u8);
 
+#[derive(Debug)]
 pub struct Points(pub Vec<Point>);
 
 impl Point {

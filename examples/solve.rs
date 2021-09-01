@@ -26,7 +26,7 @@ fn main() {
         match result {
             Some(ps) => {
                 println!("\t{} times", (ps.len() + 1) / 2);
-                println!("\t{}", points_to_string(&ps));
+                println!("\t{}", Points(ps));
             }
             None => println!("\tNone"),
         }
@@ -39,16 +39,9 @@ fn main() {
         match result {
             Some(ps) => {
                 println!("\t{} times", (ps.len() + 1) / 2);
-                println!("\t{}", points_to_string(&ps));
+                println!("\t{}", Points(ps));
             }
             None => println!("\tNone"),
         }
     }
-}
-
-fn points_to_string(ps: &[Point]) -> String {
-    ps.iter()
-        .map(|p| p.to_string())
-        .collect::<Vec<_>>()
-        .join(",")
 }
