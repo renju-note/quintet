@@ -18,6 +18,11 @@ impl Board {
         }
     }
 
+    pub fn from_points(blacks: &[Point], whites: &[Point]) -> Board {
+        let square = Square::from_points(blacks, whites);
+        Board { square: square }
+    }
+
     pub fn put(&mut self, player: Player, p: Point) {
         self.square.put(player, p);
     }
@@ -54,7 +59,7 @@ impl Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.square)
+        f.write_str(&self.square.to_string())
     }
 }
 
@@ -62,23 +67,7 @@ impl FromStr for Board {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let codes = s.trim().split('/').collect::<Vec<_>>();
-        if codes.len() != 2 {
-            return Err("Unknown format.");
-        }
-        let blacks = parse_points(codes[0])?;
-        let whites = parse_points(codes[1])?;
-        let mut board = Board::new();
-        for p in blacks {
-            board.put(Player::Black, p);
-        }
-        for p in whites {
-            board.put(Player::White, p);
-        }
-        Ok(board)
+        let square = s.parse::<Square>()?;
+        Ok(Board { square: square })
     }
-}
-
-pub fn parse_points(s: &str) -> Result<Vec<Point>, &'static str> {
-    s.split(',').map(|m| m.parse::<Point>()).collect()
 }

@@ -23,6 +23,8 @@ pub struct Index {
     pub j: u8,
 }
 
+pub struct Points(pub Vec<Point>);
+
 impl Point {
     pub fn new(x: u8, y: u8) -> Point {
         Point { x: x, y: y }
@@ -116,7 +118,7 @@ impl TryFrom<u8> for Point {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let x = value / BOARD_SIZE;
         let y = value % BOARD_SIZE;
-        if is_valid(x) && is_valid(y) {
+        if x < BOARD_SIZE && y < BOARD_SIZE {
             Ok(Point { x: x, y: y })
         } else {
             Err("Invalid code")
@@ -130,11 +132,50 @@ impl From<Point> for u8 {
     }
 }
 
-const N: u8 = BOARD_SIZE - 1;
-
-fn is_valid(n: u8) -> bool {
-    (1..=BOARD_SIZE).contains(&n)
+impl fmt::Display for Points {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let result = self
+            .0
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        write!(f, "{}", result)
+    }
 }
+
+impl FromStr for Points {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let ps = s
+            .trim()
+            .split(",")
+            .map(|m| m.parse::<Point>())
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Points(ps))
+    }
+}
+
+impl TryFrom<&[u8]> for Points {
+    type Error = &'static str;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let ps = value
+            .iter()
+            .map(|c| Point::try_from(*c))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Points(ps))
+    }
+}
+
+impl From<Points> for Vec<u8> {
+    fn from(value: Points) -> Vec<u8> {
+        value.0.into_iter().map(|p| u8::from(p)).collect()
+    }
+}
+
+const N: u8 = BOARD_SIZE - 1;
 
 #[cfg(test)]
 mod tests {
@@ -218,5 +259,11 @@ mod tests {
     fn test_into_u8() {
         let result = u8::from(Point::new(4, 12));
         assert_eq!(result, 72);
+    }
+
+    #[test]
+    fn test_points_to_string() {
+        let ps = vec![Point::new(7, 7), Point::new(7, 8), Point::new(8, 8)];
+        assert_eq!(Points(ps).to_string(), "H8,H9,I9");
     }
 }

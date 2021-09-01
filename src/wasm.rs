@@ -5,19 +5,12 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> Option<Box<[u8]>> {
-    let mut board = Board::new();
-    let blacks = blacks.iter().map(|c| Point::try_from(*c)).flatten();
-    for p in blacks {
-        board.put(Player::Black, p);
+    let blacks = Points::try_from(blacks);
+    let whites = Points::try_from(whites);
+    if !blacks.is_ok() || !whites.is_ok() {
+        return None;
     }
-    let whites = whites.iter().map(|c| Point::try_from(*c)).flatten();
-    for p in whites {
-        board.put(Player::White, p);
-    }
-    solver::solve(depth_limit, &mut board, Player::from(black)).map(|ps| {
-        ps.iter()
-            .map(|p| u8::from(*p))
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
-    })
+    let board = Board::from_points(&blacks.unwrap().0, &whites.unwrap().0);
+    let solution = solver::solve(depth_limit, &board, Player::from(black));
+    solution.map(|ps| <Vec<u8>>::from(Points(ps)).into_boxed_slice())
 }

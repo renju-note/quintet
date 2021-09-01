@@ -32,6 +32,17 @@ impl Square {
         }
     }
 
+    pub fn from_points(blacks: &[Point], whites: &[Point]) -> Square {
+        let mut square = Square::new();
+        for p in blacks.into_iter() {
+            square.put(Player::Black, *p);
+        }
+        for p in whites.into_iter() {
+            square.put(Player::White, *p);
+        }
+        square
+    }
+
     pub fn put(&mut self, player: Player, p: Point) {
         let vidx = p.to_index(Direction::Vertical);
         self.vlines[vidx.i as usize].put(player, vidx.j);
@@ -166,7 +177,7 @@ impl fmt::Display for Square {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let rev_hlines: Vec<_> = self.hlines.iter().rev().collect();
         let s = lines_to_string(&rev_hlines);
-        write!(f, "{}", s)
+        f.write_str(&s)
     }
 }
 
@@ -174,28 +185,11 @@ impl FromStr for Square {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let hlines_rev = s
-            .trim()
-            .split("\n")
-            .map(|ls| ls.trim().parse::<Line>())
-            .collect::<Result<Vec<_>, _>>()?;
-        if hlines_rev.len() != BOARD_SIZE as usize {
-            return Err("Wrong num of lines");
+        if s.contains("/") {
+            from_str_points(s)
+        } else {
+            from_str_display(s)
         }
-        let mut square = Square::new();
-        for (y, hline) in hlines_rev.iter().rev().enumerate() {
-            if hline.size != BOARD_SIZE {
-                return Err("Wrong line size");
-            }
-            for (x, s) in hline.stones().iter().enumerate() {
-                let point = Point::new(x as u8, y as u8);
-                match s {
-                    Some(player) => square.put(*player, point),
-                    None => (),
-                }
-            }
-        }
-        Ok(square)
     }
 }
 
@@ -322,6 +316,41 @@ fn lines_to_string(lines: &[&Line]) -> String {
         .map(|l| l.to_string())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn from_str_points(s: &str) -> Result<Square, &'static str> {
+    let codes = s.trim().split("/").collect::<Vec<_>>();
+    if codes.len() != 2 {
+        return Err("Unknown format.");
+    }
+    let blacks = codes[0].parse::<Points>()?;
+    let whites = codes[1].parse::<Points>()?;
+    Ok(Square::from_points(&blacks.0, &whites.0))
+}
+
+fn from_str_display(s: &str) -> Result<Square, &'static str> {
+    let hlines_rev = s
+        .trim()
+        .split("\n")
+        .map(|ls| ls.trim().parse::<Line>())
+        .collect::<Result<Vec<_>, _>>()?;
+    if hlines_rev.len() != BOARD_SIZE as usize {
+        return Err("Wrong num of lines");
+    }
+    let mut square = Square::new();
+    for (y, hline) in hlines_rev.iter().rev().enumerate() {
+        if hline.size != BOARD_SIZE {
+            return Err("Wrong line size");
+        }
+        for (x, s) in hline.stones().iter().enumerate() {
+            let point = Point::new(x as u8, y as u8);
+            match s {
+                Some(player) => square.put(*player, point),
+                None => (),
+            }
+        }
+    }
+    Ok(square)
 }
 
 #[cfg(test)]
@@ -507,7 +536,18 @@ mod tests {
     }
 
     #[test]
-    fn test_parse() -> Result<(), String> {
+    fn test_parse_points() -> Result<(), String> {
+        let result = "H8,J9/I9".parse::<Square>()?;
+        let mut expected = Square::new();
+        expected.put(Black, Point::new(7, 7));
+        expected.put(White, Point::new(8, 8));
+        expected.put(Black, Point::new(9, 8));
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_display() -> Result<(), String> {
         let result = "
             x-------------x
             ---------------

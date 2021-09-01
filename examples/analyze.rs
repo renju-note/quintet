@@ -7,7 +7,7 @@ fn main() {
         let mut code = String::new();
         io::stdin().read_line(&mut code).expect("fail");
         let result = code.parse::<Board>();
-        let mut board = match result {
+        let board = match result {
             Ok(board) => board,
             Err(err) => {
                 println!("{}", err);
