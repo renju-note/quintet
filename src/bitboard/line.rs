@@ -129,7 +129,7 @@ impl fmt::Display for Line {
                 None => '-',
             })
             .collect();
-        write!(f, "{}", s)
+        f.write_str(&s)
     }
 }
 
