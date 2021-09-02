@@ -8,8 +8,6 @@ pub struct Line {
     pub size: u8,
     pub blacks: Bits,
     pub whites: Bits,
-    n_black: u8,
-    n_white: u8,
 }
 
 impl Line {
@@ -19,8 +17,6 @@ impl Line {
             size: size,
             blacks: 0b0,
             whites: 0b0,
-            n_black: 0,
-            n_white: 0,
         }
     }
 
@@ -30,7 +26,6 @@ impl Line {
             Player::Black => (self.blacks | stones, self.whites & !stones),
             Player::White => (self.blacks & !stones, self.whites | stones),
         };
-        self.update_counts(blacks, whites);
         self.blacks = blacks;
         self.whites = whites;
     }
@@ -64,19 +59,6 @@ impl Line {
         }
     }
 
-    fn update_counts(&mut self, blacks: Bits, whites: Bits) {
-        if blacks > self.blacks {
-            self.n_black += 1;
-        } else if blacks < self.blacks {
-            self.n_black -= 1;
-        }
-        if whites > self.whites {
-            self.n_white += 1;
-        } else if whites < self.whites {
-            self.n_white -= 1;
-        }
-    }
-
     fn may_contain(&self, player: Player, kind: RowKind) -> bool {
         let min_stone = match kind {
             RowKind::Two => 2,
@@ -94,19 +76,15 @@ impl Line {
             RowKind::Five => 0,
             RowKind::Overline => 0,
         };
-        self.n_blank() >= min_blank
+        self.blanks().count_ones() >= min_blank
             && match player {
-                Player::Black => self.n_black >= min_stone,
-                Player::White => self.n_white >= min_stone,
+                Player::Black => self.blacks.count_ones() >= min_stone,
+                Player::White => self.whites.count_ones() >= min_stone,
             }
     }
 
     fn blanks(&self) -> Bits {
         !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
-    }
-
-    fn n_blank(&self) -> u8 {
-        self.size - (self.n_black + self.n_white)
     }
 }
 
