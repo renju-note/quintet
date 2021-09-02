@@ -1,3 +1,4 @@
+use super::bits::BOARD_SIZE;
 use super::point::*;
 use super::row::*;
 use super::square::*;
@@ -7,6 +8,15 @@ pub enum ForbiddenKind {
     DoubleThree,
     DoubleFour,
     Overline,
+}
+
+pub fn forbiddens(square: &Square) -> Vec<(ForbiddenKind, Point)> {
+    (0..BOARD_SIZE)
+        .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point(x, y)))
+        .map(|p| (forbidden(square, p), p))
+        .filter(|(k, _)| k.is_some())
+        .map(|(k, p)| (k.unwrap(), p))
+        .collect()
 }
 
 pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
@@ -80,6 +90,37 @@ fn adjacent(a: &RowSegment, b: &RowSegment) -> bool {
 mod tests {
     use super::ForbiddenKind::*;
     use super::*;
+
+    #[test]
+    fn test_forbiddens() -> Result<(), String> {
+        let square = "
+            ---------------
+            --o------------
+            -o-o-----------
+            --o------------
+            ---------------
+            ---------------
+            -----------o---
+            ----------o----
+            ---------o-----
+            ----ooo--------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------oo-ooo-
+        "
+        .parse::<Square>()?;
+        let result = forbiddens(&square);
+        let expected = [
+            (DoubleThree, Point(2, 12)),
+            (DoubleFour, Point(8, 5)),
+            (Overline, Point(10, 0)),
+        ];
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
 
     #[test]
     fn test_double_three() -> Result<(), String> {
