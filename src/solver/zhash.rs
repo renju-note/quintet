@@ -1,5 +1,6 @@
 use super::super::bitboard::*;
 use std::convert::From;
+use std::num::Wrapping;
 
 pub struct ZobristTable {
     pub table: [u64; TABLE_SIZE],
@@ -29,5 +30,5 @@ const LCG_INCREMENT: u128 = 0x1;
 
 // https://www.pcg-random.org/posts/does-it-beat-the-minimal-standard.html
 fn lcg(state: u128) -> u128 {
-    (state * LCG_MULTIPLIER + LCG_INCREMENT) >> 64
+    ((Wrapping(state) * Wrapping(LCG_MULTIPLIER) + Wrapping(LCG_INCREMENT)) >> 64).0
 }
