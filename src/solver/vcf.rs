@@ -199,7 +199,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_long() -> Result<(), String> {
-        // 孤高の露天風呂 (Solitary) by Shigeru Nakamura
+        // "孤高の露天風呂" by Shigeru Nakamura
         let board = "
             xxx----o-x-ooo-
             xxo---o---o-x-o
