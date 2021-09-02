@@ -1,4 +1,3 @@
-use super::bits::*;
 use super::forbidden::*;
 use super::point::*;
 use super::row::*;
@@ -48,12 +47,7 @@ impl Board {
     }
 
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {
-        (0..BOARD_SIZE)
-            .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point(x, y)))
-            .map(|p| (self.forbidden(p), p))
-            .filter(|(k, _)| k.is_some())
-            .map(|(k, p)| (k.unwrap(), p))
-            .collect()
+        forbiddens(&self.square)
     }
 }
 

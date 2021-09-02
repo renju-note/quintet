@@ -129,7 +129,7 @@ impl fmt::Display for Points {
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(",");
-        write!(f, "{}", result)
+        f.write_str(&result)
     }
 }
 

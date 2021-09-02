@@ -1,3 +1,4 @@
+use super::bits::BOARD_SIZE;
 use super::point::*;
 use super::row::*;
 use super::square::*;
@@ -7,6 +8,15 @@ pub enum ForbiddenKind {
     DoubleThree,
     DoubleFour,
     Overline,
+}
+
+pub fn forbiddens(square: &Square) -> Vec<(ForbiddenKind, Point)> {
+    (0..BOARD_SIZE)
+        .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point(x, y)))
+        .map(|p| (forbidden(square, p), p))
+        .filter(|(k, _)| k.is_some())
+        .map(|(k, p)| (k.unwrap(), p))
+        .collect()
 }
 
 pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
@@ -73,5 +83,355 @@ fn adjacent(a: &RowSegment, b: &RowSegment) -> bool {
         Direction::Horizontal => xd.abs() == 1 && yd == 0,
         Direction::Ascending => xd.abs() == 1 && xd == yd,
         Direction::Descending => xd.abs() == 1 && xd == -yd,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ForbiddenKind::*;
+    use super::*;
+
+    #[test]
+    fn test_forbiddens() -> Result<(), String> {
+        let square = "
+            ---------------
+            --o------------
+            -o-o-----------
+            --o------------
+            ---------------
+            ---------------
+            -----------o---
+            ----------o----
+            ---------o-----
+            ----ooo--------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------oo-ooo-
+        "
+        .parse::<Square>()?;
+        let result = forbiddens(&square);
+        let expected = [
+            (DoubleThree, Point(2, 12)),
+            (DoubleFour, Point(8, 5)),
+            (Overline, Point(10, 0)),
+        ];
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_three() -> Result<(), String> {
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------o-------
+            ------o-o------
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, Some(DoubleThree));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -----o-o-------
+            ----o--o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, Some(DoubleThree));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------o-------
+            ----x-o-o-x----
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, None);
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -------x-------
+            ---------------
+            -------ooox----
+            ------x--------
+            ------oo-------
+            ------o-oox----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, None);
+        let result = forbidden(&square, Point(8, 6));
+        assert_eq!(result, None);
+        let result = forbidden(&square, Point(9, 6));
+        assert_eq!(result, Some(DoubleThree));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ------x--------
+            --o--o-o-------
+            -----o--oo-----
+            ----o------oo-x
+            --------oxoo---
+            ----------o----
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(6, 7));
+        assert_eq!(result, None);
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ------x--------
+            --o--o-o-------
+            -----o--oo-----
+            ----o------oo--
+            --------oxoo---
+            ----------o----
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(6, 7));
+        assert_eq!(result, Some(DoubleThree));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_four() -> Result<(), String> {
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -----o---------
+            ------o--------
+            -----oo-o------
+            --------o------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, Some(DoubleFour));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ----o-o-o-o----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, Some(DoubleFour));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ----oo--o-oo---
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, Some(DoubleFour));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---ooo---ooo---
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, Some(DoubleFour));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -----oo-o------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, None);
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---o-----------
+            ---------------
+            -----o---------
+            ------o--------
+            -----oo-o------
+            --------o------
+            ---------x-----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_overline() -> Result<(), String> {
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ----ooo-oo-----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, Some(Overline));
+
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ----ooo--oo----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+        let result = forbidden(&square, Point(7, 7));
+        assert_eq!(result, None);
+
+        Ok(())
     }
 }
