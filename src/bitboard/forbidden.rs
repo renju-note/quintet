@@ -64,26 +64,11 @@ fn double_three(next: &Square, p: Point) -> bool {
 fn distinctive(rows: &Vec<RowSegment>) -> bool {
     let first = &rows[0];
     for row in rows.iter().skip(1) {
-        if !adjacent(first, row) {
+        if !first.adjacent(row) {
             return true;
         }
     }
     false
-}
-
-fn adjacent(a: &RowSegment, b: &RowSegment) -> bool {
-    if a.direction != b.direction {
-        return false;
-    }
-    let (ax, ay) = (a.start.0, a.start.1);
-    let (bx, by) = (b.start.0, b.start.1);
-    let (xd, yd) = (ax as i8 - bx as i8, ay as i8 - by as i8);
-    match a.direction {
-        Direction::Vertical => xd == 0 && yd.abs() == 1,
-        Direction::Horizontal => xd.abs() == 1 && yd == 0,
-        Direction::Ascending => xd.abs() == 1 && xd == yd,
-        Direction::Descending => xd.abs() == 1 && xd == -yd,
-    }
 }
 
 #[cfg(test)]
