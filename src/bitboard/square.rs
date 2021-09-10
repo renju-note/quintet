@@ -325,7 +325,7 @@ fn from_str_points(s: &str) -> Result<Square, &'static str> {
     }
     let blacks = codes[0].parse::<Points>()?;
     let whites = codes[1].parse::<Points>()?;
-    Ok(Square::from_points(&blacks.0, &whites.0))
+    Ok(Square::from_points(&blacks.into_vec(), &whites.into_vec()))
 }
 
 fn from_str_display(s: &str) -> Result<Square, &'static str> {
