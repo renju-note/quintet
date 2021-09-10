@@ -232,6 +232,21 @@ impl RowSegment {
         }
     }
 
+    pub fn adjacent(&self, other: &RowSegment) -> bool {
+        if self.direction != other.direction {
+            return false;
+        }
+        let (sx, sy) = (self.start.0, self.start.1);
+        let (ox, oy) = (other.start.0, other.start.1);
+        let (xd, yd) = (sx as i8 - ox as i8, sy as i8 - oy as i8);
+        match self.direction {
+            Direction::Vertical => xd == 0 && yd.abs() == 1,
+            Direction::Horizontal => xd.abs() == 1 && yd == 0,
+            Direction::Ascending => xd.abs() == 1 && xd == yd,
+            Direction::Descending => xd.abs() == 1 && xd == -yd,
+        }
+    }
+
     pub fn into_iter_eyes(&self) -> impl IntoIterator<Item = Point> {
         self.eye1.into_iter().chain(self.eye2.into_iter())
     }
@@ -325,7 +340,7 @@ fn from_str_points(s: &str) -> Result<Square, &'static str> {
     }
     let blacks = codes[0].parse::<Points>()?;
     let whites = codes[1].parse::<Points>()?;
-    Ok(Square::from_points(&blacks.0, &whites.0))
+    Ok(Square::from_points(&blacks.into_vec(), &whites.into_vec()))
 }
 
 fn from_str_display(s: &str) -> Result<Square, &'static str> {
@@ -507,19 +522,15 @@ mod tests {
             Some(Point(6, 8)),
         )];
 
-        // rows
         assert_eq!(square.rows(Black, Two), black_twos);
         assert_eq!(square.rows(White, Sword), white_swords);
 
-        // rows_on
         assert_eq!(square.rows_on(Black, Two, Point(10, 8)), black_twos);
         assert_eq!(square.rows_on(Black, Two, Point(7, 7)), []);
 
-        // row_eyes
         assert_eq!(square.row_eyes(Black, Two), [Point(8, 6), Point(9, 7)]);
         assert_eq!(square.row_eyes(White, Sword), [Point(5, 8), Point(6, 8)]);
 
-        // row_eyes_along
         assert_eq!(
             square.row_eyes_along(White, Sword, Point(0, 8)),
             [Point(5, 8), Point(6, 8)]
@@ -570,6 +581,25 @@ mod tests {
         expected.put(White, Point(14, 14));
         assert_eq!(result, expected);
         Ok(())
+    }
+
+    #[test]
+    fn test_adjacent() {
+        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
+        let b = RowSegment::new(Horizontal, Point(3, 3), Point(9, 3), None, None);
+        assert!(!a.adjacent(&b));
+
+        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
+        let b = RowSegment::new(Vertical, Point(3, 4), Point(3, 10), None, None);
+        assert!(a.adjacent(&b));
+
+        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
+        let b = RowSegment::new(Vertical, Point(3, 5), Point(3, 11), None, None);
+        assert!(!a.adjacent(&b));
+
+        let a = RowSegment::new(Descending, Point(3, 9), Point(9, 3), None, None);
+        let b = RowSegment::new(Descending, Point(4, 8), Point(10, 2), None, None);
+        assert!(a.adjacent(&b));
     }
 
     fn trim_lines_string(s: &str) -> String {

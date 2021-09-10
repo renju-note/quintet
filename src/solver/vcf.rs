@@ -156,7 +156,7 @@ mod tests {
             F14,F13,C11
         "
         .parse::<Points>()?
-        .0;
+        .into_vec();
         assert_eq!(result, Some(solution));
 
         let result = solve(11, &board, Black);
@@ -187,7 +187,9 @@ mod tests {
         "
         .parse::<Board>()?;
         let result = solve(5, &board, White);
-        let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14".parse::<Points>()?.0;
+        let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14"
+            .parse::<Points>()?
+            .into_vec();
         assert_eq!(result, Some(solution));
 
         let result = solve(4, &board, White);
@@ -230,7 +232,7 @@ mod tests {
             D14,E14,E15,A11,G15,D12,F15
         "
         .parse::<Points>()?
-        .0;
+        .into_vec();
         assert_eq!(result, Some(solution));
 
         Ok(())

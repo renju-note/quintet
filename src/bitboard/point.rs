@@ -121,6 +121,12 @@ impl From<Point> for u8 {
     }
 }
 
+impl Points {
+    pub fn into_vec(self) -> Vec<Point> {
+        self.0
+    }
+}
+
 impl fmt::Display for Points {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let result = self
