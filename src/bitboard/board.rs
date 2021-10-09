@@ -17,7 +17,7 @@ impl Board {
         }
     }
 
-    pub fn from_points(blacks: &[Point], whites: &[Point]) -> Board {
+    pub fn from_points(blacks: Points, whites: Points) -> Board {
         let square = Square::from_points(blacks, whites);
         Board { square: square }
     }
