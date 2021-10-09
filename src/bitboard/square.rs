@@ -540,18 +540,14 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_points() -> Result<(), String> {
+    fn test_parse() -> Result<(), String> {
         let result = "H8,J9/I9".parse::<Square>()?;
         let mut expected = Square::new();
         expected.put(Black, Point(7, 7));
         expected.put(White, Point(8, 8));
         expected.put(Black, Point(9, 8));
         assert_eq!(result, expected);
-        Ok(())
-    }
 
-    #[test]
-    fn test_parse_display() -> Result<(), String> {
         let result = "
             x-------------x
             ---------------
@@ -579,6 +575,7 @@ mod tests {
         expected.put(Black, Point(14, 0));
         expected.put(White, Point(14, 14));
         assert_eq!(result, expected);
+
         Ok(())
     }
 
