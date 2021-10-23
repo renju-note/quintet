@@ -580,6 +580,38 @@ mod tests {
     }
 
     #[test]
+    fn test_to_string() {
+        let mut square = Square::new();
+        square.put(Black, Point(7, 7));
+        square.put(White, Point(8, 8));
+        square.put(Black, Point(9, 8));
+        square.put(Black, Point(0, 0));
+        square.put(White, Point(0, 14));
+        square.put(Black, Point(14, 0));
+        square.put(White, Point(14, 14));
+        let expected = trim_lines_string(
+            "
+            x-------------x
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------xo-----
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            o-------------o
+        ",
+        );
+        assert_eq!(square.to_string(), expected);
+    }
+
+    #[test]
     fn test_adjacent() {
         let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
         let b = RowSegment::new(Horizontal, Point(3, 3), Point(9, 3), None, None);
