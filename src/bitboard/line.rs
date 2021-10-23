@@ -3,7 +3,7 @@ use super::row::*;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Line {
     pub size: u8,
     pub blacks: Bits,
@@ -49,14 +49,14 @@ impl Line {
         if !self.may_contain(player, kind) {
             return vec![];
         }
-        let blacks_ = self.blacks << 1;
-        let whites_ = self.whites << 1;
-        let blanks_ = self.blanks() << 1;
-        let limit = self.size + 2;
-        match player {
-            Player::Black => scan_rows(Player::Black, kind, blacks_, blanks_, limit, 1),
-            Player::White => scan_rows(Player::White, kind, whites_, blanks_, limit, 1),
-        }
+        let offset = 1;
+        let stones = match player {
+            Player::Black => self.blacks << offset,
+            Player::White => self.whites << offset,
+        };
+        let blanks = self.blanks() << offset;
+        let limit = self.size + offset + offset;
+        scan_rows(player, kind, stones, blanks, limit, offset)
     }
 
     fn may_contain(&self, player: Player, kind: RowKind) -> bool {
@@ -87,14 +87,6 @@ impl Line {
         !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
     }
 }
-
-impl PartialEq for Line {
-    fn eq(&self, other: &Self) -> bool {
-        self.size == other.size && self.blacks == other.blacks && self.whites == other.whites
-    }
-}
-
-impl Eq for Line {}
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -32,13 +32,13 @@ impl Square {
         }
     }
 
-    pub fn from_points(blacks: &[Point], whites: &[Point]) -> Square {
+    pub fn from_points(blacks: Points, whites: Points) -> Square {
         let mut square = Square::new();
-        for p in blacks.into_iter() {
-            square.put(Player::Black, *p);
+        for p in blacks.0.into_iter() {
+            square.put(Player::Black, p);
         }
-        for p in whites.into_iter() {
-            square.put(Player::White, *p);
+        for p in whites.0.into_iter() {
+            square.put(Player::White, p);
         }
         square
     }
@@ -269,10 +269,9 @@ impl fmt::Display for RowSegment {
     }
 }
 
-const O_LINE_NUM: u8 = BOARD_SIZE;
-const D_LINE_NUM: u8 = BOARD_SIZE * 2 - 1 - (4 * 2); // 21
+const D_LINE_NUM: u8 = (BOARD_SIZE - (5 - 1)) * 2 - 1; // 21
 
-type OrthogonalLines = [Line; O_LINE_NUM as usize];
+type OrthogonalLines = [Line; BOARD_SIZE as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 fn orthogonal_lines() -> OrthogonalLines {
@@ -340,7 +339,7 @@ fn from_str_points(s: &str) -> Result<Square, &'static str> {
     }
     let blacks = codes[0].parse::<Points>()?;
     let whites = codes[1].parse::<Points>()?;
-    Ok(Square::from_points(&blacks.into_vec(), &whites.into_vec()))
+    Ok(Square::from_points(blacks, whites))
 }
 
 fn from_str_display(s: &str) -> Result<Square, &'static str> {
@@ -541,18 +540,14 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_points() -> Result<(), String> {
+    fn test_parse() -> Result<(), String> {
         let result = "H8,J9/I9".parse::<Square>()?;
         let mut expected = Square::new();
         expected.put(Black, Point(7, 7));
         expected.put(White, Point(8, 8));
         expected.put(Black, Point(9, 8));
         assert_eq!(result, expected);
-        Ok(())
-    }
 
-    #[test]
-    fn test_parse_display() -> Result<(), String> {
         let result = "
             x-------------x
             ---------------
@@ -580,7 +575,40 @@ mod tests {
         expected.put(Black, Point(14, 0));
         expected.put(White, Point(14, 14));
         assert_eq!(result, expected);
+
         Ok(())
+    }
+
+    #[test]
+    fn test_to_string() {
+        let mut square = Square::new();
+        square.put(Black, Point(7, 7));
+        square.put(White, Point(8, 8));
+        square.put(Black, Point(9, 8));
+        square.put(Black, Point(0, 0));
+        square.put(White, Point(0, 14));
+        square.put(Black, Point(14, 0));
+        square.put(White, Point(14, 14));
+        let expected = trim_lines_string(
+            "
+            x-------------x
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------xo-----
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            o-------------o
+        ",
+        );
+        assert_eq!(square.to_string(), expected);
     }
 
     #[test]

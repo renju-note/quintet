@@ -197,6 +197,7 @@ mod tests {
         let result = forbidden(&square, Point(9, 6));
         assert_eq!(result, Some(DoubleThree));
 
+        // following examples are from https://twitter.com/tanaseY/status/944521796585373696
         let square = "
             ---------------
             ---------------
