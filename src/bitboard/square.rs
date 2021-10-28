@@ -1,7 +1,7 @@
-use super::bits::*;
 use super::fundamentals::*;
 use super::line::*;
 use super::point::*;
+use super::segment::*;
 use std::fmt;
 use std::str::FromStr;
 

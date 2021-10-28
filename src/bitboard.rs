@@ -1,9 +1,9 @@
-mod bits;
 mod board;
 mod forbidden;
 mod fundamentals;
 mod line;
 mod point;
+mod segment;
 mod square;
 
 pub use board::Board;

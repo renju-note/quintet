@@ -2,6 +2,8 @@ use std::convert::From;
 
 pub const BOARD_SIZE: u8 = 15;
 
+pub type Bits = u16;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Player {
     Black,

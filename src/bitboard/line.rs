@@ -1,5 +1,5 @@
-use super::bits::*;
 use super::fundamentals::*;
+use super::segment::*;
 use std::fmt;
 use std::str::FromStr;
 

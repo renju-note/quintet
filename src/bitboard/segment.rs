@@ -1,7 +1,5 @@
 use super::fundamentals::*;
 
-pub type Bits = u16;
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct Segment {
     pub start: u8,
