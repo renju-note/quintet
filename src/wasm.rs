@@ -1,4 +1,4 @@
-use super::bitboard::*;
+use super::board::*;
 use super::solver;
 use std::convert::{From, TryFrom};
 use wasm_bindgen::prelude::*;

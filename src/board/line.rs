@@ -1,5 +1,5 @@
-use super::bits::*;
-use super::row::*;
+use super::fundamentals::*;
+use super::segment::*;
 use std::fmt;
 use std::str::FromStr;
 
@@ -45,7 +45,7 @@ impl Line {
             .collect()
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+    pub fn segments(&self, player: Player, kind: RowKind) -> Vec<Segment> {
         if !self.may_contain(player, kind) {
             return vec![];
         }
@@ -56,7 +56,7 @@ impl Line {
         };
         let blanks = self.blanks() << offset;
         let limit = self.size + offset + offset;
-        scan_rows(player, kind, stones, blanks, limit, offset)
+        Segment::scan(player, kind, stones, blanks, limit, offset)
     }
 
     fn may_contain(&self, player: Player, kind: RowKind) -> bool {
@@ -164,15 +164,18 @@ mod tests {
     }
 
     #[test]
-    fn test_rows() -> Result<(), String> {
+    fn test_segments() -> Result<(), String> {
         let line = "-oooo---x--x---".parse::<Line>()?;
 
-        let result = line.rows(Black, Four);
-        let expected = [Row::new(0, 4, Some(0), None), Row::new(1, 5, Some(5), None)];
+        let result = line.segments(Black, Four);
+        let expected = [
+            Segment::new(0, 4, Some(0), None),
+            Segment::new(1, 5, Some(5), None),
+        ];
         assert_eq!(result, expected);
 
-        let result = line.rows(White, Two);
-        let expected = [Row::new(7, 12, Some(9), Some(10))];
+        let result = line.segments(White, Two);
+        let expected = [Segment::new(7, 12, Some(9), Some(10))];
         assert_eq!(result, expected);
 
         Ok(())

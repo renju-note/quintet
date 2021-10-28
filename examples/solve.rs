@@ -1,4 +1,4 @@
-use quintet::bitboard::*;
+use quintet::board::*;
 use quintet::solver;
 use std::io;
 use std::time::Instant;

@@ -1,4 +1,4 @@
-use quintet::bitboard::*;
+use quintet::board::*;
 use std::io;
 
 fn main() {

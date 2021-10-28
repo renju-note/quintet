@@ -1,4 +1,4 @@
-use super::bits::*;
+use super::fundamentals::*;
 use super::line::*;
 use super::point::*;
 use super::row::*;
@@ -11,15 +11,6 @@ pub struct Square {
     hlines: OrthogonalLines,
     alines: DiagonalLines,
     dlines: DiagonalLines,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct RowSegment {
-    pub direction: Direction,
-    pub start: Point,
-    pub end: Point,
-    pub eye1: Option<Point>,
-    pub eye2: Option<Point>,
 }
 
 impl Square {
@@ -63,23 +54,23 @@ impl Square {
         }
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<RowSegment> {
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
         self.iter_lines()
             .map(|(d, i, l)| {
-                l.rows(player, kind)
+                l.segments(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |s| Row::from_segment(&s, d, i))
             })
             .flatten()
             .collect()
     }
 
-    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
+    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
         self.iter_lines_along(p)
             .map(|(d, i, l)| {
-                l.rows(player, kind)
+                l.segments(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |s| Row::from_segment(&s, d, i))
                     .filter(|r| r.overlap(p))
             })
             .flatten()
@@ -90,9 +81,9 @@ impl Square {
         let mut result: Vec<_> = self
             .iter_lines()
             .map(|(d, i, l)| {
-                l.rows(player, kind)
+                l.segments(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |s| Row::from_segment(&s, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
@@ -107,9 +98,9 @@ impl Square {
         let mut result: Vec<_> = self
             .iter_lines_along(p)
             .map(|(d, i, l)| {
-                l.rows(player, kind)
+                l.segments(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |s| Row::from_segment(&s, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
@@ -190,82 +181,6 @@ impl FromStr for Square {
         } else {
             from_str_display(s)
         }
-    }
-}
-
-impl RowSegment {
-    pub fn new(
-        direction: Direction,
-        start: Point,
-        end: Point,
-        eye1: Option<Point>,
-        eye2: Option<Point>,
-    ) -> RowSegment {
-        RowSegment {
-            direction: direction,
-            start: start,
-            end: end,
-            eye1: eye1,
-            eye2: eye2,
-        }
-    }
-
-    pub fn from_row(r: &Row, d: Direction, i: u8) -> RowSegment {
-        RowSegment {
-            direction: d,
-            start: Index(i, r.start).to_point(d),
-            end: Index(i, r.end).to_point(d),
-            eye1: r.eye1.map(|e| Index(i, e).to_point(d)),
-            eye2: r.eye2.map(|e| Index(i, e).to_point(d)),
-        }
-    }
-
-    pub fn overlap(&self, p: Point) -> bool {
-        let (px, py) = (p.0, p.1);
-        let (sx, sy) = (self.start.0, self.start.1);
-        let (ex, ey) = (self.end.0, self.end.1);
-        match self.direction {
-            Direction::Vertical => px == sx && bw(sy, py, ey),
-            Direction::Horizontal => py == sy && bw(sx, px, ex),
-            Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
-            Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
-        }
-    }
-
-    pub fn adjacent(&self, other: &RowSegment) -> bool {
-        if self.direction != other.direction {
-            return false;
-        }
-        let (sx, sy) = (self.start.0, self.start.1);
-        let (ox, oy) = (other.start.0, other.start.1);
-        let (xd, yd) = (sx as i8 - ox as i8, sy as i8 - oy as i8);
-        match self.direction {
-            Direction::Vertical => xd == 0 && yd.abs() == 1,
-            Direction::Horizontal => xd.abs() == 1 && yd == 0,
-            Direction::Ascending => xd.abs() == 1 && xd == yd,
-            Direction::Descending => xd.abs() == 1 && xd == -yd,
-        }
-    }
-
-    pub fn into_iter_eyes(&self) -> impl IntoIterator<Item = Point> {
-        self.eye1.into_iter().chain(self.eye2.into_iter())
-    }
-}
-
-impl fmt::Display for RowSegment {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{:?} start: {} end: {}",
-            self.direction, self.start, self.end
-        )?;
-        for eye1 in self.eye1 {
-            write!(f, " eye1: {}", eye1)?;
-        }
-        for eye2 in self.eye2 {
-            write!(f, " eye2: {}", eye2)?;
-        }
-        Ok(())
     }
 }
 
@@ -506,14 +421,14 @@ mod tests {
             ---------------
         "
         .parse::<Square>()?;
-        let black_twos = [RowSegment::new(
+        let black_twos = [Row::new(
             Ascending,
             Point(6, 4),
             Point(11, 9),
             Some(Point(8, 6)),
             Some(Point(9, 7)),
         )];
-        let white_swords = [RowSegment::new(
+        let white_swords = [Row::new(
             Horizontal,
             Point(5, 8),
             Point(9, 8),
@@ -609,25 +524,6 @@ mod tests {
         ",
         );
         assert_eq!(square.to_string(), expected);
-    }
-
-    #[test]
-    fn test_adjacent() {
-        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
-        let b = RowSegment::new(Horizontal, Point(3, 3), Point(9, 3), None, None);
-        assert!(!a.adjacent(&b));
-
-        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
-        let b = RowSegment::new(Vertical, Point(3, 4), Point(3, 10), None, None);
-        assert!(a.adjacent(&b));
-
-        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
-        let b = RowSegment::new(Vertical, Point(3, 5), Point(3, 11), None, None);
-        assert!(!a.adjacent(&b));
-
-        let a = RowSegment::new(Descending, Point(3, 9), Point(9, 3), None, None);
-        let b = RowSegment::new(Descending, Point(4, 8), Point(10, 2), None, None);
-        assert!(a.adjacent(&b));
     }
 
     fn trim_lines_string(s: &str) -> String {
