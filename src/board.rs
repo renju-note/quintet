@@ -8,6 +8,7 @@ mod segment;
 mod square;
 
 pub use board::Board;
+pub use forbidden::ForbiddenKind;
 pub use fundamentals::{Player, RowKind, BOARD_SIZE};
-pub use point::{Point, Points};
+pub use point::{Direction, Point, Points};
 pub use row::Row;
