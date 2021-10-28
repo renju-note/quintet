@@ -56,7 +56,7 @@ impl Line {
         };
         let blanks = self.blanks() << offset;
         let limit = self.size + offset + offset;
-        scan_rows(player, kind, stones, blanks, limit, offset)
+        Segment::scan(player, kind, stones, blanks, limit, offset)
     }
 
     fn may_contain(&self, player: Player, kind: RowKind) -> bool {
