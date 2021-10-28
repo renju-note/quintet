@@ -1,6 +1,5 @@
 use super::bits::*;
 use super::fundamentals::*;
-use super::row::*;
 use std::fmt;
 use std::str::FromStr;
 

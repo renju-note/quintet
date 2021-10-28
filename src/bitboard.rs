@@ -4,7 +4,6 @@ mod forbidden;
 mod fundamentals;
 mod line;
 mod point;
-mod row;
 mod square;
 
 pub use board::Board;
