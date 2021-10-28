@@ -1,5 +1,3 @@
-pub const BOARD_SIZE: u8 = 15;
-
 pub type Bits = u16;
 
 pub struct Window {

@@ -1,6 +1,5 @@
-use super::bits::BOARD_SIZE;
+use super::fundamentals::*;
 use super::point::*;
-use super::row::*;
 use super::square::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

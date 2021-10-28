@@ -1,4 +1,4 @@
-use super::bits::*;
+use super::fundamentals::*;
 use super::line::*;
 use super::point::*;
 use super::row::*;

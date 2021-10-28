@@ -1,6 +1,6 @@
 use super::forbidden::*;
+use super::fundamentals::*;
 use super::point::*;
-use super::row::*;
 use super::square::*;
 use std::fmt;
 use std::str::FromStr;

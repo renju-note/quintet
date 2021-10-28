@@ -1,21 +1,5 @@
 use super::bits::*;
-use std::convert::From;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Player {
-    Black,
-    White,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum RowKind {
-    Two,
-    Sword,
-    Three,
-    Four,
-    Five,
-    Overline,
-}
+use super::fundamentals::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Row {
@@ -23,33 +7,6 @@ pub struct Row {
     pub end: u8,
     pub eye1: Option<u8>,
     pub eye2: Option<u8>,
-}
-
-impl Player {
-    pub fn opponent(&self) -> Player {
-        match self {
-            Player::Black => Player::White,
-            Player::White => Player::Black,
-        }
-    }
-
-    pub fn is_black(self) -> bool {
-        self == Player::Black
-    }
-
-    pub fn is_white(self) -> bool {
-        self == Player::White
-    }
-}
-
-impl From<bool> for Player {
-    fn from(value: bool) -> Player {
-        if value {
-            Player::Black
-        } else {
-            Player::White
-        }
-    }
 }
 
 impl Row {
