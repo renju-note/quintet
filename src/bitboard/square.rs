@@ -210,7 +210,7 @@ impl RowSegment {
         }
     }
 
-    pub fn from_row(r: &Row, d: Direction, i: u8) -> RowSegment {
+    pub fn from_row(r: &Segment, d: Direction, i: u8) -> RowSegment {
         RowSegment {
             direction: d,
             start: Index(i, r.start).to_point(d),

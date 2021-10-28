@@ -45,7 +45,7 @@ impl Line {
             .collect()
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Segment> {
         if !self.may_contain(player, kind) {
             return vec![];
         }
@@ -168,11 +168,14 @@ mod tests {
         let line = "-oooo---x--x---".parse::<Line>()?;
 
         let result = line.rows(Black, Four);
-        let expected = [Row::new(0, 4, Some(0), None), Row::new(1, 5, Some(5), None)];
+        let expected = [
+            Segment::new(0, 4, Some(0), None),
+            Segment::new(1, 5, Some(5), None),
+        ];
         assert_eq!(result, expected);
 
         let result = line.rows(White, Two);
-        let expected = [Row::new(7, 12, Some(9), Some(10))];
+        let expected = [Segment::new(7, 12, Some(9), Some(10))];
         assert_eq!(result, expected);
 
         Ok(())
