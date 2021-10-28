@@ -28,7 +28,7 @@ impl Row {
         }
     }
 
-    pub fn from_row(r: &Segment, d: Direction, i: u8) -> Row {
+    pub fn from_segment(r: &Segment, d: Direction, i: u8) -> Row {
         Row {
             direction: d,
             start: Index(i, r.start).to_point(d),
