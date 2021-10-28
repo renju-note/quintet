@@ -14,7 +14,7 @@ pub struct Square {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct RowSegment {
+pub struct Row {
     pub direction: Direction,
     pub start: Point,
     pub end: Point,
@@ -63,23 +63,23 @@ impl Square {
         }
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<RowSegment> {
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
         self.iter_lines()
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |r| Row::from_row(&r, d, i))
             })
             .flatten()
             .collect()
     }
 
-    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
+    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
         self.iter_lines_along(p)
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |r| Row::from_row(&r, d, i))
                     .filter(|r| r.overlap(p))
             })
             .flatten()
@@ -92,7 +92,7 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |r| Row::from_row(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
@@ -109,7 +109,7 @@ impl Square {
             .map(|(d, i, l)| {
                 l.rows(player, kind)
                     .into_iter()
-                    .map(move |r| RowSegment::from_row(&r, d, i))
+                    .map(move |r| Row::from_row(&r, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
@@ -193,15 +193,15 @@ impl FromStr for Square {
     }
 }
 
-impl RowSegment {
+impl Row {
     pub fn new(
         direction: Direction,
         start: Point,
         end: Point,
         eye1: Option<Point>,
         eye2: Option<Point>,
-    ) -> RowSegment {
-        RowSegment {
+    ) -> Row {
+        Row {
             direction: direction,
             start: start,
             end: end,
@@ -210,8 +210,8 @@ impl RowSegment {
         }
     }
 
-    pub fn from_row(r: &Segment, d: Direction, i: u8) -> RowSegment {
-        RowSegment {
+    pub fn from_row(r: &Segment, d: Direction, i: u8) -> Row {
+        Row {
             direction: d,
             start: Index(i, r.start).to_point(d),
             end: Index(i, r.end).to_point(d),
@@ -232,7 +232,7 @@ impl RowSegment {
         }
     }
 
-    pub fn adjacent(&self, other: &RowSegment) -> bool {
+    pub fn adjacent(&self, other: &Row) -> bool {
         if self.direction != other.direction {
             return false;
         }
@@ -252,7 +252,7 @@ impl RowSegment {
     }
 }
 
-impl fmt::Display for RowSegment {
+impl fmt::Display for Row {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -506,14 +506,14 @@ mod tests {
             ---------------
         "
         .parse::<Square>()?;
-        let black_twos = [RowSegment::new(
+        let black_twos = [Row::new(
             Ascending,
             Point(6, 4),
             Point(11, 9),
             Some(Point(8, 6)),
             Some(Point(9, 7)),
         )];
-        let white_swords = [RowSegment::new(
+        let white_swords = [Row::new(
             Horizontal,
             Point(5, 8),
             Point(9, 8),
@@ -613,20 +613,20 @@ mod tests {
 
     #[test]
     fn test_adjacent() {
-        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
-        let b = RowSegment::new(Horizontal, Point(3, 3), Point(9, 3), None, None);
+        let a = Row::new(Vertical, Point(3, 3), Point(3, 9), None, None);
+        let b = Row::new(Horizontal, Point(3, 3), Point(9, 3), None, None);
         assert!(!a.adjacent(&b));
 
-        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
-        let b = RowSegment::new(Vertical, Point(3, 4), Point(3, 10), None, None);
+        let a = Row::new(Vertical, Point(3, 3), Point(3, 9), None, None);
+        let b = Row::new(Vertical, Point(3, 4), Point(3, 10), None, None);
         assert!(a.adjacent(&b));
 
-        let a = RowSegment::new(Vertical, Point(3, 3), Point(3, 9), None, None);
-        let b = RowSegment::new(Vertical, Point(3, 5), Point(3, 11), None, None);
+        let a = Row::new(Vertical, Point(3, 3), Point(3, 9), None, None);
+        let b = Row::new(Vertical, Point(3, 5), Point(3, 11), None, None);
         assert!(!a.adjacent(&b));
 
-        let a = RowSegment::new(Descending, Point(3, 9), Point(9, 3), None, None);
-        let b = RowSegment::new(Descending, Point(4, 8), Point(10, 2), None, None);
+        let a = Row::new(Descending, Point(3, 9), Point(9, 3), None, None);
+        let b = Row::new(Descending, Point(4, 8), Point(10, 2), None, None);
         assert!(a.adjacent(&b));
     }
 

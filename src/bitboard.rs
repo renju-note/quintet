@@ -9,4 +9,4 @@ mod square;
 pub use board::Board;
 pub use fundamentals::{Player, RowKind, BOARD_SIZE};
 pub use point::{Point, Points};
-pub use square::RowSegment;
+pub use square::Row;

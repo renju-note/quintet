@@ -26,11 +26,11 @@ impl Board {
         self.square.put(player, p);
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<RowSegment> {
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
         self.square.rows(player, kind)
     }
 
-    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<RowSegment> {
+    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
         self.square.rows_on(player, kind, p)
     }
 
@@ -110,42 +110,42 @@ mod tests {
         assert_eq!(board.to_string(), expected);
 
         let black_twos = [
-            RowSegment::new(
+            Row::new(
                 Vertical,
                 Point(6, 5),
                 Point(6, 10),
                 Some(Point(6, 6)),
                 Some(Point(6, 7)),
             ),
-            RowSegment::new(
+            Row::new(
                 Vertical,
                 Point(6, 6),
                 Point(6, 11),
                 Some(Point(6, 7)),
                 Some(Point(6, 10)),
             ),
-            RowSegment::new(
+            Row::new(
                 Vertical,
                 Point(6, 7),
                 Point(6, 12),
                 Some(Point(6, 10)),
                 Some(Point(6, 11)),
             ),
-            RowSegment::new(
+            Row::new(
                 Horizontal,
                 Point(4, 7),
                 Point(9, 7),
                 Some(Point(5, 7)),
                 Some(Point(6, 7)),
             ),
-            RowSegment::new(
+            Row::new(
                 Horizontal,
                 Point(5, 7),
                 Point(10, 7),
                 Some(Point(6, 7)),
                 Some(Point(9, 7)),
             ),
-            RowSegment::new(
+            Row::new(
                 Horizontal,
                 Point(6, 7),
                 Point(11, 7),
@@ -154,14 +154,14 @@ mod tests {
             ),
         ];
         let white_twos = [
-            RowSegment::new(
+            Row::new(
                 Horizontal,
                 Point(4, 6),
                 Point(9, 6),
                 Some(Point(6, 6)),
                 Some(Point(7, 6)),
             ),
-            RowSegment::new(
+            Row::new(
                 Ascending,
                 Point(6, 7),
                 Point(11, 12),
@@ -169,7 +169,7 @@ mod tests {
                 Some(Point(10, 11)),
             ),
         ];
-        let white_threes = [RowSegment::new(
+        let white_threes = [Row::new(
             Ascending,
             Point(4, 5),
             Point(9, 10),

@@ -60,7 +60,7 @@ fn double_three(next: &Square, p: Point) -> bool {
     distinctive(&truthy_threes)
 }
 
-fn distinctive(rows: &Vec<RowSegment>) -> bool {
+fn distinctive(rows: &Vec<Row>) -> bool {
     let first = &rows[0];
     for row in rows.iter().skip(1) {
         if !first.adjacent(row) {
