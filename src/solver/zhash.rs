@@ -1,4 +1,4 @@
-use super::super::bitboard::*;
+use super::super::board::*;
 use std::convert::From;
 use std::num::Wrapping;
 
