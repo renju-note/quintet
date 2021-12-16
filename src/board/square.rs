@@ -273,9 +273,8 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         }
         for (x, s) in hline.stones().iter().enumerate() {
             let point = Point(x as u8, y as u8);
-            match s {
-                Some(player) => square.put(*player, point),
-                None => (),
+            if let Some(player) = s {
+                square.put(*player, point)
             }
         }
     }

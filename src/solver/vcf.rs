@@ -68,9 +68,8 @@ fn solve_all(
     let next_move_cands = board.row_eyes(player, RowKind::Sword);
     for next_move in next_move_cands {
         let mut board = board.clone();
-        match solve_one(depth, &mut board, player, next_move, zhash, ztable, zcache) {
-            Some(ps) => return Some(ps),
-            None => continue,
+        if let Some(ps) = solve_one(depth, &mut board, player, next_move, zhash, ztable, zcache) {
+            return Some(ps);
         }
     }
 
