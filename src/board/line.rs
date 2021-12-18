@@ -175,7 +175,7 @@ mod tests {
         assert_eq!(result, expected);
 
         let result = line.sequences(White, Two);
-        let expected = [Sequence::new(7, 12, Some(9), Some(10))];
+        let expected = [Sequence::new(8, 11, Some(9), Some(10))];
         assert_eq!(result, expected);
 
         Ok(())

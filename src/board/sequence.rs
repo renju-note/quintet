@@ -120,7 +120,7 @@ mod tests {
         let stones = 0b0011100;
         let blanks = 0b1100010;
         let result = Sequence::scan(White, Three, stones, blanks, 7, 0);
-        let expected = [Sequence::new(1, 6, Some(5), None)];
+        let expected = [Sequence::new(2, 5, Some(5), None)];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Three, stones, blanks, 5, 0);
@@ -128,49 +128,49 @@ mod tests {
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Three, stones, blanks, 7, 1);
-        let expected = [Sequence::new(0, 5, Some(4), None)];
+        let expected = [Sequence::new(1, 4, Some(4), None)];
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_scan_black_two() {
         let result = Sequence::scan(Black, Two, 0b00001100, 0b01110010, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(4), Some(5))];
+        let expected = [Sequence::new(2, 5, Some(4), Some(5))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Two, 0b00010100, 0b01101010, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(3), Some(5))];
+        let expected = [Sequence::new(2, 5, Some(3), Some(5))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Two, 0b00011000, 0b01100110, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(2), Some(5))];
+        let expected = [Sequence::new(2, 5, Some(2), Some(5))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Two, 0b00100100, 0b01011010, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(3), Some(4))];
+        let expected = [Sequence::new(2, 5, Some(3), Some(4))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Two, 0b00101000, 0b01010110, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(2), Some(4))];
+        let expected = [Sequence::new(2, 5, Some(2), Some(4))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Two, 0b00110000, 0b01001110, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(2), Some(3))];
+        let expected = [Sequence::new(2, 5, Some(2), Some(3))];
         assert_eq!(result, expected);
 
         // two twos
         let result = Sequence::scan(Black, Two, 0b000101000, 0b111010111, 9, 0);
         let expected = [
-            Sequence::new(1, 6, Some(2), Some(4)),
-            Sequence::new(2, 7, Some(4), Some(6)),
+            Sequence::new(2, 5, Some(2), Some(4)),
+            Sequence::new(3, 6, Some(4), Some(6)),
         ];
         assert_eq!(result, expected);
 
         // two twos
         let result = Sequence::scan(Black, Two, 0b00100100100, 0b01011011010, 11, 0);
         let expected = [
-            Sequence::new(1, 6, Some(3), Some(4)),
-            Sequence::new(4, 9, Some(6), Some(7)),
+            Sequence::new(2, 5, Some(3), Some(4)),
+            Sequence::new(5, 8, Some(6), Some(7)),
         ];
         assert_eq!(result, expected);
 
@@ -188,26 +188,26 @@ mod tests {
     #[test]
     fn test_scan_black_three() {
         let result = Sequence::scan(Black, Three, 0b00011100, 0b01100010, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(5), None)];
+        let expected = [Sequence::new(2, 5, Some(5), None)];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Three, 0b00101100, 0b01010010, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(4), None)];
+        let expected = [Sequence::new(2, 5, Some(4), None)];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Three, 0b00110100, 0b01001010, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(3), None)];
+        let expected = [Sequence::new(2, 5, Some(3), None)];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(Black, Three, 0b00111000, 0b01000110, 8, 0);
-        let expected = [Sequence::new(1, 6, Some(2), None)];
+        let expected = [Sequence::new(2, 5, Some(2), None)];
         assert_eq!(result, expected);
 
         // two threes
         let result = Sequence::scan(White, Three, 0b000111000, 0b111000111, 9, 0);
         let expected = [
-            Sequence::new(1, 6, Some(2), None),
-            Sequence::new(2, 7, Some(6), None),
+            Sequence::new(2, 5, Some(2), None),
+            Sequence::new(3, 6, Some(6), None),
         ];
         assert_eq!(result, expected);
 
@@ -388,34 +388,34 @@ mod tests {
     #[test]
     fn test_scan_white_two() {
         let result = Sequence::scan(White, Two, 0b000110, 0b111001, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(3), Some(4))];
+        let expected = [Sequence::new(1, 4, Some(3), Some(4))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Two, 0b001010, 0b110101, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(2), Some(4))];
+        let expected = [Sequence::new(1, 4, Some(2), Some(4))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Two, 0b001100, 0b110011, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(1), Some(4))];
+        let expected = [Sequence::new(1, 4, Some(1), Some(4))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Two, 0b010010, 0b101101, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(2), Some(3))];
+        let expected = [Sequence::new(1, 4, Some(2), Some(3))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Two, 0b010100, 0b101011, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(1), Some(3))];
+        let expected = [Sequence::new(1, 4, Some(1), Some(3))];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Two, 0b011000, 0b100111, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(1), Some(2))];
+        let expected = [Sequence::new(1, 4, Some(1), Some(2))];
         assert_eq!(result, expected);
 
         // two twos
         let result = Sequence::scan(White, Two, 0b010010010, 0b101101101, 9, 0);
         let expected = [
-            Sequence::new(0, 5, Some(2), Some(3)),
-            Sequence::new(3, 8, Some(5), Some(6)),
+            Sequence::new(1, 4, Some(2), Some(3)),
+            Sequence::new(4, 7, Some(5), Some(6)),
         ];
         assert_eq!(result, expected);
 
@@ -428,26 +428,26 @@ mod tests {
     #[test]
     fn test_scan_white_three() {
         let result = Sequence::scan(White, Three, 0b001110, 0b110001, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(4), None)];
+        let expected = [Sequence::new(1, 4, Some(4), None)];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Three, 0b010110, 0b101001, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(3), None)];
+        let expected = [Sequence::new(1, 4, Some(3), None)];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Three, 0b011010, 0b100101, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(2), None)];
+        let expected = [Sequence::new(1, 4, Some(2), None)];
         assert_eq!(result, expected);
 
         let result = Sequence::scan(White, Three, 0b011100, 0b100011, 6, 0);
-        let expected = [Sequence::new(0, 5, Some(1), None)];
+        let expected = [Sequence::new(1, 4, Some(1), None)];
         assert_eq!(result, expected);
 
         // two threes
         let result = Sequence::scan(White, Three, 0b0011100, 0b1100011, 7, 0);
         let expected = [
-            Sequence::new(0, 5, Some(1), None),
-            Sequence::new(1, 6, Some(5), None),
+            Sequence::new(1, 4, Some(1), None),
+            Sequence::new(2, 5, Some(5), None),
         ];
         assert_eq!(result, expected);
 
@@ -619,8 +619,8 @@ const B_TWOS: [Pattern; 6] = [
         filter: 0b11111111,
         stones: 0b00001100,
         blanks: 0b01110010,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(4),
         eye2: Some(5),
     },
@@ -628,8 +628,8 @@ const B_TWOS: [Pattern; 6] = [
         filter: 0b11111111,
         stones: 0b00010100,
         blanks: 0b01101010,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(3),
         eye2: Some(5),
     },
@@ -637,8 +637,8 @@ const B_TWOS: [Pattern; 6] = [
         filter: 0b11111111,
         stones: 0b00011000,
         blanks: 0b01100110,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(2),
         eye2: Some(5),
     },
@@ -646,8 +646,8 @@ const B_TWOS: [Pattern; 6] = [
         filter: 0b11111111,
         stones: 0b00100100,
         blanks: 0b01011010,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(3),
         eye2: Some(4),
     },
@@ -655,8 +655,8 @@ const B_TWOS: [Pattern; 6] = [
         filter: 0b11111111,
         stones: 0b00101000,
         blanks: 0b01010110,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(2),
         eye2: Some(4),
     },
@@ -664,8 +664,8 @@ const B_TWOS: [Pattern; 6] = [
         filter: 0b11111111,
         stones: 0b00110000,
         blanks: 0b01001110,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(2),
         eye2: Some(3),
     },
@@ -681,8 +681,8 @@ const B_THREES: [Pattern; 4] = [
         filter: 0b11111111,
         stones: 0b00011100,
         blanks: 0b01100010,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(5),
         eye2: None,
     },
@@ -690,8 +690,8 @@ const B_THREES: [Pattern; 4] = [
         filter: 0b11111111,
         stones: 0b00101100,
         blanks: 0b01010010,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(4),
         eye2: None,
     },
@@ -699,8 +699,8 @@ const B_THREES: [Pattern; 4] = [
         filter: 0b11111111,
         stones: 0b00110100,
         blanks: 0b01001010,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(3),
         eye2: None,
     },
@@ -708,8 +708,8 @@ const B_THREES: [Pattern; 4] = [
         filter: 0b11111111,
         stones: 0b00111000,
         blanks: 0b01000110,
-        start: 1,
-        end: 6,
+        start: 2,
+        end: 5,
         eye1: Some(2),
         eye2: None,
     },
@@ -906,8 +906,8 @@ const W_TWOS: [Pattern; 6] = [
         filter: 0b111111,
         stones: 0b000110,
         blanks: 0b111001,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(3),
         eye2: Some(4),
     },
@@ -915,8 +915,8 @@ const W_TWOS: [Pattern; 6] = [
         filter: 0b111111,
         stones: 0b001010,
         blanks: 0b110101,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(2),
         eye2: Some(4),
     },
@@ -924,8 +924,8 @@ const W_TWOS: [Pattern; 6] = [
         filter: 0b111111,
         stones: 0b001100,
         blanks: 0b110011,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(1),
         eye2: Some(4),
     },
@@ -933,8 +933,8 @@ const W_TWOS: [Pattern; 6] = [
         filter: 0b111111,
         stones: 0b010010,
         blanks: 0b101101,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(2),
         eye2: Some(3),
     },
@@ -942,8 +942,8 @@ const W_TWOS: [Pattern; 6] = [
         filter: 0b111111,
         stones: 0b010100,
         blanks: 0b101011,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(1),
         eye2: Some(3),
     },
@@ -951,8 +951,8 @@ const W_TWOS: [Pattern; 6] = [
         filter: 0b111111,
         stones: 0b011000,
         blanks: 0b100111,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(1),
         eye2: Some(2),
     },
@@ -968,8 +968,8 @@ const W_THREES: [Pattern; 4] = [
         filter: 0b111111,
         stones: 0b001110,
         blanks: 0b110001,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(4),
         eye2: None,
     },
@@ -977,8 +977,8 @@ const W_THREES: [Pattern; 4] = [
         filter: 0b111111,
         stones: 0b010110,
         blanks: 0b101001,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(3),
         eye2: None,
     },
@@ -986,8 +986,8 @@ const W_THREES: [Pattern; 4] = [
         filter: 0b111111,
         stones: 0b011010,
         blanks: 0b100101,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(2),
         eye2: None,
     },
@@ -995,8 +995,8 @@ const W_THREES: [Pattern; 4] = [
         filter: 0b111111,
         stones: 0b011100,
         blanks: 0b100011,
-        start: 0,
-        end: 5,
+        start: 1,
+        end: 4,
         eye1: Some(1),
         eye2: None,
     },
