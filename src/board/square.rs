@@ -422,8 +422,8 @@ mod tests {
         .parse::<Square>()?;
         let black_twos = [Row::new(
             Ascending,
-            Point(6, 4),
-            Point(11, 9),
+            Point(7, 5),
+            Point(10, 8),
             Some(Point(8, 6)),
             Some(Point(9, 7)),
         )];
