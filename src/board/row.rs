@@ -1,5 +1,5 @@
 use super::point::*;
-use super::segment::*;
+use super::sequence::*;
 use std::fmt;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -28,13 +28,13 @@ impl Row {
         }
     }
 
-    pub fn from_segment(r: &Segment, d: Direction, i: u8) -> Row {
+    pub fn from_sequence(s: &Sequence, d: Direction, i: u8) -> Row {
         Row {
             direction: d,
-            start: Index(i, r.start).to_point(d),
-            end: Index(i, r.end).to_point(d),
-            eye1: r.eye1.map(|e| Index(i, e).to_point(d)),
-            eye2: r.eye2.map(|e| Index(i, e).to_point(d)),
+            start: Index(i, s.start).to_point(d),
+            end: Index(i, s.end).to_point(d),
+            eye1: s.eye1.map(|e| Index(i, e).to_point(d)),
+            eye2: s.eye2.map(|e| Index(i, e).to_point(d)),
         }
     }
 
