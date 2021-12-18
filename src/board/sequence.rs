@@ -70,12 +70,12 @@ fn scan(
             if !p.matches(stones, blanks) {
                 continue;
             }
-            let position = i - offset;
+            // let position = i - offset; <- overflow!
             result.push(Sequence {
-                start: p.start + position,
-                end: p.end + position,
-                eye1: p.eye1.map(|e| e + position),
-                eye2: p.eye2.map(|e| e + position),
+                start: p.start + i - offset,
+                end: p.end + i - offset,
+                eye1: p.eye1.map(|e| e + i - offset),
+                eye2: p.eye2.map(|e| e + i - offset),
             });
         }
     }
