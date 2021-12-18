@@ -57,9 +57,9 @@ impl Square {
     pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
         self.iter_lines()
             .map(|(d, i, l)| {
-                l.segments(player, kind)
+                l.sequences(player, kind)
                     .into_iter()
-                    .map(move |s| Row::from_segment(&s, d, i))
+                    .map(move |s| Row::from_sequence(&s, d, i))
             })
             .flatten()
             .collect()
@@ -68,9 +68,9 @@ impl Square {
     pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
         self.iter_lines_along(p)
             .map(|(d, i, l)| {
-                l.segments(player, kind)
+                l.sequences(player, kind)
                     .into_iter()
-                    .map(move |s| Row::from_segment(&s, d, i))
+                    .map(move |s| Row::from_sequence(&s, d, i))
                     .filter(|r| r.overlap(p))
             })
             .flatten()
@@ -81,9 +81,9 @@ impl Square {
         let mut result: Vec<_> = self
             .iter_lines()
             .map(|(d, i, l)| {
-                l.segments(player, kind)
+                l.sequences(player, kind)
                     .into_iter()
-                    .map(move |s| Row::from_segment(&s, d, i))
+                    .map(move |s| Row::from_sequence(&s, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
@@ -98,9 +98,9 @@ impl Square {
         let mut result: Vec<_> = self
             .iter_lines_along(p)
             .map(|(d, i, l)| {
-                l.segments(player, kind)
+                l.sequences(player, kind)
                     .into_iter()
-                    .map(move |s| Row::from_segment(&s, d, i))
+                    .map(move |s| Row::from_sequence(&s, d, i))
                     .map(|r| r.into_iter_eyes())
                     .flatten()
             })
