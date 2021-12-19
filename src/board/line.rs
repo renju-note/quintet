@@ -59,6 +59,20 @@ impl Line {
         Sequence::scan(player, kind, stones, blanks, limit, offset)
     }
 
+    pub fn sequence_eyes(&self, player: Player, kind: RowKind) -> Bits {
+        if !self.may_contain(player, kind) {
+            return 0b0;
+        }
+        let offset = 1;
+        let stones = match player {
+            Player::Black => self.blacks << offset,
+            Player::White => self.whites << offset,
+        };
+        let blanks = self.blanks() << offset;
+        let limit = self.size + offset + offset;
+        Sequence::scan_eyes(player, kind, stones, blanks, limit, offset)
+    }
+
     fn may_contain(&self, player: Player, kind: RowKind) -> bool {
         let min_stone = match kind {
             RowKind::Two => 2,

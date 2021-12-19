@@ -81,11 +81,18 @@ impl Square {
         let mut result: Vec<_> = self
             .iter_lines()
             .map(|(d, i, l)| {
-                l.sequences(player, kind)
-                    .into_iter()
-                    .map(move |s| Row::from_sequence(&s, d, i))
-                    .map(|r| r.into_iter_eyes())
-                    .flatten()
+                let eye_bits = l.sequence_eyes(player, kind);
+                if eye_bits == 0b0 {
+                    vec![]
+                } else {
+                    let mut result: Vec<Point> = vec![];
+                    for j in 0..l.size {
+                        if (eye_bits >> j) & 0b1 == 0b1 {
+                            result.push(Index(i, j).to_point(d))
+                        }
+                    }
+                    result
+                }
             })
             .flatten()
             .collect();
@@ -98,11 +105,18 @@ impl Square {
         let mut result: Vec<_> = self
             .iter_lines_along(p)
             .map(|(d, i, l)| {
-                l.sequences(player, kind)
-                    .into_iter()
-                    .map(move |s| Row::from_sequence(&s, d, i))
-                    .map(|r| r.into_iter_eyes())
-                    .flatten()
+                let eye_bits = l.sequence_eyes(player, kind);
+                if eye_bits == 0b0 {
+                    vec![]
+                } else {
+                    let mut result: Vec<Point> = vec![];
+                    for j in 0..l.size {
+                        if (eye_bits >> j) & 0b1 == 0b1 {
+                            result.push(Index(i, j).to_point(d))
+                        }
+                    }
+                    result
+                }
             })
             .flatten()
             .collect();
