@@ -59,6 +59,20 @@ impl Line {
         Sequence::scan(player, kind, stones, blanks, limit, offset)
     }
 
+    pub fn sequences_cached(&self, cache: &impl SequenceCache) -> Vec<Sequence> {
+        if !self.may_contain(cache.player(), cache.kind()) {
+            return vec![];
+        }
+        let offset = 1;
+        let stones = match cache.player() {
+            Player::Black => self.blacks << offset,
+            Player::White => self.whites << offset,
+        };
+        let blanks = self.blanks() << offset;
+        let limit = self.size + offset + offset;
+        Sequence::scan_cached(cache, stones, blanks, limit, offset)
+    }
+
     fn may_contain(&self, player: Player, kind: RowKind) -> bool {
         let min_stone = match kind {
             RowKind::Two => 2,

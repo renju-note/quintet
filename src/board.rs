@@ -9,6 +9,7 @@ mod square;
 
 pub use board::Board;
 pub use forbidden::ForbiddenKind;
-pub use fundamentals::{Player, RowKind, BOARD_SIZE};
+pub use fundamentals::{Bits, Player, RowKind, BOARD_SIZE};
 pub use point::{Direction, Point, Points};
 pub use row::Row;
+pub use sequence::{Sequence, SequenceCache};

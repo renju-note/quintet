@@ -1,11 +1,18 @@
 use super::fundamentals::*;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Sequence {
     pub start: u8,
     pub end: u8,
     pub eye1: Option<u8>,
     pub eye2: Option<u8>,
+}
+
+pub trait SequenceCache {
+    fn player(&self) -> Player;
+    fn kind(&self) -> RowKind;
+    fn new(player: Player, kind: RowKind) -> Self;
+    fn get(&self, stones: Bits, blanks: Bits) -> Option<Sequence>;
 }
 
 impl Sequence {
@@ -45,6 +52,54 @@ impl Sequence {
             },
         }
     }
+
+    pub fn find(player: Player, kind: RowKind, stones: Bits, blanks: Bits) -> Option<Sequence> {
+        match player {
+            Player::Black => match kind {
+                RowKind::Two => find(&B_TWO, &B_TWOS, stones, blanks),
+                RowKind::Sword => find(&B_SWORD, &B_SWORDS, stones, blanks),
+                RowKind::Three => find(&B_THREE, &B_THREES, stones, blanks),
+                RowKind::Four => find(&B_FOUR, &B_FOURS, stones, blanks),
+                RowKind::Five => find(&B_FIVE, &B_FIVES, stones, blanks),
+                RowKind::Overline => find(&B_OVERLINE, &B_OVERLINES, stones, blanks),
+            },
+            Player::White => match kind {
+                RowKind::Two => find(&W_TWO, &W_TWOS, stones, blanks),
+                RowKind::Sword => find(&W_SWORD, &W_SWORDS, stones, blanks),
+                RowKind::Three => find(&W_THREE, &W_THREES, stones, blanks),
+                RowKind::Four => find(&W_FOUR, &W_FOURS, stones, blanks),
+                RowKind::Five => find(&W_FIVE, &W_FIVES, stones, blanks),
+                _ => None,
+            },
+        }
+    }
+
+    pub fn scan_cached(
+        cache: &impl SequenceCache,
+        stones: Bits,
+        blanks: Bits,
+        limit: u8,
+        offset: u8,
+    ) -> Vec<Sequence> {
+        match cache.player() {
+            Player::Black => match cache.kind() {
+                RowKind::Two => scan_cached(&B_TWO, stones, blanks, limit, offset, cache),
+                RowKind::Sword => scan_cached(&B_SWORD, stones, blanks, limit, offset, cache),
+                RowKind::Three => scan_cached(&B_THREE, stones, blanks, limit, offset, cache),
+                RowKind::Four => scan_cached(&B_FOUR, stones, blanks, limit, offset, cache),
+                RowKind::Five => scan_cached(&B_FIVE, stones, blanks, limit, offset, cache),
+                RowKind::Overline => scan_cached(&B_OVERLINE, stones, blanks, limit, offset, cache),
+            },
+            Player::White => match cache.kind() {
+                RowKind::Two => scan_cached(&W_TWO, stones, blanks, limit, offset, cache),
+                RowKind::Sword => scan_cached(&W_SWORD, stones, blanks, limit, offset, cache),
+                RowKind::Three => scan_cached(&W_THREE, stones, blanks, limit, offset, cache),
+                RowKind::Four => scan_cached(&W_FOUR, stones, blanks, limit, offset, cache),
+                RowKind::Five => scan_cached(&W_FIVE, stones, blanks, limit, offset, cache),
+                _ => vec![],
+            },
+        }
+    }
 }
 
 fn scan(
@@ -63,20 +118,53 @@ fn scan(
     for i in 0..=(limit - size) {
         let stones = stones >> i;
         let blanks = blanks >> i;
-        if !window.satisfies(stones, blanks) {
-            continue;
+        if let Some(s) = find(window, patterns, stones, blanks) {
+            result.push(Sequence::new(
+                s.start + i - offset,
+                s.end + i - offset,
+                s.eye1.map(|e| e + i - offset),
+                s.eye2.map(|e| e + i - offset),
+            ));
         }
-        for p in patterns {
-            if !p.matches(stones, blanks) {
-                continue;
-            }
-            // let position = i - offset; <- overflow!
-            result.push(Sequence {
-                start: p.start + i - offset,
-                end: p.end + i - offset,
-                eye1: p.eye1.map(|e| e + i - offset),
-                eye2: p.eye2.map(|e| e + i - offset),
-            });
+    }
+    result
+}
+
+fn find(window: &Window, patterns: &[Pattern], stones: Bits, blanks: Bits) -> Option<Sequence> {
+    if !window.satisfies(stones, blanks) {
+        return None;
+    }
+    for p in patterns {
+        if p.matches(stones, blanks) {
+            return Some(Sequence::new(p.start, p.end, p.eye1, p.eye2));
+        }
+    }
+    None
+}
+
+fn scan_cached(
+    window: &Window,
+    stones: Bits,
+    blanks: Bits,
+    limit: u8,
+    offset: u8,
+    cache: &impl SequenceCache,
+) -> Vec<Sequence> {
+    let mut result = vec![];
+    let size = window.size;
+    if limit < size {
+        return result;
+    }
+    for i in 0..=(limit - size) {
+        let stones = stones >> i;
+        let blanks = blanks >> i;
+        if let Some(s) = cache.get(stones, blanks) {
+            result.push(Sequence::new(
+                s.start + i - offset,
+                s.end + i - offset,
+                s.eye1.map(|e| e + i - offset),
+                s.eye2.map(|e| e + i - offset),
+            ));
         }
     }
     result

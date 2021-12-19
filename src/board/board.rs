@@ -2,6 +2,7 @@ use super::forbidden::*;
 use super::fundamentals::*;
 use super::point::*;
 use super::row::*;
+use super::sequence::SequenceCache;
 use super::square::*;
 use std::fmt;
 use std::str::FromStr;
@@ -39,8 +40,16 @@ impl Board {
         self.square.row_eyes(player, kind)
     }
 
+    pub fn row_eyes_cached(&self, cache: &impl SequenceCache) -> Vec<Point> {
+        self.square.row_eyes_cached(cache)
+    }
+
     pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
         self.square.row_eyes_along(player, kind, p)
+    }
+
+    pub fn row_eyes_along_cached(&self, cache: &impl SequenceCache, p: Point) -> Vec<Point> {
+        self.square.row_eyes_along_cached(cache, p)
     }
 
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {

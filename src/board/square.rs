@@ -2,6 +2,7 @@ use super::fundamentals::*;
 use super::line::*;
 use super::point::*;
 use super::row::*;
+use super::sequence::SequenceCache;
 use std::fmt;
 use std::str::FromStr;
 
@@ -94,11 +95,45 @@ impl Square {
         result
     }
 
+    pub fn row_eyes_cached(&self, cache: &impl SequenceCache) -> Vec<Point> {
+        let mut result: Vec<_> = self
+            .iter_lines()
+            .map(|(d, i, l)| {
+                l.sequences_cached(cache)
+                    .into_iter()
+                    .map(move |s| Row::from_sequence(&s, d, i))
+                    .map(|r| r.into_iter_eyes())
+                    .flatten()
+            })
+            .flatten()
+            .collect();
+        result.sort_unstable();
+        result.dedup();
+        result
+    }
+
     pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
         let mut result: Vec<_> = self
             .iter_lines_along(p)
             .map(|(d, i, l)| {
                 l.sequences(player, kind)
+                    .into_iter()
+                    .map(move |s| Row::from_sequence(&s, d, i))
+                    .map(|r| r.into_iter_eyes())
+                    .flatten()
+            })
+            .flatten()
+            .collect();
+        result.sort_unstable();
+        result.dedup();
+        result
+    }
+
+    pub fn row_eyes_along_cached(&self, cache: &impl SequenceCache, p: Point) -> Vec<Point> {
+        let mut result: Vec<_> = self
+            .iter_lines_along(p)
+            .map(|(d, i, l)| {
+                l.sequences_cached(cache)
                     .into_iter()
                     .map(move |s| Row::from_sequence(&s, d, i))
                     .map(|r| r.into_iter_eyes())

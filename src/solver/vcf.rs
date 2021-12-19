@@ -1,4 +1,5 @@
 use super::super::board::*;
+use super::precomputed::PrecomputedSequenceCache;
 use super::zhash::*;
 use std::collections::HashSet;
 
@@ -24,7 +25,17 @@ pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
     let zhash = 0;
     let ztable = ZobristTable::new();
     let mut zcache = HashSet::new();
-    solve_all(depth, board, player, None, zhash, &ztable, &mut zcache)
+    let caches = PrecomputedSequenceCaches::new();
+    solve_all(
+        depth,
+        board,
+        player,
+        None,
+        zhash,
+        &ztable,
+        &mut zcache,
+        &caches,
+    )
 }
 
 fn solve_all(
@@ -35,6 +46,7 @@ fn solve_all(
     zhash: u64,
     ztable: &ZobristTable,
     zcache: &mut HashSet<u64>,
+    caches: &PrecomputedSequenceCaches,
 ) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
@@ -47,9 +59,10 @@ fn solve_all(
 
     // Exists opponent's four
     let opponent = player.opponent();
+    let cache = caches.get(opponent, RowKind::Four);
     let opponent_four_eyes = match prev_move {
-        Some(p) => board.row_eyes_along(opponent, RowKind::Four, p),
-        None => board.row_eyes(opponent, RowKind::Four),
+        Some(p) => board.row_eyes_along_cached(cache, p),
+        None => board.row_eyes_cached(cache),
     };
     if opponent_four_eyes.len() >= 2 {
         zcache.insert(zhash);
@@ -57,7 +70,9 @@ fn solve_all(
     } else if opponent_four_eyes.len() == 1 {
         let next_move = opponent_four_eyes.into_iter().next().unwrap();
         let mut board = board.clone();
-        let result = solve_one(depth, &mut board, player, next_move, zhash, ztable, zcache);
+        let result = solve_one(
+            depth, &mut board, player, next_move, zhash, ztable, zcache, caches,
+        );
         if result.is_none() {
             zcache.insert(zhash);
         }
@@ -65,10 +80,13 @@ fn solve_all(
     }
 
     // Continue four move
-    let next_move_cands = board.row_eyes(player, RowKind::Sword);
+    let cache = caches.get(player, RowKind::Sword);
+    let next_move_cands = board.row_eyes_cached(cache);
     for next_move in next_move_cands {
         let mut board = board.clone();
-        if let Some(ps) = solve_one(depth, &mut board, player, next_move, zhash, ztable, zcache) {
+        if let Some(ps) = solve_one(
+            depth, &mut board, player, next_move, zhash, ztable, zcache, caches,
+        ) {
             return Some(ps);
         }
     }
@@ -85,6 +103,7 @@ fn solve_one(
     zhash: u64,
     ztable: &ZobristTable,
     zcache: &mut HashSet<u64>,
+    caches: &PrecomputedSequenceCaches,
 ) -> Option<Vec<Point>> {
     if player.is_black() && board.forbidden(next_move).is_some() {
         return None;
@@ -92,7 +111,8 @@ fn solve_one(
 
     board.put(player, next_move);
     let next_zhash = ztable.apply(zhash, player, next_move);
-    let next_four_eyes = board.row_eyes_along(player, RowKind::Four, next_move);
+    let cache = caches.get(player, RowKind::Four);
+    let next_four_eyes = board.row_eyes_along_cached(cache, next_move);
     if next_four_eyes.len() >= 2 {
         Some(vec![next_move])
     } else if next_four_eyes.len() == 1 {
@@ -112,6 +132,7 @@ fn solve_one(
             next2_zhash,
             ztable,
             zcache,
+            caches,
         )
         .map(|mut ps| {
             let mut result = vec![next_move, next2_move];
@@ -120,6 +141,38 @@ fn solve_one(
         })
     } else {
         None
+    }
+}
+
+struct PrecomputedSequenceCaches {
+    black_sword: Box<PrecomputedSequenceCache>,
+    black_four: Box<PrecomputedSequenceCache>,
+    white_sword: Box<PrecomputedSequenceCache>,
+    white_four: Box<PrecomputedSequenceCache>,
+}
+
+impl PrecomputedSequenceCaches {
+    pub fn new() -> Self {
+        PrecomputedSequenceCaches {
+            black_sword: Box::new(PrecomputedSequenceCache::new(Player::Black, RowKind::Sword)),
+            black_four: Box::new(PrecomputedSequenceCache::new(Player::Black, RowKind::Four)),
+            white_sword: Box::new(PrecomputedSequenceCache::new(Player::White, RowKind::Sword)),
+            white_four: Box::new(PrecomputedSequenceCache::new(Player::White, RowKind::Four)),
+        }
+    }
+    pub fn get(&self, player: Player, kind: RowKind) -> &PrecomputedSequenceCache {
+        match player {
+            Player::Black => match kind {
+                RowKind::Sword => &*self.black_sword,
+                RowKind::Four => &*self.black_four,
+                _ => &*self.black_four,
+            },
+            Player::White => match kind {
+                RowKind::Sword => &*self.white_sword,
+                RowKind::Four => &*self.white_four,
+                _ => &*self.black_four,
+            },
+        }
     }
 }
 
