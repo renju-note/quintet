@@ -9,16 +9,6 @@ pub struct Sequence {
 }
 
 impl Sequence {
-    pub fn shift(&self, i: u8, offset: u8) -> Sequence {
-        // let position = i - offset; <- overflow!
-        Sequence {
-            start: self.start + i - offset,
-            end: self.end + i - offset,
-            eye1: self.eye1.map(|e| e + i - offset),
-            eye2: self.eye2.map(|e| e + i - offset),
-        }
-    }
-
     pub fn new(start: u8, end: u8, eye1: Option<u8>, eye2: Option<u8>) -> Sequence {
         Sequence {
             start: start,
@@ -86,6 +76,16 @@ impl Sequence {
             }
         }
         result >> offset
+    }
+
+    pub fn shift(&self, i: u8, offset: u8) -> Sequence {
+        // let position = i - offset; <- overflow!
+        Sequence {
+            start: self.start + i - offset,
+            end: self.end + i - offset,
+            eye1: self.eye1.map(|e| e + i - offset),
+            eye2: self.eye2.map(|e| e + i - offset),
+        }
     }
 }
 
