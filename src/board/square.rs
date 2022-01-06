@@ -79,23 +79,11 @@ impl Square {
         self.vlines[vidx.0 as usize].stone(vidx.1)
     }
 
-    pub fn stones(&self) -> Vec<(Point, Player)> {
+    pub fn stones(&self, player: Player) -> Vec<Point> {
         self.vlines
             .iter()
             .enumerate()
-            .map(|(i, l)| {
-                l.stones()
-                    .into_iter()
-                    .enumerate()
-                    .map(move |(j, player)| match player {
-                        Some(player) => Some((
-                            Index(i as u8, j as u8).to_point(Direction::Vertical),
-                            player,
-                        )),
-                        None => None,
-                    })
-                    .flatten()
-            })
+            .map(|(i, l)| l.stones(player).into_iter().map(move |j| Point(i as u8, j)))
             .flatten()
             .collect()
     }
@@ -331,10 +319,10 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         if hline.size != BOARD_SIZE {
             return Err("Wrong line size");
         }
-        for (x, s) in hline.stones().iter().enumerate() {
-            let point = Point(x as u8, y as u8);
-            if let Some(player) = s {
-                square.put(*player, point)
+        for x in 0..hline.size {
+            match hline.stone(x) {
+                Some(player) => square.put(player, Point(x, y as u8)),
+                _ => (),
             }
         }
     }
@@ -589,14 +577,8 @@ mod tests {
         assert_eq!(square.stone(Point(8, 8)), Some(White));
         assert_eq!(square.stone(Point(9, 9)), None);
 
-        assert_eq!(
-            square.stones(),
-            vec![
-                (Point(7, 7), Black),
-                (Point(8, 8), White),
-                (Point(9, 8), Black),
-            ]
-        );
+        assert_eq!(square.stones(Black), [Point(7, 7), Point(9, 8)]);
+        assert_eq!(square.stones(White), [Point(8, 8)]);
         Ok(())
     }
 

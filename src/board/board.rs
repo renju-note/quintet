@@ -46,8 +46,8 @@ impl Board {
         self.square.stone(p)
     }
 
-    pub fn stones(&self) -> Vec<(Point, Player)> {
-        self.square.stones()
+    pub fn stones(&self, player: Player) -> Vec<Point> {
+        self.square.stones(player)
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
@@ -94,17 +94,8 @@ impl FromStr for Board {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let square = s.parse::<Square>()?;
-        let stones = square.stones();
-        let blacks = stones
-            .iter()
-            .map(|(p, player)| if player.is_black() { Some(*p) } else { None })
-            .flatten()
-            .collect::<Vec<_>>();
-        let whites = stones
-            .iter()
-            .map(|(p, player)| if player.is_white() { Some(*p) } else { None })
-            .flatten()
-            .collect::<Vec<_>>();
+        let blacks = square.stones(Player::Black);
+        let whites = square.stones(Player::White);
         let z_hash = zobrist::from_points(&Points(blacks), &Points(whites));
 
         Ok(Board {
@@ -157,19 +148,22 @@ mod tests {
         );
         assert_eq!(board.to_string(), expected);
 
-        let stones = vec![
-            (Point(5, 6), White),
-            (Point(6, 8), Black),
-            (Point(6, 9), Black),
-            (Point(7, 7), Black),
-            (Point(7, 8), White),
-            (Point(8, 6), White),
-            (Point(8, 7), Black),
-            (Point(8, 8), White),
-            (Point(8, 9), White),
-            (Point(9, 9), Black),
+        let blacks = vec![
+            Point(6, 8),
+            Point(6, 9),
+            Point(7, 7),
+            Point(8, 7),
+            Point(9, 9),
         ];
-        assert_eq!(board.stones(), stones);
+        assert_eq!(board.stones(Player::Black), blacks);
+        let whites = vec![
+            Point(5, 6),
+            Point(7, 8),
+            Point(8, 6),
+            Point(8, 8),
+            Point(8, 9),
+        ];
+        assert_eq!(board.stones(Player::White), whites);
 
         let black_twos = [
             Row::new(

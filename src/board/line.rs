@@ -47,18 +47,21 @@ impl Line {
         }
     }
 
-    pub fn stones(&self) -> Vec<Option<Player>> {
+    pub fn stones(&self, player: Player) -> Vec<u8> {
+        let target = match player {
+            Player::Black => self.blacks,
+            Player::White => self.whites,
+        };
         (0..self.size)
             .map(|i| {
                 let pat = 0b1 << i;
-                if self.blacks & pat != 0b0 {
-                    Some(Player::Black)
-                } else if self.whites & pat != 0b0 {
-                    Some(Player::White)
+                if target & pat != 0b0 {
+                    Some(i)
                 } else {
                     None
                 }
             })
+            .flatten()
             .collect()
     }
 
@@ -121,10 +124,8 @@ impl Line {
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: String = self
-            .stones()
-            .iter()
-            .map(|s| match s {
+        let s: String = (0..self.size)
+            .map(|i| match self.stone(i) {
                 Some(Player::Black) => 'o',
                 Some(Player::White) => 'x',
                 None => '-',
@@ -213,8 +214,11 @@ mod tests {
     #[test]
     fn test_stones() -> Result<(), String> {
         let line = "o-ox-".parse::<Line>()?;
-        let result = line.stones();
-        let expected = [Some(Black), None, Some(Black), Some(White), None];
+        let result = line.stones(Black);
+        let expected = [0, 2];
+        assert_eq!(result, expected);
+        let result = line.stones(White);
+        let expected = [3];
         assert_eq!(result, expected);
         Ok(())
     }
