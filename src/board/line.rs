@@ -30,6 +30,23 @@ impl Line {
         self.whites = whites;
     }
 
+    pub fn remove(&mut self, i: u8) {
+        let stones = 0b1 << i;
+        self.blacks &= !stones;
+        self.whites &= !stones;
+    }
+
+    pub fn stone(&self, i: u8) -> Option<Player> {
+        let pat = 0b1 << i;
+        if self.blacks & pat != 0b0 {
+            Some(Player::Black)
+        } else if self.whites & pat != 0b0 {
+            Some(Player::White)
+        } else {
+            None
+        }
+    }
+
     pub fn stones(&self) -> Vec<Option<Player>> {
         (0..self.size)
             .map(|i| {
@@ -166,6 +183,31 @@ mod tests {
         line.put(White, 5);
         assert_eq!(line.blacks, 0b000000000000001);
         assert_eq!(line.whites, 0b000000000100100);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut line = Line::new(BOARD_SIZE);
+        line.put(Black, 0);
+        line.put(White, 2);
+        line.put(Black, 4);
+        line.put(White, 5);
+        line.remove(0);
+        line.remove(2);
+        line.remove(3);
+        assert_eq!(line.blacks, 0b000000000010000);
+        assert_eq!(line.whites, 0b000000000100000);
+    }
+
+    #[test]
+    fn test_stone() -> Result<(), String> {
+        let line = "o-ox-".parse::<Line>()?;
+        assert_eq!(line.stone(0), Some(Black));
+        assert_eq!(line.stone(1), None);
+        assert_eq!(line.stone(2), Some(Black));
+        assert_eq!(line.stone(3), Some(White));
+        assert_eq!(line.stone(4), None);
+        Ok(())
     }
 
     #[test]

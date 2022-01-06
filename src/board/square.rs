@@ -23,13 +23,13 @@ impl Square {
         }
     }
 
-    pub fn from_points(blacks: Points, whites: Points) -> Square {
+    pub fn from_points(blacks: &Points, whites: &Points) -> Square {
         let mut square = Square::new();
-        for p in blacks.0.into_iter() {
-            square.put(Player::Black, p);
+        for p in blacks.0.iter() {
+            square.put(Player::Black, *p);
         }
-        for p in whites.0.into_iter() {
-            square.put(Player::White, p);
+        for p in whites.0.iter() {
+            square.put(Player::White, *p);
         }
         square
     }
@@ -52,6 +52,52 @@ impl Square {
             let i = (didx.0 - 4) as usize;
             self.dlines[i].put(player, didx.1);
         }
+    }
+
+    pub fn remove(&mut self, p: Point) {
+        let vidx = p.to_index(Direction::Vertical);
+        self.vlines[vidx.0 as usize].remove(vidx.1);
+
+        let hidx = p.to_index(Direction::Horizontal);
+        self.hlines[hidx.0 as usize].remove(hidx.1);
+
+        let aidx = p.to_index(Direction::Ascending);
+        if bw(4, aidx.0, D_LINE_NUM + 3) {
+            let i = (aidx.0 - 4) as usize;
+            self.alines[i].remove(aidx.1);
+        }
+
+        let didx = p.to_index(Direction::Descending);
+        if bw(4, didx.0, D_LINE_NUM + 3) {
+            let i = (didx.0 - 4) as usize;
+            self.dlines[i].remove(didx.1);
+        }
+    }
+
+    pub fn stone(&self, p: Point) -> Option<Player> {
+        let vidx = p.to_index(Direction::Vertical);
+        self.vlines[vidx.0 as usize].stone(vidx.1)
+    }
+
+    pub fn stones(&self) -> Vec<(Point, Player)> {
+        self.vlines
+            .iter()
+            .enumerate()
+            .map(|(i, l)| {
+                l.stones()
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(j, player)| match player {
+                        Some(player) => Some((
+                            Index(i as u8, j as u8).to_point(Direction::Vertical),
+                            player,
+                        )),
+                        None => None,
+                    })
+                    .flatten()
+            })
+            .flatten()
+            .collect()
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
@@ -268,7 +314,7 @@ fn from_str_points(s: &str) -> Result<Square, &'static str> {
     }
     let blacks = codes[0].parse::<Points>()?;
     let whites = codes[1].parse::<Points>()?;
-    Ok(Square::from_points(blacks, whites))
+    Ok(Square::from_points(&blacks, &whites))
 }
 
 fn from_str_display(s: &str) -> Result<Square, &'static str> {
@@ -303,7 +349,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_put() {
+    fn test_put_remove() {
         let mut square = Square::new();
         square.put(Black, Point(7, 7));
         square.put(White, Point(8, 8));
@@ -412,6 +458,146 @@ mod tests {
             ",
         );
         assert_eq!(result, expected);
+
+        square.remove(Point(7, 7));
+        square.remove(Point(8, 8));
+        square.remove(Point(9, 9));
+
+        let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            ---------------
+            -o-----------o-
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------o-----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -x-----------x-
+            ---------------
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            ---------------
+            -o-----------x-
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------o------
+            ---------------
+            ---------------
+            ---------------
+            -o-----------x-
+            ---------------
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            -----
+            ------
+            -------
+            --------
+            ---------
+            ----------
+            -----------
+            ------------
+            -------------
+            --------------
+            -o-----------x-
+            --------o-----
+            -------------
+            ------------
+            -----------
+            ----------
+            ---------
+            --------
+            -------
+            ------
+            -----
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            -----
+            ------
+            -------
+            --------
+            ---------
+            ----------
+            -----------
+            ------------
+            -------------
+            --------------
+            -x-----------o-
+            --------------
+            -------------
+            ------o-----
+            -----------
+            ----------
+            ---------
+            --------
+            -------
+            ------
+            -----
+            ",
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_stone_and_stones() -> Result<(), String> {
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------xo-----
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+
+        assert_eq!(square.stone(Point(7, 7)), Some(Black));
+        assert_eq!(square.stone(Point(8, 8)), Some(White));
+        assert_eq!(square.stone(Point(9, 9)), None);
+
+        assert_eq!(
+            square.stones(),
+            vec![
+                (Point(7, 7), Black),
+                (Point(8, 8), White),
+                (Point(9, 8), Black),
+            ]
+        );
+        Ok(())
     }
 
     #[test]
