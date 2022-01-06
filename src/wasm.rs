@@ -10,7 +10,7 @@ pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> 
     if !blacks.is_ok() || !whites.is_ok() {
         return None;
     }
-    let board = Board::from_points(blacks.unwrap(), whites.unwrap());
+    let board = Board::from_points(&blacks.unwrap(), &whites.unwrap());
     let solution = solver::solve(depth_limit, &board, Player::from(black));
     solution.map(|ps| <Vec<u8>>::from(Points(ps)).into_boxed_slice())
 }
