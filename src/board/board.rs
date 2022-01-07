@@ -30,16 +30,28 @@ impl Board {
         }
     }
 
-    pub fn put(&mut self, player: Player, p: Point) {
-        self.remove(p);
-        self.square.put(player, p);
+    pub fn put_mut(&mut self, player: Player, p: Point) {
+        self.remove_mut(p);
+        self.square.put_mut(player, p);
         self.update_z_hash(player, p);
     }
 
-    pub fn remove(&mut self, p: Point) {
+    pub fn remove_mut(&mut self, p: Point) {
         self.stone(p)
             .map(|existent| self.update_z_hash(existent, p));
-        self.square.remove(p);
+        self.square.remove_mut(p);
+    }
+
+    pub fn put(&self, player: Player, p: Point) -> Self {
+        let mut result = self.clone();
+        result.put_mut(player, p);
+        result
+    }
+
+    pub fn remove(&self, p: Point) -> Self {
+        let mut result = self.clone();
+        result.remove_mut(p);
+        result
     }
 
     pub fn stone(&self, p: Point) -> Option<Player> {
@@ -116,16 +128,16 @@ mod tests {
     #[test]
     fn test() -> Result<(), String> {
         let mut board = Board::new();
-        board.put(Black, Point(7, 7));
-        board.put(White, Point(7, 8));
-        board.put(Black, Point(9, 9));
-        board.put(White, Point(8, 8));
-        board.put(Black, Point(6, 8));
-        board.put(White, Point(8, 6));
-        board.put(Black, Point(6, 9));
-        board.put(White, Point(8, 9));
-        board.put(Black, Point(8, 7));
-        board.put(White, Point(5, 6));
+        board.put_mut(Black, Point(7, 7));
+        board.put_mut(White, Point(7, 8));
+        board.put_mut(Black, Point(9, 9));
+        board.put_mut(White, Point(8, 8));
+        board.put_mut(Black, Point(6, 8));
+        board.put_mut(White, Point(8, 6));
+        board.put_mut(Black, Point(6, 9));
+        board.put_mut(White, Point(8, 9));
+        board.put_mut(Black, Point(8, 7));
+        board.put_mut(White, Point(5, 6));
 
         let expected = trim_lines_string(
             "
@@ -272,35 +284,35 @@ mod tests {
         let mut board = Board::new();
         let hash0 = board.zobrist_hash();
 
-        board.put(Black, Point(7, 7));
+        board.put_mut(Black, Point(7, 7));
         let hash1 = board.zobrist_hash();
         assert_ne!(hash1, hash0);
 
-        board.put(White, Point(8, 8));
+        board.put_mut(White, Point(8, 8));
         let hash2 = board.zobrist_hash();
         assert_ne!(hash2, hash0);
         assert_ne!(hash2, hash1);
 
-        board.put(Black, Point(9, 8));
+        board.put_mut(Black, Point(9, 8));
         let hash3 = board.zobrist_hash();
         assert_ne!(hash3, hash0);
         assert_ne!(hash3, hash1);
         assert_ne!(hash3, hash2);
 
-        board.remove(Point(9, 8));
+        board.remove_mut(Point(9, 8));
         let hash4 = board.zobrist_hash();
         assert_ne!(hash4, hash3);
         assert_eq!(hash4, hash2);
 
-        board.put(Black, Point(9, 8));
+        board.put_mut(Black, Point(9, 8));
         let hash5 = board.zobrist_hash();
         assert_eq!(hash5, hash3);
 
-        board.remove(Point(8, 8));
+        board.remove_mut(Point(8, 8));
         let hash6 = board.zobrist_hash();
         assert_ne!(hash6, hash5);
 
-        board.put(White, Point(8, 8));
+        board.put_mut(White, Point(8, 8));
         let hash7 = board.zobrist_hash();
         assert_eq!(hash7, hash5);
     }
@@ -309,9 +321,9 @@ mod tests {
     fn test_parse() -> Result<(), String> {
         let result = "H8,J9/I9".parse::<Board>()?;
         let mut expected = Board::new();
-        expected.put(Black, Point(7, 7));
-        expected.put(White, Point(8, 8));
-        expected.put(Black, Point(9, 8));
+        expected.put_mut(Black, Point(7, 7));
+        expected.put_mut(White, Point(8, 8));
+        expected.put_mut(Black, Point(9, 8));
         assert_eq!(result.square, expected.square);
         assert_eq!(result.z_hash, expected.z_hash);
 

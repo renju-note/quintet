@@ -26,52 +26,64 @@ impl Square {
     pub fn from_points(blacks: &Points, whites: &Points) -> Square {
         let mut square = Square::new();
         for p in blacks.0.iter() {
-            square.put(Player::Black, *p);
+            square.put_mut(Player::Black, *p);
         }
         for p in whites.0.iter() {
-            square.put(Player::White, *p);
+            square.put_mut(Player::White, *p);
         }
         square
     }
 
-    pub fn put(&mut self, player: Player, p: Point) {
+    pub fn put_mut(&mut self, player: Player, p: Point) {
         let vidx = p.to_index(Direction::Vertical);
-        self.vlines[vidx.0 as usize].put(player, vidx.1);
+        self.vlines[vidx.0 as usize].put_mut(player, vidx.1);
 
         let hidx = p.to_index(Direction::Horizontal);
-        self.hlines[hidx.0 as usize].put(player, hidx.1);
+        self.hlines[hidx.0 as usize].put_mut(player, hidx.1);
 
         let aidx = p.to_index(Direction::Ascending);
         if bw(4, aidx.0, D_LINE_NUM + 3) {
             let i = (aidx.0 - 4) as usize;
-            self.alines[i].put(player, aidx.1);
+            self.alines[i].put_mut(player, aidx.1);
         }
 
         let didx = p.to_index(Direction::Descending);
         if bw(4, didx.0, D_LINE_NUM + 3) {
             let i = (didx.0 - 4) as usize;
-            self.dlines[i].put(player, didx.1);
+            self.dlines[i].put_mut(player, didx.1);
         }
     }
 
-    pub fn remove(&mut self, p: Point) {
+    pub fn remove_mut(&mut self, p: Point) {
         let vidx = p.to_index(Direction::Vertical);
-        self.vlines[vidx.0 as usize].remove(vidx.1);
+        self.vlines[vidx.0 as usize].remove_mut(vidx.1);
 
         let hidx = p.to_index(Direction::Horizontal);
-        self.hlines[hidx.0 as usize].remove(hidx.1);
+        self.hlines[hidx.0 as usize].remove_mut(hidx.1);
 
         let aidx = p.to_index(Direction::Ascending);
         if bw(4, aidx.0, D_LINE_NUM + 3) {
             let i = (aidx.0 - 4) as usize;
-            self.alines[i].remove(aidx.1);
+            self.alines[i].remove_mut(aidx.1);
         }
 
         let didx = p.to_index(Direction::Descending);
         if bw(4, didx.0, D_LINE_NUM + 3) {
             let i = (didx.0 - 4) as usize;
-            self.dlines[i].remove(didx.1);
+            self.dlines[i].remove_mut(didx.1);
         }
+    }
+
+    pub fn put(&self, player: Player, p: Point) -> Self {
+        let mut result = self.clone();
+        result.put_mut(player, p);
+        result
+    }
+
+    pub fn remove(&self, p: Point) -> Self {
+        let mut result = self.clone();
+        result.remove_mut(p);
+        result
     }
 
     pub fn stone(&self, p: Point) -> Option<Player> {
@@ -321,7 +333,7 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         }
         for x in 0..hline.size {
             match hline.stone(x) {
-                Some(player) => square.put(player, Point(x, y as u8)),
+                Some(player) => square.put_mut(player, Point(x, y as u8)),
                 _ => (),
             }
         }
@@ -339,13 +351,13 @@ mod tests {
     #[test]
     fn test_put_remove() {
         let mut square = Square::new();
-        square.put(Black, Point(7, 7));
-        square.put(White, Point(8, 8));
-        square.put(Black, Point(9, 8));
-        square.put(Black, Point(1, 1));
-        square.put(White, Point(1, 13));
-        square.put(Black, Point(13, 1));
-        square.put(White, Point(13, 13));
+        square.put_mut(Black, Point(7, 7));
+        square.put_mut(White, Point(8, 8));
+        square.put_mut(Black, Point(9, 8));
+        square.put_mut(Black, Point(1, 1));
+        square.put_mut(White, Point(1, 13));
+        square.put_mut(Black, Point(13, 1));
+        square.put_mut(White, Point(13, 13));
 
         let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
@@ -447,9 +459,9 @@ mod tests {
         );
         assert_eq!(result, expected);
 
-        square.remove(Point(7, 7));
-        square.remove(Point(8, 8));
-        square.remove(Point(9, 9));
+        square.remove_mut(Point(7, 7));
+        square.remove_mut(Point(8, 8));
+        square.remove_mut(Point(9, 9));
 
         let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
@@ -639,9 +651,9 @@ mod tests {
     fn test_parse() -> Result<(), String> {
         let result = "H8,J9/I9".parse::<Square>()?;
         let mut expected = Square::new();
-        expected.put(Black, Point(7, 7));
-        expected.put(White, Point(8, 8));
-        expected.put(Black, Point(9, 8));
+        expected.put_mut(Black, Point(7, 7));
+        expected.put_mut(White, Point(8, 8));
+        expected.put_mut(Black, Point(9, 8));
         assert_eq!(result, expected);
 
         let result = "
@@ -663,13 +675,13 @@ mod tests {
         "
         .parse::<Square>()?;
         let mut expected = Square::new();
-        expected.put(Black, Point(7, 7));
-        expected.put(White, Point(8, 8));
-        expected.put(Black, Point(9, 8));
-        expected.put(Black, Point(0, 0));
-        expected.put(White, Point(0, 14));
-        expected.put(Black, Point(14, 0));
-        expected.put(White, Point(14, 14));
+        expected.put_mut(Black, Point(7, 7));
+        expected.put_mut(White, Point(8, 8));
+        expected.put_mut(Black, Point(9, 8));
+        expected.put_mut(Black, Point(0, 0));
+        expected.put_mut(White, Point(0, 14));
+        expected.put_mut(Black, Point(14, 0));
+        expected.put_mut(White, Point(14, 14));
         assert_eq!(result, expected);
 
         Ok(())
@@ -678,13 +690,13 @@ mod tests {
     #[test]
     fn test_to_string() {
         let mut square = Square::new();
-        square.put(Black, Point(7, 7));
-        square.put(White, Point(8, 8));
-        square.put(Black, Point(9, 8));
-        square.put(Black, Point(0, 0));
-        square.put(White, Point(0, 14));
-        square.put(Black, Point(14, 0));
-        square.put(White, Point(14, 14));
+        square.put_mut(Black, Point(7, 7));
+        square.put_mut(White, Point(8, 8));
+        square.put_mut(Black, Point(9, 8));
+        square.put_mut(Black, Point(0, 0));
+        square.put_mut(White, Point(0, 14));
+        square.put_mut(Black, Point(14, 0));
+        square.put_mut(White, Point(14, 14));
         let expected = trim_lines_string(
             "
             x-------------x

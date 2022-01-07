@@ -52,16 +52,13 @@ fn solve_all(
         return None;
     } else if opponent_four_eyes.len() == 1 {
         let next_move = opponent_four_eyes.into_iter().next().unwrap();
-        let mut board = board.clone();
-        let result = solve_one(depth, &mut board, next_player, next_move, searched);
-        return result;
+        return solve_one(depth, board, next_player, next_move, searched);
     }
 
     // Continue four move
-    let next_move_cands = board.row_eyes(next_player, RowKind::Sword);
-    for next_move in next_move_cands {
-        let mut board = board.clone();
-        if let Some(ps) = solve_one(depth, &mut board, next_player, next_move, searched) {
+    let next_move_candidates = board.row_eyes(next_player, RowKind::Sword);
+    for next_move in next_move_candidates {
+        if let Some(ps) = solve_one(depth, board, next_player, next_move, searched) {
             return Some(ps);
         }
     }
@@ -71,7 +68,7 @@ fn solve_all(
 
 fn solve_one(
     depth: u8,
-    board: &mut Board,
+    board: &Board,
     next_player: Player,
     next_move: Point,
     searched: &mut HashSet<u64>,
@@ -80,19 +77,27 @@ fn solve_one(
         return None;
     }
 
-    board.put(next_player, next_move);
-    let next_four_eyes = board.row_eyes_along(next_player, RowKind::Four, next_move);
+    let mut next_board = board.put(next_player, next_move);
+    let next_four_eyes = next_board.row_eyes_along(next_player, RowKind::Four, next_move);
     if next_four_eyes.len() >= 2 {
         Some(vec![next_move])
     } else if next_four_eyes.len() == 1 {
         let opponent = next_player.opponent();
         let next2_move = next_four_eyes.into_iter().next().unwrap();
-        if opponent.is_black() && board.forbidden(next2_move).is_some() {
+        if opponent.is_black() && next_board.forbidden(next2_move).is_some() {
             return Some(vec![next_move]);
         }
 
-        board.put(opponent, next2_move);
-        solve_all(depth - 1, board, next_player, Some(next2_move), searched).map(|mut ps| {
+        next_board.put_mut(opponent, next2_move);
+        let next2_board = next_board;
+        solve_all(
+            depth - 1,
+            &next2_board,
+            next_player,
+            Some(next2_move),
+            searched,
+        )
+        .map(|mut ps| {
             let mut result = vec![next_move, next2_move];
             result.append(&mut ps);
             result

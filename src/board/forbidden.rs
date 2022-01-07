@@ -20,8 +20,7 @@ pub fn forbiddens(square: &Square) -> Vec<(ForbiddenKind, Point)> {
 }
 
 pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
-    let mut next = square.clone();
-    next.put(Player::Black, p);
+    let next = square.put(Player::Black, p);
     if overline(&next, p) {
         Some(ForbiddenKind::Overline)
     } else if double_four(&next, p) {
@@ -40,10 +39,7 @@ fn overline(next: &Square, p: Point) -> bool {
 
 fn double_four(next: &Square, p: Point) -> bool {
     let new_fours = next.rows_on(Player::Black, RowKind::Four, p);
-    if new_fours.len() < 2 {
-        return false;
-    }
-    distinctive(&new_fours)
+    new_fours.len() >= 2 && distinctive(&new_fours)
 }
 
 fn double_three(next: &Square, p: Point) -> bool {
@@ -55,10 +51,7 @@ fn double_three(next: &Square, p: Point) -> bool {
         .into_iter()
         .filter(|r| forbidden(&next, r.eye1.unwrap()).is_none())
         .collect::<Vec<_>>();
-    if truthy_threes.len() < 2 {
-        return false;
-    }
-    distinctive(&truthy_threes)
+    truthy_threes.len() >= 2 && distinctive(&truthy_threes)
 }
 
 fn distinctive(rows: &Vec<Row>) -> bool {
