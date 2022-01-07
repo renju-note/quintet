@@ -20,7 +20,7 @@ impl Line {
         }
     }
 
-    pub fn put(&mut self, player: Player, i: u8) {
+    pub fn put_mut(&mut self, player: Player, i: u8) {
         let stones = 0b1 << i;
         let (blacks, whites) = match player {
             Player::Black => (self.blacks | stones, self.whites & !stones),
@@ -30,18 +30,50 @@ impl Line {
         self.whites = whites;
     }
 
-    pub fn stones(&self) -> Vec<Option<Player>> {
+    pub fn remove_mut(&mut self, i: u8) {
+        let stones = 0b1 << i;
+        self.blacks &= !stones;
+        self.whites &= !stones;
+    }
+
+    pub fn put(&self, player: Player, i: u8) -> Self {
+        let mut result = self.clone();
+        result.put_mut(player, i);
+        result
+    }
+
+    pub fn remove(&self, i: u8) -> Self {
+        let mut result = self.clone();
+        result.remove_mut(i);
+        result
+    }
+
+    pub fn stone(&self, i: u8) -> Option<Player> {
+        let pat = 0b1 << i;
+        if self.blacks & pat != 0b0 {
+            Some(Player::Black)
+        } else if self.whites & pat != 0b0 {
+            Some(Player::White)
+        } else {
+            None
+        }
+    }
+
+    pub fn stones(&self, player: Player) -> Vec<u8> {
+        let target = match player {
+            Player::Black => self.blacks,
+            Player::White => self.whites,
+        };
         (0..self.size)
             .map(|i| {
                 let pat = 0b1 << i;
-                if self.blacks & pat != 0b0 {
-                    Some(Player::Black)
-                } else if self.whites & pat != 0b0 {
-                    Some(Player::White)
+                if target & pat != 0b0 {
+                    Some(i)
                 } else {
                     None
                 }
             })
+            .flatten()
             .collect()
     }
 
@@ -104,10 +136,8 @@ impl Line {
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: String = self
-            .stones()
-            .iter()
-            .map(|s| match s {
+        let s: String = (0..self.size)
+            .map(|i| match self.stone(i) {
                 Some(Player::Black) => 'o',
                 Some(Player::White) => 'x',
                 None => '-',
@@ -129,8 +159,8 @@ impl FromStr for Line {
         let mut line = Line::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
             match c {
-                'o' => line.put(Player::Black, i as u8),
-                'x' => line.put(Player::White, i as u8),
+                'o' => line.put_mut(Player::Black, i as u8),
+                'x' => line.put_mut(Player::White, i as u8),
                 _ => (),
             }
         }
@@ -154,25 +184,53 @@ mod tests {
     }
 
     #[test]
-    fn test_put() {
+    fn test_put_mut() {
         let mut line = Line::new(BOARD_SIZE);
-        line.put(Black, 0);
-        line.put(White, 2);
+        line.put_mut(Black, 0);
+        line.put_mut(White, 2);
         assert_eq!(line.blacks, 0b000000000000001);
         assert_eq!(line.whites, 0b000000000000100);
 
         // overwrite
-        line.put(Black, 5);
-        line.put(White, 5);
+        line.put_mut(Black, 5);
+        line.put_mut(White, 5);
         assert_eq!(line.blacks, 0b000000000000001);
         assert_eq!(line.whites, 0b000000000100100);
     }
 
     #[test]
+    fn test_remove_mut() {
+        let mut line = Line::new(BOARD_SIZE);
+        line.put_mut(Black, 0);
+        line.put_mut(White, 2);
+        line.put_mut(Black, 4);
+        line.put_mut(White, 5);
+        line.remove_mut(0);
+        line.remove_mut(2);
+        line.remove_mut(3);
+        assert_eq!(line.blacks, 0b000000000010000);
+        assert_eq!(line.whites, 0b000000000100000);
+    }
+
+    #[test]
+    fn test_stone() -> Result<(), String> {
+        let line = "o-ox-".parse::<Line>()?;
+        assert_eq!(line.stone(0), Some(Black));
+        assert_eq!(line.stone(1), None);
+        assert_eq!(line.stone(2), Some(Black));
+        assert_eq!(line.stone(3), Some(White));
+        assert_eq!(line.stone(4), None);
+        Ok(())
+    }
+
+    #[test]
     fn test_stones() -> Result<(), String> {
         let line = "o-ox-".parse::<Line>()?;
-        let result = line.stones();
-        let expected = [Some(Black), None, Some(Black), Some(White), None];
+        let result = line.stones(Black);
+        let expected = [0, 2];
+        assert_eq!(result, expected);
+        let result = line.stones(White);
+        let expected = [3];
         assert_eq!(result, expected);
         Ok(())
     }
@@ -198,9 +256,9 @@ mod tests {
     #[test]
     fn test_to_string() {
         let mut line = Line::new(7);
-        line.put(Black, 0);
-        line.put(Black, 4);
-        line.put(White, 2);
+        line.put_mut(Black, 0);
+        line.put_mut(Black, 4);
+        line.put_mut(White, 2);
         assert_eq!(line.to_string(), "o-x-o--");
     }
 
@@ -208,8 +266,8 @@ mod tests {
     fn test_parse() -> Result<(), String> {
         let result = "-o---x----".parse::<Line>()?;
         let mut expected = Line::new(10);
-        expected.put(Black, 1);
-        expected.put(White, 5);
+        expected.put_mut(Black, 1);
+        expected.put_mut(White, 5);
         assert_eq!(result, expected);
         Ok(())
     }

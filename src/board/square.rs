@@ -23,35 +23,73 @@ impl Square {
         }
     }
 
-    pub fn from_points(blacks: Points, whites: Points) -> Square {
+    pub fn from_points(blacks: &Points, whites: &Points) -> Square {
         let mut square = Square::new();
-        for p in blacks.0.into_iter() {
-            square.put(Player::Black, p);
+        for p in blacks.0.iter() {
+            square.put_mut(Player::Black, *p);
         }
-        for p in whites.0.into_iter() {
-            square.put(Player::White, p);
+        for p in whites.0.iter() {
+            square.put_mut(Player::White, *p);
         }
         square
     }
 
-    pub fn put(&mut self, player: Player, p: Point) {
+    pub fn put_mut(&mut self, player: Player, p: Point) {
         let vidx = p.to_index(Direction::Vertical);
-        self.vlines[vidx.0 as usize].put(player, vidx.1);
+        Self::line_idx(vidx).map(|i| self.vlines[i].put_mut(player, vidx.j));
 
         let hidx = p.to_index(Direction::Horizontal);
-        self.hlines[hidx.0 as usize].put(player, hidx.1);
+        Self::line_idx(hidx).map(|i| self.hlines[i].put_mut(player, hidx.j));
 
         let aidx = p.to_index(Direction::Ascending);
-        if bw(4, aidx.0, D_LINE_NUM + 3) {
-            let i = (aidx.0 - 4) as usize;
-            self.alines[i].put(player, aidx.1);
-        }
+        Self::line_idx(aidx).map(|i| self.alines[i].put_mut(player, aidx.j));
 
         let didx = p.to_index(Direction::Descending);
-        if bw(4, didx.0, D_LINE_NUM + 3) {
-            let i = (didx.0 - 4) as usize;
-            self.dlines[i].put(player, didx.1);
-        }
+        Self::line_idx(didx).map(|i| self.dlines[i].put_mut(player, didx.j));
+    }
+
+    pub fn remove_mut(&mut self, p: Point) {
+        let vidx = p.to_index(Direction::Vertical);
+        Self::line_idx(vidx).map(|i| self.vlines[i].remove_mut(vidx.j));
+
+        let hidx = p.to_index(Direction::Horizontal);
+        Self::line_idx(hidx).map(|i| self.hlines[i].remove_mut(hidx.j));
+
+        let aidx = p.to_index(Direction::Ascending);
+        Self::line_idx(aidx).map(|i| self.alines[i].remove_mut(aidx.j));
+
+        let didx = p.to_index(Direction::Descending);
+        Self::line_idx(didx).map(|i| self.dlines[i].remove_mut(didx.j));
+    }
+
+    pub fn put(&self, player: Player, p: Point) -> Self {
+        let mut result = self.clone();
+        result.put_mut(player, p);
+        result
+    }
+
+    pub fn remove(&self, p: Point) -> Self {
+        let mut result = self.clone();
+        result.remove_mut(p);
+        result
+    }
+
+    pub fn stone(&self, p: Point) -> Option<Player> {
+        let vidx = p.to_index(Direction::Vertical);
+        self.vlines[vidx.i as usize].stone(vidx.j)
+    }
+
+    pub fn stones(&self, player: Player) -> Vec<Point> {
+        self.vlines
+            .iter()
+            .enumerate()
+            .map(|(i, l)| {
+                l.stones(player)
+                    .into_iter()
+                    .map(move |j| Index::new(Direction::Vertical, i as u8, j).to_point())
+            })
+            .flatten()
+            .collect()
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
@@ -88,7 +126,7 @@ impl Square {
                     let mut result: Vec<Point> = vec![];
                     for j in 0..l.size {
                         if (eye_bits >> j) & 0b1 == 0b1 {
-                            result.push(Index(i, j).to_point(d))
+                            result.push(Index::new(d, i, j).to_point())
                         }
                     }
                     result
@@ -112,7 +150,7 @@ impl Square {
                     let mut result: Vec<Point> = vec![];
                     for j in 0..l.size {
                         if (eye_bits >> j) & 0b1 == 0b1 {
-                            result.push(Index(i, j).to_point(d))
+                            result.push(Index::new(d, i, j).to_point())
                         }
                     }
                     result
@@ -131,50 +169,65 @@ impl Square {
             .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
+
         let hiter = self
             .hlines
             .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
+
         let aiter = self
             .alines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
+            .map(|(i, l)| (Direction::Ascending, (i as u8 + DIAGONAL_OMIT), l));
+
         let diter = self
             .dlines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
+            .map(|(i, l)| (Direction::Descending, (i as u8 + DIAGONAL_OMIT), l));
+
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
     fn iter_lines_along(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let vidx = p.to_index(Direction::Vertical);
-        let vline = &self.vlines[vidx.0 as usize];
-        let viter = Some((Direction::Vertical, vidx.0, vline)).into_iter();
+        let viter = Self::line_idx(vidx)
+            .map(|i| (Direction::Vertical, vidx.i, &self.vlines[i]))
+            .into_iter();
 
         let hidx = p.to_index(Direction::Horizontal);
-        let hline = &self.hlines[hidx.0 as usize];
-        let hiter = Some((Direction::Horizontal, hidx.0, hline)).into_iter();
+        let hiter = Self::line_idx(hidx)
+            .map(|i| (Direction::Horizontal, hidx.i, &self.hlines[i]))
+            .into_iter();
 
         let aidx = p.to_index(Direction::Ascending);
-        let aiter = bw(4, aidx.0, D_LINE_NUM + 3)
-            .then(|| {
-                let aline = &self.alines[(aidx.0 - 4) as usize];
-                (Direction::Ascending, aidx.0, aline)
-            })
+        let aiter = Self::line_idx(aidx)
+            .map(|i| (Direction::Ascending, aidx.i, &self.alines[i]))
             .into_iter();
 
         let didx = p.to_index(Direction::Descending);
-        let diter = bw(4, didx.0, D_LINE_NUM + 3)
-            .then(|| {
-                let dline = &self.dlines[(didx.0 - 4) as usize];
-                (Direction::Descending, didx.0, dline)
-            })
+        let diter = Self::line_idx(didx)
+            .map(|i| (Direction::Descending, didx.i, &self.dlines[i]))
             .into_iter();
 
         viter.chain(hiter).chain(aiter).chain(diter)
+    }
+
+    fn line_idx(index: Index) -> Option<usize> {
+        let i = index.i;
+        match index.direction {
+            Direction::Vertical => Some(i as usize),
+            Direction::Horizontal => Some(i as usize),
+            _ => {
+                if DIAGONAL_OMIT <= i && i < DIAGONAL_OMIT + D_LINE_NUM {
+                    Some((i - DIAGONAL_OMIT) as usize)
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 
@@ -198,7 +251,8 @@ impl FromStr for Square {
     }
 }
 
-const D_LINE_NUM: u8 = (BOARD_SIZE - (5 - 1)) * 2 - 1; // 21
+const DIAGONAL_OMIT: u8 = 5 - 1;
+const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
 
 type OrthogonalLines = [Line; BOARD_SIZE as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
@@ -249,10 +303,6 @@ fn diagonal_lines() -> DiagonalLines {
     ]
 }
 
-fn bw(a: u8, x: u8, b: u8) -> bool {
-    a <= x && x <= b
-}
-
 fn lines_to_string(lines: &[&Line]) -> String {
     lines
         .iter()
@@ -268,7 +318,7 @@ fn from_str_points(s: &str) -> Result<Square, &'static str> {
     }
     let blacks = codes[0].parse::<Points>()?;
     let whites = codes[1].parse::<Points>()?;
-    Ok(Square::from_points(blacks, whites))
+    Ok(Square::from_points(&blacks, &whites))
 }
 
 fn from_str_display(s: &str) -> Result<Square, &'static str> {
@@ -281,15 +331,15 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         return Err("Wrong num of lines");
     }
     let mut square = Square::new();
-    for (y, hline) in hlines_rev.iter().rev().enumerate() {
+    for (i, hline) in hlines_rev.iter().rev().enumerate() {
         if hline.size != BOARD_SIZE {
             return Err("Wrong line size");
         }
-        for (x, s) in hline.stones().iter().enumerate() {
-            let point = Point(x as u8, y as u8);
-            if let Some(player) = s {
-                square.put(*player, point)
-            }
+        for j in 0..hline.size {
+            hline.stone(j).map(|player| {
+                let point = Index::new(Direction::Horizontal, i as u8, j as u8).to_point();
+                square.put_mut(player, point)
+            });
         }
     }
     Ok(square)
@@ -303,15 +353,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_put() {
+    fn test_put_remove() {
         let mut square = Square::new();
-        square.put(Black, Point(7, 7));
-        square.put(White, Point(8, 8));
-        square.put(Black, Point(9, 8));
-        square.put(Black, Point(1, 1));
-        square.put(White, Point(1, 13));
-        square.put(Black, Point(13, 1));
-        square.put(White, Point(13, 13));
+        square.put_mut(Black, Point(7, 7));
+        square.put_mut(White, Point(8, 8));
+        square.put_mut(Black, Point(9, 8));
+        square.put_mut(Black, Point(1, 1));
+        square.put_mut(White, Point(1, 13));
+        square.put_mut(Black, Point(13, 1));
+        square.put_mut(White, Point(13, 13));
 
         let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
@@ -412,6 +462,140 @@ mod tests {
             ",
         );
         assert_eq!(result, expected);
+
+        square.remove_mut(Point(7, 7));
+        square.remove_mut(Point(8, 8));
+        square.remove_mut(Point(9, 9));
+
+        let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            ---------------
+            -o-----------o-
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------o-----
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            -x-----------x-
+            ---------------
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            ---------------
+            -o-----------x-
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------o------
+            ---------------
+            ---------------
+            ---------------
+            -o-----------x-
+            ---------------
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            -----
+            ------
+            -------
+            --------
+            ---------
+            ----------
+            -----------
+            ------------
+            -------------
+            --------------
+            -o-----------x-
+            --------o-----
+            -------------
+            ------------
+            -----------
+            ----------
+            ---------
+            --------
+            -------
+            ------
+            -----
+            ",
+        );
+        assert_eq!(result, expected);
+
+        let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
+        let expected = trim_lines_string(
+            "
+            -----
+            ------
+            -------
+            --------
+            ---------
+            ----------
+            -----------
+            ------------
+            -------------
+            --------------
+            -x-----------o-
+            --------------
+            -------------
+            ------o-----
+            -----------
+            ----------
+            ---------
+            --------
+            -------
+            ------
+            -----
+            ",
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_stone_and_stones() -> Result<(), String> {
+        let square = "
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            --------xo-----
+            -------o-------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+            ---------------
+        "
+        .parse::<Square>()?;
+
+        assert_eq!(square.stone(Point(7, 7)), Some(Black));
+        assert_eq!(square.stone(Point(8, 8)), Some(White));
+        assert_eq!(square.stone(Point(9, 9)), None);
+
+        assert_eq!(square.stones(Black), [Point(7, 7), Point(9, 8)]);
+        assert_eq!(square.stones(White), [Point(8, 8)]);
+        Ok(())
     }
 
     #[test]
@@ -471,9 +655,9 @@ mod tests {
     fn test_parse() -> Result<(), String> {
         let result = "H8,J9/I9".parse::<Square>()?;
         let mut expected = Square::new();
-        expected.put(Black, Point(7, 7));
-        expected.put(White, Point(8, 8));
-        expected.put(Black, Point(9, 8));
+        expected.put_mut(Black, Point(7, 7));
+        expected.put_mut(White, Point(8, 8));
+        expected.put_mut(Black, Point(9, 8));
         assert_eq!(result, expected);
 
         let result = "
@@ -495,13 +679,13 @@ mod tests {
         "
         .parse::<Square>()?;
         let mut expected = Square::new();
-        expected.put(Black, Point(7, 7));
-        expected.put(White, Point(8, 8));
-        expected.put(Black, Point(9, 8));
-        expected.put(Black, Point(0, 0));
-        expected.put(White, Point(0, 14));
-        expected.put(Black, Point(14, 0));
-        expected.put(White, Point(14, 14));
+        expected.put_mut(Black, Point(7, 7));
+        expected.put_mut(White, Point(8, 8));
+        expected.put_mut(Black, Point(9, 8));
+        expected.put_mut(Black, Point(0, 0));
+        expected.put_mut(White, Point(0, 14));
+        expected.put_mut(Black, Point(14, 0));
+        expected.put_mut(White, Point(14, 14));
         assert_eq!(result, expected);
 
         Ok(())
@@ -510,13 +694,13 @@ mod tests {
     #[test]
     fn test_to_string() {
         let mut square = Square::new();
-        square.put(Black, Point(7, 7));
-        square.put(White, Point(8, 8));
-        square.put(Black, Point(9, 8));
-        square.put(Black, Point(0, 0));
-        square.put(White, Point(0, 14));
-        square.put(Black, Point(14, 0));
-        square.put(White, Point(14, 14));
+        square.put_mut(Black, Point(7, 7));
+        square.put_mut(White, Point(8, 8));
+        square.put_mut(Black, Point(9, 8));
+        square.put_mut(Black, Point(0, 0));
+        square.put_mut(White, Point(0, 14));
+        square.put_mut(Black, Point(14, 0));
+        square.put_mut(White, Point(14, 14));
         let expected = trim_lines_string(
             "
             x-------------x

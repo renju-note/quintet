@@ -1,5 +1,4 @@
 use super::super::board::*;
-use super::zhash::*;
 use std::collections::HashSet;
 
 pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
@@ -21,97 +20,82 @@ pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
         return None;
     }
 
-    let zhash = 0;
-    let ztable = ZobristTable::new();
     let mut zcache = HashSet::new();
-    solve_all(depth, board, player, None, zhash, &ztable, &mut zcache)
+    solve_all(depth, board, player, None, &mut zcache)
 }
 
 fn solve_all(
     depth: u8,
     board: &Board,
-    player: Player,
-    prev_move: Option<Point>,
-    zhash: u64,
-    ztable: &ZobristTable,
-    zcache: &mut HashSet<u64>,
+    next_player: Player,
+    last_move: Option<Point>,
+    searched: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
 
-    // cache hit
-    if zcache.contains(&zhash) {
+    // check if already searched (and was dead-end)
+    let z_hash = board.zobrist_hash();
+    if searched.contains(&z_hash) {
         return None;
     }
+    searched.insert(z_hash);
 
     // Exists opponent's four
-    let opponent = player.opponent();
-    let opponent_four_eyes = match prev_move {
+    let opponent = next_player.opponent();
+    let opponent_four_eyes = match last_move {
         Some(p) => board.row_eyes_along(opponent, RowKind::Four, p),
         None => board.row_eyes(opponent, RowKind::Four),
     };
     if opponent_four_eyes.len() >= 2 {
-        zcache.insert(zhash);
         return None;
     } else if opponent_four_eyes.len() == 1 {
         let next_move = opponent_four_eyes.into_iter().next().unwrap();
-        let mut board = board.clone();
-        let result = solve_one(depth, &mut board, player, next_move, zhash, ztable, zcache);
-        if result.is_none() {
-            zcache.insert(zhash);
-        }
-        return result;
+        return solve_one(depth, board, next_player, next_move, searched);
     }
 
     // Continue four move
-    let next_move_cands = board.row_eyes(player, RowKind::Sword);
-    for next_move in next_move_cands {
-        let mut board = board.clone();
-        if let Some(ps) = solve_one(depth, &mut board, player, next_move, zhash, ztable, zcache) {
+    let next_move_candidates = board.row_eyes(next_player, RowKind::Sword);
+    for next_move in next_move_candidates {
+        if let Some(ps) = solve_one(depth, board, next_player, next_move, searched) {
             return Some(ps);
         }
     }
 
-    zcache.insert(zhash);
     None
 }
 
 fn solve_one(
     depth: u8,
-    board: &mut Board,
-    player: Player,
+    board: &Board,
+    next_player: Player,
     next_move: Point,
-    zhash: u64,
-    ztable: &ZobristTable,
-    zcache: &mut HashSet<u64>,
+    searched: &mut HashSet<u64>,
 ) -> Option<Vec<Point>> {
-    if player.is_black() && board.forbidden(next_move).is_some() {
+    if next_player.is_black() && board.forbidden(next_move).is_some() {
         return None;
     }
 
-    board.put(player, next_move);
-    let next_zhash = ztable.apply(zhash, player, next_move);
-    let next_four_eyes = board.row_eyes_along(player, RowKind::Four, next_move);
+    let mut next_board = board.put(next_player, next_move);
+    let next_four_eyes = next_board.row_eyes_along(next_player, RowKind::Four, next_move);
     if next_four_eyes.len() >= 2 {
         Some(vec![next_move])
     } else if next_four_eyes.len() == 1 {
-        let opponent = player.opponent();
+        let opponent = next_player.opponent();
         let next2_move = next_four_eyes.into_iter().next().unwrap();
-        if opponent.is_black() && board.forbidden(next2_move).is_some() {
+        if opponent.is_black() && next_board.forbidden(next2_move).is_some() {
             return Some(vec![next_move]);
         }
 
-        board.put(opponent, next2_move);
-        let next2_zhash = ztable.apply(next_zhash, opponent, next2_move);
+        next_board.put_mut(opponent, next2_move);
+        let next2_board = next_board;
         solve_all(
             depth - 1,
-            board,
-            player,
+            &next2_board,
+            next_player,
             Some(next2_move),
-            next2_zhash,
-            ztable,
-            zcache,
+            searched,
         )
         .map(|mut ps| {
             let mut result = vec![next_move, next2_move];
