@@ -31,10 +31,10 @@ impl Row {
     pub fn from_sequence(s: &Sequence, d: Direction, i: u8) -> Row {
         Row {
             direction: d,
-            start: Index(i, s.start).to_point(d),
-            end: Index(i, s.end).to_point(d),
-            eye1: s.eye1.map(|e| Index(i, e).to_point(d)),
-            eye2: s.eye2.map(|e| Index(i, e).to_point(d)),
+            start: Index::new(d, i, s.start).to_point(),
+            end: Index::new(d, i, s.end).to_point(),
+            eye1: s.eye1.map(|e| Index::new(d, i, e).to_point()),
+            eye2: s.eye2.map(|e| Index::new(d, i, e).to_point()),
         }
     }
 

@@ -36,42 +36,30 @@ impl Square {
 
     pub fn put_mut(&mut self, player: Player, p: Point) {
         let vidx = p.to_index(Direction::Vertical);
-        self.vlines[vidx.0 as usize].put_mut(player, vidx.1);
+        Self::line_idx(vidx).map(|i| self.vlines[i].put_mut(player, vidx.j));
 
         let hidx = p.to_index(Direction::Horizontal);
-        self.hlines[hidx.0 as usize].put_mut(player, hidx.1);
+        Self::line_idx(hidx).map(|i| self.hlines[i].put_mut(player, hidx.j));
 
         let aidx = p.to_index(Direction::Ascending);
-        if bw(4, aidx.0, D_LINE_NUM + 3) {
-            let i = (aidx.0 - 4) as usize;
-            self.alines[i].put_mut(player, aidx.1);
-        }
+        Self::line_idx(aidx).map(|i| self.alines[i].put_mut(player, aidx.j));
 
         let didx = p.to_index(Direction::Descending);
-        if bw(4, didx.0, D_LINE_NUM + 3) {
-            let i = (didx.0 - 4) as usize;
-            self.dlines[i].put_mut(player, didx.1);
-        }
+        Self::line_idx(didx).map(|i| self.dlines[i].put_mut(player, didx.j));
     }
 
     pub fn remove_mut(&mut self, p: Point) {
         let vidx = p.to_index(Direction::Vertical);
-        self.vlines[vidx.0 as usize].remove_mut(vidx.1);
+        Self::line_idx(vidx).map(|i| self.vlines[i].remove_mut(vidx.j));
 
         let hidx = p.to_index(Direction::Horizontal);
-        self.hlines[hidx.0 as usize].remove_mut(hidx.1);
+        Self::line_idx(hidx).map(|i| self.hlines[i].remove_mut(hidx.j));
 
         let aidx = p.to_index(Direction::Ascending);
-        if bw(4, aidx.0, D_LINE_NUM + 3) {
-            let i = (aidx.0 - 4) as usize;
-            self.alines[i].remove_mut(aidx.1);
-        }
+        Self::line_idx(aidx).map(|i| self.alines[i].remove_mut(aidx.j));
 
         let didx = p.to_index(Direction::Descending);
-        if bw(4, didx.0, D_LINE_NUM + 3) {
-            let i = (didx.0 - 4) as usize;
-            self.dlines[i].remove_mut(didx.1);
-        }
+        Self::line_idx(didx).map(|i| self.dlines[i].remove_mut(didx.j));
     }
 
     pub fn put(&self, player: Player, p: Point) -> Self {
@@ -88,14 +76,18 @@ impl Square {
 
     pub fn stone(&self, p: Point) -> Option<Player> {
         let vidx = p.to_index(Direction::Vertical);
-        self.vlines[vidx.0 as usize].stone(vidx.1)
+        self.vlines[vidx.i as usize].stone(vidx.j)
     }
 
     pub fn stones(&self, player: Player) -> Vec<Point> {
         self.vlines
             .iter()
             .enumerate()
-            .map(|(i, l)| l.stones(player).into_iter().map(move |j| Point(i as u8, j)))
+            .map(|(i, l)| {
+                l.stones(player)
+                    .into_iter()
+                    .map(move |j| Index::new(Direction::Vertical, i as u8, j).to_point())
+            })
             .flatten()
             .collect()
     }
@@ -134,7 +126,7 @@ impl Square {
                     let mut result: Vec<Point> = vec![];
                     for j in 0..l.size {
                         if (eye_bits >> j) & 0b1 == 0b1 {
-                            result.push(Index(i, j).to_point(d))
+                            result.push(Index::new(d, i, j).to_point())
                         }
                     }
                     result
@@ -158,7 +150,7 @@ impl Square {
                     let mut result: Vec<Point> = vec![];
                     for j in 0..l.size {
                         if (eye_bits >> j) & 0b1 == 0b1 {
-                            result.push(Index(i, j).to_point(d))
+                            result.push(Index::new(d, i, j).to_point())
                         }
                     }
                     result
@@ -177,50 +169,65 @@ impl Square {
             .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Vertical, i as u8, l));
+
         let hiter = self
             .hlines
             .iter()
             .enumerate()
             .map(|(i, l)| (Direction::Horizontal, i as u8, l));
+
         let aiter = self
             .alines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Ascending, (i + 4) as u8, l));
+            .map(|(i, l)| (Direction::Ascending, (i as u8 + DIAGONAL_OMIT), l));
+
         let diter = self
             .dlines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Direction::Descending, (i + 4) as u8, l));
+            .map(|(i, l)| (Direction::Descending, (i as u8 + DIAGONAL_OMIT), l));
+
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
     fn iter_lines_along(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let vidx = p.to_index(Direction::Vertical);
-        let vline = &self.vlines[vidx.0 as usize];
-        let viter = Some((Direction::Vertical, vidx.0, vline)).into_iter();
+        let viter = Self::line_idx(vidx)
+            .map(|i| (Direction::Vertical, vidx.i, &self.vlines[i]))
+            .into_iter();
 
         let hidx = p.to_index(Direction::Horizontal);
-        let hline = &self.hlines[hidx.0 as usize];
-        let hiter = Some((Direction::Horizontal, hidx.0, hline)).into_iter();
+        let hiter = Self::line_idx(hidx)
+            .map(|i| (Direction::Horizontal, hidx.i, &self.hlines[i]))
+            .into_iter();
 
         let aidx = p.to_index(Direction::Ascending);
-        let aiter = bw(4, aidx.0, D_LINE_NUM + 3)
-            .then(|| {
-                let aline = &self.alines[(aidx.0 - 4) as usize];
-                (Direction::Ascending, aidx.0, aline)
-            })
+        let aiter = Self::line_idx(aidx)
+            .map(|i| (Direction::Ascending, aidx.i, &self.alines[i]))
             .into_iter();
 
         let didx = p.to_index(Direction::Descending);
-        let diter = bw(4, didx.0, D_LINE_NUM + 3)
-            .then(|| {
-                let dline = &self.dlines[(didx.0 - 4) as usize];
-                (Direction::Descending, didx.0, dline)
-            })
+        let diter = Self::line_idx(didx)
+            .map(|i| (Direction::Descending, didx.i, &self.dlines[i]))
             .into_iter();
 
         viter.chain(hiter).chain(aiter).chain(diter)
+    }
+
+    fn line_idx(index: Index) -> Option<usize> {
+        let i = index.i;
+        match index.direction {
+            Direction::Vertical => Some(i as usize),
+            Direction::Horizontal => Some(i as usize),
+            _ => {
+                if DIAGONAL_OMIT <= i && i < DIAGONAL_OMIT + D_LINE_NUM {
+                    Some((i - DIAGONAL_OMIT) as usize)
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 
@@ -244,7 +251,8 @@ impl FromStr for Square {
     }
 }
 
-const D_LINE_NUM: u8 = (BOARD_SIZE - (5 - 1)) * 2 - 1; // 21
+const DIAGONAL_OMIT: u8 = 5 - 1;
+const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
 
 type OrthogonalLines = [Line; BOARD_SIZE as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
@@ -295,10 +303,6 @@ fn diagonal_lines() -> DiagonalLines {
     ]
 }
 
-fn bw(a: u8, x: u8, b: u8) -> bool {
-    a <= x && x <= b
-}
-
 fn lines_to_string(lines: &[&Line]) -> String {
     lines
         .iter()
@@ -327,15 +331,15 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         return Err("Wrong num of lines");
     }
     let mut square = Square::new();
-    for (y, hline) in hlines_rev.iter().rev().enumerate() {
+    for (i, hline) in hlines_rev.iter().rev().enumerate() {
         if hline.size != BOARD_SIZE {
             return Err("Wrong line size");
         }
-        for x in 0..hline.size {
-            match hline.stone(x) {
-                Some(player) => square.put_mut(player, Point(x, y as u8)),
-                _ => (),
-            }
+        for j in 0..hline.size {
+            hline.stone(j).map(|player| {
+                let point = Index::new(Direction::Horizontal, i as u8, j as u8).to_point();
+                square.put_mut(player, point)
+            });
         }
     }
     Ok(square)

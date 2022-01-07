@@ -15,7 +15,11 @@ pub enum Direction {
 pub struct Point(pub u8, pub u8);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Index(pub u8, pub u8);
+pub struct Index {
+    pub direction: Direction,
+    pub i: u8,
+    pub j: u8,
+}
 
 #[derive(Debug)]
 pub struct Points(pub Vec<Point>);
@@ -25,27 +29,35 @@ impl Point {
         let (x, y) = (self.0, self.1);
         let n = BOARD_SIZE - 1;
         match direction {
-            Direction::Vertical => Index(x, y),
-            Direction::Horizontal => Index(y, x),
+            Direction::Vertical => Index::new(Direction::Vertical, x, y),
+            Direction::Horizontal => Index::new(Direction::Horizontal, y, x),
             Direction::Ascending => {
                 let i = x + n - y;
                 let j = if i < n { x } else { y };
-                Index(i, j)
+                Index::new(Direction::Ascending, i, j)
             }
             Direction::Descending => {
                 let i = x + y;
                 let j = if i < n { x } else { n - y };
-                Index(i, j)
+                Index::new(Direction::Descending, i, j)
             }
         }
     }
 }
 
 impl Index {
-    pub fn to_point(&self, direction: Direction) -> Point {
-        let (i, j) = (self.0, self.1);
+    pub fn new(direction: Direction, i: u8, j: u8) -> Self {
+        Self {
+            direction: direction,
+            i: i,
+            j: j,
+        }
+    }
+
+    pub fn to_point(&self) -> Point {
         let n = BOARD_SIZE - 1;
-        match direction {
+        let (i, j) = (self.i, self.j);
+        match self.direction {
             Direction::Vertical => Point(i, j),
             Direction::Horizontal => Point(j, i),
             Direction::Ascending => {
@@ -182,42 +194,42 @@ mod tests {
             assert_eq!(p.to_index(Horizontal), ih);
             assert_eq!(p.to_index(Ascending), ia);
             assert_eq!(p.to_index(Descending), id);
-            assert_eq!(iv.to_point(Vertical), p);
-            assert_eq!(ih.to_point(Horizontal), p);
-            assert_eq!(ia.to_point(Ascending), p);
-            assert_eq!(id.to_point(Descending), p);
+            assert_eq!(iv.to_point(), p);
+            assert_eq!(ih.to_point(), p);
+            assert_eq!(ia.to_point(), p);
+            assert_eq!(id.to_point(), p);
         }
 
         // lower-left quadrant
         let p = Point(3, 6);
-        let iv = Index(3, 6);
-        let ih = Index(6, 3);
-        let ia = Index(11, 3);
-        let id = Index(9, 3);
+        let iv = Index::new(Vertical, 3, 6);
+        let ih = Index::new(Horizontal, 6, 3);
+        let ia = Index::new(Ascending, 11, 3);
+        let id = Index::new(Descending, 9, 3);
         assert_eq_point_index(p, iv, ih, ia, id);
 
         // lower-right quadrant
         let p = Point(9, 6);
-        let iv = Index(9, 6);
-        let ih = Index(6, 9);
-        let ia = Index(17, 6);
-        let id = Index(15, 8);
+        let iv = Index::new(Vertical, 9, 6);
+        let ih = Index::new(Horizontal, 6, 9);
+        let ia = Index::new(Ascending, 17, 6);
+        let id = Index::new(Descending, 15, 8);
         assert_eq_point_index(p, iv, ih, ia, id);
 
         // upper-left quadrant
         let p = Point(3, 12);
-        let iv = Index(3, 12);
-        let ih = Index(12, 3);
-        let ia = Index(5, 3);
-        let id = Index(15, 2);
+        let iv = Index::new(Vertical, 3, 12);
+        let ih = Index::new(Horizontal, 12, 3);
+        let ia = Index::new(Ascending, 5, 3);
+        let id = Index::new(Descending, 15, 2);
         assert_eq_point_index(p, iv, ih, ia, id);
 
         // upper-right quadrant
         let p = Point(9, 12);
-        let iv = Index(9, 12);
-        let ih = Index(12, 9);
-        let ia = Index(11, 9);
-        let id = Index(21, 2);
+        let iv = Index::new(Vertical, 9, 12);
+        let ih = Index::new(Horizontal, 12, 9);
+        let ia = Index::new(Ascending, 11, 9);
+        let id = Index::new(Descending, 21, 2);
         assert_eq_point_index(p, iv, ih, ia, id);
     }
 
