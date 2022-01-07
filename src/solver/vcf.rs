@@ -1,4 +1,5 @@
 use super::super::board::*;
+use super::state::*;
 use std::collections::HashSet;
 
 pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
@@ -20,91 +21,62 @@ pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
         return None;
     }
 
+    let state = GameState::from_board(board, player);
     let mut zcache = HashSet::new();
-    solve_all(depth, board, player, None, &mut zcache)
+    solve_all(depth, &state, &mut zcache)
 }
 
-fn solve_all(
-    depth: u8,
-    board: &Board,
-    next_player: Player,
-    last_move: Option<Point>,
-    searched: &mut HashSet<u64>,
-) -> Option<Vec<Point>> {
+fn solve_all(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
 
     // check if already searched (and was dead-end)
-    let z_hash = board.zobrist_hash();
+    let z_hash = state.board_hash();
     if searched.contains(&z_hash) {
         return None;
     }
     searched.insert(z_hash);
 
-    // Exists opponent's four
-    let opponent = next_player.opponent();
-    let opponent_four_eyes = match last_move {
-        Some(p) => board.row_eyes_along(opponent, RowKind::Four, p),
-        None => board.row_eyes(opponent, RowKind::Four),
-    };
+    // check opponent's four
+    let opponent_four_eyes = state.latest_row_eyes(RowKind::Four);
     if opponent_four_eyes.len() >= 2 {
         return None;
-    } else if opponent_four_eyes.len() == 1 {
-        let next_move = opponent_four_eyes.into_iter().next().unwrap();
-        return solve_one(depth, board, next_player, next_move, searched);
     }
+    let opponent_four_eye = opponent_four_eyes.into_iter().next();
 
-    // Continue four move
-    let next_move_candidates = board.row_eyes(next_player, RowKind::Sword);
-    for next_move in next_move_candidates {
-        if let Some(ps) = solve_one(depth, board, next_player, next_move, searched) {
-            return Some(ps);
+    // continue four move
+    let sword_eyes = state.board.row_eyes(state.next_player(), RowKind::Sword);
+    for next_move in sword_eyes {
+        if opponent_four_eye.map_or(false, |e| e != next_move) {
+            continue;
+        }
+
+        if !state.is_legal_move(next_move) {
+            continue;
+        }
+
+        let next_state = state.play(next_move);
+
+        let next_four_eyes = next_state.latest_row_eyes(RowKind::Four);
+        if next_four_eyes.len() >= 2 {
+            return Some(vec![next_move]);
+        }
+
+        let next2_move = next_four_eyes.into_iter().next().unwrap();
+        if !next_state.is_legal_move(next2_move) {
+            return Some(vec![next_move]);
+        }
+
+        let next2_state = next_state.play(next2_move);
+        if let Some(mut ps) = solve_all(depth - 1, &next2_state, searched) {
+            let mut result = vec![next_move, next2_move];
+            result.append(&mut ps);
+            return Some(result);
         }
     }
 
     None
-}
-
-fn solve_one(
-    depth: u8,
-    board: &Board,
-    next_player: Player,
-    next_move: Point,
-    searched: &mut HashSet<u64>,
-) -> Option<Vec<Point>> {
-    if next_player.is_black() && board.forbidden(next_move).is_some() {
-        return None;
-    }
-
-    let mut next_board = board.put(next_player, next_move);
-    let next_four_eyes = next_board.row_eyes_along(next_player, RowKind::Four, next_move);
-    if next_four_eyes.len() >= 2 {
-        Some(vec![next_move])
-    } else if next_four_eyes.len() == 1 {
-        let opponent = next_player.opponent();
-        let next2_move = next_four_eyes.into_iter().next().unwrap();
-        if opponent.is_black() && next_board.forbidden(next2_move).is_some() {
-            return Some(vec![next_move]);
-        }
-
-        next_board.put_mut(opponent, next2_move);
-        let next2_board = next_board;
-        solve_all(
-            depth - 1,
-            &next2_board,
-            next_player,
-            Some(next2_move),
-            searched,
-        )
-        .map(|mut ps| {
-            let mut result = vec![next_move, next2_move];
-            result.append(&mut ps);
-            result
-        })
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]
