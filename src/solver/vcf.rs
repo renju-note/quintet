@@ -22,8 +22,8 @@ pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
     }
 
     let state = GameState::from_board(board, player);
-    let mut zcache = HashSet::new();
-    solve_all(depth, &state, &mut zcache)
+    let mut searched = HashSet::new();
+    solve_all(depth, &state, &mut searched)
 }
 
 fn solve_all(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
@@ -32,21 +32,26 @@ fn solve_all(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Optio
     }
 
     // check if already searched (and was dead-end)
-    let z_hash = state.board_hash();
-    if searched.contains(&z_hash) {
+    let board_hash = state.board_hash();
+    if searched.contains(&board_hash) {
         return None;
     }
-    searched.insert(z_hash);
+    searched.insert(board_hash);
 
     // check opponent's four
-    let opponent_four_eyes = state.latest_row_eyes(RowKind::Four);
+    let opponent = state.last_player();
+    let opponent_four_eyes = match state.last_move() {
+        Some(p) => state.board.row_eyes_along(opponent, RowKind::Four, p),
+        None => state.board.row_eyes(opponent, RowKind::Four),
+    };
     if opponent_four_eyes.len() >= 2 {
         return None;
     }
     let opponent_four_eye = opponent_four_eyes.into_iter().next();
 
     // continue four move
-    let sword_eyes = state.board.row_eyes(state.next_player(), RowKind::Sword);
+    let player = state.next_player();
+    let sword_eyes = state.board.row_eyes(player, RowKind::Sword);
     for next_move in sword_eyes {
         if opponent_four_eye.map_or(false, |e| e != next_move) {
             continue;
@@ -58,12 +63,14 @@ fn solve_all(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Optio
 
         let next_state = state.play(next_move);
 
-        let next_four_eyes = next_state.latest_row_eyes(RowKind::Four);
+        let next_four_eyes = next_state
+            .board
+            .row_eyes_along(player, RowKind::Four, next_move);
         if next_four_eyes.len() >= 2 {
             return Some(vec![next_move]);
         }
 
-        let next2_move = next_four_eyes.into_iter().next().unwrap();
+        let next2_move = next_four_eyes[0]; // exists
         if !next_state.is_legal_move(next2_move) {
             return Some(vec![next_move]);
         }

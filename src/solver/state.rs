@@ -31,16 +31,13 @@ impl GameState {
         self.next_player.opponent()
     }
 
+    pub fn last_move(&self) -> Option<Point> {
+        self.last_move
+    }
+
     pub fn is_legal_move(&self, p: Point) -> bool {
         self.board.stone(p).is_none()
             && !(self.next_player.is_black() && self.board.forbidden(p).is_some())
-    }
-
-    pub fn latest_row_eyes(&self, kind: RowKind) -> Vec<Point> {
-        match self.last_move {
-            Some(p) => self.board.row_eyes_along(self.last_player(), kind, p),
-            None => self.board.row_eyes(self.last_player(), kind),
-        }
     }
 
     pub fn board_hash(&self) -> u64 {
