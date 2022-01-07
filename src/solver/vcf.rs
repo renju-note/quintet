@@ -2,7 +2,7 @@ use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
+pub fn solve_vcf(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
     // Already exists five
     if board.rows(player, RowKind::Five).len() >= 1 {
         return None;
@@ -23,10 +23,10 @@ pub fn solve(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
 
     let state = GameState::from_board(board, player);
     let mut searched = HashSet::new();
-    solve_all(depth, &state, &mut searched)
+    solve(depth, &state, &mut searched)
 }
 
-fn solve_all(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
@@ -76,7 +76,7 @@ fn solve_all(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Optio
         }
 
         let next2_state = next_state.play(next2_move);
-        if let Some(mut ps) = solve_all(depth - 1, &next2_state, searched) {
+        if let Some(mut ps) = solve(depth - 1, &next2_state, searched) {
             let mut result = vec![next_move, next2_move];
             result.append(&mut ps);
             return Some(result);
@@ -112,7 +112,7 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve(12, &board, Black);
+        let result = solve_vcf(12, &board, Black);
         let solution = "
             G6,H7,J12,K13,G9,F8,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
             F14,F13,C11
@@ -121,7 +121,7 @@ mod tests {
         .into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve(11, &board, Black);
+        let result = solve_vcf(11, &board, Black);
         assert_eq!(result, None);
 
         Ok(())
@@ -148,13 +148,13 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve(5, &board, White);
+        let result = solve_vcf(5, &board, White);
         let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14"
             .parse::<Points>()?
             .into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve(4, &board, White);
+        let result = solve_vcf(4, &board, White);
         assert_eq!(result, None);
 
         Ok(())
@@ -182,7 +182,7 @@ mod tests {
             x--o-o----oo-ox
         "
         .parse::<Board>()?;
-        let result = solve(u8::MAX, &board, Black);
+        let result = solve_vcf(u8::MAX, &board, Black);
         let solution = "
             A7,A6,E2,C4,F3,G4,J1,M1,H1,I1,H3,H2,E3,G3,C3,B3,E5,E4,E1,G1,
             C1,B1,D2,B4,D4,D5,G5,F4,I5,F5,J2,I3,F6,B2,B6,C5,D6,C6,C7,B8,
