@@ -1,5 +1,6 @@
 use super::super::board::*;
 
+#[derive(Clone)]
 pub struct GameState {
     pub board: Board,
     next_player: Player,

@@ -1,29 +1,36 @@
+use super::super::board::Player::*;
+use super::super::board::RowKind::*;
 use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve_vcf(depth: u8, board: &Board, player: Player) -> Option<Vec<Point>> {
+pub fn solve_vcf(depth: u8, board: &Board, player: Player, do_trim: bool) -> Option<Vec<Point>> {
     // Already exists five
-    if board.rows(player, RowKind::Five).len() >= 1 {
+    if board.rows(player, Five).len() >= 1 {
         return None;
     }
-    if board.rows(player.opponent(), RowKind::Five).len() >= 1 {
+    if board.rows(player.opponent(), Five).len() >= 1 {
         return None;
     }
 
     // Already exists four
-    if board.rows(player, RowKind::Four).len() >= 1 {
+    if board.rows(player, Four).len() >= 1 {
         return Some(vec![]);
     }
 
     // Already exists overline
-    if board.rows(Player::Black, RowKind::Overline).len() >= 1 {
+    if board.rows(Black, Overline).len() >= 1 {
         return None;
     }
 
     let state = GameState::from_board(board, player);
     let mut searched = HashSet::new();
-    solve(depth, &state, &mut searched)
+    let solution = solve(depth, &state, &mut searched);
+    if do_trim {
+        solution.map(|solution| trim(&state, &solution))
+    } else {
+        solution
+    }
 }
 
 fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
@@ -38,22 +45,22 @@ fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Ve
     }
     searched.insert(board_hash);
 
-    // check opponent's four
-    let opponent = state.last_player();
-    let opponent_four_eyes = match state.last_move() {
-        Some(p) => state.board.row_eyes_along(opponent, RowKind::Four, p),
-        None => state.board.row_eyes(opponent, RowKind::Four),
+    // check last fours
+    let last_player = state.last_player();
+    let last_four_eyes = match state.last_move() {
+        Some(p) => state.board.row_eyes_along(last_player, Four, p),
+        None => state.board.row_eyes(last_player, Four),
     };
-    if opponent_four_eyes.len() >= 2 {
+    if last_four_eyes.len() >= 2 {
         return None;
     }
-    let opponent_four_eye = opponent_four_eyes.into_iter().next();
+    let last_four_eye = last_four_eyes.into_iter().next();
 
     // continue four move
     let player = state.next_player();
-    let sword_eyes = state.board.row_eyes(player, RowKind::Sword);
+    let sword_eyes = state.board.row_eyes(player, Sword);
     for next_move in sword_eyes {
-        if opponent_four_eye.map_or(false, |e| e != next_move) {
+        if last_four_eye.map_or(false, |e| e != next_move) {
             continue;
         }
 
@@ -63,9 +70,7 @@ fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Ve
 
         let next_state = state.play(next_move);
 
-        let next_four_eyes = next_state
-            .board
-            .row_eyes_along(player, RowKind::Four, next_move);
+        let next_four_eyes = next_state.board.row_eyes_along(player, Four, next_move);
         if next_four_eyes.len() >= 2 {
             return Some(vec![next_move]);
         }
@@ -86,9 +91,58 @@ fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Ve
     None
 }
 
+fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
+    let mut result = solution.clone();
+    for i in 0..(solution.len() / 2) {
+        // remove a pair of moves
+        let mut trimmed = result.clone();
+        trimmed.remove(2 * i);
+        trimmed.remove(2 * i);
+        if is_solution(state, &trimmed) {
+            result = trim(state, &trimmed);
+            break;
+        }
+    }
+    result
+}
+
+fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
+    let mut state = state.clone();
+    for (i, p) in solution.iter().enumerate() {
+        if !state.is_legal_move(*p) {
+            return false;
+        }
+
+        let last_four_eyes = state.board.row_eyes(state.last_player(), Four);
+        if last_four_eyes.len() >= 2 {
+            return false;
+        }
+        let last_four_eye = last_four_eyes.into_iter().next();
+
+        if i % 2 == 0 {
+            // ataccker to play
+            if last_four_eye.map_or(false, |e| e != *p) {
+                return false;
+            }
+
+            let sword_eyes = state.board.row_eyes(state.next_player(), Sword);
+            if sword_eyes.into_iter().find(|e| *p == *e).is_none() {
+                return false;
+            }
+        } else {
+            // defender to play
+            if last_four_eye.map_or(true, |e| e != *p) {
+                return false;
+            }
+        }
+
+        state = state.play(*p);
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Player::*;
     use super::*;
 
     #[test]
@@ -112,7 +166,7 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vcf(12, &board, Black);
+        let result = solve_vcf(12, &board, Black, false);
         let solution = "
             G6,H7,J12,K13,G9,F8,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
             F14,F13,C11
@@ -121,7 +175,7 @@ mod tests {
         .into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vcf(11, &board, Black);
+        let result = solve_vcf(11, &board, Black, false);
         assert_eq!(result, None);
 
         Ok(())
@@ -148,15 +202,49 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vcf(5, &board, White);
+        let result = solve_vcf(5, &board, White, false);
         let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14"
             .parse::<Points>()?
             .into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vcf(4, &board, White);
+        let result = solve_vcf(4, &board, White, false);
         assert_eq!(result, None);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_do_trim() -> Result<(), String> {
+        let board = "
+            ---------------
+            ---------------
+            -----o---------
+            --xox----------
+            -o---xo--o-----
+            --x-o---x------
+            ---x-ox--------
+            ----xoxoooox---
+            ----oxxxoxxxox-
+            ---x-oox-ooox--
+            ---o--x-xoxo---
+            ----xoxooox----
+            -----x-o-x-----
+            ----o-x-o------
+            ---------------
+        "
+        .parse::<Board>()?;
+        let result = solve_vcf(10, &board, White, false);
+        let solution = "E6,H9,G1,G3,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13"
+            .parse::<Points>()?
+            .into_vec();
+        assert_eq!(result, Some(solution));
+
+        let result = solve_vcf(10, &board, White, true);
+        let solution = "E6,H9,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13"
+            .parse::<Points>()?
+            .into_vec();
+        assert_eq!(result, Some(solution));
         Ok(())
     }
 
@@ -182,7 +270,7 @@ mod tests {
             x--o-o----oo-ox
         "
         .parse::<Board>()?;
-        let result = solve_vcf(u8::MAX, &board, Black);
+        let result = solve_vcf(u8::MAX, &board, Black, false);
         let solution = "
             A7,A6,E2,C4,F3,G4,J1,M1,H1,I1,H3,H2,E3,G3,C3,B3,E5,E4,E1,G1,
             C1,B1,D2,B4,D4,D5,G5,F4,I5,F5,J2,I3,F6,B2,B6,C5,D6,C6,C7,B8,
