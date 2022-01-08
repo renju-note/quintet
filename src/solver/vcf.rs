@@ -5,11 +5,13 @@ use super::state::*;
 use std::collections::HashSet;
 
 pub fn solve_vcf(depth: u8, board: &Board, player: Player, do_trim: bool) -> Option<Vec<Point>> {
+    let opponent = player.opponent();
+
     // Already exists five
     if board.rows(player, Five).len() >= 1 {
         return None;
     }
-    if board.rows(player.opponent(), Five).len() >= 1 {
+    if board.rows(opponent, Five).len() >= 1 {
         return None;
     }
 
@@ -23,7 +25,18 @@ pub fn solve_vcf(depth: u8, board: &Board, player: Player, do_trim: bool) -> Opt
         return None;
     }
 
-    let state = GameState::from_board(board, player);
+    // Get last_move
+    let opponent_stones = board.stones(opponent);
+    let last_move = if let Some(four) = board.rows(opponent, Four).iter().next() {
+        opponent_stones
+            .into_iter()
+            .find(|&s| s == four.start || s == four.end)
+    } else {
+        opponent_stones.into_iter().next()
+    }
+    .unwrap_or(Point(0, 0));
+
+    let state = GameState::from_board(board, player, last_move);
     let mut searched = HashSet::new();
     let solution = solve(depth, &state, &mut searched);
     if do_trim {
@@ -46,19 +59,15 @@ fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Ve
     searched.insert(board_hash);
 
     // check last fours
-    let last_player = state.last_player();
-    let last_four_eyes = match state.last_move() {
-        Some(p) => state.board.row_eyes_along(last_player, Four, p),
-        None => state.board.row_eyes(last_player, Four),
-    };
+    let last_four_eyes = state.row_eyes_along_last_move(Four);
     if last_four_eyes.len() >= 2 {
         return None;
     }
     let last_four_eye = last_four_eyes.into_iter().next();
 
     // continue four move
-    let player = state.next_player();
-    let sword_eyes = state.board.row_eyes(player, Sword);
+    let next_player = state.next_player();
+    let sword_eyes = state.row_eyes(next_player, Sword);
     for next_move in sword_eyes {
         if last_four_eye.map_or(false, |e| e != next_move) {
             continue;
@@ -70,7 +79,7 @@ fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Ve
 
         let next_state = state.play(next_move);
 
-        let next_four_eyes = next_state.board.row_eyes_along(player, Four, next_move);
+        let next_four_eyes = next_state.row_eyes_along_last_move(Four);
         if next_four_eyes.len() >= 2 {
             return Some(vec![next_move]);
         }
@@ -113,7 +122,7 @@ fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
             return false;
         }
 
-        let last_four_eyes = state.board.row_eyes(state.last_player(), Four);
+        let last_four_eyes = state.row_eyes(state.last_player(), Four);
         if last_four_eyes.len() >= 2 {
             return false;
         }
@@ -125,7 +134,7 @@ fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
                 return false;
             }
 
-            let sword_eyes = state.board.row_eyes(state.next_player(), Sword);
+            let sword_eyes = state.row_eyes(state.next_player(), Sword);
             if sword_eyes.into_iter().find(|e| *p == *e).is_none() {
                 return false;
             }
