@@ -25,20 +25,12 @@ pub fn solve_vcf(depth: u8, board: &Board, player: Player, do_trim: bool) -> Opt
         return None;
     }
 
-    // Get last_move
-    let opponent_stones = board.stones(opponent);
-    let last_move = if let Some(four) = board.rows(opponent, Four).iter().next() {
-        opponent_stones
-            .into_iter()
-            .find(|&s| s == four.start || s == four.end)
-    } else {
-        opponent_stones.into_iter().next()
-    }
-    .unwrap_or(Point(0, 0));
-
-    let state = GameState::from_board(board, player, last_move);
+    let last_move = choose_last_move(board, player);
+    let game_state = GameState::from_board(board, player, last_move);
+    let state = VCFState::new(&game_state);
     let mut searched = HashSet::new();
     let solution = solve(depth, &state, &mut searched);
+
     if do_trim {
         solution.map(|solution| trim(&state, &solution))
     } else {
@@ -46,49 +38,107 @@ pub fn solve_vcf(depth: u8, board: &Board, player: Player, do_trim: bool) -> Opt
     }
 }
 
-fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+#[derive(Clone)]
+struct VCFState {
+    game_state: GameState,
+    attacker: Player,
+}
+
+impl VCFState {
+    pub fn new(game_state: &GameState) -> Self {
+        Self {
+            game_state: game_state.clone(),
+            attacker: game_state.next_player(),
+        }
+    }
+
+    pub fn play(&self, p: Point) -> Self {
+        Self {
+            game_state: self.game_state.play(p),
+            attacker: self.attacker,
+        }
+    }
+
+    pub fn attacker_turn(&self) -> bool {
+        self.game_state.next_player() == self.attacker
+    }
+
+    pub fn defender_turn(&self) -> bool {
+        self.game_state.next_player() == self.attacker.opponent()
+    }
+
+    pub fn is_attacking(&self, p: Point) -> bool {
+        self.attacking_moves()
+            .into_iter()
+            .find(|&m| m == p)
+            .is_some()
+    }
+
+    pub fn is_defending(&self, p: Point) -> bool {
+        self.defending_moves()
+            .into_iter()
+            .find(|&m| m == p)
+            .is_some()
+    }
+
+    pub fn attacking_moves(&self) -> Vec<Point> {
+        if !self.attacker_turn() {
+            panic!();
+        }
+        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
+        if last_four_eyes.len() >= 2 {
+            return vec![];
+        }
+        let last_four_eye = last_four_eyes.into_iter().next();
+        self.game_state
+            .row_eyes(self.attacker, Sword)
+            .into_iter()
+            .filter(|&p| last_four_eye.map_or(true, |e| e == p) && self.game_state.is_legal_move(p))
+            .collect()
+    }
+
+    pub fn defending_moves(&self) -> Vec<Point> {
+        if !self.defender_turn() {
+            panic!();
+        }
+        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
+        if last_four_eyes.len() == 0 {
+            panic!();
+        }
+        if last_four_eyes.len() >= 2 {
+            return vec![];
+        }
+        last_four_eyes
+            .into_iter()
+            .filter(|&p| self.game_state.is_legal_move(p))
+            .collect()
+    }
+
+    pub fn state_hash(&self) -> u64 {
+        self.game_state.board_hash()
+    }
+}
+
+fn solve(depth: u8, state: &VCFState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
 
     // check if already searched (and was dead-end)
-    let board_hash = state.board_hash();
-    if searched.contains(&board_hash) {
+    let hash = state.state_hash();
+    if searched.contains(&hash) {
         return None;
     }
-    searched.insert(board_hash);
+    searched.insert(hash);
 
-    // check last fours
-    let last_four_eyes = state.row_eyes_along_last_move(Four);
-    if last_four_eyes.len() >= 2 {
-        return None;
-    }
-    let last_four_eye = last_four_eyes.into_iter().next();
-
-    // continue four move
-    let next_player = state.next_player();
-    let sword_eyes = state.row_eyes(next_player, Sword);
-    for next_move in sword_eyes {
-        if last_four_eye.map_or(false, |e| e != next_move) {
-            continue;
-        }
-
-        if !state.is_legal_move(next_move) {
-            continue;
-        }
-
+    for next_move in state.attacking_moves() {
         let next_state = state.play(next_move);
-
-        let next_four_eyes = next_state.row_eyes_along_last_move(Four);
-        if next_four_eyes.len() >= 2 {
+        let defending_moves = next_state.defending_moves();
+        if defending_moves.is_empty() {
             return Some(vec![next_move]);
         }
 
-        let next2_move = next_four_eyes[0]; // exists
-        if !next_state.is_legal_move(next2_move) {
-            return Some(vec![next_move]);
-        }
-
+        let next2_move = defending_moves[0];
         let next2_state = next_state.play(next2_move);
         if let Some(mut ps) = solve(depth - 1, &next2_state, searched) {
             let mut result = vec![next_move, next2_move];
@@ -96,11 +146,10 @@ fn solve(depth: u8, state: &GameState, searched: &mut HashSet<u64>) -> Option<Ve
             return Some(result);
         }
     }
-
     None
 }
 
-fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
+fn trim(state: &VCFState, solution: &Vec<Point>) -> Vec<Point> {
     let mut result = solution.clone();
     for i in 0..(solution.len() / 2) {
         // remove a pair of moves
@@ -115,39 +164,34 @@ fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
     result
 }
 
-fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
+fn is_solution(state: &VCFState, solution: &Vec<Point>) -> bool {
     let mut state = state.clone();
-    for (i, p) in solution.iter().enumerate() {
-        if !state.is_legal_move(*p) {
-            return false;
-        }
-
-        let last_four_eyes = state.row_eyes(state.last_player(), Four);
-        if last_four_eyes.len() >= 2 {
-            return false;
-        }
-        let last_four_eye = last_four_eyes.into_iter().next();
-
+    for (i, &p) in solution.iter().enumerate() {
         if i % 2 == 0 {
-            // ataccker to play
-            if last_four_eye.map_or(false, |e| e != *p) {
-                return false;
-            }
-
-            let sword_eyes = state.row_eyes(state.next_player(), Sword);
-            if sword_eyes.into_iter().find(|e| *p == *e).is_none() {
+            if !state.is_attacking(p) {
                 return false;
             }
         } else {
-            // defender to play
-            if last_four_eye.map_or(true, |e| e != *p) {
+            if !state.is_defending(p) {
                 return false;
             }
         }
-
-        state = state.play(*p);
+        state = state.play(p);
     }
     true
+}
+
+fn choose_last_move(board: &Board, player: Player) -> Point {
+    let opponent = player.opponent();
+    let stones = board.stones(opponent);
+    if let Some(four) = board.rows(opponent, Four).iter().next() {
+        stones
+            .into_iter()
+            .find(|&s| s == four.start || s == four.end)
+    } else {
+        stones.into_iter().next()
+    }
+    .unwrap_or(Point(0, 0))
 }
 
 #[cfg(test)]
