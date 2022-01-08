@@ -116,48 +116,36 @@ impl Square {
     }
 
     pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
-        let mut result: Vec<_> = self
-            .iter_lines()
-            .map(|(d, i, l)| {
-                let eye_bits = l.sequence_eyes(player, kind);
-                if eye_bits == 0b0 {
-                    vec![]
-                } else {
-                    let mut result: Vec<Point> = vec![];
-                    for j in 0..l.size {
-                        if (eye_bits >> j) & 0b1 == 0b1 {
-                            result.push(Index::new(d, i, j).to_point())
-                        }
-                    }
-                    result
+        let mut result: Vec<Point> = vec![];
+        for (d, i, l) in self.iter_lines() {
+            let eye_bits = l.sequence_eyes(player, kind);
+            if eye_bits == 0b0 {
+                continue;
+            }
+            for j in 0..l.size {
+                if (eye_bits >> j) & 0b1 == 0b1 {
+                    result.push(Index::new(d, i, j).to_point())
                 }
-            })
-            .flatten()
-            .collect();
+            }
+        }
         result.sort_unstable();
         result.dedup();
         result
     }
 
     pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
-        let mut result: Vec<_> = self
-            .iter_lines_along(p)
-            .map(|(d, i, l)| {
-                let eye_bits = l.sequence_eyes(player, kind);
-                if eye_bits == 0b0 {
-                    vec![]
-                } else {
-                    let mut result: Vec<Point> = vec![];
-                    for j in 0..l.size {
-                        if (eye_bits >> j) & 0b1 == 0b1 {
-                            result.push(Index::new(d, i, j).to_point())
-                        }
-                    }
-                    result
+        let mut result: Vec<Point> = vec![];
+        for (d, i, l) in self.iter_lines_along(p) {
+            let eye_bits = l.sequence_eyes(player, kind);
+            if eye_bits == 0b0 {
+                continue;
+            }
+            for j in 0..l.size {
+                if (eye_bits >> j) & 0b1 == 0b1 {
+                    result.push(Index::new(d, i, j).to_point())
                 }
-            })
-            .flatten()
-            .collect();
+            }
+        }
         result.sort_unstable();
         result.dedup();
         result
