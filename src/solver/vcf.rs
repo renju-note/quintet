@@ -45,17 +45,17 @@ fn solve(depth: u8, state: &VCFState, searched: &mut HashSet<u64>) -> Option<Vec
     }
     searched.insert(hash);
 
-    for next_move in state.valid_moves() {
-        let mut state = state.play(next_move);
-        let defending_moves = state.valid_moves();
-        if defending_moves.is_empty() {
-            return Some(vec![next_move]);
+    for attack in state.valid_moves() {
+        let mut state = state.play(attack);
+        let defences = state.valid_moves();
+        if defences.is_empty() {
+            return Some(vec![attack]);
         }
 
-        let next2_move = defending_moves[0];
-        state.play_mut(next2_move);
+        let defence = defences[0];
+        state.play_mut(defence);
         if let Some(mut ps) = solve(depth - 1, &state, searched) {
-            let mut result = vec![next_move, next2_move];
+            let mut result = vec![attack, defence];
             result.append(&mut ps);
             return Some(result);
         }
