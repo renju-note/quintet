@@ -4,14 +4,11 @@ use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve_vcf(depth: u8, board: &Board, player: Player, do_trim: bool) -> Option<Vec<Point>> {
+pub fn solve_vcf(depth: u8, board: &Board, player: Player, trim: bool) -> Option<Vec<Point>> {
     let opponent = player.opponent();
 
     // Already exists five
-    if board.rows(player, Five).len() >= 1 {
-        return None;
-    }
-    if board.rows(opponent, Five).len() >= 1 {
+    if board.rows(player, Five).len() >= 1 || board.rows(opponent, Five).len() >= 1 {
         return None;
     }
 
@@ -25,97 +22,14 @@ pub fn solve_vcf(depth: u8, board: &Board, player: Player, do_trim: bool) -> Opt
         return None;
     }
 
-    let last_move = choose_last_move(board, player);
-    let game_state = GameState::from_board(board, player, last_move);
-    let state = VCFState::new(&game_state);
+    let state = VCFState::new(board, player);
     let mut searched = HashSet::new();
     let solution = solve(depth, &state, &mut searched);
 
-    if do_trim {
-        solution.map(|solution| trim(&state, &solution))
+    if trim {
+        solution.map(|solution| trim_solution(&state, &solution))
     } else {
         solution
-    }
-}
-
-#[derive(Clone)]
-struct VCFState {
-    game_state: GameState,
-    attacker: Player,
-}
-
-impl VCFState {
-    pub fn new(game_state: &GameState) -> Self {
-        Self {
-            game_state: game_state.clone(),
-            attacker: game_state.next_player(),
-        }
-    }
-
-    pub fn play(&self, p: Point) -> Self {
-        Self {
-            game_state: self.game_state.play(p),
-            attacker: self.attacker,
-        }
-    }
-
-    pub fn attacker_turn(&self) -> bool {
-        self.game_state.next_player() == self.attacker
-    }
-
-    pub fn defender_turn(&self) -> bool {
-        self.game_state.next_player() == self.attacker.opponent()
-    }
-
-    pub fn is_attacking(&self, p: Point) -> bool {
-        self.attacking_moves()
-            .into_iter()
-            .find(|&m| m == p)
-            .is_some()
-    }
-
-    pub fn is_defending(&self, p: Point) -> bool {
-        self.defending_moves()
-            .into_iter()
-            .find(|&m| m == p)
-            .is_some()
-    }
-
-    pub fn attacking_moves(&self) -> Vec<Point> {
-        if !self.attacker_turn() {
-            panic!();
-        }
-        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
-        if last_four_eyes.len() >= 2 {
-            return vec![];
-        }
-        let last_four_eye = last_four_eyes.into_iter().next();
-        self.game_state
-            .row_eyes(self.attacker, Sword)
-            .into_iter()
-            .filter(|&p| last_four_eye.map_or(true, |e| e == p) && self.game_state.is_legal_move(p))
-            .collect()
-    }
-
-    pub fn defending_moves(&self) -> Vec<Point> {
-        if !self.defender_turn() {
-            panic!();
-        }
-        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
-        if last_four_eyes.len() == 0 {
-            panic!();
-        }
-        if last_four_eyes.len() >= 2 {
-            return vec![];
-        }
-        last_four_eyes
-            .into_iter()
-            .filter(|&p| self.game_state.is_legal_move(p))
-            .collect()
-    }
-
-    pub fn state_hash(&self) -> u64 {
-        self.game_state.board_hash()
     }
 }
 
@@ -125,15 +39,15 @@ fn solve(depth: u8, state: &VCFState, searched: &mut HashSet<u64>) -> Option<Vec
     }
 
     // check if already searched (and was dead-end)
-    let hash = state.state_hash();
+    let hash = state.board_hash();
     if searched.contains(&hash) {
         return None;
     }
     searched.insert(hash);
 
-    for next_move in state.attacking_moves() {
+    for next_move in state.valid_moves() {
         let next_state = state.play(next_move);
-        let defending_moves = next_state.defending_moves();
+        let defending_moves = next_state.valid_moves();
         if defending_moves.is_empty() {
             return Some(vec![next_move]);
         }
@@ -149,7 +63,7 @@ fn solve(depth: u8, state: &VCFState, searched: &mut HashSet<u64>) -> Option<Vec
     None
 }
 
-fn trim(state: &VCFState, solution: &Vec<Point>) -> Vec<Point> {
+fn trim_solution(state: &VCFState, solution: &Vec<Point>) -> Vec<Point> {
     let mut result = solution.clone();
     for i in 0..(solution.len() / 2) {
         // remove a pair of moves
@@ -157,7 +71,7 @@ fn trim(state: &VCFState, solution: &Vec<Point>) -> Vec<Point> {
         trimmed.remove(2 * i);
         trimmed.remove(2 * i);
         if is_solution(state, &trimmed) {
-            result = trim(state, &trimmed);
+            result = trim_solution(state, &trimmed);
             break;
         }
     }
@@ -166,32 +80,93 @@ fn trim(state: &VCFState, solution: &Vec<Point>) -> Vec<Point> {
 
 fn is_solution(state: &VCFState, solution: &Vec<Point>) -> bool {
     let mut state = state.clone();
-    for (i, &p) in solution.iter().enumerate() {
-        if i % 2 == 0 {
-            if !state.is_attacking(p) {
-                return false;
-            }
-        } else {
-            if !state.is_defending(p) {
-                return false;
-            }
+    for &p in solution.iter() {
+        if !state.is_valid_move(p) {
+            return false;
         }
         state = state.play(p);
     }
     true
 }
 
-fn choose_last_move(board: &Board, player: Player) -> Point {
-    let opponent = player.opponent();
-    let stones = board.stones(opponent);
-    if let Some(four) = board.rows(opponent, Four).iter().next() {
-        stones
-            .into_iter()
-            .find(|&s| s == four.start || s == four.end)
-    } else {
-        stones.into_iter().next()
+#[derive(Clone)]
+struct VCFState {
+    game_state: GameState,
+    attacker: Player,
+}
+
+impl VCFState {
+    pub fn new(board: &Board, player: Player) -> Self {
+        let last_move = Self::choose_last_move(board, player);
+        let game_state = GameState::from_board(board, player, last_move);
+        Self {
+            game_state: game_state.clone(),
+            attacker: game_state.next_player(),
+        }
     }
-    .unwrap_or(Point(0, 0))
+
+    pub fn play(&self, p: Point) -> Self {
+        Self {
+            game_state: self.game_state.play(p),
+            attacker: self.attacker,
+        }
+    }
+
+    pub fn is_valid_move(&self, p: Point) -> bool {
+        self.valid_moves().into_iter().find(|&m| m == p).is_some()
+    }
+
+    pub fn valid_moves(&self) -> Vec<Point> {
+        if self.game_state.next_player() == self.attacker {
+            self.attacking_moves()
+        } else {
+            self.defending_moves()
+        }
+    }
+
+    fn attacking_moves(&self) -> Vec<Point> {
+        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
+        if last_four_eyes.len() >= 2 {
+            return vec![];
+        }
+        let last_four_eye = last_four_eyes.into_iter().next();
+        self.game_state
+            .row_eyes(self.attacker, Sword)
+            .into_iter()
+            .filter(|&p| last_four_eye.map_or(true, |e| e == p) && self.game_state.is_legal_move(p))
+            .collect()
+    }
+
+    fn defending_moves(&self) -> Vec<Point> {
+        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
+        if last_four_eyes.len() == 0 {
+            panic!();
+        }
+        if last_four_eyes.len() >= 2 {
+            return vec![];
+        }
+        last_four_eyes
+            .into_iter()
+            .filter(|&p| self.game_state.is_legal_move(p))
+            .collect()
+    }
+
+    pub fn board_hash(&self) -> u64 {
+        self.game_state.board_hash()
+    }
+
+    fn choose_last_move(board: &Board, player: Player) -> Point {
+        let opponent = player.opponent();
+        let stones = board.stones(opponent);
+        if let Some(four) = board.rows(opponent, Four).iter().next() {
+            stones
+                .into_iter()
+                .find(|&s| s == four.start || s == four.end)
+        } else {
+            stones.into_iter().next()
+        }
+        .unwrap_or(Point(0, 0))
+    }
 }
 
 #[cfg(test)]
