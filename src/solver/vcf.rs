@@ -46,15 +46,15 @@ fn solve(depth: u8, state: &VCFState, searched: &mut HashSet<u64>) -> Option<Vec
     searched.insert(hash);
 
     for next_move in state.valid_moves() {
-        let next_state = state.play(next_move);
-        let defending_moves = next_state.valid_moves();
+        let mut state = state.play(next_move);
+        let defending_moves = state.valid_moves();
         if defending_moves.is_empty() {
             return Some(vec![next_move]);
         }
 
         let next2_move = defending_moves[0];
-        let next2_state = next_state.play(next2_move);
-        if let Some(mut ps) = solve(depth - 1, &next2_state, searched) {
+        state.play_mut(next2_move);
+        if let Some(mut ps) = solve(depth - 1, &state, searched) {
             let mut result = vec![next_move, next2_move];
             result.append(&mut ps);
             return Some(result);
@@ -105,11 +105,14 @@ impl VCFState {
         }
     }
 
-    pub fn play(&self, p: Point) -> Self {
-        Self {
-            game_state: self.game_state.play(p),
-            attacker: self.attacker,
-        }
+    pub fn play_mut(&mut self, next_move: Point) {
+        self.game_state.play_mut(next_move);
+    }
+
+    pub fn play(&self, next_move: Point) -> Self {
+        let mut result = self.clone();
+        result.play_mut(next_move);
+        result
     }
 
     pub fn is_valid_move(&self, p: Point) -> bool {

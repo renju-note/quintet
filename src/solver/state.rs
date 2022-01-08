@@ -16,12 +16,16 @@ impl GameState {
         }
     }
 
+    pub fn play_mut(&mut self, next_move: Point) {
+        self.board.put_mut(self.next_player, next_move);
+        self.next_player = self.next_player().opponent();
+        self.last_move = next_move;
+    }
+
     pub fn play(&self, next_move: Point) -> Self {
-        Self {
-            board: self.board.put(self.next_player, next_move),
-            next_player: self.next_player.opponent(),
-            last_move: next_move,
-        }
+        let mut result = self.clone();
+        result.play_mut(next_move);
+        result
     }
 
     pub fn next_player(&self) -> Player {
