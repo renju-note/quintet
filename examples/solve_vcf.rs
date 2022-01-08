@@ -1,5 +1,5 @@
 use quintet::board::*;
-use quintet::solver;
+use quintet::mate;
 use std::io;
 use std::time::Instant;
 
@@ -20,7 +20,7 @@ fn main() {
 
         println!("\nBlack VCF:");
         let start = Instant::now();
-        let result = solver::solve_vcf(u8::MAX, &board, Player::Black, true);
+        let result = mate::solve_vcf(&board, Player::Black, u8::MAX, true);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {
@@ -33,7 +33,7 @@ fn main() {
 
         println!("\nWhite VCF:");
         let start = Instant::now();
-        let result = solver::solve_vcf(u8::MAX, &board, Player::White, true);
+        let result = mate::solve_vcf(&board, Player::White, u8::MAX, true);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {

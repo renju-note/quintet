@@ -4,7 +4,7 @@ use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve_vcf(depth: u8, board: &Board, player: Player, trim: bool) -> Option<Vec<Point>> {
+pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option<Vec<Point>> {
     let opponent = player.opponent();
 
     // Already exists five
@@ -24,7 +24,7 @@ pub fn solve_vcf(depth: u8, board: &Board, player: Player, trim: bool) -> Option
 
     let state = VCFState::new(board, player);
     let mut searched = HashSet::new();
-    let solution = solve(depth, &state, &mut searched);
+    let solution = solve(&state, depth, &mut searched);
 
     if trim {
         solution.map(|solution| trim_solution(&state, &solution))
@@ -33,7 +33,7 @@ pub fn solve_vcf(depth: u8, board: &Board, player: Player, trim: bool) -> Option
     }
 }
 
-fn solve(depth: u8, state: &VCFState, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+fn solve(state: &VCFState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
@@ -54,7 +54,7 @@ fn solve(depth: u8, state: &VCFState, searched: &mut HashSet<u64>) -> Option<Vec
 
         let defence = defences[0];
         state.play_mut(defence);
-        if let Some(mut ps) = solve(depth - 1, &state, searched) {
+        if let Some(mut ps) = solve(&state, depth - 1, searched) {
             let mut result = vec![attack, defence];
             result.append(&mut ps);
             return Some(result);
@@ -197,7 +197,7 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vcf(12, &board, Black, false);
+        let result = solve_vcf(&board, Black, 12, false);
         let solution = "
             G6,H7,J12,K13,G9,F8,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
             F14,F13,C11
@@ -206,7 +206,7 @@ mod tests {
         .into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vcf(11, &board, Black, false);
+        let result = solve_vcf(&board, Black, 11, false);
         assert_eq!(result, None);
 
         Ok(())
@@ -233,20 +233,20 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vcf(5, &board, White, false);
+        let result = solve_vcf(&board, White, 5, false);
         let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14"
             .parse::<Points>()?
             .into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vcf(4, &board, White, false);
+        let result = solve_vcf(&board, White, 4, false);
         assert_eq!(result, None);
 
         Ok(())
     }
 
     #[test]
-    fn test_do_trim() -> Result<(), String> {
+    fn test_trim() -> Result<(), String> {
         let board = "
             ---------------
             ---------------
@@ -265,13 +265,13 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vcf(10, &board, White, false);
+        let result = solve_vcf(&board, White, 10, false);
         let solution = "E6,H9,G1,G3,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13"
             .parse::<Points>()?
             .into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vcf(10, &board, White, true);
+        let result = solve_vcf(&board, White, 10, true);
         let solution = "E6,H9,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13"
             .parse::<Points>()?
             .into_vec();
@@ -301,7 +301,7 @@ mod tests {
             x--o-o----oo-ox
         "
         .parse::<Board>()?;
-        let result = solve_vcf(u8::MAX, &board, Black, false);
+        let result = solve_vcf(&board, Black, u8::MAX, false);
         let solution = "
             A7,A6,E2,C4,F3,G4,J1,M1,H1,I1,H3,H2,E3,G3,C3,B3,E5,E4,E1,G1,
             C1,B1,D2,B4,D4,D5,G5,F4,I5,F5,J2,I3,F6,B2,B6,C5,D6,C6,C7,B8,

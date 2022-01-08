@@ -1,17 +1,17 @@
 use super::board::*;
-use super::solver;
+use super::mate;
 use std::convert::{From, TryFrom};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth_limit: u8) -> Option<Box<[u8]>> {
+pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth: u8) -> Option<Box<[u8]>> {
     let blacks = Points::try_from(blacks);
     let whites = Points::try_from(whites);
     if !blacks.is_ok() || !whites.is_ok() {
         return None;
     }
     let board = Board::from_points(&blacks.unwrap(), &whites.unwrap());
-    let solution = solver::solve_vcf(depth_limit, &board, Player::from(black), true);
+    let solution = mate::solve_vcf(&board, Player::from(black), depth, true);
     solution.map(|ps| <Vec<u8>>::from(Points(ps)).into_boxed_slice())
 }
 
