@@ -12,14 +12,14 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
         return None;
     }
 
-    // Already exists four
-    if board.rows(player, Four).len() >= 1 {
-        return Some(vec![]);
-    }
-
     // Already exists overline
     if board.rows(Black, Overline).len() >= 1 {
         return None;
+    }
+
+    // Already exists four
+    if board.rows(player, Four).len() >= 1 {
+        return Some(vec![]);
     }
 
     let state = VCFState::new(board, player);

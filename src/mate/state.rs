@@ -45,6 +45,17 @@ impl GameState {
             && !(self.next_player.is_black() && self.board.forbidden(p).is_some())
     }
 
+    pub fn legal_moves(&self) -> Vec<Point> {
+        (0..BOARD_SIZE)
+            .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point(x, y)))
+            .filter(|&p| self.is_legal_move(p))
+            .collect()
+    }
+
+    pub fn board(&self) -> Board {
+        self.board.clone()
+    }
+
     pub fn board_hash(&self) -> u64 {
         self.board.zobrist_hash()
     }
