@@ -105,6 +105,10 @@ impl VCFState {
         }
     }
 
+    pub fn board_hash(&self) -> u64 {
+        self.game_state.board_hash()
+    }
+
     pub fn play_mut(&mut self, next_move: Point) {
         self.game_state.play_mut(next_move);
     }
@@ -121,13 +125,13 @@ impl VCFState {
 
     pub fn valid_moves(&self) -> Vec<Point> {
         if self.game_state.next_player() == self.attacker {
-            self.attacking_moves()
+            self.attacks()
         } else {
-            self.defending_moves()
+            self.defences()
         }
     }
 
-    fn attacking_moves(&self) -> Vec<Point> {
+    fn attacks(&self) -> Vec<Point> {
         let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
         if last_four_eyes.len() >= 2 {
             return vec![];
@@ -140,7 +144,7 @@ impl VCFState {
             .collect()
     }
 
-    fn defending_moves(&self) -> Vec<Point> {
+    fn defences(&self) -> Vec<Point> {
         let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
         if last_four_eyes.len() == 0 {
             panic!();
@@ -152,10 +156,6 @@ impl VCFState {
             .into_iter()
             .filter(|&p| self.game_state.is_legal_move(p))
             .collect()
-    }
-
-    pub fn board_hash(&self) -> u64 {
-        self.game_state.board_hash()
     }
 
     fn choose_last_move(board: &Board, player: Player) -> Point {
