@@ -44,9 +44,9 @@ fn solve(state: &VCTState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
         return Some(result);
     }
 
-    for attack in state.valid_moves() {
+    for attack in state.attacks() {
         let state = state.play(attack);
-        let defences = state.valid_moves();
+        let defences = state.defences();
         if defences.is_empty() {
             return Some(vec![attack]);
         }
@@ -115,35 +115,8 @@ impl VCTState {
         result
     }
 
-    pub fn valid_moves(&self) -> Vec<Point> {
-        if self.game_state.next_player() == self.attacker {
-            self.attacks()
-        } else {
-            self.defences()
-        }
-    }
-
-    fn attacks(&self) -> Vec<Point> {
-        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
-        if last_four_eyes.len() >= 2 {
-            return vec![];
-        }
-        let last_four_eye = last_four_eyes.into_iter().next();
-
-        let mut two_eyes: HashSet<Point> = HashSet::new();
-        two_eyes.extend(self.game_state.row_eyes(self.attacker, Two));
-        let mut sword_eyes: HashSet<Point> = HashSet::new();
-        sword_eyes.extend(self.game_state.row_eyes(self.attacker, Sword));
-        self.game_state
-            .legal_moves()
-            .into_iter()
-            .filter(|&p| {
-                last_four_eye.map_or(true, |e| e == p)
-                    && (two_eyes.contains(&p)
-                        || sword_eyes.contains(&p)
-                        || self.solve_attacker_vcf_after(p).is_some())
-            })
-            .collect()
+    fn attacks(&self) -> impl Iterator<Item = Point> {
+        VCTAttacks::new(&self)
     }
 
     fn defences(&self) -> Vec<Point> {
@@ -183,20 +156,94 @@ impl VCTState {
     }
 }
 
+struct VCTAttacks {
+    state: VCTState,
+    last_four_eyes_init: bool,
+    last_four_eyes_count: usize,
+    last_four_eyes: Vec<Point>,
+    sword_eyes_init: bool,
+    sword_eyes: Vec<Point>,
+    two_eyes_init: bool,
+    two_eyes: Vec<Point>,
+}
+
+impl VCTAttacks {
+    fn new(state: &VCTState) -> Self {
+        Self {
+            state: state.clone(),
+            last_four_eyes_init: false,
+            last_four_eyes_count: 0,
+            last_four_eyes: vec![],
+            sword_eyes_init: false,
+            sword_eyes: vec![],
+            two_eyes_init: false,
+            two_eyes: vec![],
+        }
+    }
+
+    fn init_last_four_eyes(&mut self) {
+        if !self.last_four_eyes_init {
+            self.last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
+            self.last_four_eyes_init = true;
+            self.last_four_eyes_count = self.last_four_eyes.len();
+        }
+    }
+
+    fn init_sword_eyes(&mut self) {
+        if !self.sword_eyes_init {
+            self.sword_eyes = self.state.game_state.row_eyes(self.state.attacker, Sword);
+            self.sword_eyes_init = true;
+        }
+    }
+
+    fn init_two_eyes(&mut self) {
+        if !self.two_eyes_init {
+            self.two_eyes = self.state.game_state.row_eyes(self.state.attacker, Two);
+            self.two_eyes_init = true;
+        }
+    }
+
+    fn is_sword_eye(&self, p: Point) -> bool {
+        self.sword_eyes.iter().find(|&&e| e == p).is_some()
+    }
+}
+
+impl Iterator for VCTAttacks {
+    type Item = Point;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.init_last_four_eyes();
+        if self.last_four_eyes_count >= 2 {
+            return None;
+        }
+        self.init_sword_eyes();
+        if self.last_four_eyes_count == 1 {
+            return self.last_four_eyes.pop().filter(|&e| self.is_sword_eye(e));
+        }
+        if let Some(e) = self.sword_eyes.pop() {
+            return Some(e);
+        }
+        self.init_two_eyes();
+        if let Some(e) = self.two_eyes.pop() {
+            return Some(e);
+        }
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_black() -> Result<(), String> {
-        // https://renjuportal.com/puzzle/3040/
         let board = "
             ---------------
             ---------------
             ---------------
             ---------------
             --------x------
-            -------oo------
+            -------o-------
             -------oxo-----
             ------xo-x-----
             -------xo------
@@ -208,14 +255,14 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vct(&board, Black, 1, 2);
-        let solution = "H11,H12,G12".parse::<Points>()?.into_vec();
+        let result = solve_vct(&board, Black, 2, 2);
+        let solution = "F10,E11,I10".parse::<Points>()?.into_vec();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vct(&board, Black, 0, 2);
+        let result = solve_vct(&board, Black, 1, 2);
         assert_eq!(result, None);
 
-        let result = solve_vct(&board, Black, 1, 1);
+        let result = solve_vct(&board, Black, 2, 1);
         assert_eq!(result, None);
 
         Ok(())
@@ -223,7 +270,6 @@ mod tests {
 
     #[test]
     fn test_white() -> Result<(), String> {
-        // https://renjuportal.com/puzzle/2990/
         let board = "
             ---------------
             ---------------
@@ -243,7 +289,7 @@ mod tests {
         "
         .parse::<Board>()?;
         let result = solve_vct(&board, White, 3, 1);
-        let solution = "I10,I6,I11,I8,F7".parse::<Points>()?.into_vec();
+        let solution = "I10,I6,I11,I8,J11".parse::<Points>()?.into_vec();
         assert_eq!(result, Some(solution));
 
         let result = solve_vct(&board, White, 2, 1);
