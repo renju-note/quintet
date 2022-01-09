@@ -41,8 +41,11 @@ impl GameState {
     }
 
     pub fn is_legal_move(&self, p: Point) -> bool {
-        self.board.stone(p).is_none()
-            && !(self.next_player.is_black() && self.board.forbidden(p).is_some())
+        self.board.stone(p).is_none() && !self.is_forbidden_move(p)
+    }
+
+    pub fn is_forbidden_move(&self, p: Point) -> bool {
+        self.next_player.is_black() && self.board.forbidden(p).is_some()
     }
 
     pub fn legal_moves(&self) -> Vec<Point> {

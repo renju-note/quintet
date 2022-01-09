@@ -124,6 +124,7 @@ impl VCFState {
     }
 
     pub fn valid_moves(&self) -> Vec<Point> {
+        // TODO: maybe better to separate
         if self.game_state.next_player() == self.attacker {
             self.attacks()
         } else {
@@ -140,7 +141,9 @@ impl VCFState {
         self.game_state
             .row_eyes(self.attacker, Sword)
             .into_iter()
-            .filter(|&p| last_four_eye.map_or(true, |e| e == p) && self.game_state.is_legal_move(p))
+            .filter(|&p| {
+                last_four_eye.map_or(true, |e| e == p) && !self.game_state.is_forbidden_move(p)
+            })
             .collect()
     }
 
@@ -154,7 +157,7 @@ impl VCFState {
         }
         last_four_eyes
             .into_iter()
-            .filter(|&p| self.game_state.is_legal_move(p))
+            .filter(|&p| !self.game_state.is_forbidden_move(p))
             .collect()
     }
 
