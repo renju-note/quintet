@@ -161,10 +161,11 @@ struct VCTAttacks {
     last_four_eyes_init: bool,
     last_four_eyes_count: usize,
     last_four_eyes: Vec<Point>,
-    sword_eyes_init: bool,
-    sword_eyes: Vec<Point>,
-    two_eyes_init: bool,
-    two_eyes: Vec<Point>,
+    valid_four_moves_init: bool,
+    valid_four_moves: Vec<Point>,
+    valid_three_moves_init: bool,
+    valid_three_moves: Vec<Point>,
+    tried: HashSet<Point>,
 }
 
 impl VCTAttacks {
@@ -174,10 +175,11 @@ impl VCTAttacks {
             last_four_eyes_init: false,
             last_four_eyes_count: 0,
             last_four_eyes: vec![],
-            sword_eyes_init: false,
-            sword_eyes: vec![],
-            two_eyes_init: false,
-            two_eyes: vec![],
+            valid_four_moves_init: false,
+            valid_four_moves: vec![],
+            valid_three_moves_init: false,
+            valid_three_moves: vec![],
+            tried: HashSet::new(),
         }
     }
 
@@ -189,22 +191,31 @@ impl VCTAttacks {
         }
     }
 
-    fn init_sword_eyes(&mut self) {
-        if !self.sword_eyes_init {
-            self.sword_eyes = self.state.game_state.row_eyes(self.state.attacker, Sword);
-            self.sword_eyes_init = true;
+    fn init_valid_four_moves(&mut self) {
+        if !self.valid_four_moves_init {
+            self.valid_four_moves = self
+                .state
+                .game_state
+                .row_eyes(self.state.attacker, Sword)
+                .into_iter()
+                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
+                .collect();
+            self.valid_four_moves_init = true;
         }
     }
 
-    fn init_two_eyes(&mut self) {
-        if !self.two_eyes_init {
-            self.two_eyes = self.state.game_state.row_eyes(self.state.attacker, Two);
-            self.two_eyes_init = true;
+    fn init_valid_three_moves(&mut self) {
+        if !self.valid_three_moves_init {
+            // TODO: remove fake three (= another eye is forbidden)
+            self.valid_three_moves = self
+                .state
+                .game_state
+                .row_eyes(self.state.attacker, Two)
+                .into_iter()
+                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
+                .collect();
+            self.valid_three_moves_init = true;
         }
-    }
-
-    fn is_sword_eye(&self, p: Point) -> bool {
-        self.sword_eyes.iter().find(|&&e| e == p).is_some()
     }
 }
 
@@ -216,17 +227,27 @@ impl Iterator for VCTAttacks {
         if self.last_four_eyes_count >= 2 {
             return None;
         }
-        self.init_sword_eyes();
         if self.last_four_eyes_count == 1 {
-            return self.last_four_eyes.pop().filter(|&e| self.is_sword_eye(e));
+            return self.last_four_eyes.pop().filter(|&e| {
+                !self.state.game_state.is_forbidden_move(e)
+                    && self.state.solve_attacker_vcf_after(e).is_some()
+            });
         }
-        if let Some(e) = self.sword_eyes.pop() {
-            return Some(e);
+        self.init_valid_four_moves();
+        if let Some(e) = self.valid_four_moves.pop() {
+            if !self.tried.contains(&e) {
+                self.tried.insert(e);
+                return Some(e);
+            }
         }
-        self.init_two_eyes();
-        if let Some(e) = self.two_eyes.pop() {
-            return Some(e);
+        self.init_valid_three_moves();
+        if let Some(e) = self.valid_three_moves.pop() {
+            if !self.tried.contains(&e) {
+                self.tried.insert(e);
+                return Some(e);
+            }
         }
+        // TODO: threat_moves
         None
     }
 }
