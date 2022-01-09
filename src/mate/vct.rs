@@ -40,40 +40,23 @@ fn solve(state: &VCTState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
     }
     searched.insert(hash);
 
-    if let Some(result) = solve_vcf(&state.board(), state.attacker, state.vcf_depth, false) {
-        return Some(result);
-    }
-
     for attack in state.attacks() {
         let state = state.play(attack);
         let defences = state.defences();
-        if defences.is_empty() {
-            return Some(vec![attack]);
-        }
-
-        let mut solution: Option<Vec<Point>> = None;
+        let mut solution: Option<Vec<Point>> = Some(vec![attack]);
         for defence in defences {
             let state = state.play(defence);
             if let Some(mut ps) = solve(&state, depth - 1, searched) {
-                let mut new_result = vec![attack, defence];
-                new_result.append(&mut ps);
-                solution = if solution.is_none() {
-                    Some(new_result)
-                } else {
-                    let result = solution.unwrap();
-                    if new_result.len() > result.len() {
-                        Some(new_result)
-                    } else {
-                        Some(result)
-                    }
-                }
+                let mut new = vec![attack, defence];
+                new.append(&mut ps);
+                solution = solution.map(|old| if new.len() > old.len() { new } else { old });
             } else {
                 solution = None;
                 break;
             }
         }
-        if let Some(result) = solution {
-            return Some(result);
+        if solution.is_some() {
+            return solution;
         }
     }
     None
@@ -95,10 +78,6 @@ impl VCTState {
             attacker: game_state.next_player(),
             vcf_depth: vcf_depth,
         }
-    }
-
-    pub fn board(&self) -> Board {
-        self.game_state.board()
     }
 
     pub fn board_hash(&self) -> u64 {
