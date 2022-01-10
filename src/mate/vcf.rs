@@ -3,6 +3,7 @@ use super::super::board::RowKind::*;
 use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option<Vec<Point>> {
     let opponent = player.opponent();
@@ -163,7 +164,7 @@ struct VCFAttacks {
     last_four_count: usize,
     last_four_closer: Option<Point>,
     next_four_inited: bool,
-    next_four_moves: Vec<Point>,
+    next_four_moves: VecDeque<Point>,
 }
 
 impl VCFAttacks {
@@ -174,7 +175,7 @@ impl VCFAttacks {
             last_four_count: 0,
             last_four_closer: None,
             next_four_inited: false,
-            next_four_moves: vec![],
+            next_four_moves: VecDeque::new(),
         }
     }
 
@@ -199,14 +200,14 @@ impl VCFAttacks {
     fn init_next_four(&mut self) {
         // TODO: find three eyes first
         if !self.next_four_inited {
-            self.next_four_moves = self.state.game_state.row_eyes(self.state.attacker, Sword);
-            self.next_four_moves.reverse(); // pop from first
+            let next_player = self.state.game_state.next_player();
+            self.next_four_moves = self.state.game_state.row_eyes(next_player, Sword).into();
             self.next_four_inited = true;
         }
     }
 
     fn pop_valid_next_four_move(&mut self) -> Option<Point> {
-        while let Some(p) = self.next_four_moves.pop() {
+        while let Some(p) = self.next_four_moves.pop_front() {
             if !self.state.game_state.is_forbidden_move(p) {
                 return Some(p);
             }
