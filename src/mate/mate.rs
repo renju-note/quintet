@@ -23,7 +23,7 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
     }
 }
 
-pub fn solve_vct(board: &Board, player: Player, depth: u8) -> Option<Vec<Point>> {
+pub fn solve_vct(board: &Board, player: Player, depth: u8, threat_depth: u8) -> Option<Vec<Point>> {
     if let Err(e) = validate_initial(board, player) {
         return e;
     }
@@ -31,7 +31,7 @@ pub fn solve_vct(board: &Board, player: Player, depth: u8) -> Option<Vec<Point>>
     let last_move = choose_last_move(board, player);
     let state = GameState::new(board, player, last_move);
     let mut searched = HashSet::new();
-    vct::solve(&state, depth, &mut searched)
+    vct::solve(&state, depth, threat_depth, &mut searched)
 }
 
 fn validate_initial(board: &Board, player: Player) -> Result<(), Option<Vec<Point>>> {

@@ -50,23 +50,8 @@ impl GameState {
         self.last_move
     }
 
-    pub fn is_legal_move(&self, p: Point) -> bool {
-        self.board.stone(p).is_none() && !self.is_forbidden_move(p)
-    }
-
     pub fn is_forbidden_move(&self, p: Point) -> bool {
         self.next_player.is_black() && self.board.forbidden(p).is_some()
-    }
-
-    pub fn legal_moves(&self) -> Vec<Point> {
-        (0..BOARD_SIZE)
-            .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point(x, y)))
-            .filter(|&p| self.is_legal_move(p))
-            .collect()
-    }
-
-    pub fn board(&self) -> Board {
-        self.board.clone()
     }
 
     pub fn board_hash(&self) -> u64 {

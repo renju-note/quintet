@@ -8,7 +8,6 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
         return None;
     }
 
-    // check if already searched (and was dead-end)
     let hash = state.board_hash();
     if searched.contains(&hash) {
         return None;
@@ -21,7 +20,6 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
         if may_defence.is_none() {
             return Some(vec![attack]);
         }
-
         let defence = may_defence.unwrap();
         state.play_mut(defence);
         if let Some(mut ps) = solve(&state, depth - 1, searched) {
@@ -36,7 +34,6 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
 pub fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
     let mut result = solution.clone();
     for i in 0..(solution.len() / 2) {
-        // remove a pair of moves
         let mut trimmed = result.clone();
         trimmed.remove(2 * i);
         trimmed.remove(2 * i);

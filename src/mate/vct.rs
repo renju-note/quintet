@@ -5,12 +5,16 @@ use super::vcf;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
-pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+pub fn solve(
+    state: &GameState,
+    depth: u8,
+    threat_depth: u8,
+    searched: &mut HashSet<u64>,
+) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
 
-    // check if already searched (and was dead-end)
     let hash = state.board_hash();
     if searched.contains(&hash) {
         return None;
@@ -21,13 +25,13 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
         return Some(result);
     }
 
-    for attack in Attacks::new(state, depth) {
+    for attack in Attacks::new(state, threat_depth) {
         let state = state.play(attack);
         let defences = Defences::new(&state);
         let mut solution: Option<Vec<Point>> = Some(vec![attack]);
         for defence in defences {
             let state = state.play(defence);
-            if let Some(mut ps) = solve(&state, depth - 1, searched) {
+            if let Some(mut ps) = solve(&state, depth - 1, threat_depth, searched) {
                 let mut new = vec![attack, defence];
                 new.append(&mut ps);
                 solution = solution.map(|old| if new.len() > old.len() { new } else { old });
@@ -73,7 +77,7 @@ impl Iterator for Attacks {
         if let Some(e) = self.searcher.pop(MoveKind::NextFourMove) {
             return Some(e);
         }
-        // TODO: threat_moves
+        // TODO: threats
         None
     }
 }
@@ -103,6 +107,7 @@ impl Iterator for Defences {
         if let Some(e) = self.searcher.pop(MoveKind::NextFourMove) {
             return Some(e);
         }
+        // TODO: defend threats
         None
     }
 }
@@ -196,7 +201,6 @@ impl MoveSearcher {
         if self.next_four_inited {
             return;
         }
-        // TODO: find three eyes first
         self.next_four_moves = self.state.row_eyes(self.state.next_player(), Sword).into();
         self.next_four_inited = true;
     }
@@ -265,7 +269,7 @@ mod tests {
         "
         .parse::<Board>()?;
         let state = GameState::new(&board, Player::Black, Point(8, 10));
-        let result = solve(&state, 4, &mut HashSet::new()).map(|ps| Points(ps).to_string());
+        let result = solve(&state, 4, 5, &mut HashSet::new()).map(|ps| Points(ps).to_string());
         let solution = "F10,G9,I10,G10,H11,H12,G12".to_string();
         assert_eq!(result, Some(solution));
 
@@ -293,7 +297,7 @@ mod tests {
         "
         .parse::<Board>()?;
         let state = GameState::new(&board, Player::White, Point(6, 9));
-        let result = solve(&state, 3, &mut HashSet::new()).map(|ps| Points(ps).to_string());
+        let result = solve(&state, 3, 5, &mut HashSet::new()).map(|ps| Points(ps).to_string());
         let solution = "I10,I8,J11,K12,F7".to_string();
         assert_eq!(result, Some(solution));
 
