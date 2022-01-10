@@ -1,3 +1,4 @@
+mod move_searcher;
 mod state;
 mod vcf;
 mod vct;
