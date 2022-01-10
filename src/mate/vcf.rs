@@ -412,7 +412,8 @@ mod tests {
             D13,E12,E13,F13,C13,B13,C11,D10,C10,C12,D11,E11,C9,C8,D9,B9,I11,H11,F14,H12,
             D14,E14,E15,A11,G15,D12,F15
         "
-        .to_string();
+        .split_whitespace()
+        .collect();
         assert_eq!(result, Some(solution));
 
         Ok(())
