@@ -21,9 +21,9 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
         return Some(result);
     }
 
-    for attack in VCTAttacks::new(state, depth) {
+    for attack in Attacks::new(state, depth) {
         let state = state.play(attack);
-        let defences = VCTDefences::new(&state);
+        let defences = Defences::new(&state);
         let mut solution: Option<Vec<Point>> = Some(vec![attack]);
         for defence in defences {
             let state = state.play(defence);
@@ -43,21 +43,21 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
     None
 }
 
-struct VCTAttacks {
+struct Attacks {
     searcher: MoveSearcher,
     threat_depth: u8,
 }
 
-impl VCTAttacks {
+impl Attacks {
     fn new(state: &GameState, threat_depth: u8) -> Self {
-        Self {
+        Attacks {
             searcher: MoveSearcher::new(state),
             threat_depth: threat_depth,
         }
     }
 }
 
-impl Iterator for VCTAttacks {
+impl Iterator for Attacks {
     type Item = Point;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -78,19 +78,19 @@ impl Iterator for VCTAttacks {
     }
 }
 
-struct VCTDefences {
+struct Defences {
     searcher: MoveSearcher,
 }
 
-impl VCTDefences {
+impl Defences {
     fn new(state: &GameState) -> Self {
-        Self {
+        Defences {
             searcher: MoveSearcher::new(state),
         }
     }
 }
 
-impl Iterator for VCTDefences {
+impl Iterator for Defences {
     type Item = Point;
 
     fn next(&mut self) -> Option<Self::Item> {
