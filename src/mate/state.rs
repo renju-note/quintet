@@ -8,7 +8,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn from_board(board: &Board, next_player: Player, last_move: Point) -> Self {
+    pub fn new(board: &Board, next_player: Player, last_move: Point) -> Self {
         Self {
             board: board.clone(),
             next_player: next_player,
@@ -25,6 +25,16 @@ impl GameState {
     pub fn play(&self, next_move: Point) -> Self {
         let mut result = self.clone();
         result.play_mut(next_move);
+        result
+    }
+
+    pub fn pass_mut(&mut self) {
+        self.next_player = self.next_player.opponent();
+    }
+
+    pub fn pass(&self) -> Self {
+        let mut result = self.clone();
+        result.pass_mut();
         result
     }
 
