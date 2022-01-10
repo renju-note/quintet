@@ -370,8 +370,8 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vct(&board, Black, 4, 1);
-        let solution = "F10,G9,I10,G10,H11,H12,K8".parse::<Points>()?.into_vec();
+        let result = solve_vct(&board, Black, 4, 1).map(|ps| Points(ps).to_string());
+        let solution = "F10,G9,I10,G10,H11,H12,G12".to_string();
         assert_eq!(result, Some(solution));
 
         Ok(())
@@ -397,8 +397,8 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vct(&board, White, 3, 1);
-        let solution = "I10,I8,J11,K12,F7".parse::<Points>()?.into_vec();
+        let result = solve_vct(&board, White, 3, 1).map(|ps| Points(ps).to_string());
+        let solution = "I10,I8,J11,K12,F7".to_string();
         assert_eq!(result, Some(solution));
 
         Ok(())

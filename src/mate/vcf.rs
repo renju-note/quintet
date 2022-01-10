@@ -339,13 +339,11 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vcf(&board, White, 5, false);
-        let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14"
-            .parse::<Points>()?
-            .into_vec();
+        let result = solve_vcf(&board, White, 5, false).map(|ps| Points(ps).to_string());
+        let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14".to_string();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vcf(&board, White, 4, false);
+        let result = solve_vcf(&board, White, 4, false).map(|ps| Points(ps).to_string());
         assert_eq!(result, None);
 
         Ok(())
@@ -371,16 +369,12 @@ mod tests {
             ---------------
         "
         .parse::<Board>()?;
-        let result = solve_vcf(&board, White, 10, false);
-        let solution = "E6,H9,G1,G3,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13"
-            .parse::<Points>()?
-            .into_vec();
+        let result = solve_vcf(&board, White, 10, false).map(|ps| Points(ps).to_string());
+        let solution = "E6,H9,G1,G3,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
         assert_eq!(result, Some(solution));
 
-        let result = solve_vcf(&board, White, 10, true);
-        let solution = "E6,H9,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13"
-            .parse::<Points>()?
-            .into_vec();
+        let result = solve_vcf(&board, White, 10, true).map(|ps| Points(ps).to_string());
+        let solution = "E6,H9,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
         assert_eq!(result, Some(solution));
         Ok(())
     }
@@ -407,7 +401,7 @@ mod tests {
             x--o-o----oo-ox
         "
         .parse::<Board>()?;
-        let result = solve_vcf(&board, Black, u8::MAX, false);
+        let result = solve_vcf(&board, Black, u8::MAX, false).map(|ps| Points(ps).to_string());
         let solution = "
             A7,A6,E2,C4,F3,G4,J1,M1,H1,I1,H3,H2,E3,G3,C3,B3,E5,E4,E1,G1,
             C1,B1,D2,B4,D4,D5,G5,F4,I5,F5,J2,I3,F6,B2,B6,C5,D6,C6,C7,B8,
@@ -418,8 +412,7 @@ mod tests {
             D13,E12,E13,F13,C13,B13,C11,D10,C10,C12,D11,E11,C9,C8,D9,B9,I11,H11,F14,H12,
             D14,E14,E15,A11,G15,D12,F15
         "
-        .parse::<Points>()?
-        .into_vec();
+        .to_string();
         assert_eq!(result, Some(solution));
 
         Ok(())
