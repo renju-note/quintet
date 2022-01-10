@@ -45,14 +45,14 @@ fn solve(state: &VCFState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
     }
     searched.insert(hash);
 
-    for attack in state.valid_moves() {
+    for attack in state.attacks() {
         let mut state = state.play(attack);
-        let defences = state.valid_moves();
-        if defences.is_empty() {
+        let may_defence = state.defences().next();
+        if may_defence.is_none() {
             return Some(vec![attack]);
         }
 
-        let defence = defences[0];
+        let defence = may_defence.unwrap();
         state.play_mut(defence);
         if let Some(mut ps) = solve(&state, depth - 1, searched) {
             let mut result = vec![attack, defence];
@@ -120,45 +120,27 @@ impl VCFState {
     }
 
     pub fn is_valid_move(&self, p: Point) -> bool {
-        self.valid_moves().into_iter().find(|&m| m == p).is_some()
-    }
-
-    pub fn valid_moves(&self) -> Vec<Point> {
-        // TODO: maybe better to separate
-        if self.game_state.next_player() == self.attacker {
-            self.attacks()
+        let valid_moves: HashSet<Point> = if self.game_state.next_player() == self.attacker {
+            self.attacks().collect()
         } else {
-            self.defences()
-        }
+            self.defences().collect()
+        };
+
+        valid_moves.contains(&p)
     }
 
-    fn attacks(&self) -> Vec<Point> {
-        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
-        if last_four_eyes.len() >= 2 {
-            return vec![];
+    pub fn attacks(&self) -> impl Iterator<Item = Point> {
+        if self.game_state.next_player() != self.attacker {
+            panic!()
         }
-        let last_four_eye = last_four_eyes.into_iter().next();
-        self.game_state
-            .row_eyes(self.attacker, Sword)
-            .into_iter()
-            .filter(|&p| {
-                last_four_eye.map_or(true, |e| e == p) && !self.game_state.is_forbidden_move(p)
-            })
-            .collect()
+        VCFAttacks::new(&self)
     }
 
-    fn defences(&self) -> Vec<Point> {
-        let last_four_eyes = self.game_state.row_eyes_along_last_move(Four);
-        if last_four_eyes.len() == 0 {
-            panic!();
+    pub fn defences(&self) -> impl Iterator<Item = Point> {
+        if self.game_state.last_player() != self.attacker {
+            panic!()
         }
-        if last_four_eyes.len() >= 2 {
-            return vec![];
-        }
-        last_four_eyes
-            .into_iter()
-            .filter(|&p| !self.game_state.is_forbidden_move(p))
-            .collect()
+        VCFDefences::new(&self)
     }
 
     fn choose_last_move(board: &Board, player: Player) -> Point {
@@ -172,6 +154,121 @@ impl VCFState {
             stones.into_iter().next()
         }
         .unwrap_or(Point(0, 0))
+    }
+}
+
+struct VCFAttacks {
+    state: VCFState,
+    last_four_inited: bool,
+    last_four_closers_count: usize,
+    last_four_closers: Vec<Point>,
+    next_four_inited: bool,
+    next_four_moves: Vec<Point>,
+}
+
+impl VCFAttacks {
+    fn new(state: &VCFState) -> Self {
+        Self {
+            state: state.clone(),
+            last_four_inited: false,
+            last_four_closers_count: 0,
+            last_four_closers: vec![],
+            next_four_inited: false,
+            next_four_moves: vec![],
+        }
+    }
+
+    fn init_last_four(&mut self) {
+        if !self.last_four_inited {
+            self.last_four_closers = self.state.game_state.row_eyes_along_last_move(Four);
+            self.last_four_closers.reverse();
+            self.last_four_closers_count = self.last_four_closers.len();
+            self.last_four_inited = true;
+        }
+    }
+
+    fn init_next_four(&mut self) {
+        if !self.next_four_inited {
+            self.next_four_moves = self.state.game_state.row_eyes(self.state.attacker, Sword);
+            self.next_four_moves.reverse();
+            self.next_four_inited = true;
+        }
+    }
+
+    fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
+        self.last_four_closers.pop().filter(|&p| {
+            self.next_four_moves.iter().find(|&&m| p == m).is_some()
+                && !self.state.game_state.is_forbidden_move(p)
+        })
+    }
+
+    fn pop_valid_next_four_move(&mut self) -> Option<Point> {
+        while let Some(p) = self.next_four_moves.pop() {
+            if !self.state.game_state.is_forbidden_move(p) {
+                return Some(p);
+            }
+        }
+        None
+    }
+}
+
+impl Iterator for VCFAttacks {
+    type Item = Point;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.init_last_four();
+        if self.last_four_closers_count >= 2 {
+            return None;
+        }
+        self.init_next_four();
+        if self.last_four_closers_count == 1 {
+            return self.pop_valid_last_four_closer();
+        }
+        self.pop_valid_next_four_move()
+    }
+}
+
+struct VCFDefences {
+    state: VCFState,
+    last_four_inited: bool,
+    last_four_closers_count: usize,
+    last_four_closers: Vec<Point>,
+}
+
+impl VCFDefences {
+    fn new(state: &VCFState) -> Self {
+        Self {
+            state: state.clone(),
+            last_four_inited: false,
+            last_four_closers_count: 0,
+            last_four_closers: vec![],
+        }
+    }
+
+    fn init_last_four(&mut self) {
+        if !self.last_four_inited {
+            self.last_four_closers = self.state.game_state.row_eyes_along_last_move(Four);
+            self.last_four_closers_count = self.last_four_closers.len();
+            self.last_four_inited = true;
+        }
+    }
+
+    fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
+        self.last_four_closers
+            .pop()
+            .filter(|&p| !self.state.game_state.is_forbidden_move(p))
+    }
+}
+
+impl Iterator for VCFDefences {
+    type Item = Point;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.init_last_four();
+        if self.last_four_closers_count >= 2 {
+            return None;
+        }
+        self.pop_valid_last_four_closer()
     }
 }
 
