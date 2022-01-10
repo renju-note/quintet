@@ -23,7 +23,8 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
         return Some(vec![]);
     }
 
-    let state = VCFState::new(board, player);
+    let last_move = choose_last_move(board, player);
+    let state = GameState::from_board(board, player, last_move);
     let mut searched = HashSet::new();
     let solution = solve(&state, depth, &mut searched);
 
@@ -34,7 +35,7 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
     }
 }
 
-fn solve(state: &VCFState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
@@ -46,9 +47,9 @@ fn solve(state: &VCFState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
     }
     searched.insert(hash);
 
-    for attack in state.attacks() {
+    for attack in VCFAttacks::new(state) {
         let mut state = state.play(attack);
-        let may_defence = state.defences().next();
+        let may_defence = VCFDefences::new(&state).next();
         if may_defence.is_none() {
             return Some(vec![attack]);
         }
@@ -64,7 +65,7 @@ fn solve(state: &VCFState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
     None
 }
 
-fn trim_solution(state: &VCFState, solution: &Vec<Point>) -> Vec<Point> {
+fn trim_solution(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
     let mut result = solution.clone();
     for i in 0..(solution.len() / 2) {
         // remove a pair of moves
@@ -79,87 +80,39 @@ fn trim_solution(state: &VCFState, solution: &Vec<Point>) -> Vec<Point> {
     result
 }
 
-fn is_solution(state: &VCFState, solution: &Vec<Point>) -> bool {
+fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
+    let attacker = state.next_player();
     let mut state = state.clone();
     for &p in solution.iter() {
-        if !state.is_valid_move(p) {
-            return false;
+        if state.next_player() == attacker {
+            if VCFAttacks::new(&state).find(|&a| p == a).is_none() {
+                return false;
+            }
+        } else {
+            if VCFDefences::new(&state).find(|&a| p == a).is_none() {
+                return false;
+            }
         }
         state = state.play(p);
     }
     true
 }
 
-#[derive(Clone)]
-struct VCFState {
-    game_state: GameState,
-    attacker: Player,
-}
-
-impl VCFState {
-    pub fn new(board: &Board, player: Player) -> Self {
-        let last_move = Self::choose_last_move(board, player);
-        let game_state = GameState::from_board(board, player, last_move);
-        Self {
-            game_state: game_state.clone(),
-            attacker: game_state.next_player(),
-        }
+fn choose_last_move(board: &Board, player: Player) -> Point {
+    let opponent = player.opponent();
+    let stones = board.stones(opponent);
+    if let Some(four) = board.rows(opponent, Four).iter().next() {
+        stones
+            .into_iter()
+            .find(|&s| s == four.start || s == four.end)
+    } else {
+        stones.into_iter().next()
     }
-
-    pub fn board_hash(&self) -> u64 {
-        self.game_state.board_hash()
-    }
-
-    pub fn play_mut(&mut self, next_move: Point) {
-        self.game_state.play_mut(next_move);
-    }
-
-    pub fn play(&self, next_move: Point) -> Self {
-        let mut result = self.clone();
-        result.play_mut(next_move);
-        result
-    }
-
-    pub fn is_valid_move(&self, p: Point) -> bool {
-        let valid_moves: HashSet<Point> = if self.game_state.next_player() == self.attacker {
-            self.attacks().collect()
-        } else {
-            self.defences().collect()
-        };
-
-        valid_moves.contains(&p)
-    }
-
-    pub fn attacks(&self) -> impl Iterator<Item = Point> {
-        if self.game_state.next_player() != self.attacker {
-            panic!()
-        }
-        VCFAttacks::new(&self)
-    }
-
-    pub fn defences(&self) -> impl Iterator<Item = Point> {
-        if self.game_state.last_player() != self.attacker {
-            panic!()
-        }
-        VCFDefences::new(&self)
-    }
-
-    fn choose_last_move(board: &Board, player: Player) -> Point {
-        let opponent = player.opponent();
-        let stones = board.stones(opponent);
-        if let Some(four) = board.rows(opponent, Four).iter().next() {
-            stones
-                .into_iter()
-                .find(|&s| s == four.start || s == four.end)
-        } else {
-            stones.into_iter().next()
-        }
-        .unwrap_or(Point(0, 0))
-    }
+    .unwrap_or(Point(0, 0))
 }
 
 struct VCFAttacks {
-    state: VCFState,
+    state: GameState,
     last_four_inited: bool,
     last_four_count: usize,
     last_four_closer: Option<Point>,
@@ -168,7 +121,7 @@ struct VCFAttacks {
 }
 
 impl VCFAttacks {
-    fn new(state: &VCFState) -> Self {
+    fn new(state: &GameState) -> Self {
         Self {
             state: state.clone(),
             last_four_inited: false,
@@ -181,7 +134,7 @@ impl VCFAttacks {
 
     fn init_last_four(&mut self) {
         if !self.last_four_inited {
-            let mut last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
+            let mut last_four_eyes = self.state.row_eyes_along_last_move(Four);
             self.last_four_count = last_four_eyes.len();
             if self.last_four_count == 1 {
                 self.last_four_closer = last_four_eyes.pop();
@@ -193,22 +146,22 @@ impl VCFAttacks {
     fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
         self.last_four_closer.take().filter(|&p| {
             self.next_four_moves.iter().find(|&&m| p == m).is_some()
-                && !self.state.game_state.is_forbidden_move(p)
+                && !self.state.is_forbidden_move(p)
         })
     }
 
     fn init_next_four(&mut self) {
         // TODO: find three eyes first
         if !self.next_four_inited {
-            let next_player = self.state.game_state.next_player();
-            self.next_four_moves = self.state.game_state.row_eyes(next_player, Sword).into();
+            let next_player = self.state.next_player();
+            self.next_four_moves = self.state.row_eyes(next_player, Sword).into();
             self.next_four_inited = true;
         }
     }
 
     fn pop_valid_next_four_move(&mut self) -> Option<Point> {
         while let Some(p) = self.next_four_moves.pop_front() {
-            if !self.state.game_state.is_forbidden_move(p) {
+            if !self.state.is_forbidden_move(p) {
                 return Some(p);
             }
         }
@@ -233,14 +186,14 @@ impl Iterator for VCFAttacks {
 }
 
 struct VCFDefences {
-    state: VCFState,
+    state: GameState,
     last_four_inited: bool,
     last_four_count: usize,
     last_four_closer: Option<Point>,
 }
 
 impl VCFDefences {
-    fn new(state: &VCFState) -> Self {
+    fn new(state: &GameState) -> Self {
         Self {
             state: state.clone(),
             last_four_inited: false,
@@ -251,7 +204,7 @@ impl VCFDefences {
 
     fn init_last_four(&mut self) {
         if !self.last_four_inited {
-            let mut last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
+            let mut last_four_eyes = self.state.row_eyes_along_last_move(Four);
             self.last_four_count = last_four_eyes.len();
             if self.last_four_count == 1 {
                 self.last_four_closer = last_four_eyes.pop();
@@ -263,7 +216,7 @@ impl VCFDefences {
     fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
         self.last_four_closer
             .take()
-            .filter(|&p| !self.state.game_state.is_forbidden_move(p))
+            .filter(|&p| !self.state.is_forbidden_move(p))
     }
 }
 

@@ -69,7 +69,6 @@ impl MoveSearcher {
                 self.init_next_three();
                 Self::pop_valid(&self.state, &mut self.next_three_moves, &mut self.popped)
             }
-            _ => None,
         }
     }
 

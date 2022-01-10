@@ -23,12 +23,13 @@ pub fn solve_vct(board: &Board, player: Player, depth: u8, vcf_depth: u8) -> Opt
         return Some(vec![]);
     }
 
-    let state = VCTState::new(board, player, vcf_depth);
+    let last_move = choose_last_move(board, player);
+    let state = GameState::from_board(board, player, last_move);
     let mut searched = HashSet::new();
     solve(&state, depth, &mut searched)
 }
 
-fn solve(state: &VCTState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
@@ -42,9 +43,9 @@ fn solve(state: &VCTState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
 
     // TODO: solve VCF first
 
-    for attack in state.attacks() {
+    for attack in VCTAttacks::new(state) {
         let state = state.play(attack);
-        let defences = state.defences();
+        let defences = VCTDefences::new(&state);
         let mut solution: Option<Vec<Point>> = Some(vec![attack]);
         for defence in defences {
             let state = state.play(defence);
@@ -64,64 +65,17 @@ fn solve(state: &VCTState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
     None
 }
 
-#[derive(Clone)]
-struct VCTState {
-    game_state: GameState,
-    attacker: Player,
-    vcf_depth: u8,
-}
-
-impl VCTState {
-    pub fn new(board: &Board, player: Player, vcf_depth: u8) -> Self {
-        let last_move = Self::choose_last_move(board, player);
-        let game_state = GameState::from_board(board, player, last_move);
-        VCTState {
-            game_state: game_state.clone(),
-            attacker: game_state.next_player(),
-            vcf_depth: vcf_depth,
-        }
+fn choose_last_move(board: &Board, player: Player) -> Point {
+    let opponent = player.opponent();
+    let stones = board.stones(opponent);
+    if let Some(four) = board.rows(opponent, Four).iter().next() {
+        stones
+            .into_iter()
+            .find(|&s| s == four.start || s == four.end)
+    } else {
+        stones.into_iter().next()
     }
-
-    pub fn board_hash(&self) -> u64 {
-        self.game_state.board_hash()
-    }
-
-    pub fn play_mut(&mut self, next_move: Point) {
-        self.game_state.play_mut(next_move);
-    }
-
-    pub fn play(&self, next_move: Point) -> Self {
-        let mut result = self.clone();
-        result.play_mut(next_move);
-        result
-    }
-
-    fn attacks(&self) -> impl Iterator<Item = Point> {
-        if self.game_state.next_player() != self.attacker {
-            panic!()
-        }
-        VCTAttacks::new(&self.game_state)
-    }
-
-    fn defences(&self) -> impl Iterator<Item = Point> {
-        if self.game_state.last_player() != self.attacker {
-            panic!()
-        }
-        VCTDefences::new(&self.game_state)
-    }
-
-    fn choose_last_move(board: &Board, player: Player) -> Point {
-        let opponent = player.opponent();
-        let stones = board.stones(opponent);
-        if let Some(four) = board.rows(opponent, Four).iter().next() {
-            stones
-                .into_iter()
-                .find(|&s| s == four.start || s == four.end)
-        } else {
-            stones.into_iter().next()
-        }
-        .unwrap_or(Point(0, 0))
-    }
+    .unwrap_or(Point(0, 0))
 }
 
 struct VCTAttacks {
