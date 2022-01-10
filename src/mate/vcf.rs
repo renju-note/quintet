@@ -160,8 +160,8 @@ impl VCFState {
 struct VCFAttacks {
     state: VCFState,
     last_four_inited: bool,
-    last_four_closers_count: usize,
-    last_four_closers: Vec<Point>,
+    last_four_count: usize,
+    last_four_closer: Option<Point>,
     next_four_inited: bool,
     next_four_moves: Vec<Point>,
 }
@@ -171,8 +171,8 @@ impl VCFAttacks {
         Self {
             state: state.clone(),
             last_four_inited: false,
-            last_four_closers_count: 0,
-            last_four_closers: vec![],
+            last_four_count: 0,
+            last_four_closer: None,
             next_four_inited: false,
             next_four_moves: vec![],
         }
@@ -180,26 +180,29 @@ impl VCFAttacks {
 
     fn init_last_four(&mut self) {
         if !self.last_four_inited {
-            self.last_four_closers = self.state.game_state.row_eyes_along_last_move(Four);
-            self.last_four_closers.reverse();
-            self.last_four_closers_count = self.last_four_closers.len();
+            let mut last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
+            self.last_four_count = last_four_eyes.len();
+            if self.last_four_count == 1 {
+                self.last_four_closer = last_four_eyes.pop();
+            }
             self.last_four_inited = true;
         }
     }
 
-    fn init_next_four(&mut self) {
-        if !self.next_four_inited {
-            self.next_four_moves = self.state.game_state.row_eyes(self.state.attacker, Sword);
-            self.next_four_moves.reverse();
-            self.next_four_inited = true;
-        }
-    }
-
     fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
-        self.last_four_closers.pop().filter(|&p| {
+        self.last_four_closer.take().filter(|&p| {
             self.next_four_moves.iter().find(|&&m| p == m).is_some()
                 && !self.state.game_state.is_forbidden_move(p)
         })
+    }
+
+    fn init_next_four(&mut self) {
+        // TODO: find three eyes first
+        if !self.next_four_inited {
+            self.next_four_moves = self.state.game_state.row_eyes(self.state.attacker, Sword);
+            self.next_four_moves.reverse(); // pop from first
+            self.next_four_inited = true;
+        }
     }
 
     fn pop_valid_next_four_move(&mut self) -> Option<Point> {
@@ -217,11 +220,11 @@ impl Iterator for VCFAttacks {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.init_last_four();
-        if self.last_four_closers_count >= 2 {
+        if self.last_four_count >= 2 {
             return None;
         }
         self.init_next_four();
-        if self.last_four_closers_count == 1 {
+        if self.last_four_count == 1 {
             return self.pop_valid_last_four_closer();
         }
         self.pop_valid_next_four_move()
@@ -231,8 +234,8 @@ impl Iterator for VCFAttacks {
 struct VCFDefences {
     state: VCFState,
     last_four_inited: bool,
-    last_four_closers_count: usize,
-    last_four_closers: Vec<Point>,
+    last_four_count: usize,
+    last_four_closer: Option<Point>,
 }
 
 impl VCFDefences {
@@ -240,22 +243,25 @@ impl VCFDefences {
         Self {
             state: state.clone(),
             last_four_inited: false,
-            last_four_closers_count: 0,
-            last_four_closers: vec![],
+            last_four_count: 0,
+            last_four_closer: None,
         }
     }
 
     fn init_last_four(&mut self) {
         if !self.last_four_inited {
-            self.last_four_closers = self.state.game_state.row_eyes_along_last_move(Four);
-            self.last_four_closers_count = self.last_four_closers.len();
+            let mut last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
+            self.last_four_count = last_four_eyes.len();
+            if self.last_four_count == 1 {
+                self.last_four_closer = last_four_eyes.pop();
+            }
             self.last_four_inited = true;
         }
     }
 
     fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
-        self.last_four_closers
-            .pop()
+        self.last_four_closer
+            .take()
             .filter(|&p| !self.state.game_state.is_forbidden_move(p))
     }
 }
@@ -265,7 +271,7 @@ impl Iterator for VCFDefences {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.init_last_four();
-        if self.last_four_closers_count >= 2 {
+        if self.last_four_count >= 2 {
             return None;
         }
         self.pop_valid_last_four_closer()

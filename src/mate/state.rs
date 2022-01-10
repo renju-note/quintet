@@ -63,6 +63,10 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+        self.board.rows(player, kind)
+    }
+
     pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
         self.board.row_eyes(player, kind)
     }

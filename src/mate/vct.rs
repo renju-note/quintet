@@ -4,6 +4,7 @@ use super::super::board::*;
 use super::state::*;
 use super::vcf::*;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 pub fn solve_vct(board: &Board, player: Player, depth: u8, vcf_depth: u8) -> Option<Vec<Point>> {
     let opponent = player.opponent();
@@ -39,6 +40,8 @@ fn solve(state: &VCTState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec
         return None;
     }
     searched.insert(hash);
+
+    // TODO: solve VCF first
 
     for attack in state.attacks() {
         let state = state.play(attack);
@@ -119,13 +122,13 @@ impl VCTState {
 struct VCTAttacks {
     state: VCTState,
     last_four_inited: bool,
-    last_four_eyes_count: usize,
-    last_four_closers: Vec<Point>,
+    last_four_count: usize,
+    last_four_closer: Option<Point>,
     next_four_inited: bool,
-    next_four_moves: Vec<Point>,
+    next_four_moves: VecDeque<Point>,
     next_three_inited: bool,
-    next_three_moves: Vec<Point>,
-    tried_moves: HashSet<Point>,
+    next_three_moves: VecDeque<Point>,
+    consumed: HashSet<Point>,
 }
 
 impl VCTAttacks {
@@ -133,53 +136,70 @@ impl VCTAttacks {
         Self {
             state: state.clone(),
             last_four_inited: false,
-            last_four_eyes_count: 0,
-            last_four_closers: vec![],
+            last_four_count: 0,
+            last_four_closer: None,
             next_four_inited: false,
-            next_four_moves: vec![],
+            next_four_moves: VecDeque::new(),
             next_three_inited: false,
-            next_three_moves: vec![],
-            tried_moves: HashSet::new(),
+            next_three_moves: VecDeque::new(),
+            consumed: HashSet::new(),
         }
     }
 
     fn init_last_four(&mut self) {
         if !self.last_four_inited {
-            let last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
-            self.last_four_eyes_count = last_four_eyes.len();
-            self.last_four_closers = last_four_eyes
-                .into_iter()
-                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
-                .collect();
+            let mut last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
+            self.last_four_count = last_four_eyes.len();
+            if self.last_four_count == 1 {
+                self.last_four_closer = last_four_eyes.pop();
+            }
             self.last_four_inited = true;
         }
     }
 
+    fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
+        self.last_four_closer.take().filter(|&p| {
+            !self.state.game_state.is_forbidden_move(p)
+                && self.solve_attacker_vcf_after(p).is_some()
+        })
+    }
+
     fn init_next_four(&mut self) {
+        // TODO: find three eyes first
         if !self.next_four_inited {
-            self.next_four_moves = self
-                .state
-                .game_state
-                .row_eyes(self.state.attacker, Sword)
-                .into_iter()
-                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
-                .collect();
+            let next_player = self.state.game_state.next_player();
+            self.next_four_moves = self.state.game_state.row_eyes(next_player, Sword).into();
             self.next_four_inited = true;
         }
     }
 
+    fn pop_valid_next_four_move(&mut self) -> Option<Point> {
+        while let Some(p) = self.next_four_moves.pop_front() {
+            if !self.consumed.contains(&p) && !self.state.game_state.is_forbidden_move(p) {
+                self.consumed.insert(p);
+                return Some(p);
+            }
+        }
+        None
+    }
+
     fn init_next_three(&mut self) {
         if !self.next_three_inited {
+            let next_player = self.state.game_state.next_player();
+            self.next_three_moves = self.state.game_state.row_eyes(next_player, Two).into();
             // TODO: remove fake three (= another eye is forbidden)
-            self.next_three_moves = self
-                .state
-                .game_state
-                .row_eyes(self.state.attacker, Two)
-                .into_iter()
-                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
-                .collect();
             self.next_three_inited = true;
         }
+    }
+
+    fn pop_valid_next_three_move(&mut self) -> Option<Point> {
+        while let Some(p) = self.next_three_moves.pop_front() {
+            if !self.consumed.contains(&p) && !self.state.game_state.is_forbidden_move(p) {
+                self.consumed.insert(p);
+                return Some(p);
+            }
+        }
+        None
     }
 
     fn solve_attacker_vcf_after(&self, p: Point) -> Option<Vec<Point>> {
@@ -198,28 +218,19 @@ impl Iterator for VCTAttacks {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.init_last_four();
-        if self.last_four_eyes_count >= 2 {
+        if self.last_four_count >= 2 {
             return None;
         }
-        if self.last_four_eyes_count == 1 {
-            return self
-                .last_four_closers
-                .pop()
-                .filter(|&e| self.solve_attacker_vcf_after(e).is_some());
-        }
-        self.init_next_three();
-        if let Some(e) = self.next_three_moves.pop() {
-            if !self.tried_moves.contains(&e) {
-                self.tried_moves.insert(e);
-                return Some(e);
-            }
+        if self.last_four_count == 1 {
+            return self.pop_valid_last_four_closer();
         }
         self.init_next_four();
-        if let Some(e) = self.next_four_moves.pop() {
-            if !self.tried_moves.contains(&e) {
-                self.tried_moves.insert(e);
-                return Some(e);
-            }
+        if let Some(e) = self.pop_valid_next_four_move() {
+            return Some(e);
+        }
+        self.init_next_three();
+        if let Some(e) = self.pop_valid_next_three_move() {
+            return Some(e);
         }
         // TODO: threat_moves
         None
@@ -229,14 +240,13 @@ impl Iterator for VCTAttacks {
 struct VCTDefences {
     state: VCTState,
     last_four_inited: bool,
-    last_four_eyes_count: usize,
-    last_four_closers: Vec<Point>,
+    last_four_count: usize,
+    last_four_closer: Option<Point>,
     last_three_inited: bool,
-    last_three_eyes_count: usize,
-    last_three_closers: Vec<Point>,
+    last_three_closers: VecDeque<Point>,
     next_four_inited: bool,
-    next_four_moves: Vec<Point>,
-    tried_moves: HashSet<Point>,
+    next_four_moves: VecDeque<Point>,
+    consumed: HashSet<Point>,
 }
 
 impl VCTDefences {
@@ -244,56 +254,72 @@ impl VCTDefences {
         Self {
             state: state.clone(),
             last_four_inited: false,
-            last_four_eyes_count: 0,
-            last_four_closers: vec![],
+            last_four_count: 0,
+            last_four_closer: None,
             last_three_inited: false,
-            last_three_eyes_count: 0,
-            last_three_closers: vec![],
+            last_three_closers: VecDeque::new(),
             next_four_inited: false,
-            next_four_moves: vec![],
-            tried_moves: HashSet::new(),
+            next_four_moves: VecDeque::new(),
+            consumed: HashSet::new(),
         }
     }
 
     fn init_last_four(&mut self) {
         if !self.last_four_inited {
-            let last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
-            self.last_four_eyes_count = last_four_eyes.len();
-            self.last_four_closers = last_four_eyes
-                .into_iter()
-                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
-                .collect();
+            let mut last_four_eyes = self.state.game_state.row_eyes_along_last_move(Four);
+            self.last_four_count = last_four_eyes.len();
+            if self.last_four_count == 1 {
+                self.last_four_closer = last_four_eyes.pop();
+            }
             self.last_four_inited = true;
         }
     }
 
+    fn pop_valid_last_four_closer(&mut self) -> Option<Point> {
+        self.last_four_closer
+            .take()
+            .filter(|&p| !self.state.game_state.is_forbidden_move(p))
+    }
+
+    fn init_next_four(&mut self) {
+        // TODO: find three eyes first
+        if !self.next_four_inited {
+            let next_player = self.state.game_state.next_player();
+            self.next_four_moves = self.state.game_state.row_eyes(next_player, Sword).into();
+            self.next_four_inited = true;
+        }
+    }
+
+    fn pop_valid_next_four_move(&mut self) -> Option<Point> {
+        while let Some(p) = self.next_four_moves.pop_front() {
+            if !self.consumed.contains(&p) && !self.state.game_state.is_forbidden_move(p) {
+                self.consumed.insert(p);
+                return Some(p);
+            }
+        }
+        None
+    }
+
     fn init_last_three(&mut self) {
         if !self.last_three_inited {
+            let last_player = self.state.game_state.last_player();
+            let last_threes = self.state.game_state.rows(last_player, Three);
+            for r in last_threes {
+                self.last_three_closers.extend(r.into_iter_eyes());
+            }
             // TODO: outer closer and summer closer
-            let last_three_eyes = self
-                .state
-                .game_state
-                .row_eyes(self.state.game_state.last_player(), Three);
-            self.last_three_eyes_count = last_three_eyes.len();
-            self.last_three_closers = last_three_eyes
-                .into_iter()
-                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
-                .collect();
             self.last_three_inited = true;
         }
     }
 
-    fn init_next_four(&mut self) {
-        if !self.next_four_inited {
-            self.next_four_moves = self
-                .state
-                .game_state
-                .row_eyes(self.state.game_state.next_player(), Sword)
-                .into_iter()
-                .filter(|&p| !self.state.game_state.is_forbidden_move(p))
-                .collect();
-            self.next_four_inited = true;
+    fn pop_valid_last_three_closer(&mut self) -> Option<Point> {
+        while let Some(p) = self.last_three_closers.pop_front() {
+            if !self.consumed.contains(&p) && !self.state.game_state.is_forbidden_move(p) {
+                self.consumed.insert(p);
+                return Some(p);
+            }
         }
+        None
     }
 }
 
@@ -302,27 +328,20 @@ impl Iterator for VCTDefences {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.init_last_four();
-        if self.last_four_eyes_count >= 2 {
+        if self.last_four_count >= 2 {
             return None;
         }
-        if self.last_four_eyes_count == 1 {
-            return self.last_four_closers.pop();
+        if self.last_four_count == 1 {
+            return self.pop_valid_last_four_closer();
+        }
+        self.init_last_three();
+        if let Some(e) = self.pop_valid_last_three_closer() {
+            return Some(e);
         }
         self.init_next_four();
-        self.init_last_three();
-        if self.last_three_eyes_count >= 1 {
-            if let Some(e) = self
-                .last_three_closers
-                .pop()
-                .or_else(|| self.next_four_moves.pop())
-            {
-                if !self.tried_moves.contains(&e) {
-                    self.tried_moves.insert(e);
-                    return Some(e);
-                }
-            }
+        if let Some(e) = self.pop_valid_next_four_move() {
+            return Some(e);
         }
-        // TODO: threat_moves
         None
     }
 }
