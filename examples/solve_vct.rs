@@ -20,7 +20,7 @@ fn main() {
 
         println!("\nBlack VCF:");
         let start = Instant::now();
-        let result = mate::solve_vct(&board, Player::Black, 10, 2);
+        let result = mate::solve_vct(&board, Player::Black, 10);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {
@@ -33,7 +33,7 @@ fn main() {
 
         println!("\nWhite VCF:");
         let start = Instant::now();
-        let result = mate::solve_vct(&board, Player::White, 10, 2);
+        let result = mate::solve_vct(&board, Player::White, 10);
         let elapsed = start.elapsed();
         println!("\tElapsed: {:?}", elapsed);
         match result {

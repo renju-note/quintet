@@ -17,9 +17,11 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
     }
     searched.insert(hash);
 
-    // TODO: solve VCF first
+    if let Some(result) = vcf::solve(state, depth, searched) {
+        return Some(result);
+    }
 
-    for attack in VCTAttacks::new(state) {
+    for attack in VCTAttacks::new(state, depth) {
         let state = state.play(attack);
         let defences = VCTDefences::new(&state);
         let mut solution: Option<Vec<Point>> = Some(vec![attack]);
@@ -43,12 +45,14 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
 
 struct VCTAttacks {
     searcher: MoveSearcher,
+    threat_depth: u8,
 }
 
 impl VCTAttacks {
-    fn new(state: &GameState) -> Self {
+    fn new(state: &GameState, threat_depth: u8) -> Self {
         Self {
             searcher: MoveSearcher::new(state),
+            threat_depth: threat_depth,
         }
     }
 }
@@ -61,12 +65,12 @@ impl Iterator for VCTAttacks {
             return self
                 .searcher
                 .pop(MoveKind::LastFourCloser)
-                .filter(|&p| self.searcher.get_threat(p).is_some());
-        }
-        if let Some(e) = self.searcher.pop(MoveKind::NextFourMove) {
-            return Some(e);
+                .filter(|&p| self.searcher.get_threat(p, self.threat_depth).is_some());
         }
         if let Some(e) = self.searcher.pop(MoveKind::NextThreeMove) {
+            return Some(e);
+        }
+        if let Some(e) = self.searcher.pop(MoveKind::NextFourMove) {
             return Some(e);
         }
         // TODO: threat_moves
@@ -104,14 +108,14 @@ impl Iterator for VCTDefences {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum MoveKind {
+enum MoveKind {
     LastFourCloser,
     NextFourMove,
     LastThreeCloser,
     NextThreeMove,
 }
 
-pub struct MoveSearcher {
+struct MoveSearcher {
     state: GameState,
     last_four_inited: bool,
     last_four_count: usize,
@@ -170,10 +174,10 @@ impl MoveSearcher {
         }
     }
 
-    pub fn get_threat(&self, p: Point) -> Option<Vec<Point>> {
+    pub fn get_threat(&self, p: Point, depth: u8) -> Option<Vec<Point>> {
         let mut state = self.state.play(p);
         state.pass_mut();
-        vcf::solve(&state, u8::MAX, &mut HashSet::new())
+        vcf::solve(&state, depth, &mut HashSet::new())
     }
 
     fn init_last_four(&mut self) {

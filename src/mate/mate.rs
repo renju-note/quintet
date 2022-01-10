@@ -23,7 +23,7 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
     }
 }
 
-pub fn solve_vct(board: &Board, player: Player, depth: u8, vcf_depth: u8) -> Option<Vec<Point>> {
+pub fn solve_vct(board: &Board, player: Player, depth: u8) -> Option<Vec<Point>> {
     if let Err(e) = validate_initial(board, player) {
         return e;
     }
