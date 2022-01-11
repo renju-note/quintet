@@ -210,10 +210,12 @@ impl MoveSearcher {
             return;
         }
         let last_threes = self.state.rows(self.state.last_player(), Three);
-        for r in last_threes {
-            self.last_three_closers.extend(r.into_iter_eyes());
+        for three in &last_threes {
+            self.last_three_closers.extend(three.into_iter_eyes());
         }
-        // TODO: outer closer and summer closer
+        for three in &last_threes {
+            self.last_three_closers.extend(Self::three_closers(three));
+        }
         self.last_three_inited = true;
     }
 
@@ -242,6 +244,17 @@ impl MoveSearcher {
         }
         None
     }
+
+    fn three_closers(three: &Row) -> [Point; 2] {
+        let (sx, sy) = (three.start.0, three.start.1);
+        let (ex, ey) = (three.end.0, three.end.1);
+        match three.direction {
+            Direction::Vertical => [Point(sx, sy - 1), Point(ex, ey + 1)],
+            Direction::Horizontal => [Point(sx, sy - 1), Point(ex, ey + 1)],
+            Direction::Ascending => [Point(sx - 1, sy - 1), Point(ex + 1, ey + 1)],
+            Direction::Descending => [Point(sx - 1, sy + 1), Point(ex + 1, ey - 1)],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -269,7 +282,7 @@ mod tests {
         "
         .parse::<Board>()?;
         let state = GameState::new(&board, Player::Black, Point(8, 10));
-        let result = solve(&state, 4, 5, &mut HashSet::new()).map(|ps| Points(ps).to_string());
+        let result = solve(&state, 4, 1, &mut HashSet::new()).map(|ps| Points(ps).to_string());
         let solution = "F10,G9,I10,G10,H11,H12,G12".to_string();
         assert_eq!(result, Some(solution));
 
@@ -297,8 +310,8 @@ mod tests {
         "
         .parse::<Board>()?;
         let state = GameState::new(&board, Player::White, Point(6, 9));
-        let result = solve(&state, 3, 5, &mut HashSet::new()).map(|ps| Points(ps).to_string());
-        let solution = "I10,I8,J11,K12,F7".to_string();
+        let result = solve(&state, 4, 1, &mut HashSet::new()).map(|ps| Points(ps).to_string());
+        let solution = "I10,I6,I11,I8,F7,E6,J11".to_string();
         assert_eq!(result, Some(solution));
 
         Ok(())
