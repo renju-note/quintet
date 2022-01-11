@@ -50,11 +50,11 @@ pub fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
     let mut state = state.clone();
     for &p in solution.iter() {
         if state.next_player() == attacker {
-            if Attacks::new(&state).find(|&a| p == a).is_none() {
+            if !Attacks::new(&state).any(|a| p == a) {
                 return false;
             }
         } else {
-            if Defences::new(&state).find(|&a| p == a).is_none() {
+            if !Defences::new(&state).any(|a| p == a) {
                 return false;
             }
         }
@@ -68,7 +68,7 @@ struct Attacks {
 }
 
 impl Attacks {
-    fn new(state: &GameState) -> Self {
+    pub fn new(state: &GameState) -> Self {
         Attacks {
             searcher: MoveSearcher::new(state),
         }
@@ -94,7 +94,7 @@ struct Defences {
 }
 
 impl Defences {
-    fn new(state: &GameState) -> Self {
+    pub fn new(state: &GameState) -> Self {
         Defences {
             searcher: MoveSearcher::new(state),
         }
@@ -137,7 +137,7 @@ impl MoveSearcher {
 
     pub fn is_next_four_move(&mut self, p: Point) -> bool {
         self.init_next_four();
-        self.next_four_moves.iter().find(|&&m| m == p).is_some()
+        self.next_four_moves.iter().any(|&m| m == p)
     }
 
     pub fn pop_last_four_closer(&mut self) -> Option<Point> {
