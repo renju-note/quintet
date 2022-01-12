@@ -1,4 +1,5 @@
 use std::convert::From;
+use std::fmt;
 
 pub const BOARD_SIZE: u8 = 15;
 
@@ -34,6 +35,12 @@ impl Player {
 
     pub fn is_white(self) -> bool {
         self == Player::White
+    }
+}
+
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(if self.is_black() { "o" } else { "x" })
     }
 }
 

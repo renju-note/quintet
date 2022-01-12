@@ -4,38 +4,93 @@ use std::fmt;
 
 const BOARD_SIZE_U: usize = BOARD_SIZE as usize;
 
-#[derive(Default, Clone)]
+const SLF: i8 = -1;
+const OPN: i8 = -2;
+const LIMIT: i8 = 5;
+
+#[derive(Clone)]
 pub struct Heatmap {
     map: [[i8; BOARD_SIZE_U]; BOARD_SIZE_U],
-    limit: u8,
+    player: Player,
 }
 
 impl Heatmap {
-    pub fn new(limit: u8) -> Self {
-        let mut result = Self::default();
-        result.limit = limit;
-        result
-    }
-
-    pub fn put_mut(&mut self, p: Point) {
-        let (x, y) = (p.0 as usize, p.1 as usize);
-        self.map[y][x] = -1;
-        for direction in [Vertical, Horizontal, Ascending, Descending] {
-            for way in [Way::Up, Way::Down] {
-                for (x, y) in Neighbors::new(p, direction, way, self.limit) {
-                    if self.map[y][x] == -1 {
-                        break;
-                    }
-                    self.map[y][x] += 1;
-                }
-            }
+    pub fn new(player: Player) -> Self {
+        Self {
+            map: [[0; BOARD_SIZE_U]; BOARD_SIZE_U],
+            player: player,
         }
     }
 
-    pub fn put(&self, p: Point) -> Self {
+    pub fn put_mut(&mut self, player: Player, p: Point) {
+        if player == self.player {
+            self.put_mut_self(p)
+        } else {
+            self.put_mut_opponent(p)
+        }
+    }
+
+    pub fn put(&self, player: Player, p: Point) -> Self {
         let mut result = self.clone();
-        result.put_mut(p);
+        result.put_mut(player, p);
         result
+    }
+
+    fn put_mut_self(&mut self, p: Point) {
+        for direction in [Vertical, Horizontal, Ascending, Descending] {
+            for way in [Way::Up, Way::Down] {
+                for n in Neighbors::new(p, direction, way) {
+                    let h = self.get(n);
+                    if h == SLF {
+                        continue;
+                    }
+                    if h == OPN {
+                        break;
+                    }
+                    self.inc(n);
+                }
+            }
+        }
+        self.set(p, SLF);
+    }
+
+    fn put_mut_opponent(&mut self, p: Point) {
+        for direction in [Vertical, Horizontal, Ascending, Descending] {
+            for way in [Way::Up, Way::Down] {
+                for n in Neighbors::new(p, direction, way) {
+                    let h = self.get(n);
+                    if h == SLF {
+                        for nn in Neighbors::new(n, direction, way.reflect()) {
+                            let nh = self.get(nn);
+                            if nh == SLF {
+                                continue;
+                            }
+                            if nh == OPN {
+                                break;
+                            }
+                            self.dec(nn)
+                        }
+                    }
+                }
+            }
+        }
+        self.set(p, OPN);
+    }
+
+    fn get(&self, p: Point) -> i8 {
+        self.map[p.1 as usize][p.0 as usize]
+    }
+
+    fn set(&mut self, p: Point, h: i8) {
+        self.map[p.1 as usize][p.0 as usize] = h
+    }
+
+    fn inc(&mut self, p: Point) {
+        self.map[p.1 as usize][p.0 as usize] += 1
+    }
+
+    fn dec(&mut self, p: Point) {
+        self.map[p.1 as usize][p.0 as usize] -= 1
     }
 }
 
@@ -48,12 +103,14 @@ impl fmt::Display for Heatmap {
             .map(|vmap| {
                 vmap.into_iter()
                     .map(|&h| {
-                        if h == 0 {
-                            '-'
-                        } else if h < 0 {
-                            '*'
+                        if h > 0 {
+                            h.to_string()
+                        } else if h == SLF {
+                            self.player.to_string()
+                        } else if h == OPN {
+                            self.player.opponent().to_string()
                         } else {
-                            h.to_string().chars().last().unwrap()
+                            "-".to_string()
                         }
                     })
                     .collect::<String>()
@@ -70,34 +127,41 @@ enum Way {
     Down,
 }
 
+impl Way {
+    pub fn reflect(&self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+        }
+    }
+}
+
 struct Neighbors {
     sx: i8,
     sy: i8,
     direction: Direction,
     way: Way,
-    limit: i8,
     c: i8,
 }
 
 impl Neighbors {
-    fn new(p: Point, direction: Direction, way: Way, limit: u8) -> Self {
+    fn new(p: Point, direction: Direction, way: Way) -> Self {
         Neighbors {
             sx: p.0 as i8,
             sy: p.1 as i8,
             direction: direction,
             way: way,
-            limit: limit as i8,
             c: 1,
         }
     }
 }
 
 impl Iterator for Neighbors {
-    type Item = (usize, usize);
+    type Item = Point;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (sx, sy, c) = (self.sx, self.sy, self.c);
-        if c > self.limit {
+        if c >= LIMIT {
             return None;
         }
         let (x, y) = match (self.direction, self.way) {
@@ -114,7 +178,7 @@ impl Iterator for Neighbors {
             return None;
         }
         self.c = c + 1;
-        Some((x as usize, y as usize))
+        Some(Point(x as u8, y as u8))
     }
 }
 
@@ -124,23 +188,23 @@ mod tests {
 
     #[test]
     fn test_put_mut() {
-        let mut map = Heatmap::new(3);
+        let mut map = Heatmap::new(Player::Black);
 
-        map.put_mut(Point(7, 7));
+        map.put_mut(Player::Black, Point(7, 7));
         let expected = trim_lines_string(
             "
             ---------------
             ---------------
             ---------------
-            ---------------
+            ---1---1---1---
             ----1--1--1----
             -----1-1-1-----
             ------111------
-            ----111*111----
+            ---1111o1111---
             ------111------
             -----1-1-1-----
             ----1--1--1----
-            ---------------
+            ---1---1---1---
             ---------------
             ---------------
             ---------------
@@ -148,22 +212,66 @@ mod tests {
         );
         assert_eq!(map.to_string(), expected);
 
-        map.put_mut(Point(9, 8));
+        map.put_mut(Player::White, Point(8, 8));
         let expected = trim_lines_string(
             "
             ---------------
             ---------------
             ---------------
-            ------1--1--1--
-            ----1--2-111---
-            -----1-1121----
-            ------222*111--
-            ----111*222----
-            ------1211-1---
-            -----111-2--1--
+            ---1---1-------
+            ----1--1-------
+            -----1-1-------
+            ------11x------
+            ---1111o1111---
+            ------111------
+            -----1-1-1-----
             ----1--1--1----
+            ---1---1---1---
             ---------------
             ---------------
+            ---------------
+        ",
+        );
+        assert_eq!(map.to_string(), expected);
+
+        map.put_mut(Player::Black, Point(8, 6));
+        let expected = trim_lines_string(
+            "
+            ---------------
+            ---------------
+            ---------------
+            ---1---1-------
+            ----2--1----1--
+            -----2-1---1---
+            ------21x-1----
+            ---1111o2211---
+            ----1122o1111--
+            -----1-212-----
+            ----1-111-2----
+            ---1-1-11--2---
+            ----1---1---1--
+            ---------------
+            ---------------
+        ",
+        );
+        assert_eq!(map.to_string(), expected);
+
+        map.put_mut(Player::White, Point(6, 8));
+        let expected = trim_lines_string(
+            "
+            ---------------
+            ---------------
+            ---------------
+            -------1-------
+            -------1----1--
+            -------1---1---
+            ------x1x-1----
+            ---1111o2211---
+            ----1122o1111--
+            -----1-212-----
+            ----1-111-2----
+            ---1-1-11--2---
+            ----1---1---1--
             ---------------
             ---------------
         ",
@@ -173,30 +281,30 @@ mod tests {
 
     #[test]
     fn test_put_mut_edge() {
-        let mut map = Heatmap::new(3);
-        map.put_mut(Point(0, 0));
-        map.put_mut(Point(0, 14));
-        map.put_mut(Point(14, 0));
-        map.put_mut(Point(14, 14));
+        let mut map = Heatmap::new(Player::Black);
+        map.put_mut(Player::Black, Point(0, 0));
+        map.put_mut(Player::Black, Point(0, 14));
+        map.put_mut(Player::Black, Point(14, 0));
+        map.put_mut(Player::Black, Point(14, 14));
 
         let expected = trim_lines_string(
             "
-            *111-------111*
+            o1111-----1111o
             11-----------11
             1-1---------1-1
             1--1-------1--1
+            1---1-----1---1
             ---------------
             ---------------
             ---------------
             ---------------
             ---------------
-            ---------------
-            ---------------
+            1---1-----1---1
             1--1-------1--1
             1-1---------1-1
             11-----------11
-            *111-------111*
-        ",
+            o1111-----1111o
+                    ",
         );
         assert_eq!(map.to_string(), expected);
     }
