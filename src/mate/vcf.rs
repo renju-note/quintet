@@ -14,19 +14,13 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
     }
     searched.insert(hash);
 
-    for (attack, defence) in AttackDefencePairs::new(state) {
-        if state.is_forbidden_move(attack) {
-            continue;
-        }
-        let mut state = state.play(attack);
-        if state.row_eyes_along_last_move(Four).len() >= 2 {
+    for (attack, may_defence, may_next_state) in VCFMoves::new(state) {
+        if may_defence.is_none() {
             return Some(vec![attack]);
         }
-        if state.is_forbidden_move(defence) {
-            return Some(vec![attack]);
-        }
-        state.play_mut(defence);
-        if let Some(mut ps) = solve(&state, depth - 1, searched) {
+        let defence = may_defence.unwrap();
+        let next_state = may_next_state.unwrap();
+        if let Some(mut ps) = solve(&next_state, depth - 1, searched) {
             let mut result = vec![attack, defence];
             result.append(&mut ps);
             return Some(result);
@@ -50,33 +44,28 @@ pub fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
 pub fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
     let mut state = state.clone();
     for i in 0..((solution.len() + 1) / 2) {
-        if i * 2 + 1 == solution.len() {
-            let attack = solution[i * 2];
-            if !AttackDefencePairs::new(&state).any(|(a, _)| a == attack) {
-                return false;
-            }
-        } else {
-            let (attack, defence) = (solution[i * 2], solution[i * 2 + 1]);
-            if !AttackDefencePairs::new(&state).any(|(a, d)| a == attack && d == defence) {
-                return false;
-            }
-            state.play_mut(attack);
-            state.play_mut(defence);
+        let attack = solution[i * 2];
+        let may_defence = solution.get(i * 2 + 1).map(|&p| p);
+        if !VCFMoves::new(&state).any(|(a, d, _)| a == attack && d == may_defence) {
+            return false;
         }
+        state.play_mut(attack);
+        may_defence.map(|defence| state.play_mut(defence));
     }
     true
 }
 
-struct AttackDefencePairs {
-    moves: Vec<(Point, Point)>,
+struct VCFMoves {
+    state: GameState,
+    move_pairs: Vec<(Point, Point)>,
 }
 
-impl AttackDefencePairs {
+impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
         let next_player = state.next_player();
         let last_fours = state.rows_on(state.last_player(), Four, state.last_move());
         let last_four_count = last_fours.len();
-        let moves: Vec<(Point, Point)> = if last_four_count >= 2 {
+        let move_pairs: Vec<(Point, Point)> = if last_four_count >= 2 {
             vec![]
         } else if last_four_count == 1 {
             let last_four_eye = last_fours[0].eye1.unwrap();
@@ -106,15 +95,32 @@ impl AttackDefencePairs {
                 .flatten()
                 .collect()
         };
-        AttackDefencePairs { moves: moves }
+        VCFMoves {
+            state: state.clone(),
+            move_pairs: move_pairs,
+        }
     }
 }
 
-impl Iterator for AttackDefencePairs {
-    type Item = (Point, Point);
+impl Iterator for VCFMoves {
+    type Item = (Point, Option<Point>, Option<GameState>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.moves.pop()
+        while let Some((attack, defence)) = self.move_pairs.pop() {
+            if self.state.is_forbidden_move(attack) {
+                continue;
+            }
+            let mut next_state = self.state.play(attack);
+            if next_state.row_eyes_along_last_move(Four).len() >= 2 {
+                return Some((attack, None, None));
+            }
+            if next_state.is_forbidden_move(defence) {
+                return Some((attack, None, None));
+            }
+            next_state.play_mut(defence);
+            return Some((attack, Some(defence), Some(next_state)));
+        }
+        None
     }
 }
 
