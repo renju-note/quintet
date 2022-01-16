@@ -1,5 +1,5 @@
+mod mate;
 mod state;
 mod vcf;
 
-pub use state::GameState;
-pub use vcf::solve_vcf;
+pub use mate::solve_vcf;
