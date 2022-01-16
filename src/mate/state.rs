@@ -8,7 +8,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn from_board(board: &Board, next_player: Player, last_move: Point) -> Self {
+    pub fn new(board: &Board, next_player: Player, last_move: Point) -> Self {
         Self {
             board: board.clone(),
             next_player: next_player,
@@ -40,17 +40,20 @@ impl GameState {
         self.last_move
     }
 
-    pub fn is_legal_move(&self, p: Point) -> bool {
-        self.board.stone(p).is_none()
-            && !(self.next_player.is_black() && self.board.forbidden(p).is_some())
+    pub fn is_forbidden_move(&self, p: Point) -> bool {
+        self.next_player.is_black() && self.board.forbidden(p).is_some()
     }
 
     pub fn board_hash(&self) -> u64 {
         self.board.zobrist_hash()
     }
 
-    pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
-        self.board.row_eyes(player, kind)
+    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+        self.board.rows(player, kind)
+    }
+
+    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
+        self.board.rows_on(player, kind, p)
     }
 
     pub fn row_eyes_along_last_move(&self, kind: RowKind) -> Vec<Point> {
