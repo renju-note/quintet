@@ -62,6 +62,10 @@ impl GameState {
         self.board.rows(player, kind)
     }
 
+    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
+        self.board.rows_on(player, kind, p)
+    }
+
     pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
         self.board.row_eyes(player, kind)
     }

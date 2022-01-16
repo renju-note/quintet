@@ -14,13 +14,17 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
     }
     searched.insert(hash);
 
-    for attack in Attacks::new(state) {
+    for (attack, defence) in AttackDefencePairs::new(state) {
+        if state.is_forbidden_move(attack) {
+            continue;
+        }
         let mut state = state.play(attack);
-        let may_defence = Defences::new(&state).next();
-        if may_defence.is_none() {
+        if state.row_eyes_along_last_move(Four).len() >= 2 {
             return Some(vec![attack]);
         }
-        let defence = may_defence.unwrap();
+        if state.is_forbidden_move(defence) {
+            return Some(vec![attack]);
+        }
         state.play_mut(defence);
         if let Some(mut ps) = solve(&state, depth - 1, searched) {
             let mut result = vec![attack, defence];
@@ -46,136 +50,73 @@ pub fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
 }
 
 pub fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
-    let attacker = state.next_player();
     let mut state = state.clone();
-    for &p in solution.iter() {
-        if state.next_player() == attacker {
-            if !Attacks::new(&state).any(|a| p == a) {
+    for i in 0..((solution.len() + 1) / 2) {
+        if i * 2 + 1 == solution.len() {
+            let attack = solution[i * 2];
+            if !AttackDefencePairs::new(&state).any(|(a, _)| a == attack) {
                 return false;
             }
         } else {
-            if !Defences::new(&state).any(|a| p == a) {
+            let (attack, defence) = (solution[i * 2], solution[i * 2 + 1]);
+            if !AttackDefencePairs::new(&state).any(|(a, d)| a == attack && d == defence) {
                 return false;
             }
+            state.play_mut(attack);
+            state.play_mut(defence);
         }
-        state = state.play(p);
     }
     true
 }
 
-struct Attacks {
-    searcher: MoveSearcher,
+struct AttackDefencePairs {
+    moves: Vec<(Point, Point)>,
 }
 
-impl Attacks {
+impl AttackDefencePairs {
     pub fn new(state: &GameState) -> Self {
-        Attacks {
-            searcher: MoveSearcher::new(state),
-        }
+        let next_player = state.next_player();
+        let last_fours = state.rows_on(state.last_player(), Four, state.last_move());
+        let last_four_count = last_fours.len();
+        let moves: Vec<(Point, Point)> = if last_four_count >= 2 {
+            vec![]
+        } else if last_four_count == 1 {
+            let last_four_eye = last_fours[0].eye1.unwrap();
+            state
+                .rows_on(next_player, Sword, last_four_eye)
+                .into_iter()
+                .map(|s| {
+                    let (e1, e2) = (s.eye1.unwrap(), s.eye2.unwrap());
+                    if e1 == last_four_eye {
+                        Some((e1, e2))
+                    } else if e2 == last_four_eye {
+                        Some((e2, e1))
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .collect()
+        } else {
+            state
+                .rows(next_player, Sword)
+                .into_iter()
+                .map(|s| {
+                    let (e1, e2) = (s.eye1.unwrap(), s.eye2.unwrap());
+                    [(e1, e2), (e2, e1)]
+                })
+                .flatten()
+                .collect()
+        };
+        AttackDefencePairs { moves: moves }
     }
 }
 
-impl Iterator for Attacks {
-    type Item = Point;
+impl Iterator for AttackDefencePairs {
+    type Item = (Point, Point);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.searcher.last_four_found() {
-            return self
-                .searcher
-                .pop_last_four_closer()
-                .filter(|&p| self.searcher.is_next_four_move(p));
-        }
-        self.searcher.pop_next_four_move()
-    }
-}
-
-struct Defences {
-    searcher: MoveSearcher,
-}
-
-impl Defences {
-    pub fn new(state: &GameState) -> Self {
-        Defences {
-            searcher: MoveSearcher::new(state),
-        }
-    }
-}
-
-impl Iterator for Defences {
-    type Item = Point;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.searcher.pop_last_four_closer()
-    }
-}
-
-struct MoveSearcher {
-    state: GameState,
-    last_four_inited: bool,
-    last_four_count: usize,
-    last_four_closer: Option<Point>,
-    next_four_inited: bool,
-    next_four_moves: Vec<Point>,
-}
-
-impl MoveSearcher {
-    pub fn new(state: &GameState) -> Self {
-        Self {
-            state: state.clone(),
-            last_four_inited: false,
-            last_four_count: 0,
-            last_four_closer: None,
-            next_four_inited: false,
-            next_four_moves: vec![],
-        }
-    }
-
-    pub fn last_four_found(&mut self) -> bool {
-        self.init_last_four();
-        self.last_four_count >= 1
-    }
-
-    pub fn is_next_four_move(&mut self, p: Point) -> bool {
-        self.init_next_four();
-        self.next_four_moves.iter().any(|&m| m == p)
-    }
-
-    pub fn pop_last_four_closer(&mut self) -> Option<Point> {
-        self.init_last_four();
-        self.last_four_closer
-            .take()
-            .filter(|&p| !self.state.is_forbidden_move(p))
-    }
-
-    pub fn pop_next_four_move(&mut self) -> Option<Point> {
-        self.init_next_four();
-        while let Some(p) = self.next_four_moves.pop() {
-            if !self.state.is_forbidden_move(p) {
-                return Some(p);
-            }
-        }
-        None
-    }
-
-    fn init_last_four(&mut self) {
-        if self.last_four_inited {
-            return;
-        }
-        let mut last_four_eyes = self.state.row_eyes_along_last_move(Four);
-        self.last_four_count = last_four_eyes.len();
-        if self.last_four_count == 1 {
-            self.last_four_closer = last_four_eyes.pop();
-        }
-        self.last_four_inited = true;
-    }
-
-    fn init_next_four(&mut self) {
-        if self.next_four_inited {
-            return;
-        }
-        self.next_four_moves = self.state.row_eyes(self.state.next_player(), Sword);
-        self.next_four_moves.reverse(); // pop from first
-        self.next_four_inited = true;
+        self.moves.pop()
     }
 }
 

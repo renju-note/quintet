@@ -93,11 +93,11 @@ mod tests {
         "
         .parse::<Board>()?;
         let result = solve_vcf(&board, White, 10, false).map(|ps| Points(ps).to_string());
-        let solution = "E6,H9,G1,G3,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
+        let solution = "H5,I6,E6,H9,F5,E5,C8,D7,G3,G1,C11,C9,C14,C13,D13".to_string();
         assert_eq!(result, Some(solution));
 
         let result = solve_vcf(&board, White, 10, true).map(|ps| Points(ps).to_string());
-        let solution = "E6,H9,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
+        let solution = "H5,I6,E6,H9,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
         assert_eq!(result, Some(solution));
         Ok(())
     }
