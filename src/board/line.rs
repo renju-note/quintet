@@ -180,18 +180,35 @@ impl Segment {
         if self.0 == 0b00000000 {
             return 0;
         }
-        if self.0 == 0b00001111 {
+        let player_black = player.is_black();
+        let black = self.black();
+        let white = self.white();
+        if black && white {
             return -1;
         }
-        let occupant = if self.0 & 0b10000000 == 0b00000000 {
-            Player::Black
-        } else {
-            Player::White
-        };
-        if occupant != player {
-            return -1;
+        if black && !player_black || white && player_black {
+            return -2;
         }
-        ((self.0 & 0b01110000) >> 4) as i8
+        if player_black && self.overline() {
+            return -3;
+        }
+        self.count_stones()
+    }
+
+    fn black(&self) -> bool {
+        self.0 & 0b01000000 != 0b0
+    }
+
+    fn white(&self) -> bool {
+        self.0 & 0b10000000 != 0b0
+    }
+
+    fn overline(&self) -> bool {
+        self.0 & 0b00100000 != 0b0
+    }
+
+    fn count_stones(&self) -> i8 {
+        (self.0 & 0b00011111).count_ones() as i8
     }
 }
 
@@ -204,7 +221,6 @@ impl fmt::Debug for Segment {
 pub struct Segments {
     blacks_: Bits,
     whites_: Bits,
-    blanks_: Bits,
     size: u8,
     i: u8,
 }
@@ -214,7 +230,6 @@ impl Segments {
         Self {
             blacks_: blacks << 1,
             whites_: whites << 1,
-            blanks_: (!(blacks | whites) & ((0b1 << limit as u16) - 1)) << 1,
             size: limit - 5 + 1,
             i: 0,
         }
@@ -229,45 +244,25 @@ impl Iterator for Segments {
         if i >= self.size {
             return None;
         }
-        let blanks = self.blanks_ >> i & 0b0111110;
-        let margin = self.blacks_ >> i & 0b1000001;
         let blacks = self.blacks_ >> i & 0b0111110;
         let whites = self.whites_ >> i & 0b0111110;
-        let segment = if blanks == 0b0111110 {
-            if margin == 0b0000000 {
-                Segment(0b00000000)
-            } else {
-                Segment(0b10000000)
-            }
-        } else if blacks != 0b0 && whites == 0b0 && margin == 0b0 {
-            Segment(0b00000000 | encode(blacks >> 1))
-        } else if whites != 0b0 && blacks == 0b0 {
-            Segment(0b10000000 | encode(whites >> 1))
+        let margin = self.blacks_ >> i & 0b1000001;
+        let black: u8 = if blacks != 0b0 { 0b1 << 6 } else { 0b0 };
+        let white: u8 = if whites != 0b0 { 0b1 << 7 } else { 0b0 };
+        let overline: u8 = if margin != 0b0 { 0b1 << 5 } else { 0b0 };
+        let stones = if black != 0b0 && white != 0b0 {
+            0b0
+        } else if black != 0b0 {
+            blacks as u8 >> 1
+        } else if white != 0b0 {
+            whites as u8 >> 1
         } else {
-            Segment(0b00001111)
+            0b0
         };
+        let segment = Segment(black | white | overline | stones);
         self.i += 1;
         return Some(segment);
     }
-}
-
-fn encode(stones: Bits) -> u8 {
-    let count = stones.count_ones();
-    let shape = match count {
-        1 => stones.trailing_zeros(),
-        2 => encode_shape(stones),
-        3 => encode_shape(!stones & 0b11111),
-        4 => (!stones & 0b11111).trailing_zeros(),
-        _ => 0b0000,
-    };
-    ((count << 4) | shape) as u8
-}
-
-fn encode_shape(stones: Bits) -> u32 {
-    let right = stones.trailing_zeros();
-    let stones = stones & !(0b1 << right);
-    let left = (stones >> 1).trailing_zeros();
-    (left << 2) | right
 }
 
 #[cfg(test)]
@@ -375,17 +370,33 @@ mod tests {
     }
 
     #[test]
+    fn test_potential() {
+        assert_eq!(Segment(0b00000000).potential(Black), 0);
+        assert_eq!(Segment(0b00000000).potential(White), 0);
+        assert_eq!(Segment(0b11000000).potential(Black), -1);
+        assert_eq!(Segment(0b11000000).potential(White), -1);
+        assert_eq!(Segment(0b01000101).potential(Black), 2);
+        assert_eq!(Segment(0b01000101).potential(White), -2);
+        assert_eq!(Segment(0b10011010).potential(Black), -2);
+        assert_eq!(Segment(0b10011010).potential(White), 3);
+        assert_eq!(Segment(0b01100001).potential(Black), -3);
+        assert_eq!(Segment(0b01100001).potential(White), -2);
+        assert_eq!(Segment(0b00100000).potential(Black), -3);
+        assert_eq!(Segment(0b00100000).potential(White), 0);
+    }
+
+    #[test]
     fn test_segments() {
         let result = Segments::new(0b000000001100000, 0b000000000000000, 15).collect::<Vec<_>>();
         let expected = [
-            Segment(0b10000000),
-            Segment(0b00001111),
-            Segment(0b00101111),
-            Segment(0b00101010),
-            Segment(0b00100101),
             Segment(0b00100000),
-            Segment(0b00001111),
-            Segment(0b10000000),
+            Segment(0b01110000),
+            Segment(0b01011000),
+            Segment(0b01001100),
+            Segment(0b01000110),
+            Segment(0b01000011),
+            Segment(0b01100001),
+            Segment(0b00100000),
             Segment(0b00000000),
             Segment(0b00000000),
             Segment(0b00000000),
@@ -395,16 +406,27 @@ mod tests {
         let result = Segments::new(0b000000000000000, 0b000000001100000, 15).collect::<Vec<_>>();
         let expected = [
             Segment(0b00000000),
-            Segment(0b10010100),
-            Segment(0b10101111),
-            Segment(0b10101010),
-            Segment(0b10100101),
-            Segment(0b10100000),
             Segment(0b10010000),
+            Segment(0b10011000),
+            Segment(0b10001100),
+            Segment(0b10000110),
+            Segment(0b10000011),
+            Segment(0b10000001),
             Segment(0b00000000),
             Segment(0b00000000),
             Segment(0b00000000),
             Segment(0b00000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = Segments::new(0b0000000100, 0b0001100000, 10).collect::<Vec<_>>();
+        let expected = [
+            Segment(0b01000100),
+            Segment(0b11000000),
+            Segment(0b11000000),
+            Segment(0b10101100),
+            Segment(0b10000110),
+            Segment(0b10000011),
         ];
         assert_eq!(result, expected);
     }
