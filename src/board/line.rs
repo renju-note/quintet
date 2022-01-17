@@ -77,6 +77,10 @@ impl Line {
             .collect()
     }
 
+    pub fn segments(&self) -> Segments {
+        Segments::new(self.blacks, self.whites, self.size)
+    }
+
     pub fn sequences(&self, player: Player, kind: RowKind) -> Vec<Sequence> {
         if !self.may_contain(player, kind) {
             return vec![];
@@ -166,6 +170,84 @@ impl FromStr for Line {
         }
         Ok(line)
     }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub struct Segment(u8);
+
+impl fmt::Debug for Segment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Segment({:#010b})", self.0)
+    }
+}
+
+pub struct Segments {
+    blacks_: Bits,
+    whites_: Bits,
+    blanks_: Bits,
+    size: u8,
+    i: u8,
+}
+
+impl Segments {
+    pub fn new(blacks: Bits, whites: Bits, limit: u8) -> Self {
+        Self {
+            blacks_: blacks << 1,
+            whites_: whites << 1,
+            blanks_: (!(blacks | whites) & ((0b1 << limit as u16) - 1)) << 1,
+            size: limit - 5 + 1,
+            i: 0,
+        }
+    }
+}
+
+impl Iterator for Segments {
+    type Item = Segment;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let i = self.i;
+        if i >= self.size {
+            return None;
+        }
+        let blanks = self.blanks_ >> i & 0b0111110;
+        let margin = self.blacks_ >> i & 0b1000001;
+        let blacks = self.blacks_ >> i & 0b0111110;
+        let whites = self.whites_ >> i & 0b0111110;
+        let segment = if blanks == 0b0111110 {
+            if margin == 0b0000000 {
+                Segment(0b00000000)
+            } else {
+                Segment(0b10000000)
+            }
+        } else if blacks != 0b0 && whites == 0b0 && margin == 0b0 {
+            Segment(0b00000000 | encode(blacks >> 1))
+        } else if whites != 0b0 && blacks == 0b0 {
+            Segment(0b10000000 | encode(whites >> 1))
+        } else {
+            Segment(0b00001111)
+        };
+        self.i += 1;
+        return Some(segment);
+    }
+}
+
+fn encode(stones: Bits) -> u8 {
+    let count = stones.count_ones();
+    let shape = match count {
+        1 => stones.trailing_zeros(),
+        2 => encode_shape(stones),
+        3 => encode_shape(!stones & 0b11111),
+        4 => (!stones & 0b11111).trailing_zeros(),
+        _ => 0b0000,
+    };
+    ((count << 4) | shape) as u8
+}
+
+fn encode_shape(stones: Bits) -> u32 {
+    let right = stones.trailing_zeros();
+    let stones = stones & !(0b1 << right);
+    let left = (stones >> 1).trailing_zeros();
+    (left << 2) | right
 }
 
 #[cfg(test)]
@@ -270,5 +352,40 @@ mod tests {
         expected.put_mut(White, 5);
         assert_eq!(result, expected);
         Ok(())
+    }
+
+    #[test]
+    fn test_segments() {
+        let result = Segments::new(0b000000001100000, 0b000000000000000, 15).collect::<Vec<_>>();
+        let expected = [
+            Segment(0b10000000),
+            Segment(0b00001111),
+            Segment(0b00101111),
+            Segment(0b00101010),
+            Segment(0b00100101),
+            Segment(0b00100000),
+            Segment(0b00001111),
+            Segment(0b10000000),
+            Segment(0b00000000),
+            Segment(0b00000000),
+            Segment(0b00000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = Segments::new(0b000000000000000, 0b000000001100000, 15).collect::<Vec<_>>();
+        let expected = [
+            Segment(0b00000000),
+            Segment(0b10010100),
+            Segment(0b10101111),
+            Segment(0b10101010),
+            Segment(0b10100101),
+            Segment(0b10100000),
+            Segment(0b10010000),
+            Segment(0b00000000),
+            Segment(0b00000000),
+            Segment(0b00000000),
+            Segment(0b00000000),
+        ];
+        assert_eq!(result, expected);
     }
 }
