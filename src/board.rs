@@ -4,6 +4,7 @@ mod fundamentals;
 mod line;
 mod point;
 mod row;
+mod segment;
 mod sequence;
 mod square;
 mod zobrist;
