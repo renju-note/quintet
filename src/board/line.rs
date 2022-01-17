@@ -175,6 +175,26 @@ impl FromStr for Line {
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Segment(u8);
 
+impl Segment {
+    pub fn potential(&self, player: Player) -> i8 {
+        if self.0 == 0b00000000 {
+            return 0;
+        }
+        if self.0 == 0b00001111 {
+            return -1;
+        }
+        let occupant = if self.0 & 0b10000000 == 0b00000000 {
+            Player::Black
+        } else {
+            Player::White
+        };
+        if occupant != player {
+            return -1;
+        }
+        ((self.0 & 0b01110000) >> 4) as i8
+    }
+}
+
 impl fmt::Debug for Segment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Segment({:#010b})", self.0)

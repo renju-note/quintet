@@ -1,5 +1,6 @@
 use super::forbidden::*;
 use super::fundamentals::*;
+use super::line::*;
 use super::point::*;
 use super::row::*;
 use super::square::*;
@@ -76,6 +77,14 @@ impl Board {
 
     pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
         self.square.row_eyes_along(player, kind, p)
+    }
+
+    pub fn segments(&self) -> impl Iterator<Item = (Index, Segment)> + '_ {
+        self.square.segments()
+    }
+
+    pub fn segments_along(&self, p: Point) -> impl Iterator<Item = (Index, Segment)> + '_ {
+        self.square.segments_along(p)
     }
 
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {
