@@ -1,8 +1,8 @@
 use super::forbidden::*;
 use super::fundamentals::*;
-use super::line::*;
 use super::point::*;
 use super::row::*;
+use super::segment::*;
 use super::square::*;
 use super::zobrist;
 use std::fmt;
@@ -79,11 +79,7 @@ impl Board {
         self.square.row_eyes_along(player, kind, p)
     }
 
-    pub fn segments(
-        &self,
-        player: Player,
-        potential: i8,
-    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+    pub fn segments(&self, player: Player, potential: i8) -> impl Iterator<Item = Segment> + '_ {
         self.square.segments(player, potential)
     }
 
@@ -92,7 +88,7 @@ impl Board {
         player: Player,
         potential: i8,
         p: Point,
-    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+    ) -> impl Iterator<Item = Segment> + '_ {
         self.square.segments_along(player, potential, p)
     }
 

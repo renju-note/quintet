@@ -77,8 +77,8 @@ impl Line {
             .collect()
     }
 
-    pub fn segments(&self) -> Segments {
-        Segments::new(self.blacks, self.whites, self.size)
+    pub fn pieces(&self) -> Pieces {
+        Pieces::new(self.blacks, self.whites, self.size)
     }
 
     pub fn sequences(&self, player: Player, kind: RowKind) -> Vec<Sequence> {
@@ -172,65 +172,14 @@ impl FromStr for Line {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub struct Segment(u8);
-
-impl Segment {
-    pub fn potential(&self, player: Player) -> i8 {
-        if self.0 == 0b00000000 {
-            return 0;
-        }
-        let player_black = player.is_black();
-        let black = self.black();
-        let white = self.white();
-        if black && white {
-            return -1;
-        }
-        if black && !player_black || white && player_black {
-            return -2;
-        }
-        if player_black && self.overline() {
-            return -3;
-        }
-        self.count_stones()
-    }
-
-    pub fn eyes(&self) -> impl Iterator<Item = u8> {
-        let stones = self.0;
-        (0..5).filter(move |i| !stones & (0b1 << i) != 0b0)
-    }
-
-    fn black(&self) -> bool {
-        self.0 & 0b01000000 != 0b0
-    }
-
-    fn white(&self) -> bool {
-        self.0 & 0b10000000 != 0b0
-    }
-
-    fn overline(&self) -> bool {
-        self.0 & 0b00100000 != 0b0
-    }
-
-    fn count_stones(&self) -> i8 {
-        (self.0 & 0b00011111).count_ones() as i8
-    }
-}
-
-impl fmt::Debug for Segment {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Segment({:#010b})", self.0)
-    }
-}
-
-pub struct Segments {
+pub struct Pieces {
     blacks_: Bits,
     whites_: Bits,
     size: u8,
     i: u8,
 }
 
-impl Segments {
+impl Pieces {
     pub fn new(blacks: Bits, whites: Bits, limit: u8) -> Self {
         Self {
             blacks_: blacks << 1,
@@ -241,32 +190,19 @@ impl Segments {
     }
 }
 
-impl Iterator for Segments {
-    type Item = Segment;
+impl Iterator for Pieces {
+    type Item = (u8, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
         let i = self.i;
         if i >= self.size {
             return None;
         }
-        let blacks = self.blacks_ >> i & 0b0111110;
-        let whites = self.whites_ >> i & 0b0111110;
-        let margin = self.blacks_ >> i & 0b1000001;
-        let black: u8 = if blacks != 0b0 { 0b1 << 6 } else { 0b0 };
-        let white: u8 = if whites != 0b0 { 0b1 << 7 } else { 0b0 };
-        let overline: u8 = if margin != 0b0 { 0b1 << 5 } else { 0b0 };
-        let stones = if black != 0b0 && white != 0b0 {
-            0b0
-        } else if black != 0b0 {
-            blacks as u8 >> 1
-        } else if white != 0b0 {
-            whites as u8 >> 1
-        } else {
-            0b0
-        };
-        let segment = Segment(black | white | overline | stones);
         self.i += 1;
-        return Some(segment);
+        Some((
+            (self.blacks_ >> i & 0b1111111) as u8,
+            (self.whites_ >> i & 0b1111111) as u8,
+        ))
     }
 }
 
@@ -372,67 +308,5 @@ mod tests {
         expected.put_mut(White, 5);
         assert_eq!(result, expected);
         Ok(())
-    }
-
-    #[test]
-    fn test_potential() {
-        assert_eq!(Segment(0b00000000).potential(Black), 0);
-        assert_eq!(Segment(0b00000000).potential(White), 0);
-        assert_eq!(Segment(0b11000000).potential(Black), -1);
-        assert_eq!(Segment(0b11000000).potential(White), -1);
-        assert_eq!(Segment(0b01000101).potential(Black), 2);
-        assert_eq!(Segment(0b01000101).potential(White), -2);
-        assert_eq!(Segment(0b10011010).potential(Black), -2);
-        assert_eq!(Segment(0b10011010).potential(White), 3);
-        assert_eq!(Segment(0b01100001).potential(Black), -3);
-        assert_eq!(Segment(0b01100001).potential(White), -2);
-        assert_eq!(Segment(0b00100000).potential(Black), -3);
-        assert_eq!(Segment(0b00100000).potential(White), 0);
-    }
-
-    #[test]
-    fn test_segments() {
-        let result = Segments::new(0b000000001100000, 0b000000000000000, 15).collect::<Vec<_>>();
-        let expected = [
-            Segment(0b00100000),
-            Segment(0b01110000),
-            Segment(0b01011000),
-            Segment(0b01001100),
-            Segment(0b01000110),
-            Segment(0b01000011),
-            Segment(0b01100001),
-            Segment(0b00100000),
-            Segment(0b00000000),
-            Segment(0b00000000),
-            Segment(0b00000000),
-        ];
-        assert_eq!(result, expected);
-
-        let result = Segments::new(0b000000000000000, 0b000000001100000, 15).collect::<Vec<_>>();
-        let expected = [
-            Segment(0b00000000),
-            Segment(0b10010000),
-            Segment(0b10011000),
-            Segment(0b10001100),
-            Segment(0b10000110),
-            Segment(0b10000011),
-            Segment(0b10000001),
-            Segment(0b00000000),
-            Segment(0b00000000),
-            Segment(0b00000000),
-            Segment(0b00000000),
-        ];
-        assert_eq!(result, expected);
-
-        let result = Segments::new(0b0000000100, 0b0001100000, 10).collect::<Vec<_>>();
-        let expected = [
-            Segment(0b01000100),
-            Segment(0b11000000),
-            Segment(0b11000000),
-            Segment(0b10101100),
-            Segment(0b10000110),
-            Segment(0b10000011),
-        ];
-        assert_eq!(result, expected);
     }
 }

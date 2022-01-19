@@ -48,11 +48,7 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
-    pub fn segments(
-        &self,
-        player: Player,
-        potential: i8,
-    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+    pub fn segments(&self, player: Player, potential: i8) -> impl Iterator<Item = Segment> + '_ {
         self.board.segments(player, potential)
     }
 
@@ -61,7 +57,7 @@ impl GameState {
         player: Player,
         potential: i8,
         p: Point,
-    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+    ) -> impl Iterator<Item = Segment> + '_ {
         self.board.segments_along(player, potential, p)
     }
 }
