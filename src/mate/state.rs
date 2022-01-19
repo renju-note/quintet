@@ -52,12 +52,12 @@ impl GameState {
         self.board.segments(player, potential)
     }
 
-    pub fn segments_along(
+    pub fn segments_on(
         &self,
         player: Player,
         potential: i8,
         p: Point,
     ) -> impl Iterator<Item = Segment> + '_ {
-        self.board.segments_along(player, potential, p)
+        self.board.segments_on(player, potential, p)
     }
 }

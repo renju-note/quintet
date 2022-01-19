@@ -157,7 +157,7 @@ impl Square {
     pub fn segments(&self, player: Player, potential: i8) -> impl Iterator<Item = Segment> + '_ {
         self.iter_lines()
             .map(|(d, i, l)| {
-                l.pieces().enumerate().map(move |(j, (blacks_, whites_))| {
+                l.pieces().map(move |(j, blacks_, whites_)| {
                     let index = Index::new(d, i, j as u8);
                     Segment::new(index, blacks_, whites_)
                 })
@@ -166,15 +166,16 @@ impl Square {
             .filter(move |s| s.potential(player) == potential)
     }
 
-    pub fn segments_along(
+    pub fn segments_on(
         &self,
         player: Player,
         potential: i8,
         p: Point,
     ) -> impl Iterator<Item = Segment> + '_ {
         self.iter_lines_along(p)
-            .map(|(d, i, l)| {
-                l.pieces().enumerate().map(move |(j, (blacks_, whites_))| {
+            .map(move |(d, i, l)| {
+                let j = p.to_index(d).j;
+                l.pieces_on(j).map(move |(j, blacks_, whites_)| {
                     let index = Index::new(d, i, j as u8);
                     Segment::new(index, blacks_, whites_)
                 })

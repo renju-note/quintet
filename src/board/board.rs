@@ -83,13 +83,13 @@ impl Board {
         self.square.segments(player, potential)
     }
 
-    pub fn segments_along(
+    pub fn segments_on(
         &self,
         player: Player,
         potential: i8,
         p: Point,
     ) -> impl Iterator<Item = Segment> + '_ {
-        self.square.segments_along(player, potential, p)
+        self.square.segments_on(player, potential, p)
     }
 
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {

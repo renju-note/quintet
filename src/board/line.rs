@@ -201,14 +201,14 @@ impl Pieces {
             blacks: blacks,
             whites: whites,
             mask: (0b1 << window) - 1,
-            limit: end + 1 - window,
+            limit: end - (window - 1),
             i: start,
         }
     }
 }
 
 impl Iterator for Pieces {
-    type Item = (u8, u8);
+    type Item = (u8, u8, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
         let i = self.i;
@@ -217,6 +217,7 @@ impl Iterator for Pieces {
         }
         self.i += 1;
         Some((
+            i,
             (self.blacks >> i & self.mask as u16) as u8,
             (self.whites >> i & self.mask as u16) as u8,
         ))
@@ -295,17 +296,17 @@ mod tests {
         let line = "oo-----o-----xx".parse::<Line>()?;
         let result = line.pieces().collect::<Vec<_>>();
         let expected = [
-            (0b0000110, 0b0000000),
-            (0b0000011, 0b0000000),
-            (0b1000001, 0b0000000),
-            (0b0100000, 0b0000000),
-            (0b0010000, 0b0000000),
-            (0b0001000, 0b0000000),
-            (0b0000100, 0b0000000),
-            (0b0000010, 0b0000000),
-            (0b0000001, 0b1000000),
-            (0b0000000, 0b1100000),
-            (0b0000000, 0b0110000),
+            (0, 0b0000110, 0b0000000),
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+            (7, 0b0000010, 0b0000000),
+            (8, 0b0000001, 0b1000000),
+            (9, 0b0000000, 0b1100000),
+            (10, 0b0000000, 0b0110000),
         ];
         assert_eq!(result, expected);
         Ok(())
@@ -313,34 +314,58 @@ mod tests {
 
     #[test]
     fn test_pieces_on() -> Result<(), String> {
-        let line = "-------o-------".parse::<Line>()?;
+        let line = "oo-----o-----xx".parse::<Line>()?;
         let result = line.pieces_on(7).collect::<Vec<_>>();
         let expected = [
-            (0b1000000, 0b0000000),
-            (0b0100000, 0b0000000),
-            (0b0010000, 0b0000000),
-            (0b0001000, 0b0000000),
-            (0b0000100, 0b0000000),
-            (0b0000010, 0b0000000),
-            (0b0000001, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+            (7, 0b0000010, 0b0000000),
+            (8, 0b0000001, 0b1000000),
         ];
         assert_eq!(result, expected);
 
         let result = line.pieces_on(2).collect::<Vec<_>>();
         let expected = [
-            (0b0000000, 0b0000000),
-            (0b0000000, 0b0000000),
-            (0b1000000, 0b0000000),
-            (0b0100000, 0b0000000),
+            (0, 0b0000110, 0b0000000),
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.pieces_on(5).collect::<Vec<_>>();
+        let expected = [
+            (0, 0b0000110, 0b0000000),
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.pieces_on(6).collect::<Vec<_>>();
+        let expected = [
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+            (7, 0b0000010, 0b0000000),
         ];
         assert_eq!(result, expected);
 
         let result = line.pieces_on(12).collect::<Vec<_>>();
         let expected = [
-            (0b0000010, 0b0000000),
-            (0b0000001, 0b0000000),
-            (0b0000000, 0b0000000),
-            (0b0000000, 0b0000000),
+            (7, 0b0000010, 0b0000000),
+            (8, 0b0000001, 0b1000000),
+            (9, 0b0000000, 0b1100000),
+            (10, 0b0000000, 0b0110000),
         ];
         assert_eq!(result, expected);
         Ok(())
