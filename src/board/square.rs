@@ -3,7 +3,7 @@ use super::line::*;
 use super::point::Direction::*;
 use super::point::*;
 use super::row::*;
-use super::segment::*;
+use super::slot::*;
 use std::fmt;
 use std::str::FromStr;
 
@@ -154,30 +154,30 @@ impl Square {
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn segments(&self, player: Player, potential: i8) -> impl Iterator<Item = Segment> + '_ {
+    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
         self.iter_lines()
             .map(|(d, i, l)| {
-                l.pieces().map(move |(j, blacks_, whites_)| {
+                l.segments().map(move |(j, blacks_, whites_)| {
                     let index = Index::new(d, i, j as u8);
-                    Segment::new(index, blacks_, whites_)
+                    Slot::new(index, blacks_, whites_)
                 })
             })
             .flatten()
             .filter(move |s| s.potential(player) == potential)
     }
 
-    pub fn segments_on(
+    pub fn slots_on(
         &self,
         player: Player,
         potential: i8,
         p: Point,
-    ) -> impl Iterator<Item = Segment> + '_ {
+    ) -> impl Iterator<Item = Slot> + '_ {
         self.iter_lines_along(p)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
-                l.pieces_on(j).map(move |(j, blacks_, whites_)| {
+                l.segments_on(j).map(move |(j, blacks_, whites_)| {
                     let index = Index::new(d, i, j as u8);
-                    Segment::new(index, blacks_, whites_)
+                    Slot::new(index, blacks_, whites_)
                 })
             })
             .flatten()

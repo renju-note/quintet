@@ -4,8 +4,8 @@ mod fundamentals;
 mod line;
 mod point;
 mod row;
-mod segment;
 mod sequence;
+mod slot;
 mod square;
 mod zobrist;
 
@@ -15,5 +15,5 @@ pub use fundamentals::{Player, RowKind, BOARD_SIZE};
 pub use line::Line;
 pub use point::{Direction, Index, Point, Points};
 pub use row::Row;
-pub use segment::Segment;
+pub use slot::Slot;
 pub use square::Square;

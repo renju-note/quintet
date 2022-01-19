@@ -62,7 +62,7 @@ struct VCFMoves {
 impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
         let next_player = state.next_player();
-        let mut last_fours = state.segments_on(state.last_player(), 4, state.last_move());
+        let mut last_fours = state.slots_on(state.last_player(), 4, state.last_move());
         if let Some(last_four) = last_fours.next() {
             if last_fours.next().is_some() {
                 return VCFMoves {
@@ -72,7 +72,7 @@ impl VCFMoves {
             }
             let last_four_eye = last_four.eyes().next().unwrap().to_point();
             let move_pairs = state
-                .segments_on(next_player, 3, last_four_eye)
+                .slots_on(next_player, 3, last_four_eye)
                 .map(|s| {
                     let mut eyes = s.eyes();
                     let e1 = eyes.next().unwrap().to_point();
@@ -92,7 +92,7 @@ impl VCFMoves {
             };
         }
         let move_pairs = state
-            .segments(next_player, 3)
+            .slots(next_player, 3)
             .map(|s| {
                 let mut eyes = s.eyes();
                 let e1 = eyes.next().unwrap().to_point();
@@ -118,7 +118,7 @@ impl Iterator for VCFMoves {
             let mut next_state = self.state.play(attack);
             let has_multiple_next_four = {
                 let mut next_fours =
-                    next_state.segments_on(next_state.last_player(), 4, next_state.last_move());
+                    next_state.slots_on(next_state.last_player(), 4, next_state.last_move());
                 next_fours.next();
                 next_fours.next().is_some()
             };

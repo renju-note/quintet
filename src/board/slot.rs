@@ -3,12 +3,12 @@ use super::point::*;
 use std::fmt;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
-pub struct Segment {
+pub struct Slot {
     start: Index,
     signature: u8,
 }
 
-impl Segment {
+impl Slot {
     pub fn new(start: Index, blacks_: u8, whites_: u8) -> Self {
         let blacks = (blacks_ & 0b0111110) >> 1;
         let whites = (whites_ & 0b0111110) >> 1;
@@ -25,7 +25,7 @@ impl Segment {
         } else {
             0b0
         };
-        Self {
+        Slot {
             signature: black | white | overline | stones,
             start: start,
         }
@@ -75,9 +75,9 @@ impl Segment {
     }
 }
 
-impl fmt::Debug for Segment {
+impl fmt::Debug for Slot {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Segment({:#010b})", self.signature)
+        write!(f, "Slot({:#010b})", self.signature)
     }
 }
 
@@ -89,28 +89,28 @@ mod tests {
     #[test]
     fn test_potential() {
         let start = Index::new(Direction::Vertical, 0, 0);
-        let segment = Segment::new(start, 0b0000000, 0b0000000);
-        assert_eq!(segment.potential(Black), 0);
-        assert_eq!(segment.potential(White), 0);
+        let slot = Slot::new(start, 0b0000000, 0b0000000);
+        assert_eq!(slot.potential(Black), 0);
+        assert_eq!(slot.potential(White), 0);
 
-        let segment = Segment::new(start, 0b0000100, 0b0000010);
-        assert_eq!(segment.potential(Black), -1);
-        assert_eq!(segment.potential(White), -1);
+        let slot = Slot::new(start, 0b0000100, 0b0000010);
+        assert_eq!(slot.potential(Black), -1);
+        assert_eq!(slot.potential(White), -1);
 
-        let segment = Segment::new(start, 0b0010100, 0b0000000);
-        assert_eq!(segment.potential(Black), 2);
-        assert_eq!(segment.potential(White), -2);
+        let slot = Slot::new(start, 0b0010100, 0b0000000);
+        assert_eq!(slot.potential(Black), 2);
+        assert_eq!(slot.potential(White), -2);
 
-        let segment = Segment::new(start, 0b0000000, 0b0110100);
-        assert_eq!(segment.potential(Black), -2);
-        assert_eq!(segment.potential(White), 3);
+        let slot = Slot::new(start, 0b0000000, 0b0110100);
+        assert_eq!(slot.potential(Black), -2);
+        assert_eq!(slot.potential(White), 3);
 
-        let segment = Segment::new(start, 0b0000011, 0b0000000);
-        assert_eq!(segment.potential(Black), -3);
-        assert_eq!(segment.potential(White), -2);
+        let slot = Slot::new(start, 0b0000011, 0b0000000);
+        assert_eq!(slot.potential(Black), -3);
+        assert_eq!(slot.potential(White), -2);
 
-        let segment = Segment::new(start, 0b0000001, 0b0000000);
-        assert_eq!(segment.potential(Black), -3);
-        assert_eq!(segment.potential(White), 0);
+        let slot = Slot::new(start, 0b0000001, 0b0000000);
+        assert_eq!(slot.potential(Black), -3);
+        assert_eq!(slot.potential(White), 0);
     }
 }

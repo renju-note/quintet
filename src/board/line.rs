@@ -78,22 +78,22 @@ impl Line {
             .collect()
     }
 
-    pub fn pieces(&self) -> Pieces {
+    pub fn segments(&self) -> Segments {
         let blacks = self.blacks << 1;
         let whites = self.whites << 1;
         let window = 5 + 2;
         let start = 0;
         let end = self.size + 1;
-        Pieces::new(blacks, whites, start, end, window)
+        Segments::new(blacks, whites, start, end, window)
     }
 
-    pub fn pieces_on(&self, i: u8) -> Pieces {
+    pub fn segments_on(&self, i: u8) -> Segments {
         let blacks = self.blacks << 1;
         let whites = self.whites << 1;
         let window: u8 = 5 + 2;
         let start = cmp::max(0, (i + 1) as i8 - (window as i8 - 1)) as u8;
         let end = cmp::min(self.size + 1, (i + 1) + (window - 1));
-        Pieces::new(blacks, whites, start, end, window)
+        Segments::new(blacks, whites, start, end, window)
     }
 
     pub fn sequences(&self, player: Player, kind: RowKind) -> Vec<Sequence> {
@@ -187,7 +187,7 @@ impl FromStr for Line {
     }
 }
 
-pub struct Pieces {
+pub struct Segments {
     blacks: Bits,
     whites: Bits,
     mask: u8,
@@ -195,9 +195,9 @@ pub struct Pieces {
     i: u8,
 }
 
-impl Pieces {
+impl Segments {
     pub fn new(blacks: Bits, whites: Bits, start: u8, end: u8, window: u8) -> Self {
-        Self {
+        Segments {
             blacks: blacks,
             whites: whites,
             mask: (0b1 << window) - 1,
@@ -207,7 +207,7 @@ impl Pieces {
     }
 }
 
-impl Iterator for Pieces {
+impl Iterator for Segments {
     type Item = (u8, u8, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -292,9 +292,9 @@ mod tests {
     }
 
     #[test]
-    fn test_pieces() -> Result<(), String> {
+    fn test_segments() -> Result<(), String> {
         let line = "oo-----o-----xx".parse::<Line>()?;
-        let result = line.pieces().collect::<Vec<_>>();
+        let result = line.segments().collect::<Vec<_>>();
         let expected = [
             (0, 0b0000110, 0b0000000),
             (1, 0b0000011, 0b0000000),
@@ -313,9 +313,9 @@ mod tests {
     }
 
     #[test]
-    fn test_pieces_on() -> Result<(), String> {
+    fn test_segments_on() -> Result<(), String> {
         let line = "oo-----o-----xx".parse::<Line>()?;
-        let result = line.pieces_on(7).collect::<Vec<_>>();
+        let result = line.segments_on(7).collect::<Vec<_>>();
         let expected = [
             (2, 0b1000001, 0b0000000),
             (3, 0b0100000, 0b0000000),
@@ -327,7 +327,7 @@ mod tests {
         ];
         assert_eq!(result, expected);
 
-        let result = line.pieces_on(2).collect::<Vec<_>>();
+        let result = line.segments_on(2).collect::<Vec<_>>();
         let expected = [
             (0, 0b0000110, 0b0000000),
             (1, 0b0000011, 0b0000000),
@@ -336,7 +336,7 @@ mod tests {
         ];
         assert_eq!(result, expected);
 
-        let result = line.pieces_on(5).collect::<Vec<_>>();
+        let result = line.segments_on(5).collect::<Vec<_>>();
         let expected = [
             (0, 0b0000110, 0b0000000),
             (1, 0b0000011, 0b0000000),
@@ -348,7 +348,7 @@ mod tests {
         ];
         assert_eq!(result, expected);
 
-        let result = line.pieces_on(6).collect::<Vec<_>>();
+        let result = line.segments_on(6).collect::<Vec<_>>();
         let expected = [
             (1, 0b0000011, 0b0000000),
             (2, 0b1000001, 0b0000000),
@@ -360,7 +360,7 @@ mod tests {
         ];
         assert_eq!(result, expected);
 
-        let result = line.pieces_on(12).collect::<Vec<_>>();
+        let result = line.segments_on(12).collect::<Vec<_>>();
         let expected = [
             (7, 0b0000010, 0b0000000),
             (8, 0b0000001, 0b1000000),
