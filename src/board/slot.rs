@@ -2,6 +2,11 @@ use super::fundamentals::*;
 use super::point::*;
 use std::fmt;
 
+const BLACK_FLAG: u8 = 0b01000000;
+const WHITE_FLAG: u8 = 0b10000000;
+const OVERLINE_FLAG: u8 = 0b00100000;
+const EMPTY_SIGNATURE: u8 = 0b00000000;
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Slot {
     start: Index,
@@ -13,9 +18,9 @@ impl Slot {
         let blacks = (blacks_ & 0b0111110) >> 1;
         let whites = (whites_ & 0b0111110) >> 1;
         let margin = blacks_ & 0b1000001;
-        let black = if blacks != 0b0 { 0b01000000 } else { 0b0 };
-        let white = if whites != 0b0 { 0b10000000 } else { 0b0 };
-        let overline = if margin != 0b0 { 0b00100000 } else { 0b0 };
+        let black = if blacks != 0b0 { BLACK_FLAG } else { 0b0 };
+        let white = if whites != 0b0 { WHITE_FLAG } else { 0b0 };
+        let overline = if margin != 0b0 { OVERLINE_FLAG } else { 0b0 };
         let stones = if blacks != 0b0 && whites != 0b0 {
             0b0
         } else if blacks != 0b0 {
@@ -32,7 +37,7 @@ impl Slot {
     }
 
     pub fn potential(&self, player: Player) -> i8 {
-        if self.signature == 0b00000000 {
+        if self.signature == 0b0 {
             return 0;
         }
         let player_black = player.is_black();
@@ -59,15 +64,15 @@ impl Slot {
     }
 
     fn black(&self) -> bool {
-        self.signature & 0b01000000 != 0b0
+        self.signature & BLACK_FLAG != 0b0
     }
 
     fn white(&self) -> bool {
-        self.signature & 0b10000000 != 0b0
+        self.signature & WHITE_FLAG != 0b0
     }
 
     fn overline(&self) -> bool {
-        self.signature & 0b00100000 != 0b0
+        self.signature & OVERLINE_FLAG != 0b0
     }
 
     fn count_stones(&self) -> i8 {
