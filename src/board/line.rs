@@ -1,5 +1,6 @@
 use super::fundamentals::*;
 use super::sequence::*;
+use std::cmp;
 use std::fmt;
 use std::str::FromStr;
 
@@ -78,7 +79,21 @@ impl Line {
     }
 
     pub fn pieces(&self) -> Pieces {
-        Pieces::new(self.blacks, self.whites, self.size)
+        let blacks = self.blacks << 1;
+        let whites = self.whites << 1;
+        let window = 5 + 2;
+        let start = 0;
+        let end = self.size + 1;
+        Pieces::new(blacks, whites, start, end, window)
+    }
+
+    pub fn pieces_on(&self, i: u8) -> Pieces {
+        let blacks = self.blacks << 1;
+        let whites = self.whites << 1;
+        let window: u8 = 5 + 2;
+        let start = cmp::max(0, (i + 1) as i8 - (window as i8 - 1)) as u8;
+        let end = cmp::min(self.size + 1, (i + 1) + (window - 1));
+        Pieces::new(blacks, whites, start, end, window)
     }
 
     pub fn sequences(&self, player: Player, kind: RowKind) -> Vec<Sequence> {
@@ -173,19 +188,21 @@ impl FromStr for Line {
 }
 
 pub struct Pieces {
-    blacks_: Bits,
-    whites_: Bits,
-    size: u8,
+    blacks: Bits,
+    whites: Bits,
+    mask: u8,
+    limit: u8,
     i: u8,
 }
 
 impl Pieces {
-    pub fn new(blacks: Bits, whites: Bits, limit: u8) -> Self {
+    pub fn new(blacks: Bits, whites: Bits, start: u8, end: u8, window: u8) -> Self {
         Self {
-            blacks_: blacks << 1,
-            whites_: whites << 1,
-            size: limit - 5 + 1,
-            i: 0,
+            blacks: blacks,
+            whites: whites,
+            mask: (0b1 << window) - 1,
+            limit: end + 1 - window,
+            i: start,
         }
     }
 }
@@ -195,13 +212,13 @@ impl Iterator for Pieces {
 
     fn next(&mut self) -> Option<Self::Item> {
         let i = self.i;
-        if i >= self.size {
+        if i > self.limit {
             return None;
         }
         self.i += 1;
         Some((
-            (self.blacks_ >> i & 0b1111111) as u8,
-            (self.whites_ >> i & 0b1111111) as u8,
+            (self.blacks >> i & self.mask as u16) as u8,
+            (self.whites >> i & self.mask as u16) as u8,
         ))
     }
 }
@@ -269,6 +286,62 @@ mod tests {
         assert_eq!(result, expected);
         let result = line.stones(White);
         let expected = [3];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_pieces() -> Result<(), String> {
+        let line = "oo-----o-----xx".parse::<Line>()?;
+        let result = line.pieces().collect::<Vec<_>>();
+        let expected = [
+            (0b0000110, 0b0000000),
+            (0b0000011, 0b0000000),
+            (0b1000001, 0b0000000),
+            (0b0100000, 0b0000000),
+            (0b0010000, 0b0000000),
+            (0b0001000, 0b0000000),
+            (0b0000100, 0b0000000),
+            (0b0000010, 0b0000000),
+            (0b0000001, 0b1000000),
+            (0b0000000, 0b1100000),
+            (0b0000000, 0b0110000),
+        ];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_pieces_on() -> Result<(), String> {
+        let line = "-------o-------".parse::<Line>()?;
+        let result = line.pieces_on(7).collect::<Vec<_>>();
+        let expected = [
+            (0b1000000, 0b0000000),
+            (0b0100000, 0b0000000),
+            (0b0010000, 0b0000000),
+            (0b0001000, 0b0000000),
+            (0b0000100, 0b0000000),
+            (0b0000010, 0b0000000),
+            (0b0000001, 0b0000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.pieces_on(2).collect::<Vec<_>>();
+        let expected = [
+            (0b0000000, 0b0000000),
+            (0b0000000, 0b0000000),
+            (0b1000000, 0b0000000),
+            (0b0100000, 0b0000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.pieces_on(12).collect::<Vec<_>>();
+        let expected = [
+            (0b0000010, 0b0000000),
+            (0b0000001, 0b0000000),
+            (0b0000000, 0b0000000),
+            (0b0000000, 0b0000000),
+        ];
         assert_eq!(result, expected);
         Ok(())
     }
