@@ -2,6 +2,7 @@ use super::forbidden::*;
 use super::fundamentals::*;
 use super::point::*;
 use super::row::*;
+use super::slot::*;
 use super::square::*;
 use super::zobrist;
 use std::fmt;
@@ -76,6 +77,19 @@ impl Board {
 
     pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
         self.square.row_eyes_along(player, kind, p)
+    }
+
+    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
+        self.square.slots(player, potential)
+    }
+
+    pub fn slots_on(
+        &self,
+        player: Player,
+        potential: i8,
+        p: Point,
+    ) -> impl Iterator<Item = Slot> + '_ {
+        self.square.slots_on(player, potential, p)
     }
 
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {

@@ -1,5 +1,6 @@
 use super::fundamentals::*;
 use super::sequence::*;
+use std::cmp;
 use std::fmt;
 use std::str::FromStr;
 
@@ -75,6 +76,24 @@ impl Line {
             })
             .flatten()
             .collect()
+    }
+
+    pub fn segments(&self) -> Segments {
+        let blacks = self.blacks << 1;
+        let whites = self.whites << 1;
+        let window = 5 + 2;
+        let start = 0;
+        let end = self.size + 1;
+        Segments::new(blacks, whites, start, end, window)
+    }
+
+    pub fn segments_on(&self, i: u8) -> Segments {
+        let blacks = self.blacks << 1;
+        let whites = self.whites << 1;
+        let window: u8 = 5 + 2;
+        let start = cmp::max(0, (i + 1) as i8 - (window as i8 - 1)) as u8;
+        let end = cmp::min(self.size + 1, (i + 1) + (window - 1));
+        Segments::new(blacks, whites, start, end, window)
     }
 
     pub fn sequences(&self, player: Player, kind: RowKind) -> Vec<Sequence> {
@@ -168,6 +187,43 @@ impl FromStr for Line {
     }
 }
 
+pub struct Segments {
+    blacks: Bits,
+    whites: Bits,
+    mask: u8,
+    limit: u8,
+    i: u8,
+}
+
+impl Segments {
+    pub fn new(blacks: Bits, whites: Bits, start: u8, end: u8, window: u8) -> Self {
+        Segments {
+            blacks: blacks,
+            whites: whites,
+            mask: (0b1 << window) - 1,
+            limit: end - (window - 1),
+            i: start,
+        }
+    }
+}
+
+impl Iterator for Segments {
+    type Item = (u8, u8, u8);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let i = self.i;
+        if i > self.limit {
+            return None;
+        }
+        self.i += 1;
+        Some((
+            i,
+            (self.blacks >> i & self.mask as u16) as u8,
+            (self.whites >> i & self.mask as u16) as u8,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Player::*;
@@ -231,6 +287,86 @@ mod tests {
         assert_eq!(result, expected);
         let result = line.stones(White);
         let expected = [3];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_segments() -> Result<(), String> {
+        let line = "oo-----o-----xx".parse::<Line>()?;
+        let result = line.segments().collect::<Vec<_>>();
+        let expected = [
+            (0, 0b0000110, 0b0000000),
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+            (7, 0b0000010, 0b0000000),
+            (8, 0b0000001, 0b1000000),
+            (9, 0b0000000, 0b1100000),
+            (10, 0b0000000, 0b0110000),
+        ];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_segments_on() -> Result<(), String> {
+        let line = "oo-----o-----xx".parse::<Line>()?;
+        let result = line.segments_on(7).collect::<Vec<_>>();
+        let expected = [
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+            (7, 0b0000010, 0b0000000),
+            (8, 0b0000001, 0b1000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.segments_on(2).collect::<Vec<_>>();
+        let expected = [
+            (0, 0b0000110, 0b0000000),
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.segments_on(5).collect::<Vec<_>>();
+        let expected = [
+            (0, 0b0000110, 0b0000000),
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.segments_on(6).collect::<Vec<_>>();
+        let expected = [
+            (1, 0b0000011, 0b0000000),
+            (2, 0b1000001, 0b0000000),
+            (3, 0b0100000, 0b0000000),
+            (4, 0b0010000, 0b0000000),
+            (5, 0b0001000, 0b0000000),
+            (6, 0b0000100, 0b0000000),
+            (7, 0b0000010, 0b0000000),
+        ];
+        assert_eq!(result, expected);
+
+        let result = line.segments_on(12).collect::<Vec<_>>();
+        let expected = [
+            (7, 0b0000010, 0b0000000),
+            (8, 0b0000001, 0b1000000),
+            (9, 0b0000000, 0b1100000),
+            (10, 0b0000000, 0b0110000),
+        ];
         assert_eq!(result, expected);
         Ok(())
     }
