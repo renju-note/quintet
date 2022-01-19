@@ -72,6 +72,27 @@ impl Index {
             }
         }
     }
+
+    pub fn walk(&self, step: u8) -> Option<Self> {
+        let n = BOARD_SIZE - 1;
+        let i = self.i;
+        let j = self.j + step;
+        let maxj = match self.direction {
+            Direction::Vertical | Direction::Horizontal => n,
+            Direction::Ascending | Direction::Descending => {
+                if i < n {
+                    i
+                } else {
+                    2 * n - i
+                }
+            }
+        };
+        if j <= maxj {
+            Some(Self::new(self.direction, i, j))
+        } else {
+            None
+        }
+    }
 }
 
 impl fmt::Display for Point {

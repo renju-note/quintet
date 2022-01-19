@@ -1,4 +1,3 @@
-use super::super::board::RowKind::*;
 use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
@@ -63,17 +62,24 @@ struct VCFMoves {
 impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
         let next_player = state.next_player();
-        let last_fours = state.rows_on(state.last_player(), Four, state.last_move());
-        let last_four_count = last_fours.len();
-        let move_pairs: Vec<(Point, Point)> = if last_four_count >= 2 {
-            vec![]
-        } else if last_four_count == 1 {
-            let last_four_eye = last_fours[0].eye1.unwrap();
-            state
-                .rows_on(next_player, Sword, last_four_eye)
-                .into_iter()
-                .map(|s| {
-                    let (e1, e2) = (s.eye1.unwrap(), s.eye2.unwrap());
+        let mut last_fours = state.segments_along(state.last_player(), 4, state.last_move());
+        if let Some((index, last_four)) = last_fours.next() {
+            if last_fours.next().is_some() {
+                return VCFMoves {
+                    state: state.clone(),
+                    move_pairs: vec![],
+                };
+            }
+            let last_four_eye = index
+                .walk(last_four.eyes().next().unwrap())
+                .unwrap()
+                .to_point();
+            let move_pairs = state
+                .segments_along(next_player, 3, last_four_eye)
+                .map(|(idx, s)| {
+                    let mut eyes = s.eyes();
+                    let e1 = idx.walk(eyes.next().unwrap()).unwrap().to_point();
+                    let e2 = idx.walk(eyes.next().unwrap()).unwrap().to_point();
                     if e1 == last_four_eye {
                         Some((e1, e2))
                     } else if e2 == last_four_eye {
@@ -82,23 +88,25 @@ impl VCFMoves {
                         None
                     }
                 })
-                .flatten()
-                .collect()
-        } else {
-            state
-                .rows(next_player, Sword)
-                .into_iter()
-                .map(|s| {
-                    let (e1, e2) = (s.eye1.unwrap(), s.eye2.unwrap());
-                    [(e1, e2), (e2, e1)]
-                })
-                .flatten()
-                .collect()
-        };
-        VCFMoves {
-            state: state.clone(),
-            move_pairs: move_pairs,
+                .flatten();
+            return VCFMoves {
+                state: state.clone(),
+                move_pairs: move_pairs.collect(),
+            };
         }
+        let move_pairs = state
+            .segments(next_player, 3)
+            .map(|(idx, s)| {
+                let mut eyes = s.eyes();
+                let e1 = idx.walk(eyes.next().unwrap()).unwrap().to_point();
+                let e2 = idx.walk(eyes.next().unwrap()).unwrap().to_point();
+                [(e1, e2), (e2, e1)]
+            })
+            .flatten();
+        return VCFMoves {
+            state: state.clone(),
+            move_pairs: move_pairs.collect(),
+        };
     }
 }
 
@@ -111,7 +119,13 @@ impl Iterator for VCFMoves {
                 continue;
             }
             let mut next_state = self.state.play(attack);
-            if next_state.row_eyes_along_last_move(Four).len() >= 2 {
+            let has_multiple_next_four = {
+                let mut next_fours =
+                    next_state.segments_along(next_state.last_player(), 4, next_state.last_move());
+                next_fours.next();
+                next_fours.next().is_some()
+            };
+            if has_multiple_next_four {
                 return Some((attack, None, None));
             }
             if next_state.is_forbidden_move(defence) {

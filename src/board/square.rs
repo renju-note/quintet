@@ -153,7 +153,11 @@ impl Square {
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn segments(&self) -> impl Iterator<Item = (Index, Segment)> + '_ {
+    pub fn segments(
+        &self,
+        player: Player,
+        potential: i8,
+    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
         self.iter_lines()
             .map(|(d, i, l)| {
                 l.segments()
@@ -161,9 +165,15 @@ impl Square {
                     .map(move |(j, s)| (Index::new(d, i, j as u8), s))
             })
             .flatten()
+            .filter(move |(_, s)| s.potential(player) == potential)
     }
 
-    pub fn segments_along(&self, p: Point) -> impl Iterator<Item = (Index, Segment)> + '_ {
+    pub fn segments_along(
+        &self,
+        player: Player,
+        potential: i8,
+        p: Point,
+    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
         self.iter_lines_along(p)
             .map(|(d, i, l)| {
                 l.segments()
@@ -171,6 +181,7 @@ impl Square {
                     .map(move |(j, s)| (Index::new(d, i, j as u8), s))
             })
             .flatten()
+            .filter(move |(_, s)| s.potential(player) == potential)
     }
 
     fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {

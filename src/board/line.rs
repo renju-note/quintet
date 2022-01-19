@@ -195,6 +195,11 @@ impl Segment {
         self.count_stones()
     }
 
+    pub fn eyes(&self) -> impl Iterator<Item = u8> {
+        let stones = self.0;
+        (0..5).filter(move |i| !stones & (0b1 << i) != 0b0)
+    }
+
     fn black(&self) -> bool {
         self.0 & 0b01000000 != 0b0
     }

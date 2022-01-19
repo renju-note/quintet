@@ -48,16 +48,20 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
-        self.board.rows(player, kind)
+    pub fn segments(
+        &self,
+        player: Player,
+        potential: i8,
+    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+        self.board.segments(player, potential)
     }
 
-    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
-        self.board.rows_on(player, kind, p)
-    }
-
-    pub fn row_eyes_along_last_move(&self, kind: RowKind) -> Vec<Point> {
-        self.board
-            .row_eyes_along(self.last_player(), kind, self.last_move())
+    pub fn segments_along(
+        &self,
+        player: Player,
+        potential: i8,
+        p: Point,
+    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+        self.board.segments_along(player, potential, p)
     }
 }

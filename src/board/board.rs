@@ -79,12 +79,21 @@ impl Board {
         self.square.row_eyes_along(player, kind, p)
     }
 
-    pub fn segments(&self) -> impl Iterator<Item = (Index, Segment)> + '_ {
-        self.square.segments()
+    pub fn segments(
+        &self,
+        player: Player,
+        potential: i8,
+    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+        self.square.segments(player, potential)
     }
 
-    pub fn segments_along(&self, p: Point) -> impl Iterator<Item = (Index, Segment)> + '_ {
-        self.square.segments_along(p)
+    pub fn segments_along(
+        &self,
+        player: Player,
+        potential: i8,
+        p: Point,
+    ) -> impl Iterator<Item = (Index, Segment)> + '_ {
+        self.square.segments_along(player, potential, p)
     }
 
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {
