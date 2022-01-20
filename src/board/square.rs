@@ -133,42 +133,6 @@ impl Square {
             .collect()
     }
 
-    pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
-        let mut result: Vec<Point> = vec![];
-        for (d, i, l) in self.iter_lines() {
-            let eye_bits = l.sequence_eyes(player, kind);
-            if eye_bits == 0b0 {
-                continue;
-            }
-            for j in 0..l.size {
-                if (eye_bits >> j) & 0b1 == 0b1 {
-                    result.push(Index::new(d, i, j).to_point())
-                }
-            }
-        }
-        result.sort_unstable();
-        result.dedup();
-        result
-    }
-
-    pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
-        let mut result: Vec<Point> = vec![];
-        for (d, i, l) in self.iter_lines_along(p) {
-            let eye_bits = l.sequence_eyes(player, kind);
-            if eye_bits == 0b0 {
-                continue;
-            }
-            for j in 0..l.size {
-                if (eye_bits >> j) & 0b1 == 0b1 {
-                    result.push(Index::new(d, i, j).to_point())
-                }
-            }
-        }
-        result.sort_unstable();
-        result.dedup();
-        result
-    }
-
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
     pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
         self.iter_lines()
@@ -674,15 +638,6 @@ mod tests {
 
         assert_eq!(square.rows_on(Black, Two, Point(10, 8)), black_twos);
         assert_eq!(square.rows_on(Black, Two, Point(7, 7)), []);
-
-        assert_eq!(square.row_eyes(Black, Two), [Point(8, 6), Point(9, 7)]);
-        assert_eq!(square.row_eyes(White, Sword), [Point(5, 8), Point(6, 8)]);
-
-        assert_eq!(
-            square.row_eyes_along(White, Sword, Point(0, 8)),
-            [Point(5, 8), Point(6, 8)]
-        );
-        assert_eq!(square.row_eyes_along(White, Sword, Point(0, 7)), []);
 
         Ok(())
     }

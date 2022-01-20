@@ -71,14 +71,6 @@ impl Board {
         self.square.rows_on(player, kind, p)
     }
 
-    pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
-        self.square.row_eyes(player, kind)
-    }
-
-    pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
-        self.square.row_eyes_along(player, kind, p)
-    }
-
     pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
         self.square.slots(player, potential)
     }
@@ -269,22 +261,6 @@ mod tests {
                 black_twos[4].clone(),
                 black_twos[5].clone()
             ]
-        );
-        assert_eq!(
-            board.row_eyes(Black, Two),
-            [
-                Point(5, 7),
-                Point(6, 6),
-                Point(6, 7),
-                Point(6, 10),
-                Point(6, 11),
-                Point(9, 7),
-                Point(10, 7)
-            ]
-        );
-        assert_eq!(
-            board.row_eyes_along(Black, Two, Point(6, 6)),
-            [Point(6, 6), Point(6, 7), Point(6, 10), Point(6, 11)]
         );
 
         assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
