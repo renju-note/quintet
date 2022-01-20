@@ -94,8 +94,8 @@ impl Row {
             return None;
         }
 
-        if player.is_black() && target.will_overline() {
-            if kind == Overline && prev.will_overline() {
+        if player.is_black() && (target.will_overline() || prev.will_overline()) {
+            if kind == Overline && target.will_overline() && prev.will_overline() {
                 let direction = target.start.direction;
                 let start = prev.start.to_point();
                 let end = target.start.walk(4).unwrap().to_point();
@@ -225,6 +225,33 @@ mod tests {
             end: Point(0, 6),
             eye1: Some(Point(0, 5)),
             eye2: Some(Point(0, 6)),
+        }];
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_scan_line2() -> Result<(), String> {
+        let line = "--o--ooo-------".parse::<Line>()?;
+        let slots = line.segments().map(move |(j, blacks_, whites_)| {
+            let index = Index::new(Vertical, 0, j as u8);
+            Slot::new(index, blacks_, whites_)
+        });
+        let result: Vec<Row> = slots
+            .scan(None, |may_prev, target| {
+                let result = Row::from_slot(target, *may_prev, Black, Three);
+                *may_prev = Some(target);
+                Some(result)
+            })
+            .flatten()
+            .collect();
+        let expected = [Row {
+            direction: Vertical,
+            start: Point(0, 5),
+            end: Point(0, 8),
+            eye1: Some(Point(0, 8)),
+            eye2: None,
         }];
         assert_eq!(result, expected);
 
