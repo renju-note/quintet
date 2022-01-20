@@ -26,17 +26,17 @@ fn validate_initial(board: &Board, player: Player) -> Result<(), Option<Vec<Poin
     let opponent = player.opponent();
 
     // Already exists five
-    if board.rows(player, Five).len() >= 1 || board.rows(opponent, Five).len() >= 1 {
+    if board.rows(player, Five).next().is_some() || board.rows(opponent, Five).next().is_some() {
         return Err(None);
     }
 
     // Already exists overline
-    if board.rows(Black, Overline).len() >= 1 {
+    if board.rows(Black, Overline).next().is_some() {
         return Err(None);
     }
 
     // Already exists four
-    if board.rows(player, Four).len() >= 1 {
+    if board.rows(player, Four).next().is_some() {
         return Err(Some(vec![]));
     }
 
@@ -46,7 +46,7 @@ fn validate_initial(board: &Board, player: Player) -> Result<(), Option<Vec<Poin
 fn choose_last_move(board: &Board, player: Player) -> Point {
     let opponent = player.opponent();
     let stones = board.stones(opponent);
-    if let Some(four) = board.rows(opponent, Four).iter().next() {
+    if let Some(four) = board.rows(opponent, Four).next() {
         stones
             .into_iter()
             .find(|&s| s == four.start || s == four.end)

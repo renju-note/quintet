@@ -94,15 +94,15 @@ impl Square {
             .collect()
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+    pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.iter_lines()
-            .map(|(d, i, l)| {
+            .map(move |(d, i, l)| {
                 let slots = l.segments().map(move |(j, blacks_, whites_)| {
                     let index = Index::new(d, i, j as u8);
                     Slot::new(index, blacks_, whites_)
                 });
                 slots
-                    .scan(None, |may_prev, target| {
+                    .scan(None, move |may_prev, target| {
                         let result = Row::from_slot(target, *may_prev, player, kind);
                         *may_prev = Some(target);
                         Some(result)
@@ -110,19 +110,23 @@ impl Square {
                     .flatten()
             })
             .flatten()
-            .collect()
     }
 
-    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
+    pub fn rows_on(
+        &self,
+        player: Player,
+        kind: RowKind,
+        p: Point,
+    ) -> impl Iterator<Item = Row> + '_ {
         self.iter_lines_along(p)
-            .map(|(d, i, l)| {
+            .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
                 let slots = l.segments_on(j).map(move |(j, blacks_, whites_)| {
                     let index = Index::new(d, i, j as u8);
                     Slot::new(index, blacks_, whites_)
                 });
                 slots
-                    .scan(None, |may_prev, target| {
+                    .scan(None, move |may_prev, target| {
                         let result = Row::from_slot(target, *may_prev, player, kind);
                         *may_prev = Some(target);
                         Some(result)
@@ -130,7 +134,6 @@ impl Square {
                     .flatten()
             })
             .flatten()
-            .collect()
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
@@ -633,11 +636,17 @@ mod tests {
             Some(Point(6, 8)),
         )];
 
-        assert_eq!(square.rows(Black, Two), black_twos);
-        assert_eq!(square.rows(White, Sword), white_swords);
+        assert_eq!(square.rows(Black, Two).collect::<Vec<_>>(), black_twos);
+        assert_eq!(square.rows(White, Sword).collect::<Vec<_>>(), white_swords);
 
-        assert_eq!(square.rows_on(Black, Two, Point(10, 8)), black_twos);
-        assert_eq!(square.rows_on(Black, Two, Point(7, 7)), []);
+        assert_eq!(
+            square.rows_on(Black, Two, Point(10, 8)).collect::<Vec<_>>(),
+            black_twos
+        );
+        assert_eq!(
+            square.rows_on(Black, Two, Point(7, 7)).collect::<Vec<_>>(),
+            []
+        );
 
         Ok(())
     }
