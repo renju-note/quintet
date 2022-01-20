@@ -7,10 +7,12 @@ const WHITE_FLAG: u8 = 0b10000000;
 const OVERLINE_FLAG: u8 = 0b00100000;
 const EMPTY_SIGNATURE: u8 = 0b00000000;
 
+pub type Signature = u8;
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Slot {
-    start: Index,
-    signature: u8,
+    pub start: Index,
+    pub signature: Signature,
 }
 
 impl Slot {
@@ -37,22 +39,22 @@ impl Slot {
     }
 
     pub fn potential(&self, player: Player) -> i8 {
-        if self.signature == 0b0 {
+        if self.signature == EMPTY_SIGNATURE {
             return 0;
         }
         let player_black = player.is_black();
-        let black = self.black();
-        let white = self.white();
+        let black = self.contains_black();
+        let white = self.contains_white();
         if black && white {
             return -1;
         }
         if black && !player_black || white && player_black {
             return -2;
         }
-        if player_black && self.overline() {
+        if player_black && self.will_overline() {
             return -3;
         }
-        self.count_stones()
+        self.nstones() as i8
     }
 
     pub fn eyes(&self) -> impl Iterator<Item = Index> + '_ {
@@ -63,20 +65,28 @@ impl Slot {
             .flatten()
     }
 
-    fn black(&self) -> bool {
-        self.signature & BLACK_FLAG != 0b0
+    pub fn occupied_by(&self, player: Player) -> bool {
+        if player.is_black() {
+            self.contains_black() && !self.contains_white()
+        } else {
+            !self.contains_black() && self.contains_white()
+        }
     }
 
-    fn white(&self) -> bool {
-        self.signature & WHITE_FLAG != 0b0
+    pub fn nstones(&self) -> u8 {
+        (self.signature & 0b00011111).count_ones() as u8
     }
 
-    fn overline(&self) -> bool {
+    pub fn will_overline(&self) -> bool {
         self.signature & OVERLINE_FLAG != 0b0
     }
 
-    fn count_stones(&self) -> i8 {
-        (self.signature & 0b00011111).count_ones() as i8
+    fn contains_black(&self) -> bool {
+        self.signature & BLACK_FLAG != 0b0
+    }
+
+    fn contains_white(&self) -> bool {
+        self.signature & WHITE_FLAG != 0b0
     }
 }
 

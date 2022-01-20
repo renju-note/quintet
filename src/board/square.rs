@@ -97,9 +97,17 @@ impl Square {
     pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
         self.iter_lines()
             .map(|(d, i, l)| {
-                l.sequences(player, kind)
-                    .into_iter()
-                    .map(move |s| Row::from_sequence(&s, d, i))
+                let slots = l.segments().map(move |(j, blacks_, whites_)| {
+                    let index = Index::new(d, i, j as u8);
+                    Slot::new(index, blacks_, whites_)
+                });
+                slots
+                    .scan(None, |may_prev, target| {
+                        let result = Row::from_slot(target, *may_prev, player, kind);
+                        *may_prev = Some(target);
+                        Some(result)
+                    })
+                    .flatten()
             })
             .flatten()
             .collect()
@@ -108,10 +116,18 @@ impl Square {
     pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
         self.iter_lines_along(p)
             .map(|(d, i, l)| {
-                l.sequences(player, kind)
-                    .into_iter()
-                    .map(move |s| Row::from_sequence(&s, d, i))
-                    .filter(|r| r.overlap(p))
+                let j = p.to_index(d).j;
+                let slots = l.segments_on(j).map(move |(j, blacks_, whites_)| {
+                    let index = Index::new(d, i, j as u8);
+                    Slot::new(index, blacks_, whites_)
+                });
+                slots
+                    .scan(None, |may_prev, target| {
+                        let result = Row::from_slot(target, *may_prev, player, kind);
+                        *may_prev = Some(target);
+                        Some(result)
+                    })
+                    .flatten()
             })
             .flatten()
             .collect()
