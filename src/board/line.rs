@@ -5,18 +5,18 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Line {
-    pub size: u8,
     pub blacks: Bits,
     pub whites: Bits,
+    pub size: u8,
 }
 
 impl Line {
     pub fn new(size: u8) -> Line {
         let size = std::cmp::min(size, BOARD_SIZE);
         Line {
-            size: size,
             blacks: 0b0,
             whites: 0b0,
+            size: size,
         }
     }
 
@@ -80,19 +80,17 @@ impl Line {
     pub fn segments(&self) -> Segments {
         let blacks = self.blacks << 1;
         let whites = self.whites << 1;
-        let window = 5 + 2;
         let start = 0;
         let end = self.size + 1;
-        Segments::new(blacks, whites, start, end, window)
+        Segments::new(blacks, whites, start, end)
     }
 
     pub fn segments_on(&self, i: u8) -> Segments {
         let blacks = self.blacks << 1;
         let whites = self.whites << 1;
-        let window: u8 = 5 + 2;
-        let start = cmp::max(0, (i + 1) as i8 - (window as i8 - 1)) as u8;
-        let end = cmp::min(self.size + 1, (i + 1) + (window - 1));
-        Segments::new(blacks, whites, start, end, window)
+        let start = cmp::max(0, (i + 1) as i8 - (WINDOW_SIZE as i8 - 1)) as u8;
+        let end = cmp::min(self.size + 1, (i + 1) + (WINDOW_SIZE - 1));
+        Segments::new(blacks, whites, start, end)
     }
 }
 
@@ -130,21 +128,22 @@ impl FromStr for Line {
     }
 }
 
+const WINDOW_SIZE: u8 = 7;
+const WINDOW_MASK: u16 = (0b1 << 7) - 1;
+
 pub struct Segments {
     blacks: Bits,
     whites: Bits,
-    mask: u8,
     limit: u8,
     i: u8,
 }
 
 impl Segments {
-    pub fn new(blacks: Bits, whites: Bits, start: u8, end: u8, window: u8) -> Self {
+    pub fn new(blacks: Bits, whites: Bits, start: u8, end: u8) -> Self {
         Segments {
             blacks: blacks,
             whites: whites,
-            mask: (0b1 << window) - 1,
-            limit: end - (window - 1),
+            limit: end - (WINDOW_SIZE - 1),
             i: start,
         }
     }
@@ -161,8 +160,8 @@ impl Iterator for Segments {
         self.i += 1;
         Some((
             i,
-            (self.blacks >> i & self.mask as u16) as u8,
-            (self.whites >> i & self.mask as u16) as u8,
+            (self.blacks >> i & WINDOW_MASK) as u8,
+            (self.whites >> i & WINDOW_MASK) as u8,
         ))
     }
 }
