@@ -1,9 +1,19 @@
-use super::fundamentals::RowKind::*;
 use super::fundamentals::*;
 use super::point::*;
-use super::sequence::*;
 use super::slot::*;
 use std::fmt;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum RowKind {
+    Two,
+    Sword,
+    Three,
+    Four,
+    Five,
+    Overline,
+}
+
+use RowKind::*;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Row {
@@ -28,16 +38,6 @@ impl Row {
             end: end,
             eye1: eye1,
             eye2: eye2,
-        }
-    }
-
-    pub fn from_sequence(s: &Sequence, d: Direction, i: u8) -> Row {
-        Row {
-            direction: d,
-            start: Index::new(d, i, s.start).to_point(),
-            end: Index::new(d, i, s.end).to_point(),
-            eye1: s.eye1.map(|e| Index::new(d, i, e).to_point()),
-            eye2: s.eye2.map(|e| Index::new(d, i, e).to_point()),
         }
     }
 

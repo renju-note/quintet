@@ -1,5 +1,4 @@
 use super::fundamentals::*;
-use super::sequence::*;
 use std::cmp;
 use std::fmt;
 use std::str::FromStr;
@@ -95,62 +94,6 @@ impl Line {
         let end = cmp::min(self.size + 1, (i + 1) + (window - 1));
         Segments::new(blacks, whites, start, end, window)
     }
-
-    pub fn sequences(&self, player: Player, kind: RowKind) -> Vec<Sequence> {
-        if !self.may_contain(player, kind) {
-            return vec![];
-        }
-        let offset = 1;
-        let stones = match player {
-            Player::Black => self.blacks << offset,
-            Player::White => self.whites << offset,
-        };
-        let blanks = self.blanks() << offset;
-        let limit = self.size + offset + offset;
-        Sequence::scan(player, kind, stones, blanks, limit, offset)
-    }
-
-    pub fn sequence_eyes(&self, player: Player, kind: RowKind) -> Bits {
-        if !self.may_contain(player, kind) {
-            return 0b0;
-        }
-        let offset = 1;
-        let stones = match player {
-            Player::Black => self.blacks << offset,
-            Player::White => self.whites << offset,
-        };
-        let blanks = self.blanks() << offset;
-        let limit = self.size + offset + offset;
-        Sequence::scan_eyes(player, kind, stones, blanks, limit, offset)
-    }
-
-    fn may_contain(&self, player: Player, kind: RowKind) -> bool {
-        let min_stone = match kind {
-            RowKind::Two => 2,
-            RowKind::Sword => 3,
-            RowKind::Three => 3,
-            RowKind::Four => 4,
-            RowKind::Five => 5,
-            RowKind::Overline => 6,
-        };
-        let min_blank = match kind {
-            RowKind::Two => 4,
-            RowKind::Sword => 2,
-            RowKind::Three => 3,
-            RowKind::Four => 1,
-            RowKind::Five => 0,
-            RowKind::Overline => 0,
-        };
-        self.blanks().count_ones() >= min_blank
-            && match player {
-                Player::Black => self.blacks.count_ones() >= min_stone,
-                Player::White => self.whites.count_ones() >= min_stone,
-            }
-    }
-
-    fn blanks(&self) -> Bits {
-        !(self.blacks | self.whites) & ((0b1 << self.size) - 1)
-    }
 }
 
 impl fmt::Display for Line {
@@ -227,7 +170,6 @@ impl Iterator for Segments {
 #[cfg(test)]
 mod tests {
     use super::Player::*;
-    use super::RowKind::*;
     use super::*;
 
     #[test]
@@ -368,24 +310,6 @@ mod tests {
             (10, 0b0000000, 0b0110000),
         ];
         assert_eq!(result, expected);
-        Ok(())
-    }
-
-    #[test]
-    fn test_sequences() -> Result<(), String> {
-        let line = "-oooo---x--x---".parse::<Line>()?;
-
-        let result = line.sequences(Black, Four);
-        let expected = [
-            Sequence::new(0, 4, Some(0), None),
-            Sequence::new(1, 5, Some(5), None),
-        ];
-        assert_eq!(result, expected);
-
-        let result = line.sequences(White, Two);
-        let expected = [Sequence::new(8, 11, Some(9), Some(10))];
-        assert_eq!(result, expected);
-
         Ok(())
     }
 

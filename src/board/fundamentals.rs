@@ -10,16 +10,6 @@ pub enum Player {
     White,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum RowKind {
-    Two,
-    Sword,
-    Three,
-    Four,
-    Five,
-    Overline,
-}
-
 impl Player {
     pub fn opponent(&self) -> Player {
         match self {
