@@ -15,6 +15,19 @@ pub enum RowKind {
 
 use RowKind::*;
 
+impl RowKind {
+    pub fn nstones(&self) -> u8 {
+        match self {
+            Two => 2,
+            Sword => 3,
+            Three => 3,
+            Four => 4,
+            Five => 5,
+            Overline => 5,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Row {
     pub direction: Direction,
@@ -42,21 +55,22 @@ impl Row {
     }
 
     pub fn from_slot(
+        start: Index,
         target: Slot,
         may_prev: Option<Slot>,
         player: Player,
         kind: RowKind,
     ) -> Option<Row> {
         match kind {
-            Five | Four | Sword => Self::from_single_slot(target, player, kind),
+            Five | Four | Sword => Self::from_single_slot(start, target, player, kind),
             _ if may_prev.is_some() => {
-                Self::from_double_slots(target, may_prev.unwrap(), player, kind)
+                Self::from_double_slots(start, target, may_prev.unwrap(), player, kind)
             }
             _ => None,
         }
     }
 
-    fn from_single_slot(target: Slot, player: Player, kind: RowKind) -> Option<Row> {
+    fn from_single_slot(start: Index, target: Slot, player: Player, kind: RowKind) -> Option<Row> {
         if player.is_black() && target.will_overline() {
             return None;
         }
@@ -65,41 +79,47 @@ impl Row {
             return None;
         }
 
-        if target.nstones() != Self::nstones(kind) {
+        if target.nstones() != kind.nstones() {
             return None;
         }
 
-        let direction = target.start.direction;
-        let target_start = target.start.to_point();
-        let target_end = target.start.walk(4).unwrap().to_point();
+        let direction = start.direction;
+        let row_start = start.to_point();
+        let row_end = start.walk(4).unwrap().to_point();
 
         if kind == Five {
-            return Some(Row::new(direction, target_start, target_end, None, None));
+            return Some(Row::new(direction, row_start, row_end, None, None));
         }
 
         let mut eyes = target.eyes();
-        let eye1 = eyes.next().map(|i| i.to_point());
-        let eye2 = eyes.next().map(|i| i.to_point());
+        let row_eye1 = eyes.next().map(|e| start.walk(e as i8).unwrap().to_point());
+        let row_eye2 = eyes.next().map(|e| start.walk(e as i8).unwrap().to_point());
 
-        Some(Row::new(direction, target_start, target_end, eye1, eye2))
+        Some(Row::new(direction, row_start, row_end, row_eye1, row_eye2))
     }
 
-    fn from_double_slots(target: Slot, prev: Slot, player: Player, kind: RowKind) -> Option<Row> {
+    fn from_double_slots(
+        start: Index,
+        target: Slot,
+        prev: Slot,
+        player: Player,
+        kind: RowKind,
+    ) -> Option<Row> {
         if !target.occupied_by(player) || !prev.occupied_by(player) {
             return None;
         }
 
-        let n = Self::nstones(kind);
+        let n = kind.nstones();
         if target.nstones() != n || prev.nstones() != n {
             return None;
         }
 
         if player.is_black() && (target.will_overline() || prev.will_overline()) {
             if kind == Overline && target.will_overline() && prev.will_overline() {
-                let direction = target.start.direction;
-                let start = prev.start.to_point();
-                let end = target.start.walk(4).unwrap().to_point();
-                return Some(Row::new(direction, start, end, None, None));
+                let direction = start.direction;
+                let row_start = start.walk(-1).unwrap().to_point();
+                let row_end = start.walk(4).unwrap().to_point();
+                return Some(Row::new(direction, row_start, row_end, None, None));
             } else {
                 return None;
             };
@@ -109,19 +129,19 @@ impl Row {
             return None;
         }
 
-        let direction = target.start.direction;
-        let start = target.start.to_point();
-        let end = prev.start.walk(4).unwrap().to_point();
+        let direction = start.direction;
+        let row_start = start.to_point();
+        let row_end = start.walk(3).unwrap().to_point();
 
         let mut eyes = target.eyes();
-        let eye1 = eyes.next().map(|i| i.to_point());
-        let eye2 = if kind == Two {
-            eyes.next().map(|i| i.to_point())
-        } else {
+        let row_eye1 = eyes.next().map(|e| start.walk(e as i8).unwrap().to_point());
+        let row_eye2 = if kind == Three {
             None
+        } else {
+            eyes.next().map(|e| start.walk(e as i8).unwrap().to_point())
         };
 
-        Some(Row::new(direction, start, end, eye1, eye2))
+        Some(Row::new(direction, row_start, row_end, row_eye1, row_eye2))
     }
 
     pub fn overlap(&self, p: Point) -> bool {
@@ -153,17 +173,6 @@ impl Row {
 
     pub fn into_iter_eyes(&self) -> impl IntoIterator<Item = Point> {
         self.eye1.into_iter().chain(self.eye2.into_iter())
-    }
-
-    fn nstones(kind: RowKind) -> u8 {
-        match kind {
-            Two => 2,
-            Sword => 3,
-            Three => 3,
-            Four => 4,
-            Five => 5,
-            Overline => 5,
-        }
     }
 }
 
@@ -198,9 +207,14 @@ mod tests {
     #[test]
     fn test_from_slot() {
         let index0 = Index::new(Vertical, 0, 0);
-        let index1 = index0.walk(1).unwrap();
-        let result = Row::from_slot(Slot::new(index1, 0b0111110, 0b0000000), None, Black, Five);
-        let expected = Some(Row::new(Vertical, Point(0, 1), Point(0, 5), None, None));
+        let result = Row::from_slot(
+            index0,
+            Slot::new(index0, 0b0111110, 0b0000000),
+            None,
+            Black,
+            Five,
+        );
+        let expected = Some(Row::new(Vertical, Point(0, 0), Point(0, 4), None, None));
         assert_eq!(result, expected);
     }
 
@@ -209,11 +223,11 @@ mod tests {
         let line = "-x-xx-----".parse::<Line>()?;
         let slots = line.segments().map(move |(j, blacks_, whites_)| {
             let index = Index::new(Vertical, 0, j as u8);
-            Slot::new(index, blacks_, whites_)
+            (index, Slot::new(index, blacks_, whites_))
         });
         let result: Vec<Row> = slots
-            .scan(None, |may_prev, target| {
-                let result = Row::from_slot(target, *may_prev, White, Two);
+            .scan(None, |may_prev, (start, target)| {
+                let result = Row::from_slot(start, target, *may_prev, White, Two);
                 *may_prev = Some(target);
                 Some(result)
             })
@@ -236,11 +250,11 @@ mod tests {
         let line = "--o--ooo-------".parse::<Line>()?;
         let slots = line.segments().map(move |(j, blacks_, whites_)| {
             let index = Index::new(Vertical, 0, j as u8);
-            Slot::new(index, blacks_, whites_)
+            (index, Slot::new(index, blacks_, whites_))
         });
         let result: Vec<Row> = slots
-            .scan(None, |may_prev, target| {
-                let result = Row::from_slot(target, *may_prev, Black, Three);
+            .scan(None, |may_prev, (start, target)| {
+                let result = Row::from_slot(start, target, *may_prev, Black, Three);
                 *may_prev = Some(target);
                 Some(result)
             })

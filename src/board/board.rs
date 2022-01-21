@@ -76,7 +76,7 @@ impl Board {
         self.square.rows_on(player, kind, p)
     }
 
-    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
+    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.square.slots(player, potential)
     }
 
@@ -85,7 +85,7 @@ impl Board {
         player: Player,
         potential: i8,
         p: Point,
-    ) -> impl Iterator<Item = Slot> + '_ {
+    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.square.slots_on(player, potential, p)
     }
 

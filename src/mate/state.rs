@@ -48,7 +48,7 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
-    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
+    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.board.slots(player, potential)
     }
 
@@ -57,7 +57,7 @@ impl GameState {
         player: Player,
         potential: i8,
         p: Point,
-    ) -> impl Iterator<Item = Slot> + '_ {
+    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.board.slots_on(player, potential, p)
     }
 }

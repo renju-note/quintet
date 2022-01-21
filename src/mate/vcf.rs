@@ -63,20 +63,23 @@ impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
         let next_player = state.next_player();
         let mut last_fours = state.slots_on(state.last_player(), 4, state.last_move());
-        if let Some(last_four) = last_fours.next() {
+        if let Some((index, last_four)) = last_fours.next() {
             if last_fours.next().is_some() {
                 return VCFMoves {
                     state: state.clone(),
                     move_pairs: vec![],
                 };
             }
-            let last_four_eye = last_four.eyes().next().unwrap().to_point();
+            let last_four_eye = index
+                .walk(last_four.eyes().next().unwrap() as i8)
+                .unwrap()
+                .to_point();
             let move_pairs = state
                 .slots_on(next_player, 3, last_four_eye)
-                .map(|s| {
+                .map(|(i, s)| {
                     let mut eyes = s.eyes();
-                    let e1 = eyes.next().unwrap().to_point();
-                    let e2 = eyes.next().unwrap().to_point();
+                    let e1 = i.walk(eyes.next().unwrap() as i8).unwrap().to_point();
+                    let e2 = i.walk(eyes.next().unwrap() as i8).unwrap().to_point();
                     if e1 == last_four_eye {
                         Some((e1, e2))
                     } else if e2 == last_four_eye {
@@ -93,10 +96,10 @@ impl VCFMoves {
         }
         let move_pairs = state
             .slots(next_player, 3)
-            .map(|s| {
+            .map(|(i, s)| {
                 let mut eyes = s.eyes();
-                let e1 = eyes.next().unwrap().to_point();
-                let e2 = eyes.next().unwrap().to_point();
+                let e1 = i.walk(eyes.next().unwrap() as i8).unwrap().to_point();
+                let e2 = i.walk(eyes.next().unwrap() as i8).unwrap().to_point();
                 [(e1, e2), (e2, e1)]
             })
             .flatten();

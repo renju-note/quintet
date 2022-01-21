@@ -57,12 +57,9 @@ impl Slot {
         self.nstones() as i8
     }
 
-    pub fn eyes(&self) -> impl Iterator<Item = Index> + '_ {
+    pub fn eyes(&self) -> impl Iterator<Item = u8> {
         let stones = self.signature & 0b11111;
-        (0..5)
-            .filter(move |i| !stones & (0b1 << i) != 0b0)
-            .map(move |i| self.start.walk(i))
-            .flatten()
+        (0..5).filter(move |i| !stones & (0b1 << i) != 0b0)
     }
 
     pub fn occupied_by(&self, player: Player) -> bool {

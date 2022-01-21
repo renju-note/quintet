@@ -73,11 +73,19 @@ impl Index {
         }
     }
 
-    pub fn walk(&self, step: u8) -> Option<Self> {
+    pub fn walk(&self, step: i8) -> Option<Self> {
+        let j = self.j as i8 + step;
+        if 0 <= j && j <= self.maxj() as i8 {
+            Some(Self::new(self.direction, self.i, j as u8))
+        } else {
+            None
+        }
+    }
+
+    fn maxj(&self) -> u8 {
         let n = BOARD_SIZE - 1;
         let i = self.i;
-        let j = self.j + step;
-        let maxj = match self.direction {
+        match self.direction {
             Direction::Vertical | Direction::Horizontal => n,
             Direction::Ascending | Direction::Descending => {
                 if i < n {
@@ -86,11 +94,6 @@ impl Index {
                     2 * n - i
                 }
             }
-        };
-        if j <= maxj {
-            Some(Self::new(self.direction, i, j))
-        } else {
-            None
         }
     }
 }
