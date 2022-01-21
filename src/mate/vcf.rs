@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    // #[ignore]
+    #[ignore]
     fn test_long() -> Result<(), String> {
         // "孤高の露天風呂" by Shigeru Nakamura
         let board = "

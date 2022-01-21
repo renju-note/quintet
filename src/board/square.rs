@@ -25,13 +25,23 @@ impl Square {
         }
     }
 
+    pub fn from_moves(moves: &Points) -> Self {
+        let mut square = Self::new();
+        let mut player = Player::Black;
+        for &m in moves.0.iter() {
+            square.put_mut(player, m);
+            player = player.opponent();
+        }
+        square
+    }
+
     pub fn from_points(blacks: &Points, whites: &Points) -> Self {
         let mut square = Self::new();
-        for p in blacks.0.iter() {
-            square.put_mut(Player::Black, *p);
+        for &p in blacks.0.iter() {
+            square.put_mut(Player::Black, p);
         }
-        for p in whites.0.iter() {
-            square.put_mut(Player::White, *p);
+        for &p in whites.0.iter() {
+            square.put_mut(Player::White, p);
         }
         square
     }
@@ -237,10 +247,17 @@ impl FromStr for Square {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains("/") {
             from_str_points(s)
+        } else if s.contains(",") {
+            from_str_moves(s)
         } else {
             from_str_display(s)
         }
     }
+}
+
+fn from_str_moves(s: &str) -> Result<Square, &'static str> {
+    let moves = s.trim().parse::<Points>()?;
+    Ok(Square::from_moves(&moves))
 }
 
 fn from_str_points(s: &str) -> Result<Square, &'static str> {
@@ -665,6 +682,13 @@ mod tests {
 
     #[test]
     fn test_parse() -> Result<(), String> {
+        let result = "H8,I9,J9".parse::<Square>()?;
+        let mut expected = Square::new();
+        expected.put_mut(Black, Point(7, 7));
+        expected.put_mut(White, Point(8, 8));
+        expected.put_mut(Black, Point(9, 8));
+        assert_eq!(result, expected);
+
         let result = "H8,J9/I9".parse::<Square>()?;
         let mut expected = Square::new();
         expected.put_mut(Black, Point(7, 7));
