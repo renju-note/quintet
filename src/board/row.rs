@@ -54,6 +54,23 @@ impl Row {
         }
     }
 
+    pub fn from_slots(
+        slots: Slots,
+        d: Direction,
+        i: u8,
+        player: Player,
+        kind: RowKind,
+    ) -> impl Iterator<Item = Row> {
+        slots
+            .map(move |(j, s)| (Index::new(d, i, j), s))
+            .scan(None, move |may_prev, (start, target)| {
+                let result = Row::from_slot(start, target, *may_prev, player, kind);
+                *may_prev = Some(target);
+                Some(result)
+            })
+            .flatten()
+    }
+
     pub fn from_slot(
         start: Index,
         target: Slot,
@@ -91,10 +108,14 @@ impl Row {
             return Some(Row::new(direction, row_start, row_end, None, None));
         }
 
-        let mut eyes = target.eyes();
-        let row_eye1 = eyes.next().map(|e| start.walk(e as i8).unwrap().to_point());
-        let row_eye2 = eyes.next().map(|e| start.walk(e as i8).unwrap().to_point());
+        let eyes = target.eyes();
+        let row_eye1 = start.walk(eyes[0] as i8).map(|i| i.to_point());
 
+        if kind == Four {
+            return Some(Row::new(direction, row_start, row_end, row_eye1, None));
+        }
+
+        let row_eye2 = start.walk(eyes[1] as i8).map(|i| i.to_point());
         Some(Row::new(direction, row_start, row_end, row_eye1, row_eye2))
     }
 
@@ -114,18 +135,22 @@ impl Row {
             return None;
         }
 
-        if player.is_black() && (target.will_overline() || prev.will_overline()) {
-            if kind == Overline && target.will_overline() && prev.will_overline() {
+        if kind == Overline {
+            return if player.is_black() && target.will_overline() && prev.will_overline() {
                 let direction = start.direction;
                 let row_start = start.walk(-1).unwrap().to_point();
                 let row_end = start.walk(4).unwrap().to_point();
-                return Some(Row::new(direction, row_start, row_end, None, None));
+                Some(Row::new(direction, row_start, row_end, None, None))
             } else {
-                return None;
+                None
             };
         }
 
-        if (target.signature & 0b00001111).count_ones() as u8 != n {
+        if player.is_black() && (target.will_overline() || prev.will_overline()) {
+            return None;
+        }
+
+        if target.nstones_head() != n {
             return None;
         }
 
@@ -133,27 +158,15 @@ impl Row {
         let row_start = start.to_point();
         let row_end = start.walk(3).unwrap().to_point();
 
-        let mut eyes = target.eyes();
-        let row_eye1 = eyes.next().map(|e| start.walk(e as i8).unwrap().to_point());
-        let row_eye2 = if kind == Three {
-            None
-        } else {
-            eyes.next().map(|e| start.walk(e as i8).unwrap().to_point())
-        };
+        let eyes = target.eyes();
+        let row_eye1 = start.walk(eyes[0] as i8).map(|i| i.to_point());
 
-        Some(Row::new(direction, row_start, row_end, row_eye1, row_eye2))
-    }
-
-    pub fn overlap(&self, p: Point) -> bool {
-        let (px, py) = (p.0, p.1);
-        let (sx, sy) = (self.start.0, self.start.1);
-        let (ex, ey) = (self.end.0, self.end.1);
-        match self.direction {
-            Direction::Vertical => px == sx && bw(sy, py, ey),
-            Direction::Horizontal => py == sy && bw(sx, px, ex),
-            Direction::Ascending => bw(sx, px, ex) && bw(sy, py, ey) && px - sx == py - sy,
-            Direction::Descending => bw(sx, px, ex) && bw(ey, py, sy) && px - sx == sy - py,
+        if kind == Three {
+            return Some(Row::new(direction, row_start, row_end, row_eye1, None));
         }
+
+        let row_eye2 = start.walk(eyes[1] as i8).map(|i| i.to_point());
+        Some(Row::new(direction, row_start, row_end, row_eye1, row_eye2))
     }
 
     pub fn adjacent(&self, other: &Row) -> bool {
@@ -193,10 +206,6 @@ impl fmt::Display for Row {
     }
 }
 
-fn bw(a: u8, x: u8, b: u8) -> bool {
-    a <= x && x <= b
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::line::*;
@@ -207,32 +216,15 @@ mod tests {
     #[test]
     fn test_from_slot() {
         let index0 = Index::new(Vertical, 0, 0);
-        let result = Row::from_slot(
-            index0,
-            Slot::new(index0, 0b0111110, 0b0000000),
-            None,
-            Black,
-            Five,
-        );
+        let result = Row::from_slot(index0, Slot::new(0b0111110, 0b0000000), None, Black, Five);
         let expected = Some(Row::new(Vertical, Point(0, 0), Point(0, 4), None, None));
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn test_scan_line() -> Result<(), String> {
+    fn test_from_slots() -> Result<(), String> {
         let line = "-x-xx-----".parse::<Line>()?;
-        let slots = line.segments().map(move |(j, blacks_, whites_)| {
-            let index = Index::new(Vertical, 0, j as u8);
-            (index, Slot::new(index, blacks_, whites_))
-        });
-        let result: Vec<Row> = slots
-            .scan(None, |may_prev, (start, target)| {
-                let result = Row::from_slot(start, target, *may_prev, White, Two);
-                *may_prev = Some(target);
-                Some(result)
-            })
-            .flatten()
-            .collect();
+        let result = Row::from_slots(line.slots(), Vertical, 0, White, Two).collect::<Vec<_>>();
         let expected = [Row {
             direction: Vertical,
             start: Point(0, 3),
@@ -246,20 +238,9 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_line2() -> Result<(), String> {
+    fn test_from_slots_2() -> Result<(), String> {
         let line = "--o--ooo-------".parse::<Line>()?;
-        let slots = line.segments().map(move |(j, blacks_, whites_)| {
-            let index = Index::new(Vertical, 0, j as u8);
-            (index, Slot::new(index, blacks_, whites_))
-        });
-        let result: Vec<Row> = slots
-            .scan(None, |may_prev, (start, target)| {
-                let result = Row::from_slot(start, target, *may_prev, Black, Three);
-                *may_prev = Some(target);
-                Some(result)
-            })
-            .flatten()
-            .collect();
+        let result = Row::from_slots(line.slots(), Vertical, 0, Black, Three).collect::<Vec<_>>();
         let expected = [Row {
             direction: Vertical,
             start: Point(0, 5),

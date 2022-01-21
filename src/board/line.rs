@@ -1,4 +1,5 @@
 use super::fundamentals::*;
+use super::slot::*;
 use std::cmp;
 use std::fmt;
 use std::str::FromStr;
@@ -77,20 +78,16 @@ impl Line {
             .collect()
     }
 
-    pub fn segments(&self) -> Segments {
-        let blacks = self.blacks << 1;
-        let whites = self.whites << 1;
+    pub fn slots(&self) -> Slots {
         let start = 0;
         let end = self.size + 1;
-        Segments::new(blacks, whites, start, end)
+        Slots::new(self.blacks << 1, self.whites << 1, start, end)
     }
 
-    pub fn segments_on(&self, i: u8) -> Segments {
-        let blacks = self.blacks << 1;
-        let whites = self.whites << 1;
+    pub fn slots_on(&self, i: u8) -> Slots {
         let start = cmp::max(0, (i + 1) as i8 - (WINDOW_SIZE as i8 - 1)) as u8;
         let end = cmp::min(self.size + 1, (i + 1) + (WINDOW_SIZE - 1));
-        Segments::new(blacks, whites, start, end)
+        Slots::new(self.blacks << 1, self.whites << 1, start, end)
     }
 }
 
@@ -125,44 +122,6 @@ impl FromStr for Line {
             }
         }
         Ok(line)
-    }
-}
-
-const WINDOW_SIZE: u8 = 7;
-const WINDOW_MASK: u16 = (0b1 << 7) - 1;
-
-pub struct Segments {
-    blacks: Bits,
-    whites: Bits,
-    limit: u8,
-    i: u8,
-}
-
-impl Segments {
-    pub fn new(blacks: Bits, whites: Bits, start: u8, end: u8) -> Self {
-        Segments {
-            blacks: blacks,
-            whites: whites,
-            limit: end - (WINDOW_SIZE - 1),
-            i: start,
-        }
-    }
-}
-
-impl Iterator for Segments {
-    type Item = (u8, u8, u8);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let i = self.i;
-        if i > self.limit {
-            return None;
-        }
-        self.i += 1;
-        Some((
-            i,
-            (self.blacks >> i & WINDOW_MASK) as u8,
-            (self.whites >> i & WINDOW_MASK) as u8,
-        ))
     }
 }
 
@@ -233,80 +192,80 @@ mod tests {
     }
 
     #[test]
-    fn test_segments() -> Result<(), String> {
+    fn test_slots() -> Result<(), String> {
         let line = "oo-----o-----xx".parse::<Line>()?;
-        let result = line.segments().collect::<Vec<_>>();
+        let result = line.slots().collect::<Vec<_>>();
         let expected = [
-            (0, 0b0000110, 0b0000000),
-            (1, 0b0000011, 0b0000000),
-            (2, 0b1000001, 0b0000000),
-            (3, 0b0100000, 0b0000000),
-            (4, 0b0010000, 0b0000000),
-            (5, 0b0001000, 0b0000000),
-            (6, 0b0000100, 0b0000000),
-            (7, 0b0000010, 0b0000000),
-            (8, 0b0000001, 0b1000000),
-            (9, 0b0000000, 0b1100000),
-            (10, 0b0000000, 0b0110000),
+            (0, Slot(0b01000011)),
+            (1, Slot(0b01100001)),
+            (2, Slot(0b00100000)),
+            (3, Slot(0b01010000)),
+            (4, Slot(0b01001000)),
+            (5, Slot(0b01000100)),
+            (6, Slot(0b01000010)),
+            (7, Slot(0b01000001)),
+            (8, Slot(0b00100000)),
+            (9, Slot(0b10010000)),
+            (10, Slot(0b10011000)),
         ];
         assert_eq!(result, expected);
         Ok(())
     }
 
     #[test]
-    fn test_segments_on() -> Result<(), String> {
+    fn test_slots_on() -> Result<(), String> {
         let line = "oo-----o-----xx".parse::<Line>()?;
-        let result = line.segments_on(7).collect::<Vec<_>>();
+        let result = line.slots_on(2).collect::<Vec<_>>();
         let expected = [
-            (2, 0b1000001, 0b0000000),
-            (3, 0b0100000, 0b0000000),
-            (4, 0b0010000, 0b0000000),
-            (5, 0b0001000, 0b0000000),
-            (6, 0b0000100, 0b0000000),
-            (7, 0b0000010, 0b0000000),
-            (8, 0b0000001, 0b1000000),
+            (0, Slot(0b01000011)),
+            (1, Slot(0b01100001)),
+            (2, Slot(0b00100000)),
+            (3, Slot(0b01010000)),
         ];
         assert_eq!(result, expected);
 
-        let result = line.segments_on(2).collect::<Vec<_>>();
+        let result = line.slots_on(5).collect::<Vec<_>>();
         let expected = [
-            (0, 0b0000110, 0b0000000),
-            (1, 0b0000011, 0b0000000),
-            (2, 0b1000001, 0b0000000),
-            (3, 0b0100000, 0b0000000),
+            (0, Slot(0b01000011)),
+            (1, Slot(0b01100001)),
+            (2, Slot(0b00100000)),
+            (3, Slot(0b01010000)),
+            (4, Slot(0b01001000)),
+            (5, Slot(0b01000100)),
+            (6, Slot(0b01000010)),
         ];
         assert_eq!(result, expected);
 
-        let result = line.segments_on(5).collect::<Vec<_>>();
+        let result = line.slots_on(6).collect::<Vec<_>>();
         let expected = [
-            (0, 0b0000110, 0b0000000),
-            (1, 0b0000011, 0b0000000),
-            (2, 0b1000001, 0b0000000),
-            (3, 0b0100000, 0b0000000),
-            (4, 0b0010000, 0b0000000),
-            (5, 0b0001000, 0b0000000),
-            (6, 0b0000100, 0b0000000),
+            (1, Slot(0b01100001)),
+            (2, Slot(0b00100000)),
+            (3, Slot(0b01010000)),
+            (4, Slot(0b01001000)),
+            (5, Slot(0b01000100)),
+            (6, Slot(0b01000010)),
+            (7, Slot(0b01000001)),
         ];
         assert_eq!(result, expected);
 
-        let result = line.segments_on(6).collect::<Vec<_>>();
+        let result = line.slots_on(7).collect::<Vec<_>>();
         let expected = [
-            (1, 0b0000011, 0b0000000),
-            (2, 0b1000001, 0b0000000),
-            (3, 0b0100000, 0b0000000),
-            (4, 0b0010000, 0b0000000),
-            (5, 0b0001000, 0b0000000),
-            (6, 0b0000100, 0b0000000),
-            (7, 0b0000010, 0b0000000),
+            (2, Slot(0b00100000)),
+            (3, Slot(0b01010000)),
+            (4, Slot(0b01001000)),
+            (5, Slot(0b01000100)),
+            (6, Slot(0b01000010)),
+            (7, Slot(0b01000001)),
+            (8, Slot(0b00100000)),
         ];
         assert_eq!(result, expected);
 
-        let result = line.segments_on(12).collect::<Vec<_>>();
+        let result = line.slots_on(12).collect::<Vec<_>>();
         let expected = [
-            (7, 0b0000010, 0b0000000),
-            (8, 0b0000001, 0b1000000),
-            (9, 0b0000000, 0b1100000),
-            (10, 0b0000000, 0b0110000),
+            (7, Slot(0b01000001)),
+            (8, Slot(0b00100000)),
+            (9, Slot(0b10010000)),
+            (10, Slot(0b10011000)),
         ];
         assert_eq!(result, expected);
         Ok(())

@@ -96,19 +96,7 @@ impl Square {
 
     pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.iter_lines()
-            .map(move |(d, i, l)| {
-                let slots = l.segments().map(move |(j, blacks_, whites_)| {
-                    let index = Index::new(d, i, j as u8);
-                    (index, Slot::new(index, blacks_, whites_))
-                });
-                slots
-                    .scan(None, move |may_prev, (start, target)| {
-                        let result = Row::from_slot(start, target, *may_prev, player, kind);
-                        *may_prev = Some(target);
-                        Some(result)
-                    })
-                    .flatten()
-            })
+            .map(move |(d, i, l)| Row::from_slots(l.slots(), d, i, player, kind))
             .flatten()
     }
 
@@ -121,17 +109,7 @@ impl Square {
         self.iter_lines_along(p)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
-                let slots = l.segments_on(j).map(move |(j, blacks_, whites_)| {
-                    let index = Index::new(d, i, j as u8);
-                    (index, Slot::new(index, blacks_, whites_))
-                });
-                slots
-                    .scan(None, move |may_prev, (start, target)| {
-                        let result = Row::from_slot(start, target, *may_prev, player, kind);
-                        *may_prev = Some(target);
-                        Some(result)
-                    })
-                    .flatten()
+                Row::from_slots(l.slots_on(j), d, i, player, kind)
             })
             .flatten()
     }
@@ -139,12 +117,7 @@ impl Square {
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
     pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines()
-            .map(|(d, i, l)| {
-                l.segments().map(move |(j, blacks_, whites_)| {
-                    let index = Index::new(d, i, j as u8);
-                    (index, Slot::new(index, blacks_, whites_))
-                })
-            })
+            .map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
             .flatten()
             .filter(move |(_, s)| s.potential(player) == potential)
     }
@@ -158,10 +131,7 @@ impl Square {
         self.iter_lines_along(p)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
-                l.segments_on(j).map(move |(j, blacks_, whites_)| {
-                    let index = Index::new(d, i, j as u8);
-                    (index, Slot::new(index, blacks_, whites_))
-                })
+                l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
             })
             .flatten()
             .filter(move |(_, s)| s.potential(player) == potential)
