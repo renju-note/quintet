@@ -16,7 +16,7 @@ fn main() {
                 continue;
             }
         };
-        println!("\nBoard:\n{}", board);
+        println!("\nBoard:\n{}", board.to_pretty_string());
 
         println!("\nBlack VCF:");
         let start = Instant::now();

@@ -89,6 +89,10 @@ impl Board {
         self.square.slots_on(player, potential, p)
     }
 
+    pub fn to_pretty_string(&self) -> String {
+        self.square.to_pretty_string()
+    }
+
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {
         forbiddens(&self.square)
     }

@@ -137,6 +137,16 @@ impl Square {
             .filter(move |(_, s)| s.potential(player) == potential)
     }
 
+    pub fn to_pretty_string(&self) -> String {
+        let mut result = String::new();
+        for (i, l) in self.hlines.iter().enumerate().rev() {
+            result.push_str(&format!("{: >2}{}\n", i + 1, l));
+        }
+        let xindices = ('A'..='O').map(|c| c.to_string()).collect::<Vec<_>>();
+        result.push_str(&format!("   {}", xindices.join(" ")));
+        result
+    }
+
     fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let viter = self
             .vlines
@@ -213,6 +223,14 @@ impl fmt::Display for Square {
     }
 }
 
+fn lines_to_string(lines: &[&Line]) -> String {
+    lines
+        .iter()
+        .map(|l| l.to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 impl FromStr for Square {
     type Err = &'static str;
 
@@ -223,6 +241,40 @@ impl FromStr for Square {
             from_str_display(s)
         }
     }
+}
+
+fn from_str_points(s: &str) -> Result<Square, &'static str> {
+    let codes = s.trim().split("/").collect::<Vec<_>>();
+    if codes.len() != 2 {
+        return Err("Unknown format.");
+    }
+    let blacks = codes[0].parse::<Points>()?;
+    let whites = codes[1].parse::<Points>()?;
+    Ok(Square::from_points(&blacks, &whites))
+}
+
+fn from_str_display(s: &str) -> Result<Square, &'static str> {
+    let hlines_rev = s
+        .trim()
+        .split("\n")
+        .map(|ls| ls.trim().parse::<Line>())
+        .collect::<Result<Vec<_>, _>>()?;
+    if hlines_rev.len() != BOARD_SIZE as usize {
+        return Err("Wrong num of lines");
+    }
+    let mut square = Square::new();
+    for (i, hline) in hlines_rev.iter().rev().enumerate() {
+        if hline.size != BOARD_SIZE {
+            return Err("Wrong line size");
+        }
+        for j in 0..hline.size {
+            hline.stone(j).map(|player| {
+                let point = Index::new(Horizontal, i as u8, j as u8).to_point();
+                square.put_mut(player, point)
+            });
+        }
+    }
+    Ok(square)
 }
 
 const DIAGONAL_OMIT: u8 = 5 - 1;
@@ -275,48 +327,6 @@ fn diagonal_lines() -> DiagonalLines {
         Line::new(BOARD_SIZE - 9),
         Line::new(BOARD_SIZE - 10),
     ]
-}
-
-fn lines_to_string(lines: &[&Line]) -> String {
-    lines
-        .iter()
-        .map(|l| l.to_string())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn from_str_points(s: &str) -> Result<Square, &'static str> {
-    let codes = s.trim().split("/").collect::<Vec<_>>();
-    if codes.len() != 2 {
-        return Err("Unknown format.");
-    }
-    let blacks = codes[0].parse::<Points>()?;
-    let whites = codes[1].parse::<Points>()?;
-    Ok(Square::from_points(&blacks, &whites))
-}
-
-fn from_str_display(s: &str) -> Result<Square, &'static str> {
-    let hlines_rev = s
-        .trim()
-        .split("\n")
-        .map(|ls| ls.trim().parse::<Line>())
-        .collect::<Result<Vec<_>, _>>()?;
-    if hlines_rev.len() != BOARD_SIZE as usize {
-        return Err("Wrong num of lines");
-    }
-    let mut square = Square::new();
-    for (i, hline) in hlines_rev.iter().rev().enumerate() {
-        if hline.size != BOARD_SIZE {
-            return Err("Wrong line size");
-        }
-        for j in 0..hline.size {
-            hline.stone(j).map(|player| {
-                let point = Index::new(Horizontal, i as u8, j as u8).to_point();
-                square.put_mut(player, point)
-            });
-        }
-    }
-    Ok(square)
 }
 
 #[cfg(test)]
@@ -619,6 +629,38 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_to_pretty_string() {
+        let mut square = Square::new();
+        square.put_mut(Black, Point(7, 7));
+        square.put_mut(White, Point(8, 8));
+        square.put_mut(Black, Point(9, 8));
+        square.put_mut(Black, Point(0, 0));
+        square.put_mut(White, Point(0, 14));
+        square.put_mut(Black, Point(14, 0));
+        square.put_mut(White, Point(14, 14));
+        let expected = "
+15 x . . . . . . . . . . . . . x
+14 . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . .
+ 9 . . . . . . . . x o . . . . .
+ 8 . . . . . . . o . . . . . . .
+ 7 . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . .
+ 4 . . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . .
+ 2 . . . . . . . . . . . . . . .
+ 1 o . . . . . . . . . . . . . o
+   A B C D E F G H I J K L M N O
+        "
+        .trim();
+        assert_eq!(square.to_pretty_string(), expected);
     }
 
     #[test]
