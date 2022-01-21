@@ -16,8 +16,8 @@ pub struct Square {
 }
 
 impl Square {
-    pub fn new() -> Square {
-        Square {
+    pub fn new() -> Self {
+        Self {
             vlines: orthogonal_lines(),
             hlines: orthogonal_lines(),
             alines: diagonal_lines(),
@@ -25,13 +25,23 @@ impl Square {
         }
     }
 
-    pub fn from_points(blacks: &Points, whites: &Points) -> Square {
-        let mut square = Square::new();
-        for p in blacks.0.iter() {
-            square.put_mut(Player::Black, *p);
+    pub fn from_moves(moves: &Points) -> Self {
+        let mut square = Self::new();
+        let mut player = Player::Black;
+        for &m in moves.0.iter() {
+            square.put_mut(player, m);
+            player = player.opponent();
         }
-        for p in whites.0.iter() {
-            square.put_mut(Player::White, *p);
+        square
+    }
+
+    pub fn from_points(blacks: &Points, whites: &Points) -> Self {
+        let mut square = Self::new();
+        for &p in blacks.0.iter() {
+            square.put_mut(Player::Black, p);
+        }
+        for &p in whites.0.iter() {
+            square.put_mut(Player::White, p);
         }
         square
     }
@@ -137,6 +147,16 @@ impl Square {
             .filter(move |(_, s)| s.potential(player) == potential)
     }
 
+    pub fn to_pretty_string(&self) -> String {
+        let mut result = String::new();
+        for (i, l) in self.hlines.iter().enumerate().rev() {
+            result.push_str(&format!("{: >2}{}\n", i + 1, l));
+        }
+        let xindices = ('A'..='O').map(|c| c.to_string()).collect::<Vec<_>>();
+        result.push_str(&format!("   {}", xindices.join(" ")));
+        result
+    }
+
     fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let viter = self
             .vlines
@@ -213,16 +233,65 @@ impl fmt::Display for Square {
     }
 }
 
+fn lines_to_string(lines: &[&Line]) -> String {
+    lines
+        .iter()
+        .map(|l| l.to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 impl FromStr for Square {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains("/") {
             from_str_points(s)
+        } else if s.contains(",") {
+            from_str_moves(s)
         } else {
             from_str_display(s)
         }
     }
+}
+
+fn from_str_moves(s: &str) -> Result<Square, &'static str> {
+    let moves = s.trim().parse::<Points>()?;
+    Ok(Square::from_moves(&moves))
+}
+
+fn from_str_points(s: &str) -> Result<Square, &'static str> {
+    let codes = s.trim().split("/").collect::<Vec<_>>();
+    if codes.len() != 2 {
+        return Err("Unknown format.");
+    }
+    let blacks = codes[0].parse::<Points>()?;
+    let whites = codes[1].parse::<Points>()?;
+    Ok(Square::from_points(&blacks, &whites))
+}
+
+fn from_str_display(s: &str) -> Result<Square, &'static str> {
+    let hlines_rev = s
+        .trim()
+        .split("\n")
+        .map(|ls| ls.trim().parse::<Line>())
+        .collect::<Result<Vec<_>, _>>()?;
+    if hlines_rev.len() != BOARD_SIZE as usize {
+        return Err("Wrong num of lines");
+    }
+    let mut square = Square::new();
+    for (i, hline) in hlines_rev.iter().rev().enumerate() {
+        if hline.size != BOARD_SIZE {
+            return Err("Wrong line size");
+        }
+        for j in 0..hline.size {
+            hline.stone(j).map(|player| {
+                let point = Index::new(Horizontal, i as u8, j as u8).to_point();
+                square.put_mut(player, point)
+            });
+        }
+    }
+    Ok(square)
 }
 
 const DIAGONAL_OMIT: u8 = 5 - 1;
@@ -277,48 +346,6 @@ fn diagonal_lines() -> DiagonalLines {
     ]
 }
 
-fn lines_to_string(lines: &[&Line]) -> String {
-    lines
-        .iter()
-        .map(|l| l.to_string())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn from_str_points(s: &str) -> Result<Square, &'static str> {
-    let codes = s.trim().split("/").collect::<Vec<_>>();
-    if codes.len() != 2 {
-        return Err("Unknown format.");
-    }
-    let blacks = codes[0].parse::<Points>()?;
-    let whites = codes[1].parse::<Points>()?;
-    Ok(Square::from_points(&blacks, &whites))
-}
-
-fn from_str_display(s: &str) -> Result<Square, &'static str> {
-    let hlines_rev = s
-        .trim()
-        .split("\n")
-        .map(|ls| ls.trim().parse::<Line>())
-        .collect::<Result<Vec<_>, _>>()?;
-    if hlines_rev.len() != BOARD_SIZE as usize {
-        return Err("Wrong num of lines");
-    }
-    let mut square = Square::new();
-    for (i, hline) in hlines_rev.iter().rev().enumerate() {
-        if hline.size != BOARD_SIZE {
-            return Err("Wrong line size");
-        }
-        for j in 0..hline.size {
-            hline.stone(j).map(|player| {
-                let point = Index::new(Horizontal, i as u8, j as u8).to_point();
-                square.put_mut(player, point)
-            });
-        }
-    }
-    Ok(square)
-}
-
 #[cfg(test)]
 mod tests {
     use super::Player::*;
@@ -339,21 +366,21 @@ mod tests {
         let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            ---------------
-            -o-----------o-
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            -------o-------
-            --------xo-----
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            -x-----------x-
-            ---------------
+             . . . . . . . . . . . . . . .
+             . o . . . . . . . . . . . o .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . o . . . . . . .
+             . . . . . . . . x o . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . x . . . . . . . . . . . x .
+             . . . . . . . . . . . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -361,21 +388,21 @@ mod tests {
         let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            ---------------
-            -o-----------x-
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            -------o-------
-            --------x------
-            --------o------
-            ---------------
-            ---------------
-            ---------------
-            -o-----------x-
-            ---------------
+             . . . . . . . . . . . . . . .
+             . o . . . . . . . . . . . x .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . o . . . . . . .
+             . . . . . . . . x . . . . . .
+             . . . . . . . . o . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . o . . . . . . . . . . . x .
+             . . . . . . . . . . . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -383,27 +410,27 @@ mod tests {
         let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            -----
-            ------
-            -------
-            --------
-            ---------
-            ----------
-            -----------
-            ------------
-            -------------
-            --------------
-            -o-----ox----x-
-            --------o-----
-            -------------
-            ------------
-            -----------
-            ----------
-            ---------
-            --------
-            -------
-            ------
-            -----
+             . . . . .
+             . . . . . .
+             . . . . . . .
+             . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . . . .
+             . . . . . . . . . . . . .
+             . . . . . . . . . . . . . .
+             . o . . . . . o x . . . . x .
+             . . . . . . . . o . . . . .
+             . . . . . . . . . . . . .
+             . . . . . . . . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . .
+             . . . . . . .
+             . . . . . .
+             . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -411,27 +438,27 @@ mod tests {
         let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            -----
-            ------
-            -------
-            --------
-            ---------
-            ----------
-            -----------
-            ------------
-            -------------
-            --------------
-            -x-----o-----o-
-            --------------
-            ------x------
-            ------o-----
-            -----------
-            ----------
-            ---------
-            --------
-            -------
-            ------
-            -----
+             . . . . .
+             . . . . . .
+             . . . . . . .
+             . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . . . .
+             . . . . . . . . . . . . .
+             . . . . . . . . . . . . . .
+             . x . . . . . o . . . . . o .
+             . . . . . . . . . . . . . .
+             . . . . . . x . . . . . .
+             . . . . . . o . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . .
+             . . . . . . .
+             . . . . . .
+             . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -443,21 +470,21 @@ mod tests {
         let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            ---------------
-            -o-----------o-
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------o-----
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            -x-----------x-
-            ---------------
+             . . . . . . . . . . . . . . .
+             . o . . . . . . . . . . . o .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . o . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . x . . . . . . . . . . . x .
+             . . . . . . . . . . . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -465,21 +492,21 @@ mod tests {
         let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            ---------------
-            -o-----------x-
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            --------o------
-            ---------------
-            ---------------
-            ---------------
-            -o-----------x-
-            ---------------
+             . . . . . . . . . . . . . . .
+             . o . . . . . . . . . . . x .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . o . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . o . . . . . . . . . . . x .
+             . . . . . . . . . . . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -487,27 +514,27 @@ mod tests {
         let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            -----
-            ------
-            -------
-            --------
-            ---------
-            ----------
-            -----------
-            ------------
-            -------------
-            --------------
-            -o-----------x-
-            --------o-----
-            -------------
-            ------------
-            -----------
-            ----------
-            ---------
-            --------
-            -------
-            ------
-            -----
+             . . . . .
+             . . . . . .
+             . . . . . . .
+             . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . . . .
+             . . . . . . . . . . . . .
+             . . . . . . . . . . . . . .
+             . o . . . . . . . . . . . x .
+             . . . . . . . . o . . . . .
+             . . . . . . . . . . . . .
+             . . . . . . . . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . .
+             . . . . . . .
+             . . . . . .
+             . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -515,27 +542,27 @@ mod tests {
         let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
         let expected = trim_lines_string(
             "
-            -----
-            ------
-            -------
-            --------
-            ---------
-            ----------
-            -----------
-            ------------
-            -------------
-            --------------
-            -x-----------o-
-            --------------
-            -------------
-            ------o-----
-            -----------
-            ----------
-            ---------
-            --------
-            -------
-            ------
-            -----
+             . . . . .
+             . . . . . .
+             . . . . . . .
+             . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . . . .
+             . . . . . . . . . . . . .
+             . . . . . . . . . . . . . .
+             . x . . . . . . . . . . . o .
+             . . . . . . . . . . . . . .
+             . . . . . . . . . . . . .
+             . . . . . . o . . . . .
+             . . . . . . . . . . .
+             . . . . . . . . . .
+             . . . . . . . . .
+             . . . . . . . .
+             . . . . . . .
+             . . . . . .
+             . . . . .
             ",
         );
         assert_eq!(result, expected);
@@ -544,21 +571,21 @@ mod tests {
     #[test]
     fn test_stone_and_stones() -> Result<(), String> {
         let square = "
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            --------xo-----
-            -------o-------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x o . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
 
@@ -574,21 +601,21 @@ mod tests {
     #[test]
     fn test_rows_and_so_on() -> Result<(), String> {
         let square = "
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            -------xxxo----
-            -------o-------
-            ---------------
-            -------o-------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . x x x o . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
         let black_twos = [Row::new(
@@ -622,7 +649,46 @@ mod tests {
     }
 
     #[test]
+    fn test_to_pretty_string() {
+        let mut square = Square::new();
+        square.put_mut(Black, Point(7, 7));
+        square.put_mut(White, Point(8, 8));
+        square.put_mut(Black, Point(9, 8));
+        square.put_mut(Black, Point(0, 0));
+        square.put_mut(White, Point(0, 14));
+        square.put_mut(Black, Point(14, 0));
+        square.put_mut(White, Point(14, 14));
+        let expected = "
+15 x . . . . . . . . . . . . . x
+14 . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . .
+ 9 . . . . . . . . x o . . . . .
+ 8 . . . . . . . o . . . . . . .
+ 7 . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . .
+ 4 . . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . .
+ 2 . . . . . . . . . . . . . . .
+ 1 o . . . . . . . . . . . . . o
+   A B C D E F G H I J K L M N O
+        "
+        .trim();
+        assert_eq!(square.to_pretty_string(), expected);
+    }
+
+    #[test]
     fn test_parse() -> Result<(), String> {
+        let result = "H8,I9,J9".parse::<Square>()?;
+        let mut expected = Square::new();
+        expected.put_mut(Black, Point(7, 7));
+        expected.put_mut(White, Point(8, 8));
+        expected.put_mut(Black, Point(9, 8));
+        assert_eq!(result, expected);
+
         let result = "H8,J9/I9".parse::<Square>()?;
         let mut expected = Square::new();
         expected.put_mut(Black, Point(7, 7));
@@ -631,21 +697,21 @@ mod tests {
         assert_eq!(result, expected);
 
         let result = "
-            x-------------x
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            --------xo-----
-            -------o-------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            o-------------o
+         x . . . . . . . . . . . . . x
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x o . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         o . . . . . . . . . . . . . o
         "
         .parse::<Square>()?;
         let mut expected = Square::new();
@@ -673,22 +739,22 @@ mod tests {
         square.put_mut(White, Point(14, 14));
         let expected = trim_lines_string(
             "
-            x-------------x
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            --------xo-----
-            -------o-------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            o-------------o
-        ",
+             x . . . . . . . . . . . . . x
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . x o . . . . .
+             . . . . . . . o . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             o . . . . . . . . . . . . . o
+            ",
         );
         assert_eq!(square.to_string(), expected);
     }
@@ -696,7 +762,7 @@ mod tests {
     fn trim_lines_string(s: &str) -> String {
         s.trim()
             .split("\n")
-            .map(|ls| ls.trim())
+            .map(|ls| " ".to_string() + ls.trim())
             .collect::<Vec<_>>()
             .join("\n")
     }

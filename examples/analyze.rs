@@ -14,7 +14,7 @@ fn main() {
                 continue;
             }
         };
-        println!("\nBoard:\n{}", board);
+        println!("\nBoard:\n{}", board.to_pretty_string());
 
         println!("\nRows:");
         for player in &[Player::Black, Player::White] {

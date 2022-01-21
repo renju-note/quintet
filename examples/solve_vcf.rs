@@ -1,47 +1,31 @@
 use quintet::board::*;
 use quintet::mate;
-use std::io;
+use std::env;
 use std::time::Instant;
 
-fn main() {
-    loop {
-        println!("\nBoard code (blacks/whites):");
-        let mut code = String::new();
-        io::stdin().read_line(&mut code).expect("fail");
-        let result = code.parse::<Board>();
-        let board = match result {
-            Ok(board) => board,
-            Err(err) => {
-                println!("{}", err);
-                continue;
-            }
-        };
-        println!("\nBoard:\n{}", board);
+fn main() -> Result<(), &'static str> {
+    let args = env::args().collect::<Vec<String>>();
+    let player = args[1].parse::<Player>()?;
+    println!("Player: {:?}\n", player);
+    let board = args[2].parse::<Board>()?;
+    println!("Board:\n\n{}\n", board.to_pretty_string());
 
-        println!("\nBlack VCF:");
-        let start = Instant::now();
-        let result = mate::solve_vcf(&board, Player::Black, u8::MAX, true);
-        let elapsed = start.elapsed();
-        println!("\tElapsed: {:?}", elapsed);
-        match result {
-            Some(ps) => {
-                println!("\t{} times", (ps.len() + 1) / 2);
-                println!("\t{}", Points(ps));
-            }
-            None => println!("\tNone"),
-        }
+    solve(player, board);
 
-        println!("\nWhite VCF:");
-        let start = Instant::now();
-        let result = mate::solve_vcf(&board, Player::White, u8::MAX, true);
-        let elapsed = start.elapsed();
-        println!("\tElapsed: {:?}", elapsed);
-        match result {
-            Some(ps) => {
-                println!("\t{} times", (ps.len() + 1) / 2);
-                println!("\t{}", Points(ps));
-            }
-            None => println!("\tNone"),
+    Ok(())
+}
+
+fn solve(player: Player, board: Board) {
+    println!("Solving...\n");
+    let start = Instant::now();
+    let may_solution = mate::solve_vcf(&board, player, u8::MAX, true);
+    let elapsed = start.elapsed();
+    println!("Elapsed: {:?}", elapsed);
+    match may_solution {
+        Some(solution) => {
+            println!("{} times", (solution.len() + 1) / 2);
+            println!("{}", Points(solution));
         }
+        None => println!("None"),
     }
 }
