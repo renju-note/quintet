@@ -1,5 +1,5 @@
-use std::convert::From;
-use std::convert::TryFrom;
+use std::convert::{From, TryFrom};
+use std::str::FromStr;
 
 pub const BOARD_SIZE: u8 = 15;
 
@@ -64,5 +64,14 @@ impl From<Player> for char {
             Black => 'o',
             White => 'x',
         }
+    }
+}
+
+impl FromStr for Player {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let c = s.trim().chars().next().ok_or("empty")?;
+        Player::try_from(c)
     }
 }
