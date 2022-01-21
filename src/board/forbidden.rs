@@ -33,17 +33,21 @@ pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(next: &Square, p: Point) -> bool {
-    let new_overlines = next.rows_on(Player::Black, RowKind::Overline, p);
-    new_overlines.len() >= 1
+    let mut new_overlines = next.rows_on(Player::Black, RowKind::Overline, p);
+    new_overlines.next().is_some()
 }
 
 fn double_four(next: &Square, p: Point) -> bool {
-    let new_fours = next.rows_on(Player::Black, RowKind::Four, p);
+    let new_fours = next
+        .rows_on(Player::Black, RowKind::Four, p)
+        .collect::<Vec<_>>();
     new_fours.len() >= 2 && distinctive(&new_fours)
 }
 
 fn double_three(next: &Square, p: Point) -> bool {
-    let new_threes = next.rows_on(Player::Black, RowKind::Three, p);
+    let new_threes = next
+        .rows_on(Player::Black, RowKind::Three, p)
+        .collect::<Vec<_>>();
     if new_threes.len() < 2 || !distinctive(&new_threes) {
         return false;
     }

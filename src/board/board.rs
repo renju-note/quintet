@@ -63,23 +63,20 @@ impl Board {
         self.square.stones(player)
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+    pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.square.rows(player, kind)
     }
 
-    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
+    pub fn rows_on(
+        &self,
+        player: Player,
+        kind: RowKind,
+        p: Point,
+    ) -> impl Iterator<Item = Row> + '_ {
         self.square.rows_on(player, kind, p)
     }
 
-    pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
-        self.square.row_eyes(player, kind)
-    }
-
-    pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
-        self.square.row_eyes_along(player, kind, p)
-    }
-
-    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
+    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.square.slots(player, potential)
     }
 
@@ -88,7 +85,7 @@ impl Board {
         player: Player,
         potential: i8,
         p: Point,
-    ) -> impl Iterator<Item = Slot> + '_ {
+    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.square.slots_on(player, potential, p)
     }
 
@@ -259,32 +256,16 @@ mod tests {
             None,
         )];
 
-        assert_eq!(board.rows(Black, Two), black_twos);
-        assert_eq!(board.rows(White, Two), white_twos);
-        assert_eq!(board.rows(White, Three), white_threes);
+        assert_eq!(board.rows(Black, Two).collect::<Vec<_>>(), black_twos);
+        assert_eq!(board.rows(White, Two).collect::<Vec<_>>(), white_twos);
+        assert_eq!(board.rows(White, Three).collect::<Vec<_>>(), white_threes);
         assert_eq!(
-            board.rows_on(Black, Two, Point(7, 7)),
+            board.rows_on(Black, Two, Point(7, 7)).collect::<Vec<_>>(),
             [
                 black_twos[3].clone(),
                 black_twos[4].clone(),
                 black_twos[5].clone()
             ]
-        );
-        assert_eq!(
-            board.row_eyes(Black, Two),
-            [
-                Point(5, 7),
-                Point(6, 6),
-                Point(6, 7),
-                Point(6, 10),
-                Point(6, 11),
-                Point(9, 7),
-                Point(10, 7)
-            ]
-        );
-        assert_eq!(
-            board.row_eyes_along(Black, Two, Point(6, 6)),
-            [Point(6, 6), Point(6, 7), Point(6, 10), Point(6, 11)]
         );
 
         assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);

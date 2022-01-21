@@ -94,76 +94,32 @@ impl Square {
             .collect()
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> Vec<Row> {
+    pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.iter_lines()
-            .map(|(d, i, l)| {
-                l.sequences(player, kind)
-                    .into_iter()
-                    .map(move |s| Row::from_sequence(&s, d, i))
-            })
+            .map(move |(d, i, l)| Row::from_slots(l.slots(), d, i, player, kind))
             .flatten()
-            .collect()
     }
 
-    pub fn rows_on(&self, player: Player, kind: RowKind, p: Point) -> Vec<Row> {
+    pub fn rows_on(
+        &self,
+        player: Player,
+        kind: RowKind,
+        p: Point,
+    ) -> impl Iterator<Item = Row> + '_ {
         self.iter_lines_along(p)
-            .map(|(d, i, l)| {
-                l.sequences(player, kind)
-                    .into_iter()
-                    .map(move |s| Row::from_sequence(&s, d, i))
-                    .filter(|r| r.overlap(p))
+            .map(move |(d, i, l)| {
+                let j = p.to_index(d).j;
+                Row::from_slots(l.slots_on(j), d, i, player, kind)
             })
             .flatten()
-            .collect()
-    }
-
-    pub fn row_eyes(&self, player: Player, kind: RowKind) -> Vec<Point> {
-        let mut result: Vec<Point> = vec![];
-        for (d, i, l) in self.iter_lines() {
-            let eye_bits = l.sequence_eyes(player, kind);
-            if eye_bits == 0b0 {
-                continue;
-            }
-            for j in 0..l.size {
-                if (eye_bits >> j) & 0b1 == 0b1 {
-                    result.push(Index::new(d, i, j).to_point())
-                }
-            }
-        }
-        result.sort_unstable();
-        result.dedup();
-        result
-    }
-
-    pub fn row_eyes_along(&self, player: Player, kind: RowKind, p: Point) -> Vec<Point> {
-        let mut result: Vec<Point> = vec![];
-        for (d, i, l) in self.iter_lines_along(p) {
-            let eye_bits = l.sequence_eyes(player, kind);
-            if eye_bits == 0b0 {
-                continue;
-            }
-            for j in 0..l.size {
-                if (eye_bits >> j) & 0b1 == 0b1 {
-                    result.push(Index::new(d, i, j).to_point())
-                }
-            }
-        }
-        result.sort_unstable();
-        result.dedup();
-        result
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = Slot> + '_ {
+    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines()
-            .map(|(d, i, l)| {
-                l.segments().map(move |(j, blacks_, whites_)| {
-                    let index = Index::new(d, i, j as u8);
-                    Slot::new(index, blacks_, whites_)
-                })
-            })
+            .map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
             .flatten()
-            .filter(move |s| s.potential(player) == potential)
+            .filter(move |(_, s)| s.potential(player) == potential)
     }
 
     pub fn slots_on(
@@ -171,17 +127,14 @@ impl Square {
         player: Player,
         potential: i8,
         p: Point,
-    ) -> impl Iterator<Item = Slot> + '_ {
+    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines_along(p)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
-                l.segments_on(j).map(move |(j, blacks_, whites_)| {
-                    let index = Index::new(d, i, j as u8);
-                    Slot::new(index, blacks_, whites_)
-                })
+                l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
             })
             .flatten()
-            .filter(move |s| s.potential(player) == potential)
+            .filter(move |(_, s)| s.potential(player) == potential)
     }
 
     fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
@@ -653,20 +606,17 @@ mod tests {
             Some(Point(6, 8)),
         )];
 
-        assert_eq!(square.rows(Black, Two), black_twos);
-        assert_eq!(square.rows(White, Sword), white_swords);
-
-        assert_eq!(square.rows_on(Black, Two, Point(10, 8)), black_twos);
-        assert_eq!(square.rows_on(Black, Two, Point(7, 7)), []);
-
-        assert_eq!(square.row_eyes(Black, Two), [Point(8, 6), Point(9, 7)]);
-        assert_eq!(square.row_eyes(White, Sword), [Point(5, 8), Point(6, 8)]);
+        assert_eq!(square.rows(Black, Two).collect::<Vec<_>>(), black_twos);
+        assert_eq!(square.rows(White, Sword).collect::<Vec<_>>(), white_swords);
 
         assert_eq!(
-            square.row_eyes_along(White, Sword, Point(0, 8)),
-            [Point(5, 8), Point(6, 8)]
+            square.rows_on(Black, Two, Point(10, 8)).collect::<Vec<_>>(),
+            black_twos
         );
-        assert_eq!(square.row_eyes_along(White, Sword, Point(0, 7)), []);
+        assert_eq!(
+            square.rows_on(Black, Two, Point(7, 7)).collect::<Vec<_>>(),
+            []
+        );
 
         Ok(())
     }
