@@ -15,17 +15,17 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new() -> Board {
-        Board {
+    pub fn new() -> Self {
+        Self {
             square: Square::new(),
             z_hash: zobrist::new(),
         }
     }
 
-    pub fn from_points(blacks: &Points, whites: &Points) -> Board {
+    pub fn from_points(blacks: &Points, whites: &Points) -> Self {
         let square = Square::from_points(blacks, whites);
         let z_hash = zobrist::from_points(blacks, whites);
-        Board {
+        Self {
             square: square,
             z_hash: z_hash,
         }
@@ -121,7 +121,7 @@ impl FromStr for Board {
         let whites = square.stones(Player::White);
         let z_hash = zobrist::from_points(&Points(blacks), &Points(whites));
 
-        Ok(Board {
+        Ok(Self {
             square: square,
             z_hash: z_hash,
         })
@@ -152,22 +152,22 @@ mod tests {
 
         let expected = trim_lines_string(
             "
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ------o-xo-----
-            ------oxx------
-            -------oo------
-            -----x--x------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-            ---------------
-        ",
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . o . x o . . . . .
+             . . . . . . o x x . . . . . .
+             . . . . . . . o o . . . . . .
+             . . . . . x . . x . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+            ",
         );
         assert_eq!(board.to_string(), expected);
 
@@ -328,7 +328,7 @@ mod tests {
     fn trim_lines_string(s: &str) -> String {
         s.trim()
             .split("\n")
-            .map(|ls| ls.trim())
+            .map(|ls| " ".to_string() + ls.trim())
             .collect::<Vec<_>>()
             .join("\n")
     }

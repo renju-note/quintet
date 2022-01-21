@@ -63,21 +63,21 @@ mod tests {
     #[test]
     fn test_trim() -> Result<(), String> {
         let board = "
-            ---------------
-            ---------------
-            -----o---------
-            --xox----------
-            -o---xo--o-----
-            --x-o---x------
-            ---x-ox--------
-            ----xoxoooox---
-            ----oxxxoxxxox-
-            ---x-oox-ooox--
-            ---o--x-xoxo---
-            ----xoxooox----
-            -----x-o-x-----
-            ----o-x-o------
-            ---------------
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . o . . . . . . . . .
+         . . x o x . . . . . . . . . .
+         . o . . . x o . . o . . . . .
+         . . x . o . . . x . . . . . .
+         . . . x . o x . . . . . . . .
+         . . . . x o x o o o o x . . .
+         . . . . o x x x o x x x o x .
+         . . . x . o o x . o o o x . .
+         . . . o . . x . x o x o . . .
+         . . . . x o x o o o x . . . .
+         . . . . . x . o . x . . . . .
+         . . . . o . x . o . . . . . .
+         . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
         let result = solve_vcf(&board, White, 10, false);

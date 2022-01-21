@@ -1,6 +1,7 @@
 use super::fundamentals::*;
 use super::slot::*;
 use std::cmp;
+use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
@@ -95,9 +96,9 @@ impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s: String = (0..self.size)
             .map(|i| match self.stone(i) {
-                Some(Player::Black) => 'o',
-                Some(Player::White) => 'x',
-                None => '-',
+                Some(Player::Black) => " o",
+                Some(Player::White) => " x",
+                None => " .",
             })
             .collect();
         f.write_str(&s)
@@ -108,16 +109,15 @@ impl FromStr for Line {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let chars: Vec<char> = s.chars().collect();
+        let chars: Vec<char> = s.chars().filter(|c| !c.is_whitespace()).collect();
         let size = chars.len();
         if size > BOARD_SIZE as usize {
             return Err("Wrong length.");
         }
         let mut line = Line::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
-            match c {
-                'o' => line.put_mut(Player::Black, i as u8),
-                'x' => line.put_mut(Player::White, i as u8),
+            match Player::try_from(c) {
+                Ok(player) => line.put_mut(player, i as u8),
                 _ => (),
             }
         }
@@ -277,12 +277,12 @@ mod tests {
         line.put_mut(Black, 0);
         line.put_mut(Black, 4);
         line.put_mut(White, 2);
-        assert_eq!(line.to_string(), "o-x-o--");
+        assert_eq!(line.to_string(), " o . x . o . .");
     }
 
     #[test]
     fn test_parse() -> Result<(), String> {
-        let result = "-o---x----".parse::<Line>()?;
+        let result = " . o . . . x . . . .".parse::<Line>()?;
         let mut expected = Line::new(10);
         expected.put_mut(Black, 1);
         expected.put_mut(White, 5);
