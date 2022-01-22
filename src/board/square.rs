@@ -146,28 +146,16 @@ impl Square {
             })
     }
 
-    pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
+    pub fn slots(&self) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
-            .flatten()
-            .filter(move |(_, s)| s.potential(player) == potential)
+            .flat_map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
     }
 
-    pub fn slots_on(
-        &self,
-        player: Player,
-        potential: u8,
-        p: Point,
-    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(move |(d, i, l)| {
-                let j = p.to_index(d).j;
-                l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
-            })
-            .flatten()
-            .filter(move |(_, s)| s.potential(player) == potential)
+    pub fn slots_on(&self, p: Point) -> impl Iterator<Item = (Index, Slot)> + '_ {
+        self.iter_lines_on(p).flat_map(move |(d, i, l)| {
+            let j = p.to_index(d).j;
+            l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
+        })
     }
 
     pub fn to_pretty_string(&self) -> String {

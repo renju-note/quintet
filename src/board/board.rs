@@ -98,17 +98,12 @@ impl Board {
         self.square.sequences_on(p, player, kind, n, exact)
     }
 
-    pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.square.slots(player, potential)
+    pub fn slots(&self) -> impl Iterator<Item = (Index, Slot)> + '_ {
+        self.square.slots()
     }
 
-    pub fn slots_on(
-        &self,
-        player: Player,
-        potential: u8,
-        p: Point,
-    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.square.slots_on(player, potential, p)
+    pub fn slots_on(&self, p: Point) -> impl Iterator<Item = (Index, Slot)> + '_ {
+        self.square.slots_on(p)
     }
 
     pub fn to_pretty_string(&self) -> String {
