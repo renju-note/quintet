@@ -48,8 +48,8 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
-    pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.board.slots(player, potential)
+    pub fn sequences(&self, player: Player, n: u8) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.board.sequences(player, n)
     }
 
     pub fn slots_on(

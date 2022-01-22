@@ -2,6 +2,7 @@ use super::forbidden::*;
 use super::fundamentals::*;
 use super::point::*;
 use super::row::*;
+use super::sequence::*;
 use super::slot::*;
 use super::square::*;
 use super::zobrist;
@@ -74,6 +75,10 @@ impl Board {
         p: Point,
     ) -> impl Iterator<Item = Row> + '_ {
         self.square.rows_on(player, kind, p)
+    }
+
+    pub fn sequences(&self, player: Player, n: u8) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.square.sequences(player, n)
     }
 
     pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {

@@ -2,6 +2,7 @@ use super::fundamentals::*;
 use super::line::*;
 use super::point::*;
 use super::row::*;
+use super::sequence::*;
 use super::slot::*;
 use std::fmt;
 use std::str::FromStr;
@@ -120,6 +121,15 @@ impl Square {
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
+    pub fn sequences(&self, player: Player, n: u8) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(player) >= n)
+            .flat_map(move |(d, i, l)| {
+                l.sequences(player, n)
+                    .map(move |(j, s)| (Index::new(d, i, j), s))
+            })
+    }
+
     pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines()
             .filter(move |(_, _, l)| l.potential_cap(player) >= potential)

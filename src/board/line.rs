@@ -1,4 +1,5 @@
 use super::fundamentals::*;
+use super::sequence::*;
 use super::slot::*;
 use std::cmp;
 use std::convert::TryFrom;
@@ -54,6 +55,18 @@ impl Line {
             White => self.whites,
         };
         (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
+    }
+
+    pub fn sequences(&self, player: Player, n: u8) -> Sequences {
+        let black = player.is_black();
+        let (my, op) = if black {
+            (self.blacks << 1, self.whites << 1)
+        } else {
+            (self.whites << 1, self.blacks << 1)
+        };
+        let start = 0;
+        let end = self.size + 1;
+        Sequences::new(black, n, my, op, start, end)
     }
 
     pub fn slots(&self) -> Slots {
