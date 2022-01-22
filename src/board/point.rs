@@ -76,7 +76,6 @@ impl Index {
     }
 
     pub fn walk(&self, step: i8) -> Self {
-        let j = self.j as i8 + step;
         Self::new(self.direction, self.i, (self.j as i8 + step) as u8)
     }
 
