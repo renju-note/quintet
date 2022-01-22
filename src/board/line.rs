@@ -1,7 +1,6 @@
 use super::fundamentals::*;
 use super::sequence::*;
 use super::slot::*;
-use std::cmp;
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
@@ -59,13 +58,11 @@ impl Line {
 
     pub fn sequences(&self, player: Player, kind: SequenceKind, n: u8, exact: bool) -> Sequences {
         let (my, op) = if player.is_black() {
-            (self.blacks << 1, self.whites << 1)
+            (self.blacks, self.whites)
         } else {
-            (self.whites << 1, self.blacks << 1)
+            (self.whites, self.blacks)
         };
-        let start = 0;
-        let end = self.size + 1;
-        Sequences::new(my, op, kind, n, exact, start, end)
+        Sequences::new(self.size + 1, my << 1, op << 1, kind, n, exact)
     }
 
     pub fn sequences_on(
@@ -77,25 +74,19 @@ impl Line {
         exact: bool,
     ) -> Sequences {
         let (my, op) = if player.is_black() {
-            (self.blacks << 1, self.whites << 1)
+            (self.blacks, self.whites)
         } else {
-            (self.whites << 1, self.blacks << 1)
+            (self.whites, self.blacks)
         };
-        let start = cmp::max(0, (i + 1) as i8 - (WINDOW_SIZE as i8 - 1)) as u8;
-        let end = cmp::min(self.size + 1, (i + 1) + (WINDOW_SIZE - 1));
-        Sequences::new(my, op, kind, n, exact, start, end)
+        Sequences::new_on(i + 1, self.size + 1, my << 1, op << 1, kind, n, exact)
     }
 
     pub fn slots(&self) -> Slots {
-        let start = 0;
-        let end = self.size + 1;
-        Slots::new(self.blacks << 1, self.whites << 1, start, end)
+        Slots::new(self.size + 1, self.blacks << 1, self.whites << 1)
     }
 
     pub fn slots_on(&self, i: u8) -> Slots {
-        let start = cmp::max(0, (i + 1) as i8 - (WINDOW_SIZE as i8 - 1)) as u8;
-        let end = cmp::min(self.size + 1, (i + 1) + (WINDOW_SIZE - 1));
-        Slots::new(self.blacks << 1, self.whites << 1, start, end)
+        Slots::new_on(i + 1, self.size + 1, self.blacks << 1, self.whites << 1)
     }
 
     pub fn potential_cap(&self, player: Player) -> u8 {

@@ -1,5 +1,6 @@
 use super::fundamentals::*;
 use super::util;
+use std::cmp;
 use std::fmt;
 
 pub const SLOT_SIZE: u8 = 5;
@@ -99,12 +100,21 @@ pub struct Slots {
 }
 
 impl Slots {
-    pub fn new(blacks: u16, whites: u16, start: u8, end: u8) -> Self {
+    pub fn new(size: u8, blacks: u16, whites: u16) -> Self {
         Self {
             blacks: blacks,
             whites: whites,
-            limit: end - (WINDOW_SIZE - 1),
-            i: start,
+            limit: size - (WINDOW_SIZE - 1),
+            i: 0,
+        }
+    }
+
+    pub fn new_on(i: u8, size: u8, blacks: u16, whites: u16) -> Self {
+        Self {
+            blacks: blacks,
+            whites: whites,
+            limit: cmp::min(size - (WINDOW_SIZE - 1), i),
+            i: cmp::max(0, i as i8 - (WINDOW_SIZE as i8 - 1)) as u8,
         }
     }
 }
