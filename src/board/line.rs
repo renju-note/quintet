@@ -276,6 +276,27 @@ mod tests {
     }
 
     #[test]
+    fn test_potential_cap() -> Result<(), String> {
+        let line = "-----".parse::<Line>()?;
+        assert_eq!(line.potential_cap(Black), 1);
+        assert_eq!(line.potential_cap(White), 1);
+
+        let line = "--o--".parse::<Line>()?;
+        assert_eq!(line.potential_cap(Black), 2);
+        assert_eq!(line.potential_cap(White), 0);
+
+        let line = "o----x".parse::<Line>()?;
+        assert_eq!(line.potential_cap(Black), 2);
+        assert_eq!(line.potential_cap(White), 2);
+
+        let line = "--o---".parse::<Line>()?;
+        assert_eq!(line.potential_cap(Black), 2);
+        assert_eq!(line.potential_cap(White), 1);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_to_string() {
         let mut line = Line::new(7);
         line.put_mut(Black, 0);
