@@ -1,8 +1,13 @@
 use super::fundamentals::*;
 use std::fmt;
 
-pub const WINDOW_SIZE: u8 = 7;
-const WINDOW_MASK: u16 = (0b1 << 7) - 1;
+pub const SLOT_SIZE: u8 = 5;
+pub const WINDOW_SIZE: u8 = SLOT_SIZE + 2;
+const WINDOW_MASK: u16 = (0b1 << WINDOW_SIZE) - 1;
+const BLACK_FLAG: u8 = 0b01000000;
+const WHITE_FLAG: u8 = 0b10000000;
+const OVERLINE_FLAG: u8 = 0b00100000;
+const EMPTY_SIGNATURE: u8 = 0b00000000;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Slot(pub u8);
@@ -86,14 +91,14 @@ impl fmt::Debug for Slot {
 }
 
 pub struct Slots {
-    blacks: Bits,
-    whites: Bits,
+    blacks: u16,
+    whites: u16,
     limit: u8,
     i: u8,
 }
 
 impl Slots {
-    pub fn new(blacks: Bits, whites: Bits, start: u8, end: u8) -> Self {
+    pub fn new(blacks: u16, whites: u16, start: u8, end: u8) -> Self {
         Self {
             blacks: blacks,
             whites: whites,
@@ -117,11 +122,6 @@ impl Iterator for Slots {
         Some((i, Slot::new(blacks_, whites_)))
     }
 }
-
-const BLACK_FLAG: u8 = 0b01000000;
-const WHITE_FLAG: u8 = 0b10000000;
-const OVERLINE_FLAG: u8 = 0b00100000;
-const EMPTY_SIGNATURE: u8 = 0b00000000;
 
 const COUNT_ONES: [u8; 32] = [
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -164,7 +164,6 @@ const EYES: [&[u8]; 32] = [
 
 #[cfg(test)]
 mod tests {
-    use super::Player::*;
     use super::*;
 
     #[test]

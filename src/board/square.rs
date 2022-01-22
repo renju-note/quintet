@@ -1,12 +1,16 @@
-use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use super::line::*;
-use super::point::Direction::*;
 use super::point::*;
 use super::row::*;
 use super::slot::*;
 use std::fmt;
 use std::str::FromStr;
+
+const DIAGONAL_OMIT: u8 = 5 - 1;
+const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
+
+type OrthogonalLines = [Line; BOARD_SIZE as usize];
+type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Square {
@@ -75,34 +79,20 @@ impl Square {
         Self::line_idx(didx).map(|i| self.dlines[i].remove_mut(didx.j));
     }
 
-    pub fn put(&self, player: Player, p: Point) -> Self {
-        let mut result = self.clone();
-        result.put_mut(player, p);
-        result
-    }
-
-    pub fn remove(&self, p: Point) -> Self {
-        let mut result = self.clone();
-        result.remove_mut(p);
-        result
-    }
-
     pub fn stone(&self, p: Point) -> Option<Player> {
         let vidx = p.to_index(Vertical);
         self.vlines[vidx.i as usize].stone(vidx.j)
     }
 
-    pub fn stones(&self, player: Player) -> Vec<Point> {
+    pub fn stones(&self, player: Player) -> impl Iterator<Item = Point> + '_ {
         self.vlines
             .iter()
             .enumerate()
-            .map(|(i, l)| {
+            .map(move |(i, l)| {
                 l.stones(player)
-                    .into_iter()
                     .map(move |j| Index::new(Vertical, i as u8, j).to_point())
             })
             .flatten()
-            .collect()
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
@@ -268,12 +258,11 @@ fn from_str_moves(s: &str) -> Result<Square, &'static str> {
 }
 
 fn from_str_points(s: &str) -> Result<Square, &'static str> {
-    let codes = s.trim().split("/").collect::<Vec<_>>();
-    if codes.len() != 2 {
-        return Err("Unknown format.");
-    }
-    let blacks = codes[0].parse::<Points>()?;
-    let whites = codes[1].parse::<Points>()?;
+    let mut codes = s.trim().split("/");
+    let blacks_str = codes.next().ok_or("Wrong format.")?;
+    let whites_str = codes.next().ok_or("Wrong format.")?;
+    let blacks = blacks_str.parse::<Points>()?;
+    let whites = whites_str.parse::<Points>()?;
     Ok(Square::from_points(&blacks, &whites))
 }
 
@@ -300,12 +289,6 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
     }
     Ok(square)
 }
-
-const DIAGONAL_OMIT: u8 = 5 - 1;
-const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
-
-type OrthogonalLines = [Line; BOARD_SIZE as usize];
-type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 fn orthogonal_lines() -> OrthogonalLines {
     [
@@ -599,8 +582,11 @@ mod tests {
         assert_eq!(square.stone(Point(8, 8)), Some(White));
         assert_eq!(square.stone(Point(9, 9)), None);
 
-        assert_eq!(square.stones(Black), [Point(7, 7), Point(9, 8)]);
-        assert_eq!(square.stones(White), [Point(8, 8)]);
+        assert_eq!(
+            square.stones(Black).collect::<Vec<_>>(),
+            [Point(7, 7), Point(9, 8)]
+        );
+        assert_eq!(square.stones(White).collect::<Vec<_>>(), [Point(8, 8)]);
         Ok(())
     }
 

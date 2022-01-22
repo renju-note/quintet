@@ -1,4 +1,3 @@
-use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use super::slot::*;
 use std::cmp;
@@ -6,10 +5,10 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Line {
-    blacks: Bits,
-    whites: Bits,
+    blacks: u16,
+    whites: u16,
     pub size: u8,
 }
 
@@ -25,8 +24,8 @@ impl Line {
     pub fn put_mut(&mut self, player: Player, i: u8) {
         let stones = 0b1 << i;
         let (blacks, whites) = match player {
-            Player::Black => (self.blacks | stones, self.whites & !stones),
-            Player::White => (self.blacks & !stones, self.whites | stones),
+            Black => (self.blacks | stones, self.whites & !stones),
+            White => (self.blacks & !stones, self.whites | stones),
         };
         self.blacks = blacks;
         self.whites = whites;
@@ -36,18 +35,6 @@ impl Line {
         let stones = 0b1 << i;
         self.blacks &= !stones;
         self.whites &= !stones;
-    }
-
-    pub fn put(&self, player: Player, i: u8) -> Self {
-        let mut result = self.clone();
-        result.put_mut(player, i);
-        result
-    }
-
-    pub fn remove(&self, i: u8) -> Self {
-        let mut result = self.clone();
-        result.remove_mut(i);
-        result
     }
 
     pub fn stone(&self, i: u8) -> Option<Player> {
@@ -61,22 +48,12 @@ impl Line {
         }
     }
 
-    pub fn stones(&self, player: Player) -> Vec<u8> {
+    pub fn stones(&self, player: Player) -> impl Iterator<Item = u8> {
         let target = match player {
             Black => self.blacks,
             White => self.whites,
         };
-        (0..self.size)
-            .map(|i| {
-                let pat = 0b1 << i;
-                if target & pat != 0b0 {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
-            .flatten()
-            .collect()
+        (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
     }
 
     pub fn slots(&self) -> Slots {
@@ -109,13 +86,11 @@ impl Line {
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: String = (0..self.size)
-            .map(|i| match self.stone(i) {
-                Some(player) => format!(" {}", char::from(player)),
-                None => " .".to_string(),
-            })
-            .collect();
-        f.write_str(&s)
+        let ss = (0..self.size).map(|i| match self.stone(i) {
+            Some(player) => format!(" {}", char::from(player)),
+            None => " .".to_string(),
+        });
+        f.write_str(&ss.collect::<String>())
     }
 }
 
@@ -130,10 +105,7 @@ impl FromStr for Line {
         }
         let mut line = Self::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
-            match Player::try_from(c) {
-                Ok(player) => line.put_mut(player, i as u8),
-                _ => (),
-            }
+            Player::try_from(c).map_or((), |p| line.put_mut(p, i as u8));
         }
         Ok(line)
     }
@@ -186,10 +158,10 @@ mod tests {
     #[test]
     fn test_stones() -> Result<(), String> {
         let line = "o-ox-".parse::<Line>()?;
-        let result = line.stones(Black);
+        let result = line.stones(Black).collect::<Vec<_>>();
         let expected = [0, 2];
         assert_eq!(result, expected);
-        let result = line.stones(White);
+        let result = line.stones(White).collect::<Vec<_>>();
         let expected = [3];
         assert_eq!(result, expected);
         Ok(())

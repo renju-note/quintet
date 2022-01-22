@@ -14,5 +14,5 @@ pub use fundamentals::{Player, BOARD_SIZE};
 pub use line::Line;
 pub use point::{Direction, Index, Point, Points};
 pub use row::{Row, RowKind};
-pub use slot::Slot;
+pub use slot::{Slot, SLOT_SIZE};
 pub use square::Square;
