@@ -2,6 +2,7 @@ use super::fundamentals::*;
 use super::line::*;
 use super::point::*;
 use super::row::*;
+use super::sequence::*;
 use super::slot::*;
 use std::fmt;
 use std::str::FromStr;
@@ -95,53 +96,55 @@ impl Square {
             .flatten()
     }
 
-    pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
-        let potential = kind.potential();
-        self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(move |(d, i, l)| Row::from_slots(l.slots(), d, i, player, kind))
-            .flatten()
-    }
-
-    pub fn rows_on(
-        &self,
-        player: Player,
-        kind: RowKind,
-        p: Point,
-    ) -> impl Iterator<Item = Row> + '_ {
-        let potential = kind.potential();
-        self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(move |(d, i, l)| {
-                let j = p.to_index(d).j;
-                Row::from_slots(l.slots_on(j), d, i, player, kind)
-            })
-            .flatten()
-    }
-
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
-            .flatten()
-            .filter(move |(_, s)| s.potential(player) == potential)
+    pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
+        let (sk, n, exact) = kind.to_sequence(player);
+        self.sequences(player, sk, n, exact)
+            .map(move |(i, s)| Row::from_sequence(i, s, kind))
     }
 
-    pub fn slots_on(
+    pub fn sequences(
         &self,
         player: Player,
-        potential: u8,
-        p: Point,
-    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(move |(d, i, l)| {
-                let j = p.to_index(d).j;
-                l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
+        kind: SequenceKind,
+        n: u8,
+        exact: bool,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(player) > n)
+            .flat_map(move |(d, i, l)| {
+                l.sequences(player, kind, n, exact)
+                    .map(move |(j, s)| (Index::new(d, i, j), s))
             })
-            .flatten()
-            .filter(move |(_, s)| s.potential(player) == potential)
+    }
+
+    pub fn sequences_on(
+        &self,
+        p: Point,
+        player: Player,
+        kind: SequenceKind,
+        n: u8,
+        exact: bool,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.iter_lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(player) > n)
+            .flat_map(move |(d, i, l)| {
+                let j = p.to_index(d).j;
+                l.sequences_on(j, player, kind, n, exact)
+                    .map(move |(j, s)| (Index::new(d, i, j), s))
+            })
+    }
+
+    pub fn slots(&self) -> impl Iterator<Item = (Index, Slot)> + '_ {
+        self.iter_lines()
+            .flat_map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
+    }
+
+    pub fn slots_on(&self, p: Point) -> impl Iterator<Item = (Index, Slot)> + '_ {
+        self.iter_lines_on(p).flat_map(move |(d, i, l)| {
+            let j = p.to_index(d).j;
+            l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
+        })
     }
 
     pub fn to_pretty_string(&self) -> String {
@@ -627,15 +630,6 @@ mod tests {
 
         assert_eq!(square.rows(Black, Two).collect::<Vec<_>>(), black_twos);
         assert_eq!(square.rows(White, Sword).collect::<Vec<_>>(), white_swords);
-
-        assert_eq!(
-            square.rows_on(Black, Two, Point(10, 8)).collect::<Vec<_>>(),
-            black_twos
-        );
-        assert_eq!(
-            square.rows_on(Black, Two, Point(7, 7)).collect::<Vec<_>>(),
-            []
-        );
 
         Ok(())
     }

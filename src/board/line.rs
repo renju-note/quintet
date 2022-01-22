@@ -1,6 +1,6 @@
 use super::fundamentals::*;
+use super::sequence::*;
 use super::slot::*;
-use std::cmp;
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
@@ -56,16 +56,37 @@ impl Line {
         (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
     }
 
+    pub fn sequences(&self, player: Player, kind: SequenceKind, n: u8, exact: bool) -> Sequences {
+        let (my, op) = if player.is_black() {
+            (self.blacks, self.whites)
+        } else {
+            (self.whites, self.blacks)
+        };
+        Sequences::new(self.size + 1, my << 1, op << 1, kind, n, exact)
+    }
+
+    pub fn sequences_on(
+        &self,
+        i: u8,
+        player: Player,
+        kind: SequenceKind,
+        n: u8,
+        exact: bool,
+    ) -> Sequences {
+        let (my, op) = if player.is_black() {
+            (self.blacks, self.whites)
+        } else {
+            (self.whites, self.blacks)
+        };
+        Sequences::new_on(i + 1, self.size + 1, my << 1, op << 1, kind, n, exact)
+    }
+
     pub fn slots(&self) -> Slots {
-        let start = 0;
-        let end = self.size + 1;
-        Slots::new(self.blacks << 1, self.whites << 1, start, end)
+        Slots::new(self.size + 1, self.blacks << 1, self.whites << 1)
     }
 
     pub fn slots_on(&self, i: u8) -> Slots {
-        let start = cmp::max(0, (i + 1) as i8 - (WINDOW_SIZE as i8 - 1)) as u8;
-        let end = cmp::min(self.size + 1, (i + 1) + (WINDOW_SIZE - 1));
-        Slots::new(self.blacks << 1, self.whites << 1, start, end)
+        Slots::new_on(i + 1, self.size + 1, self.blacks << 1, self.whites << 1)
     }
 
     pub fn potential_cap(&self, player: Player) -> u8 {
@@ -163,6 +184,36 @@ mod tests {
         assert_eq!(result, expected);
         let result = line.stones(White).collect::<Vec<_>>();
         let expected = [3];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_sequences() -> Result<(), String> {
+        let line = "o--o--o---o---o".parse::<Line>()?;
+        let result = line.sequences(Black, Single, 2, true).collect::<Vec<_>>();
+        let expected = [
+            (0, Sequence(0b00001001)),
+            (2, Sequence(0b00010010)),
+            (3, Sequence(0b00001001)),
+            (6, Sequence(0b00010001)),
+            (10, Sequence(0b00010001)),
+        ];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_sequences_on() -> Result<(), String> {
+        let line = "o--o--o---o---o".parse::<Line>()?;
+        let result = line
+            .sequences_on(7, Black, Single, 2, true)
+            .collect::<Vec<_>>();
+        let expected = [
+            (2, Sequence(0b00010010)),
+            (3, Sequence(0b00001001)),
+            (6, Sequence(0b00010001)),
+        ];
         assert_eq!(result, expected);
         Ok(())
     }

@@ -1,3 +1,4 @@
+use super::super::board::SequenceKind::*;
 use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
@@ -62,7 +63,7 @@ struct VCFMoves {
 impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
         let next_player = state.next_player();
-        let mut last_fours = state.slots_on(state.last_player(), 5, state.last_move());
+        let mut last_fours = state.sequences_on(state.last_move(), state.last_player(), Single, 4);
         if let Some((index, last_four)) = last_fours.next() {
             if last_fours.next().is_some() {
                 return VCFMoves {
@@ -70,13 +71,13 @@ impl VCFMoves {
                     move_pairs: vec![],
                 };
             }
-            let last_four_eye = index.walk(last_four.eyes()[0] as i8).unwrap().to_point();
+            let last_four_eye = index.walk(last_four.eyes()[0] as i8).to_point();
             let move_pairs = state
-                .slots_on(next_player, 4, last_four_eye)
+                .sequences_on(last_four_eye, next_player, Single, 3)
                 .map(|(i, s)| {
                     let eyes = s.eyes();
-                    let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
-                    let e2 = i.walk(eyes[1] as i8).unwrap().to_point();
+                    let e1 = i.walk(eyes[0] as i8).to_point();
+                    let e2 = i.walk(eyes[1] as i8).to_point();
                     if e1 == last_four_eye {
                         Some((e1, e2))
                     } else if e2 == last_four_eye {
@@ -92,11 +93,11 @@ impl VCFMoves {
             };
         }
         let move_pairs = state
-            .slots(next_player, 4)
+            .sequences(next_player, Single, 3)
             .map(|(i, s)| {
                 let eyes = s.eyes();
-                let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
-                let e2 = i.walk(eyes[1] as i8).unwrap().to_point();
+                let e1 = i.walk(eyes[0] as i8).to_point();
+                let e2 = i.walk(eyes[1] as i8).to_point();
                 [(e1, e2), (e2, e1)]
             })
             .flatten();
@@ -117,7 +118,8 @@ impl Iterator for VCFMoves {
             }
             let mut state = self.state.play(attack);
             let has_multiple_four = {
-                let mut fours = state.slots_on(state.last_player(), 5, state.last_move());
+                let mut fours =
+                    state.sequences_on(state.last_move(), state.last_player(), Single, 4);
                 fours.next();
                 fours.next().is_some()
             };

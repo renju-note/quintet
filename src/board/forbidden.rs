@@ -1,6 +1,6 @@
 use super::fundamentals::*;
 use super::point::*;
-use super::row::*;
+use super::sequence::*;
 use super::square::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -34,31 +34,37 @@ pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(next: &Square, p: Point) -> bool {
-    let mut new_overlines = next.rows_on(Black, RowKind::Overline, p);
+    let mut new_overlines = next.sequences_on(p, Black, Double, 5, false);
     new_overlines.next().is_some()
 }
 
 fn double_four(next: &Square, p: Point) -> bool {
-    let new_fours = next.rows_on(Black, RowKind::Four, p).collect::<Vec<_>>();
-    new_fours.len() >= 2 && distinctive(&new_fours)
+    let new_fours = next.sequences_on(p, Black, Single, 4, true);
+    distinctive(&mut new_fours.map(|p| p.0))
 }
 
 fn double_three(next: &Square, p: Point) -> bool {
-    let new_threes = next.rows_on(Black, RowKind::Three, p).collect::<Vec<_>>();
-    if new_threes.len() < 2 || !distinctive(&new_threes) {
+    let new_threes = next.sequences_on(p, Black, Double, 3, true);
+    if !distinctive(&mut new_threes.map(|p| p.0)) {
         return false;
     }
-    let truthy_threes = new_threes
-        .into_iter()
-        .filter(|r| forbidden(&next, r.eye1.unwrap()).is_none())
-        .collect::<Vec<_>>();
-    truthy_threes.len() >= 2 && distinctive(&truthy_threes)
+    let truthy_threes = next
+        .sequences_on(p, Black, Double, 3, true)
+        .filter(|(i, s)| {
+            let eye = i.subsequence(s.eyes()).next().unwrap().to_point();
+            forbidden(&next, eye).is_none()
+        });
+    distinctive(&mut truthy_threes.map(|p| p.0))
 }
 
-fn distinctive(rows: &Vec<Row>) -> bool {
-    let first = &rows[0];
-    for row in rows.iter().skip(1) {
-        if !first.adjacent(row) {
+fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {
+    let first = indices.next();
+    if first.is_none() {
+        return false;
+    }
+    let next_to_first = first.unwrap().walk(1);
+    for index in indices {
+        if index != next_to_first {
             return true;
         }
     }

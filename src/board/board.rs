@@ -2,6 +2,7 @@ use super::forbidden::*;
 use super::fundamentals::*;
 use super::point::*;
 use super::row::*;
+use super::sequence::*;
 use super::slot::*;
 use super::square::*;
 use super::zobrist;
@@ -67,26 +68,33 @@ impl Board {
         self.square.rows(player, kind)
     }
 
-    pub fn rows_on(
+    pub fn sequences(
         &self,
         player: Player,
-        kind: RowKind,
-        p: Point,
-    ) -> impl Iterator<Item = Row> + '_ {
-        self.square.rows_on(player, kind, p)
+        kind: SequenceKind,
+        n: u8,
+        exact: bool,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.square.sequences(player, kind, n, exact)
     }
 
-    pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.square.slots(player, potential)
-    }
-
-    pub fn slots_on(
+    pub fn sequences_on(
         &self,
-        player: Player,
-        potential: u8,
         p: Point,
-    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.square.slots_on(player, potential, p)
+        player: Player,
+        kind: SequenceKind,
+        n: u8,
+        exact: bool,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.square.sequences_on(p, player, kind, n, exact)
+    }
+
+    pub fn slots(&self) -> impl Iterator<Item = (Index, Slot)> + '_ {
+        self.square.slots()
+    }
+
+    pub fn slots_on(&self, p: Point) -> impl Iterator<Item = (Index, Slot)> + '_ {
+        self.square.slots_on(p)
     }
 
     pub fn to_pretty_string(&self) -> String {
@@ -261,14 +269,6 @@ mod tests {
         assert_eq!(board.rows(Black, Two).collect::<Vec<_>>(), black_twos);
         assert_eq!(board.rows(White, Two).collect::<Vec<_>>(), white_twos);
         assert_eq!(board.rows(White, Three).collect::<Vec<_>>(), white_threes);
-        assert_eq!(
-            board.rows_on(Black, Two, Point(7, 7)).collect::<Vec<_>>(),
-            [
-                black_twos[3].clone(),
-                black_twos[4].clone(),
-                black_twos[5].clone()
-            ]
-        );
 
         assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
         assert_eq!(board.forbidden(Point(6, 7)), Some(DoubleThree));
