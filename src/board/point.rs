@@ -84,7 +84,7 @@ impl Index {
         }
     }
 
-    pub fn subsequent<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + 'a {
+    pub fn subsequence<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + 'a {
         let start = *self;
         steps.iter().flat_map(move |&s| start.walk(s as i8))
     }

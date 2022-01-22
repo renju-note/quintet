@@ -93,7 +93,7 @@ impl Row {
         }
         .to_point();
 
-        let mut eyes = start.subsequent(sequence.eyes());
+        let mut eyes = start.subsequence(sequence.eyes());
         let row_eye1 = eyes.next().map(|i| i.to_point());
         let row_eye2 = eyes.next().map(|i| i.to_point());
 
