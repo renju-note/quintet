@@ -71,13 +71,13 @@ impl VCFMoves {
                     move_pairs: vec![],
                 };
             }
-            let last_four_eye = index.walk(last_four.eyes()[0] as i8).unwrap().to_point();
+            let last_four_eye = index.walk(last_four.eyes()[0] as i8).to_point();
             let move_pairs = state
                 .sequences_on(last_four_eye, next_player, Single, 3)
                 .map(|(i, s)| {
                     let eyes = s.eyes();
-                    let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
-                    let e2 = i.walk(eyes[1] as i8).unwrap().to_point();
+                    let e1 = i.walk(eyes[0] as i8).to_point();
+                    let e2 = i.walk(eyes[1] as i8).to_point();
                     if e1 == last_four_eye {
                         Some((e1, e2))
                     } else if e2 == last_four_eye {
@@ -96,8 +96,8 @@ impl VCFMoves {
             .sequences(next_player, Single, 3)
             .map(|(i, s)| {
                 let eyes = s.eyes();
-                let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
-                let e2 = i.walk(eyes[1] as i8).unwrap().to_point();
+                let e1 = i.walk(eyes[0] as i8).to_point();
+                let e2 = i.walk(eyes[1] as i8).to_point();
                 [(e1, e2), (e2, e1)]
             })
             .flatten();

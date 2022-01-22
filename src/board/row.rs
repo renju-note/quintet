@@ -81,15 +81,15 @@ impl Row {
         let direction = start.direction;
 
         let row_start = if kind == Overline {
-            start.walk(-1).unwrap()
+            start.walk(-1)
         } else {
             start
         }
         .to_point();
         let row_end = if kind == Two || kind == Three {
-            start.walk(3).unwrap()
+            start.walk(3)
         } else {
-            start.walk(4).unwrap()
+            start.walk(4)
         }
         .to_point();
 

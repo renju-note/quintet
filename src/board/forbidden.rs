@@ -62,7 +62,7 @@ fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {
     if first.is_none() {
         return false;
     }
-    let next_to_first = first.unwrap().walk(1).unwrap();
+    let next_to_first = first.unwrap().walk(1);
     for index in indices {
         if index != next_to_first {
             return true;

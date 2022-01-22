@@ -75,21 +75,17 @@ impl Index {
         }
     }
 
-    pub fn walk(&self, step: i8) -> Option<Self> {
+    pub fn walk(&self, step: i8) -> Self {
         let j = self.j as i8 + step;
-        if 0 <= j && j <= self.maxj() as i8 {
-            Some(Self::new(self.direction, self.i, j as u8))
-        } else {
-            None
-        }
+        Self::new(self.direction, self.i, (self.j as i8 + step) as u8)
     }
 
     pub fn subsequence<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + 'a {
         let start = *self;
-        steps.iter().flat_map(move |&s| start.walk(s as i8))
+        steps.iter().map(move |&s| start.walk(s as i8))
     }
 
-    fn maxj(&self) -> u8 {
+    pub fn maxj(&self) -> u8 {
         let n = BOARD_SIZE - 1;
         let i = self.i;
         match self.direction {
