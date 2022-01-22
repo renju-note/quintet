@@ -80,17 +80,15 @@ impl Square {
         self.vlines[vidx.i as usize].stone(vidx.j)
     }
 
-    pub fn stones(&self, player: Player) -> Vec<Point> {
+    pub fn stones(&self, player: Player) -> impl Iterator<Item = Point> + '_ {
         self.vlines
             .iter()
             .enumerate()
-            .map(|(i, l)| {
+            .map(move |(i, l)| {
                 l.stones(player)
-                    .into_iter()
                     .map(move |j| Index::new(Vertical, i as u8, j).to_point())
             })
             .flatten()
-            .collect()
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
@@ -587,8 +585,11 @@ mod tests {
         assert_eq!(square.stone(Point(8, 8)), Some(White));
         assert_eq!(square.stone(Point(9, 9)), None);
 
-        assert_eq!(square.stones(Black), [Point(7, 7), Point(9, 8)]);
-        assert_eq!(square.stones(White), [Point(8, 8)]);
+        assert_eq!(
+            square.stones(Black).collect::<Vec<_>>(),
+            [Point(7, 7), Point(9, 8)]
+        );
+        assert_eq!(square.stones(White).collect::<Vec<_>>(), [Point(8, 8)]);
         Ok(())
     }
 

@@ -59,7 +59,7 @@ impl Board {
         self.square.stone(p)
     }
 
-    pub fn stones(&self, player: Player) -> Vec<Point> {
+    pub fn stones(&self, player: Player) -> impl Iterator<Item = Point> + '_ {
         self.square.stones(player)
     }
 
@@ -121,8 +121,8 @@ impl FromStr for Board {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let square = s.parse::<Square>()?;
-        let blacks = square.stones(Player::Black);
-        let whites = square.stones(Player::White);
+        let blacks = square.stones(Player::Black).collect();
+        let whites = square.stones(Player::White).collect();
         let z_hash = zobrist::from_points(&Points(blacks), &Points(whites));
 
         Ok(Self {
@@ -182,7 +182,7 @@ mod tests {
             Point(8, 7),
             Point(9, 9),
         ];
-        assert_eq!(board.stones(Player::Black), blacks);
+        assert_eq!(board.stones(Player::Black).collect::<Vec<_>>(), blacks);
         let whites = vec![
             Point(5, 6),
             Point(7, 8),
@@ -190,7 +190,7 @@ mod tests {
             Point(8, 8),
             Point(8, 9),
         ];
-        assert_eq!(board.stones(Player::White), whites);
+        assert_eq!(board.stones(Player::White).collect::<Vec<_>>(), whites);
 
         let black_twos = [
             Row::new(

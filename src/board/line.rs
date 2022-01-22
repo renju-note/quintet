@@ -49,22 +49,12 @@ impl Line {
         }
     }
 
-    pub fn stones(&self, player: Player) -> Vec<u8> {
+    pub fn stones(&self, player: Player) -> impl Iterator<Item = u8> {
         let target = match player {
             Black => self.blacks,
             White => self.whites,
         };
-        (0..self.size)
-            .map(|i| {
-                let pat = 0b1 << i;
-                if target & pat != 0b0 {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
-            .flatten()
-            .collect()
+        (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
     }
 
     pub fn slots(&self) -> Slots {
@@ -174,10 +164,10 @@ mod tests {
     #[test]
     fn test_stones() -> Result<(), String> {
         let line = "o-ox-".parse::<Line>()?;
-        let result = line.stones(Black);
+        let result = line.stones(Black).collect::<Vec<_>>();
         let expected = [0, 2];
         assert_eq!(result, expected);
-        let result = line.stones(White);
+        let result = line.stones(White).collect::<Vec<_>>();
         let expected = [3];
         assert_eq!(result, expected);
         Ok(())
