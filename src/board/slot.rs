@@ -56,16 +56,20 @@ impl Slot {
         }
     }
 
-    pub fn eyes(&self) -> &[u8] {
-        EYES[(self.0 & 0b00011111) as usize]
-    }
-
     pub fn nstones(&self) -> u8 {
         COUNT_ONES[(self.0 & 0b00011111) as usize]
     }
 
     pub fn nstones_head(&self) -> u8 {
         COUNT_ONES[(self.0 & 0b00001111) as usize]
+    }
+
+    pub fn eyes(&self) -> &'static [u8] {
+        EYES[(self.0 & 0b00011111) as usize]
+    }
+
+    pub fn eyes_head(&self) -> &'static [u8] {
+        EYES[(self.0 & 0b00001111) as usize]
     }
 
     pub fn will_overline(&self) -> bool {
