@@ -31,7 +31,7 @@ pub struct Sequences {
     op: u16,
     double: bool,
     n: u8,
-    black: bool,
+    exact: bool,
     limit: u8,
     i: u8,
     prev_matched: bool,
@@ -52,7 +52,7 @@ impl Sequences {
             op: op,
             double: kind == Double,
             n: n,
-            black: exact,
+            exact: exact,
             limit: end - (WINDOW_SIZE - 1),
             i: start,
             prev_matched: false,
@@ -64,7 +64,7 @@ impl Sequences {
             return false;
         }
 
-        if self.black && my & 0b01000001 != 0b0 {
+        if self.exact && my & 0b01000001 != 0b0 {
             return false;
         }
 

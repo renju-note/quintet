@@ -57,12 +57,13 @@ impl GameState {
         self.board.sequences(player, kind, n)
     }
 
-    pub fn slots_on(
+    pub fn sequences_on(
         &self,
         player: Player,
-        potential: u8,
+        kind: SequenceKind,
+        n: u8,
         p: Point,
-    ) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.board.slots_on(player, potential, p)
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.board.sequences_on(player, kind, n, p)
     }
 }

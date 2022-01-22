@@ -69,6 +69,18 @@ impl Line {
         Sequences::new(my, op, kind, n, black, start, end)
     }
 
+    pub fn sequences_on(&self, player: Player, kind: SequenceKind, n: u8, i: u8) -> Sequences {
+        let black = player.is_black();
+        let (my, op) = if black {
+            (self.blacks << 1, self.whites << 1)
+        } else {
+            (self.whites << 1, self.blacks << 1)
+        };
+        let start = cmp::max(0, (i + 1) as i8 - (WINDOW_SIZE as i8 - 1)) as u8;
+        let end = cmp::min(self.size + 1, (i + 1) + (WINDOW_SIZE - 1));
+        Sequences::new(my, op, kind, n, black, start, end)
+    }
+
     pub fn slots(&self) -> Slots {
         let start = 0;
         let end = self.size + 1;
