@@ -1,4 +1,3 @@
-use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use std::fmt;
 
@@ -31,32 +30,20 @@ impl Slot {
     }
 
     pub fn potential(&self, player: Player) -> u8 {
-        if self.is_free() {
-            return 1;
+        if player.is_black() && self.will_overline() {
+            return 0;
         }
         if self.contains(player.opponent()) {
             return 0;
         }
-        if player.is_black() && self.will_overline() {
-            return 0;
+        if self.is_free() {
+            return 1;
         }
         self.nstones() + 1
     }
 
     pub fn occupied_by(&self, player: Player) -> bool {
-        if player.is_black() {
-            self.contains(Black) && !self.contains(White)
-        } else {
-            self.contains(White) && !self.contains(Black)
-        }
-    }
-
-    pub fn contains(&self, player: Player) -> bool {
-        if player.is_black() {
-            self.0 & BLACK_FLAG != 0b0
-        } else {
-            self.0 & WHITE_FLAG != 0b0
-        }
+        self.contains(player) && !self.contains(player.opponent())
     }
 
     pub fn nstones(&self) -> u8 {
@@ -73,6 +60,14 @@ impl Slot {
 
     pub fn eyes_head(&self) -> &'static [u8] {
         EYES[(self.0 & 0b00001111) as usize]
+    }
+
+    pub fn contains(&self, player: Player) -> bool {
+        if player.is_black() {
+            self.0 & BLACK_FLAG != 0b0
+        } else {
+            self.0 & WHITE_FLAG != 0b0
+        }
     }
 
     pub fn will_overline(&self) -> bool {
@@ -169,6 +164,7 @@ const EYES: [&[u8]; 32] = [
 
 #[cfg(test)]
 mod tests {
+    use super::Player::*;
     use super::*;
 
     #[test]
