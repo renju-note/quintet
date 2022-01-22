@@ -3,21 +3,20 @@ use std::str::FromStr;
 
 pub const BOARD_SIZE: u8 = 15;
 
-pub type Bits = u16;
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Player {
     Black,
     White,
 }
 
-use Player::*;
+pub use Player::*;
 
 impl Player {
     pub fn opponent(&self) -> Self {
-        match self {
-            Black => White,
-            White => Black,
+        if self.is_black() {
+            White
+        } else {
+            Black
         }
     }
 
@@ -72,6 +71,6 @@ impl FromStr for Player {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let c = s.trim().chars().next().ok_or("empty")?;
-        Player::try_from(c)
+        Self::try_from(c)
     }
 }

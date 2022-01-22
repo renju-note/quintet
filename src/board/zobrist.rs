@@ -4,10 +4,10 @@ use super::point::*;
 pub fn from_points(blacks: &Points, whites: &Points) -> u64 {
     let mut result = new();
     for p in blacks.0.iter() {
-        result = apply(result, Player::Black, *p)
+        result = apply(result, Black, *p)
     }
     for p in whites.0.iter() {
-        result = apply(result, Player::White, *p)
+        result = apply(result, White, *p)
     }
     result
 }
@@ -28,7 +28,6 @@ fn get_code(player: Player, p: Point) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::Player::*;
     use super::*;
 
     #[test]

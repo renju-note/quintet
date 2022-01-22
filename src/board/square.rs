@@ -1,12 +1,16 @@
-use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use super::line::*;
-use super::point::Direction::*;
 use super::point::*;
 use super::row::*;
 use super::slot::*;
 use std::fmt;
 use std::str::FromStr;
+
+const DIAGONAL_OMIT: u8 = 5 - 1;
+const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
+
+type OrthogonalLines = [Line; BOARD_SIZE as usize];
+type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Square {
@@ -254,12 +258,11 @@ fn from_str_moves(s: &str) -> Result<Square, &'static str> {
 }
 
 fn from_str_points(s: &str) -> Result<Square, &'static str> {
-    let codes = s.trim().split("/").collect::<Vec<_>>();
-    if codes.len() != 2 {
-        return Err("Unknown format.");
-    }
-    let blacks = codes[0].parse::<Points>()?;
-    let whites = codes[1].parse::<Points>()?;
+    let mut codes = s.trim().split("/");
+    let blacks_str = codes.next().ok_or("Wrong format.")?;
+    let whites_str = codes.next().ok_or("Wrong format.")?;
+    let blacks = blacks_str.parse::<Points>()?;
+    let whites = whites_str.parse::<Points>()?;
     Ok(Square::from_points(&blacks, &whites))
 }
 
@@ -286,12 +289,6 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
     }
     Ok(square)
 }
-
-const DIAGONAL_OMIT: u8 = 5 - 1;
-const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
-
-type OrthogonalLines = [Line; BOARD_SIZE as usize];
-type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 fn orthogonal_lines() -> OrthogonalLines {
     [

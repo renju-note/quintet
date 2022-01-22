@@ -1,4 +1,3 @@
-use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use super::slot::*;
 use std::cmp;
@@ -6,10 +5,10 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Line {
-    blacks: Bits,
-    whites: Bits,
+    blacks: u16,
+    whites: u16,
     pub size: u8,
 }
 
@@ -25,8 +24,8 @@ impl Line {
     pub fn put_mut(&mut self, player: Player, i: u8) {
         let stones = 0b1 << i;
         let (blacks, whites) = match player {
-            Player::Black => (self.blacks | stones, self.whites & !stones),
-            Player::White => (self.blacks & !stones, self.whites | stones),
+            Black => (self.blacks | stones, self.whites & !stones),
+            White => (self.blacks & !stones, self.whites | stones),
         };
         self.blacks = blacks;
         self.whites = whites;
@@ -87,13 +86,11 @@ impl Line {
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: String = (0..self.size)
-            .map(|i| match self.stone(i) {
-                Some(player) => format!(" {}", char::from(player)),
-                None => " .".to_string(),
-            })
-            .collect();
-        f.write_str(&s)
+        let ss = (0..self.size).map(|i| match self.stone(i) {
+            Some(player) => format!(" {}", char::from(player)),
+            None => " .".to_string(),
+        });
+        f.write_str(&ss.collect::<String>())
     }
 }
 
@@ -108,10 +105,7 @@ impl FromStr for Line {
         }
         let mut line = Self::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
-            match Player::try_from(c) {
-                Ok(player) => line.put_mut(player, i as u8),
-                _ => (),
-            }
+            Player::try_from(c).map_or((), |p| line.put_mut(p, i as u8));
         }
         Ok(line)
     }

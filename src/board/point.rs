@@ -11,7 +11,9 @@ pub enum Direction {
     Descending,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
+pub use Direction::*;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Point(pub u8, pub u8);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -29,17 +31,17 @@ impl Point {
         let (x, y) = (self.0, self.1);
         let n = BOARD_SIZE - 1;
         match direction {
-            Direction::Vertical => Index::new(Direction::Vertical, x, y),
-            Direction::Horizontal => Index::new(Direction::Horizontal, y, x),
-            Direction::Ascending => {
+            Vertical => Index::new(Vertical, x, y),
+            Horizontal => Index::new(Horizontal, y, x),
+            Ascending => {
                 let i = x + n - y;
                 let j = if i < n { x } else { y };
-                Index::new(Direction::Ascending, i, j)
+                Index::new(Ascending, i, j)
             }
-            Direction::Descending => {
+            Descending => {
                 let i = x + y;
                 let j = if i < n { x } else { n - y };
-                Index::new(Direction::Descending, i, j)
+                Index::new(Descending, i, j)
             }
         }
     }
@@ -58,14 +60,14 @@ impl Index {
         let n = BOARD_SIZE - 1;
         let (i, j) = (self.i, self.j);
         match self.direction {
-            Direction::Vertical => Point(i, j),
-            Direction::Horizontal => Point(j, i),
-            Direction::Ascending => {
+            Vertical => Point(i, j),
+            Horizontal => Point(j, i),
+            Ascending => {
                 let x = if i < n { j } else { i + j - n };
                 let y = if i < n { n - i + j } else { j };
                 Point(x, y)
             }
-            Direction::Descending => {
+            Descending => {
                 let x = if i < n { j } else { i + j - n };
                 let y = if i < n { i - j } else { n - j };
                 Point(x, y)
@@ -86,8 +88,8 @@ impl Index {
         let n = BOARD_SIZE - 1;
         let i = self.i;
         match self.direction {
-            Direction::Vertical | Direction::Horizontal => n,
-            Direction::Ascending | Direction::Descending => {
+            Vertical | Horizontal => n,
+            Ascending | Descending => {
                 if i < n {
                     i
                 } else {
@@ -110,10 +112,9 @@ impl FromStr for Point {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-        let x = s
-            .chars()
-            .nth(0)
+        let mut cs = s.trim().chars();
+        let x = cs
+            .next()
             .map(|c| match c {
                 'A'..='O' => Some(c as u8 - 'A' as u8),
                 'a'..='o' => Some(c as u8 - 'a' as u8),
@@ -121,9 +122,8 @@ impl FromStr for Point {
             })
             .flatten()
             .ok_or("Failed to parse x part.")?;
-        let y = s
-            .chars()
-            .skip(1)
+        let y = cs
+            .take(2)
             .collect::<String>()
             .parse::<u8>()
             .ok()
@@ -208,7 +208,6 @@ impl From<Points> for Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::Direction::*;
     use super::*;
 
     #[test]

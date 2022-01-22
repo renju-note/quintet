@@ -188,10 +188,10 @@ impl Row {
         let (ox, oy) = (other.start.0, other.start.1);
         let (xd, yd) = (sx as i8 - ox as i8, sy as i8 - oy as i8);
         match self.direction {
-            Direction::Vertical => xd == 0 && yd.abs() == 1,
-            Direction::Horizontal => xd.abs() == 1 && yd == 0,
-            Direction::Ascending => xd.abs() == 1 && xd == yd,
-            Direction::Descending => xd.abs() == 1 && xd == -yd,
+            Vertical => xd == 0 && yd.abs() == 1,
+            Horizontal => xd.abs() == 1 && yd == 0,
+            Ascending => xd.abs() == 1 && xd == yd,
+            Descending => xd.abs() == 1 && xd == -yd,
         }
     }
 
@@ -220,8 +220,6 @@ impl fmt::Display for Row {
 #[cfg(test)]
 mod tests {
     use super::super::line::*;
-    use super::Direction::*;
-    use super::Player::*;
     use super::*;
 
     #[test]
