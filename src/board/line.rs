@@ -38,18 +38,6 @@ impl Line {
         self.whites &= !stones;
     }
 
-    pub fn put(&self, player: Player, i: u8) -> Self {
-        let mut result = self.clone();
-        result.put_mut(player, i);
-        result
-    }
-
-    pub fn remove(&self, i: u8) -> Self {
-        let mut result = self.clone();
-        result.remove_mut(i);
-        result
-    }
-
     pub fn stone(&self, i: u8) -> Option<Player> {
         let pat = 0b1 << i;
         if self.blacks & pat != 0b0 {

@@ -75,18 +75,6 @@ impl Square {
         Self::line_idx(didx).map(|i| self.dlines[i].remove_mut(didx.j));
     }
 
-    pub fn put(&self, player: Player, p: Point) -> Self {
-        let mut result = self.clone();
-        result.put_mut(player, p);
-        result
-    }
-
-    pub fn remove(&self, p: Point) -> Self {
-        let mut result = self.clone();
-        result.remove_mut(p);
-        result
-    }
-
     pub fn stone(&self, p: Point) -> Option<Player> {
         let vidx = p.to_index(Vertical);
         self.vlines[vidx.i as usize].stone(vidx.j)

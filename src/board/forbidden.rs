@@ -20,7 +20,8 @@ pub fn forbiddens(square: &Square) -> Vec<(ForbiddenKind, Point)> {
 }
 
 pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
-    let next = square.put(Player::Black, p);
+    let mut next = square.clone();
+    next.put_mut(Player::Black, p);
     if overline(&next, p) {
         Some(ForbiddenKind::Overline)
     } else if double_four(&next, p) {
