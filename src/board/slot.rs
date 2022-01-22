@@ -1,4 +1,5 @@
 use super::fundamentals::*;
+use super::util;
 use std::fmt;
 
 pub const SLOT_SIZE: u8 = 5;
@@ -52,19 +53,19 @@ impl Slot {
     }
 
     pub fn nstones(&self) -> u8 {
-        COUNT_ONES[(self.0 & 0b00011111) as usize]
+        util::count_ones(self.0 & 0b00011111)
     }
 
     pub fn nstones_head(&self) -> u8 {
-        COUNT_ONES[(self.0 & 0b00001111) as usize]
+        util::count_ones(self.0 & 0b00001111)
     }
 
     pub fn eyes(&self) -> &'static [u8] {
-        EYES[(self.0 & 0b00011111) as usize]
+        util::eyes(self.0 & 0b00011111)
     }
 
     pub fn eyes_head(&self) -> &'static [u8] {
-        EYES[(self.0 & 0b00001111) as usize]
+        util::eyes(self.0 & 0b00001111)
     }
 
     pub fn contains(&self, player: Player) -> bool {
@@ -122,45 +123,6 @@ impl Iterator for Slots {
         Some((i, Slot::new(blacks_, whites_)))
     }
 }
-
-const COUNT_ONES: [u8; 32] = [
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-];
-
-const EYES: [&[u8]; 32] = [
-    &[0, 1, 2, 3, 4],
-    &[1, 2, 3, 4],
-    &[0, 2, 3, 4],
-    &[2, 3, 4],
-    &[0, 1, 3, 4],
-    &[1, 3, 4],
-    &[0, 3, 4],
-    &[3, 4],
-    &[0, 1, 2, 4],
-    &[1, 2, 4],
-    &[0, 2, 4],
-    &[2, 4],
-    &[0, 1, 4],
-    &[1, 4],
-    &[0, 4],
-    &[4],
-    &[0, 1, 2, 3],
-    &[1, 2, 3],
-    &[0, 2, 3],
-    &[2, 3],
-    &[0, 1, 3],
-    &[1, 3],
-    &[0, 3],
-    &[3],
-    &[0, 1, 2],
-    &[1, 2],
-    &[0, 2],
-    &[2],
-    &[0, 1],
-    &[1],
-    &[0],
-    &[],
-];
 
 #[cfg(test)]
 mod tests {

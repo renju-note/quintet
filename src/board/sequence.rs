@@ -1,3 +1,4 @@
+use super::util;
 use std::fmt;
 
 const SLOT_SIZE: u8 = 5;
@@ -16,7 +17,7 @@ pub struct Sequence(pub u8);
 
 impl Sequence {
     pub fn eyes(&self) -> &'static [u8] {
-        EYES[self.0 as usize]
+        util::eyes(self.0)
     }
 }
 
@@ -69,7 +70,7 @@ impl Sequences {
         }
 
         let stones = (my & 0b00111110) >> 1;
-        COUNT_ONES[stones as usize] == self.n
+        util::count_ones(stones) == self.n
     }
 }
 
@@ -104,42 +105,3 @@ impl Iterator for Sequences {
         self.next()
     }
 }
-
-const COUNT_ONES: [u8; 32] = [
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-];
-
-const EYES: [&[u8]; 32] = [
-    &[0, 1, 2, 3, 4],
-    &[1, 2, 3, 4],
-    &[0, 2, 3, 4],
-    &[2, 3, 4],
-    &[0, 1, 3, 4],
-    &[1, 3, 4],
-    &[0, 3, 4],
-    &[3, 4],
-    &[0, 1, 2, 4],
-    &[1, 2, 4],
-    &[0, 2, 4],
-    &[2, 4],
-    &[0, 1, 4],
-    &[1, 4],
-    &[0, 4],
-    &[4],
-    &[0, 1, 2, 3],
-    &[1, 2, 3],
-    &[0, 2, 3],
-    &[2, 3],
-    &[0, 1, 3],
-    &[1, 3],
-    &[0, 3],
-    &[3],
-    &[0, 1, 2],
-    &[1, 2],
-    &[0, 2],
-    &[2],
-    &[0, 1],
-    &[1],
-    &[0],
-    &[],
-];

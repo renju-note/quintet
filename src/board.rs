@@ -7,6 +7,7 @@ mod row;
 mod sequence;
 mod slot;
 mod square;
+mod util;
 mod zobrist;
 
 pub use board::Board;
