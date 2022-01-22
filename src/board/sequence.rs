@@ -60,7 +60,7 @@ impl Sequences {
         }
     }
 
-    pub fn matches(&self, op: u8, my: u8) -> bool {
+    fn matches(&self, op: u8, my: u8) -> bool {
         if (op & 0b00111110) != 0b0 {
             return false;
         }
@@ -103,5 +103,72 @@ impl Iterator for Sequences {
         }
 
         self.next()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sequences_single() {
+        let my = 0b0011100010010100;
+        let op = 0b0000000001000000;
+        let k = Single;
+
+        let result = Sequences::new(my, op, k, 2, false, 0, 16).collect::<Vec<_>>();
+        let expected = [
+            (0, Sequence(0b00001010)),
+            (6, Sequence(0b00010001)),
+            (7, Sequence(0b00011000)),
+        ];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 2, false, 0, 12).collect::<Vec<_>>();
+        let expected = [(0, Sequence(0b00001010)), (6, Sequence(0b00010001))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 2, false, 1, 16).collect::<Vec<_>>();
+        let expected = [(6, Sequence(0b00010001)), (7, Sequence(0b00011000))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 2, true, 0, 16).collect::<Vec<_>>();
+        let expected = [(0, Sequence(0b00001010))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 3, false, 0, 16).collect::<Vec<_>>();
+        let expected = [
+            (8, Sequence(0b00011100)),
+            (9, Sequence(0b00001110)),
+            (10, Sequence(0b00000111)),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_sequences_double() {
+        let my = 0b0010101000010100;
+        let op = 0b0000000010000000;
+        let k = Double;
+
+        let result = Sequences::new(my, op, k, 2, false, 0, 16).collect::<Vec<_>>();
+        let expected = [(1, Sequence(0b00010101)), (10, Sequence(0b00010101))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 2, false, 0, 9).collect::<Vec<_>>();
+        let expected = [(1, Sequence(0b00010101))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 2, false, 1, 16).collect::<Vec<_>>();
+        let expected = [(10, Sequence(0b00010101))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 2, true, 0, 16).collect::<Vec<_>>();
+        let expected = [(1, Sequence(0b00010101))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(my, op, k, 3, false, 0, 16).collect::<Vec<_>>();
+        let expected = [];
+        assert_eq!(result, expected);
     }
 }
