@@ -39,33 +39,32 @@ fn overline(next: &Square, p: Point) -> bool {
 }
 
 fn double_four(next: &Square, p: Point) -> bool {
-    let new_fours = next
-        .sequences_on(p, Black, Single, 4, true)
-        .collect::<Vec<_>>();
-    new_fours.len() >= 2 && separated(&new_fours)
+    let new_fours = next.sequences_on(p, Black, Single, 4, true);
+    distinctive(&mut new_fours.map(|p| p.0))
 }
 
 fn double_three(next: &Square, p: Point) -> bool {
-    let new_threes = next
-        .sequences_on(p, Black, Double, 3, true)
-        .collect::<Vec<_>>();
-    if new_threes.len() < 2 || !separated(&new_threes) {
+    let new_threes = next.sequences_on(p, Black, Double, 3, true);
+    if !distinctive(&mut new_threes.map(|p| p.0)) {
         return false;
     }
-    let truthy_threes = new_threes
-        .into_iter()
+    let truthy_threes = next
+        .sequences_on(p, Black, Double, 3, true)
         .filter(|(i, s)| {
             let eye = i.walk(s.eyes()[0] as i8).unwrap().to_point();
             forbidden(&next, eye).is_none()
-        })
-        .collect::<Vec<_>>();
-    truthy_threes.len() >= 2 && separated(&truthy_threes)
+        });
+    distinctive(&mut truthy_threes.map(|p| p.0))
 }
 
-fn separated(sequences: &Vec<(Index, Sequence)>) -> bool {
-    let first_index_1 = sequences[0].0.walk(1);
-    for sequence in sequences.iter().skip(1) {
-        if Some(sequence.0) != first_index_1 {
+fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {
+    let first = indices.next();
+    if first.is_none() {
+        return false;
+    }
+    let next_to_first = first.unwrap().walk(1).unwrap();
+    for index in indices {
+        if index != next_to_first {
             return true;
         }
     }
