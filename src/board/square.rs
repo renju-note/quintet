@@ -1,3 +1,4 @@
+use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use super::line::*;
 use super::point::Direction::*;
@@ -27,7 +28,7 @@ impl Square {
 
     pub fn from_moves(moves: &Points) -> Self {
         let mut square = Self::new();
-        let mut player = Player::Black;
+        let mut player = Black;
         for &m in moves.0.iter() {
             square.put_mut(player, m);
             player = player.opponent();
@@ -38,10 +39,10 @@ impl Square {
     pub fn from_points(blacks: &Points, whites: &Points) -> Self {
         let mut square = Self::new();
         for &p in blacks.0.iter() {
-            square.put_mut(Player::Black, p);
+            square.put_mut(Black, p);
         }
         for &p in whites.0.iter() {
-            square.put_mut(Player::White, p);
+            square.put_mut(White, p);
         }
         square
     }
@@ -354,7 +355,6 @@ fn diagonal_lines() -> DiagonalLines {
 
 #[cfg(test)]
 mod tests {
-    use super::Player::*;
     use super::RowKind::*;
     use super::*;
 

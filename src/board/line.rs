@@ -8,15 +8,14 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Line {
-    pub blacks: Bits,
-    pub whites: Bits,
+    blacks: Bits,
+    whites: Bits,
     pub size: u8,
 }
 
 impl Line {
-    pub fn new(size: u8) -> Line {
-        let size = std::cmp::min(size, BOARD_SIZE);
-        Line {
+    pub fn new(size: u8) -> Self {
+        Self {
             blacks: 0b0,
             whites: 0b0,
             size: size,
@@ -54,9 +53,9 @@ impl Line {
     pub fn stone(&self, i: u8) -> Option<Player> {
         let pat = 0b1 << i;
         if self.blacks & pat != 0b0 {
-            Some(Player::Black)
+            Some(Black)
         } else if self.whites & pat != 0b0 {
-            Some(Player::White)
+            Some(White)
         } else {
             None
         }
@@ -64,8 +63,8 @@ impl Line {
 
     pub fn stones(&self, player: Player) -> Vec<u8> {
         let target = match player {
-            Player::Black => self.blacks,
-            Player::White => self.whites,
+            Black => self.blacks,
+            White => self.whites,
         };
         (0..self.size)
             .map(|i| {
@@ -112,9 +111,8 @@ impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s: String = (0..self.size)
             .map(|i| match self.stone(i) {
-                Some(Player::Black) => " o",
-                Some(Player::White) => " x",
-                None => " .",
+                Some(player) => format!(" {}", char::from(player)),
+                None => " .".to_string(),
             })
             .collect();
         f.write_str(&s)
@@ -130,7 +128,7 @@ impl FromStr for Line {
         if size > BOARD_SIZE as usize {
             return Err("Wrong length.");
         }
-        let mut line = Line::new(size as u8);
+        let mut line = Self::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
             match Player::try_from(c) {
                 Ok(player) => line.put_mut(player, i as u8),
@@ -144,15 +142,6 @@ impl FromStr for Line {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_new() {
-        let result = Line::new(10);
-        assert_eq!(result.size, 10);
-
-        let result = Line::new(16);
-        assert_eq!(result.size, BOARD_SIZE);
-    }
 
     #[test]
     fn test_put_mut() {
