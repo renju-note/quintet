@@ -1,3 +1,4 @@
+use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use super::line::*;
 use super::point::Direction::*;
@@ -27,7 +28,7 @@ impl Square {
 
     pub fn from_moves(moves: &Points) -> Self {
         let mut square = Self::new();
-        let mut player = Player::Black;
+        let mut player = Black;
         for &m in moves.0.iter() {
             square.put_mut(player, m);
             player = player.opponent();
@@ -38,10 +39,10 @@ impl Square {
     pub fn from_points(blacks: &Points, whites: &Points) -> Self {
         let mut square = Self::new();
         for &p in blacks.0.iter() {
-            square.put_mut(Player::Black, p);
+            square.put_mut(Black, p);
         }
         for &p in whites.0.iter() {
-            square.put_mut(Player::White, p);
+            square.put_mut(White, p);
         }
         square
     }
@@ -105,7 +106,9 @@ impl Square {
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
+        let potential = kind.potential();
         self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(move |(d, i, l)| Row::from_slots(l.slots(), d, i, player, kind))
             .flatten()
     }
@@ -116,7 +119,9 @@ impl Square {
         kind: RowKind,
         p: Point,
     ) -> impl Iterator<Item = Row> + '_ {
-        self.iter_lines_along(p)
+        let potential = kind.potential();
+        self.iter_lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
                 Row::from_slots(l.slots_on(j), d, i, player, kind)
@@ -125,8 +130,9 @@ impl Square {
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = (Index, Slot)> + '_ {
+    pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
             .flatten()
             .filter(move |(_, s)| s.potential(player) == potential)
@@ -135,10 +141,11 @@ impl Square {
     pub fn slots_on(
         &self,
         player: Player,
-        potential: i8,
+        potential: u8,
         p: Point,
     ) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.iter_lines_along(p)
+        self.iter_lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
                 l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
@@ -185,7 +192,7 @@ impl Square {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    fn iter_lines_along(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
+    fn iter_lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let vidx = p.to_index(Vertical);
         let viter = Self::line_idx(vidx)
             .map(|i| (Vertical, vidx.i, &self.vlines[i]))
@@ -348,7 +355,6 @@ fn diagonal_lines() -> DiagonalLines {
 
 #[cfg(test)]
 mod tests {
-    use super::Player::*;
     use super::RowKind::*;
     use super::*;
 

@@ -62,7 +62,7 @@ struct VCFMoves {
 impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
         let next_player = state.next_player();
-        let mut last_fours = state.slots_on(state.last_player(), 4, state.last_move());
+        let mut last_fours = state.slots_on(state.last_player(), 5, state.last_move());
         if let Some((index, last_four)) = last_fours.next() {
             if last_fours.next().is_some() {
                 return VCFMoves {
@@ -72,7 +72,7 @@ impl VCFMoves {
             }
             let last_four_eye = index.walk(last_four.eyes()[0] as i8).unwrap().to_point();
             let move_pairs = state
-                .slots_on(next_player, 3, last_four_eye)
+                .slots_on(next_player, 4, last_four_eye)
                 .map(|(i, s)| {
                     let eyes = s.eyes();
                     let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
@@ -92,7 +92,7 @@ impl VCFMoves {
             };
         }
         let move_pairs = state
-            .slots(next_player, 3)
+            .slots(next_player, 4)
             .map(|(i, s)| {
                 let eyes = s.eyes();
                 let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
@@ -115,21 +115,20 @@ impl Iterator for VCFMoves {
             if self.state.is_forbidden_move(attack) {
                 continue;
             }
-            let mut next_state = self.state.play(attack);
-            let has_multiple_next_four = {
-                let mut next_fours =
-                    next_state.slots_on(next_state.last_player(), 4, next_state.last_move());
-                next_fours.next();
-                next_fours.next().is_some()
+            let mut state = self.state.play(attack);
+            let has_multiple_four = {
+                let mut fours = state.slots_on(state.last_player(), 5, state.last_move());
+                fours.next();
+                fours.next().is_some()
             };
-            if has_multiple_next_four {
+            if has_multiple_four {
                 return Some((attack, None, None));
             }
-            if next_state.is_forbidden_move(defence) {
+            if state.is_forbidden_move(defence) {
                 return Some((attack, None, None));
             }
-            next_state.play_mut(defence);
-            return Some((attack, Some(defence), Some(next_state)));
+            state.play_mut(defence);
+            return Some((attack, Some(defence), Some(state)));
         }
         None
     }

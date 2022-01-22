@@ -26,6 +26,17 @@ impl RowKind {
             Overline => 5,
         }
     }
+
+    pub fn potential(&self) -> u8 {
+        match self {
+            Two => 3,
+            Sword => 4,
+            Three => 4,
+            Four => 5,
+            Five => 6,
+            Overline => 6,
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -158,7 +169,7 @@ impl Row {
         let row_start = start.to_point();
         let row_end = start.walk(3).unwrap().to_point();
 
-        let eyes = target.eyes();
+        let eyes = target.eyes_head();
         let row_eye1 = start.walk(eyes[0] as i8).map(|i| i.to_point());
 
         if kind == Three {
