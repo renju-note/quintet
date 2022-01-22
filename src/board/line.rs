@@ -57,7 +57,7 @@ impl Line {
         (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
     }
 
-    pub fn sequences(&self, player: Player, n: u8) -> Sequences {
+    pub fn sequences(&self, player: Player, kind: SequenceKind, n: u8) -> Sequences {
         let black = player.is_black();
         let (my, op) = if black {
             (self.blacks << 1, self.whites << 1)
@@ -66,7 +66,7 @@ impl Line {
         };
         let start = 0;
         let end = self.size + 1;
-        Sequences::new(black, n, my, op, start, end)
+        Sequences::new(my, op, kind, n, black, start, end)
     }
 
     pub fn slots(&self) -> Slots {

@@ -121,11 +121,16 @@ impl Square {
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn sequences(&self, player: Player, n: u8) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+    pub fn sequences(
+        &self,
+        player: Player,
+        kind: SequenceKind,
+        n: u8,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.iter_lines()
             .filter(move |(_, _, l)| l.potential_cap(player) >= n)
             .flat_map(move |(d, i, l)| {
-                l.sequences(player, n)
+                l.sequences(player, kind, n)
                     .map(move |(j, s)| (Index::new(d, i, j), s))
             })
     }

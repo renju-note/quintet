@@ -77,8 +77,13 @@ impl Board {
         self.square.rows_on(player, kind, p)
     }
 
-    pub fn sequences(&self, player: Player, n: u8) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences(player, n)
+    pub fn sequences(
+        &self,
+        player: Player,
+        kind: SequenceKind,
+        n: u8,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        self.square.sequences(player, kind, n)
     }
 
     pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {

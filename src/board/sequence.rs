@@ -3,6 +3,14 @@ use std::fmt;
 const SLOT_SIZE: u8 = 5;
 const WINDOW_SIZE: u8 = SLOT_SIZE + 2;
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SequenceKind {
+    Single,
+    Double,
+}
+
+use SequenceKind::*;
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Sequence(pub u8);
 
@@ -19,24 +27,49 @@ impl fmt::Debug for Sequence {
 }
 
 pub struct Sequences {
-    black: bool,
-    n: u8,
     my: u16,
     op: u16,
+    double: bool,
+    n: u8,
+    black: bool,
     limit: u8,
     i: u8,
+    prev_matched: bool,
 }
 
 impl Sequences {
-    pub fn new(black: bool, n: u8, my: u16, op: u16, start: u8, end: u8) -> Self {
-        Sequences {
-            black: black,
-            n: n,
+    pub fn new(
+        my: u16,
+        op: u16,
+        kind: SequenceKind,
+        n: u8,
+        exact: bool,
+        start: u8,
+        end: u8,
+    ) -> Self {
+        Self {
             my: my,
             op: op,
+            double: kind == Double,
+            n: n,
+            black: exact,
             limit: end - (WINDOW_SIZE - 1),
             i: start,
+            prev_matched: false,
         }
+    }
+
+    pub fn matches(&self, op: u8, my: u8) -> bool {
+        if (op & 0b00111110) != 0b0 {
+            return false;
+        }
+
+        if self.black && my & 0b01000001 != 0b0 {
+            return false;
+        }
+
+        let stones = (my & 0b00111110) >> 1;
+        COUNT_ONES[stones as usize] == self.n
     }
 }
 
@@ -50,22 +83,25 @@ impl Iterator for Sequences {
         }
         self.i += 1;
 
-        let op = self.op >> i;
-        if (op & 0b00111110) != 0b0 {
-            return self.next();
-        }
+        let op = (self.op >> i & 0b01111111) as u8;
+        let my = (self.my >> i & 0b01111111) as u8;
+        let matched = self.matches(op, my);
 
-        let my = self.my >> i;
-        if self.black && my & 0b01000001 != 0b0 {
-            return self.next();
-        }
-
-        let signature = (my & 0b00111110) >> 1;
-        if COUNT_ONES[signature as usize] == self.n {
-            Some((i, Sequence(signature as u8)))
+        if self.double {
+            let prev_matched = self.prev_matched;
+            self.prev_matched = matched;
+            if prev_matched && matched {
+                let signature = (my & 0b00011110) >> 1;
+                return Some((i, Sequence(signature as u8)));
+            }
         } else {
-            self.next()
+            if matched {
+                let signature = (my & 0b00111110) >> 1;
+                return Some((i, Sequence(signature as u8)));
+            }
         }
+
+        self.next()
     }
 }
 

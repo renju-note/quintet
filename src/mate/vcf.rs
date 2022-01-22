@@ -92,7 +92,7 @@ impl VCFMoves {
             };
         }
         let move_pairs = state
-            .sequences(next_player, 3)
+            .sequences(next_player, SequenceKind::Single, 3)
             .map(|(i, s)| {
                 let eyes = s.eyes();
                 let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
