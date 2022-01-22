@@ -1,3 +1,4 @@
+use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use std::fmt;
 
@@ -29,30 +30,32 @@ impl Slot {
         Self(black_flag | white_flag | overline_flag | stones)
     }
 
-    pub fn potential(&self, player: Player) -> i8 {
-        if self.0 == EMPTY_SIGNATURE {
+    pub fn potential(&self, player: Player) -> u8 {
+        if self.is_free() {
+            return 1;
+        }
+        if self.contains(player.opponent()) {
             return 0;
         }
-        let player_black = player.is_black();
-        let black = self.contains_black();
-        let white = self.contains_white();
-        if black && white {
-            return -1;
+        if player.is_black() && self.will_overline() {
+            return 0;
         }
-        if black && !player_black || white && player_black {
-            return -2;
-        }
-        if player_black && self.will_overline() {
-            return -3;
-        }
-        self.nstones() as i8
+        self.nstones() + 1
     }
 
     pub fn occupied_by(&self, player: Player) -> bool {
         if player.is_black() {
-            self.contains_black() && !self.contains_white()
+            self.contains(Black) && !self.contains(White)
         } else {
-            !self.contains_black() && self.contains_white()
+            self.contains(White) && !self.contains(Black)
+        }
+    }
+
+    pub fn contains(&self, player: Player) -> bool {
+        if player.is_black() {
+            self.0 & BLACK_FLAG != 0b0
+        } else {
+            self.0 & WHITE_FLAG != 0b0
         }
     }
 
@@ -76,12 +79,8 @@ impl Slot {
         self.0 & OVERLINE_FLAG != 0b0
     }
 
-    fn contains_black(&self) -> bool {
-        self.0 & BLACK_FLAG != 0b0
-    }
-
-    fn contains_white(&self) -> bool {
-        self.0 & WHITE_FLAG != 0b0
+    pub fn is_free(&self) -> bool {
+        self.0 == EMPTY_SIGNATURE
     }
 }
 
@@ -170,7 +169,6 @@ const EYES: [&[u8]; 32] = [
 
 #[cfg(test)]
 mod tests {
-    use super::super::fundamentals::Player::*;
     use super::*;
 
     #[test]
@@ -187,27 +185,27 @@ mod tests {
     #[test]
     fn test_potential() {
         let slot = Slot::new(0b0000000, 0b0000000);
+        assert_eq!(slot.potential(Black), 1);
+        assert_eq!(slot.potential(White), 1);
+
+        let slot = Slot::new(0b0000100, 0b0000010);
         assert_eq!(slot.potential(Black), 0);
         assert_eq!(slot.potential(White), 0);
 
-        let slot = Slot::new(0b0000100, 0b0000010);
-        assert_eq!(slot.potential(Black), -1);
-        assert_eq!(slot.potential(White), -1);
-
         let slot = Slot::new(0b0010100, 0b0000000);
-        assert_eq!(slot.potential(Black), 2);
-        assert_eq!(slot.potential(White), -2);
+        assert_eq!(slot.potential(Black), 3);
+        assert_eq!(slot.potential(White), 0);
 
         let slot = Slot::new(0b0000000, 0b0110100);
-        assert_eq!(slot.potential(Black), -2);
-        assert_eq!(slot.potential(White), 3);
+        assert_eq!(slot.potential(Black), 0);
+        assert_eq!(slot.potential(White), 4);
 
         let slot = Slot::new(0b0000011, 0b0000000);
-        assert_eq!(slot.potential(Black), -3);
-        assert_eq!(slot.potential(White), -2);
+        assert_eq!(slot.potential(Black), 0);
+        assert_eq!(slot.potential(White), 0);
 
         let slot = Slot::new(0b0000001, 0b0000000);
-        assert_eq!(slot.potential(Black), -3);
-        assert_eq!(slot.potential(White), 0);
+        assert_eq!(slot.potential(Black), 0);
+        assert_eq!(slot.potential(White), 1);
     }
 }

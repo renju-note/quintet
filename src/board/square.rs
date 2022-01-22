@@ -125,7 +125,7 @@ impl Square {
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn slots(&self, player: Player, potential: i8) -> impl Iterator<Item = (Index, Slot)> + '_ {
+    pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines()
             .map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
             .flatten()
@@ -135,7 +135,7 @@ impl Square {
     pub fn slots_on(
         &self,
         player: Player,
-        potential: i8,
+        potential: u8,
         p: Point,
     ) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines_along(p)
