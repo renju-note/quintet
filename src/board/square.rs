@@ -96,24 +96,13 @@ impl Square {
             .flatten()
     }
 
+    // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
     pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
         let (sk, n, exact) = kind.to_sequence(player);
         self.sequences(player, sk, n, exact)
             .map(move |(i, s)| Row::from_sequence(i, s, kind))
     }
 
-    pub fn rows_on(
-        &self,
-        player: Player,
-        kind: RowKind,
-        p: Point,
-    ) -> impl Iterator<Item = Row> + '_ {
-        let (sk, n, exact) = kind.to_sequence(player);
-        self.sequences_on(p, player, sk, n, exact)
-            .map(move |(i, s)| Row::from_sequence(i, s, kind))
-    }
-
-    // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
     pub fn sequences(
         &self,
         player: Player,
@@ -641,15 +630,6 @@ mod tests {
 
         assert_eq!(square.rows(Black, Two).collect::<Vec<_>>(), black_twos);
         assert_eq!(square.rows(White, Sword).collect::<Vec<_>>(), white_swords);
-
-        assert_eq!(
-            square.rows_on(Black, Two, Point(10, 8)).collect::<Vec<_>>(),
-            black_twos
-        );
-        assert_eq!(
-            square.rows_on(Black, Two, Point(7, 7)).collect::<Vec<_>>(),
-            []
-        );
 
         Ok(())
     }

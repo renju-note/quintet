@@ -68,15 +68,6 @@ impl Board {
         self.square.rows(player, kind)
     }
 
-    pub fn rows_on(
-        &self,
-        player: Player,
-        kind: RowKind,
-        p: Point,
-    ) -> impl Iterator<Item = Row> + '_ {
-        self.square.rows_on(player, kind, p)
-    }
-
     pub fn sequences(
         &self,
         player: Player,
@@ -278,14 +269,6 @@ mod tests {
         assert_eq!(board.rows(Black, Two).collect::<Vec<_>>(), black_twos);
         assert_eq!(board.rows(White, Two).collect::<Vec<_>>(), white_twos);
         assert_eq!(board.rows(White, Three).collect::<Vec<_>>(), white_threes);
-        assert_eq!(
-            board.rows_on(Black, Two, Point(7, 7)).collect::<Vec<_>>(),
-            [
-                black_twos[3].clone(),
-                black_twos[4].clone(),
-                black_twos[5].clone()
-            ]
-        );
 
         assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
         assert_eq!(board.forbidden(Point(6, 7)), Some(DoubleThree));
