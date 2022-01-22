@@ -105,7 +105,9 @@ impl Square {
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
+        let potential = kind.potential();
         self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(move |(d, i, l)| Row::from_slots(l.slots(), d, i, player, kind))
             .flatten()
     }
@@ -116,7 +118,9 @@ impl Square {
         kind: RowKind,
         p: Point,
     ) -> impl Iterator<Item = Row> + '_ {
-        self.iter_lines_along(p)
+        let potential = kind.potential();
+        self.iter_lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
                 Row::from_slots(l.slots_on(j), d, i, player, kind)
@@ -127,6 +131,7 @@ impl Square {
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
     pub fn slots(&self, player: Player, potential: u8) -> impl Iterator<Item = (Index, Slot)> + '_ {
         self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(|(d, i, l)| l.slots().map(move |(j, s)| (Index::new(d, i, j), s)))
             .flatten()
             .filter(move |(_, s)| s.potential(player) == potential)
@@ -138,7 +143,8 @@ impl Square {
         potential: u8,
         p: Point,
     ) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.iter_lines_along(p)
+        self.iter_lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
             .map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
                 l.slots_on(j).map(move |(j, s)| (Index::new(d, i, j), s))
@@ -185,7 +191,7 @@ impl Square {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    fn iter_lines_along(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
+    fn iter_lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let vidx = p.to_index(Vertical);
         let viter = Self::line_idx(vidx)
             .map(|i| (Vertical, vidx.i, &self.vlines[i]))

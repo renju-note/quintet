@@ -1,3 +1,4 @@
+use super::fundamentals::Player::*;
 use super::fundamentals::*;
 use super::slot::*;
 use std::cmp;
@@ -90,6 +91,21 @@ impl Line {
         let end = cmp::min(self.size + 1, (i + 1) + (WINDOW_SIZE - 1));
         Slots::new(self.blacks << 1, self.whites << 1, start, end)
     }
+
+    pub fn potential_cap(&self, player: Player) -> u8 {
+        let nstones_opponent = match player {
+            Black => self.whites.count_ones(),
+            White => self.blacks.count_ones(),
+        } as u8;
+        if self.size < nstones_opponent + 5 {
+            return 0;
+        }
+        let nstones = match player {
+            Black => self.blacks.count_ones(),
+            White => self.whites.count_ones(),
+        } as u8;
+        nstones + 1
+    }
 }
 
 impl fmt::Display for Line {
@@ -127,7 +143,6 @@ impl FromStr for Line {
 
 #[cfg(test)]
 mod tests {
-    use super::Player::*;
     use super::*;
 
     #[test]

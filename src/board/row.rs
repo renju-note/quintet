@@ -26,6 +26,17 @@ impl RowKind {
             Overline => 5,
         }
     }
+
+    pub fn potential(&self) -> u8 {
+        match self {
+            Two => 3,
+            Sword => 4,
+            Three => 4,
+            Four => 5,
+            Five => 6,
+            Overline => 6,
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
