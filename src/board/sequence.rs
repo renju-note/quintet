@@ -91,7 +91,7 @@ impl Iterator for Sequences {
             let prev_matched = self.prev_matched;
             self.prev_matched = matched;
             if prev_matched && matched {
-                let signature = (my & 0b00011110) >> 1;
+                let signature = (my & 0b00011110 | 0b00100000) >> 1;
                 return Some((i, Sequence(signature as u8)));
             }
         } else {

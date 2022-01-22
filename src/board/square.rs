@@ -97,11 +97,9 @@ impl Square {
     }
 
     pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
-        let potential = kind.potential();
-        self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(move |(d, i, l)| Row::from_slots(l.slots(), d, i, player, kind))
-            .flatten()
+        let (sk, n, exact) = kind.to_sequence(player);
+        self.sequences(player, sk, n, exact)
+            .map(move |(i, s)| Row::from_sequence(i, s, kind))
     }
 
     pub fn rows_on(
@@ -110,14 +108,9 @@ impl Square {
         kind: RowKind,
         p: Point,
     ) -> impl Iterator<Item = Row> + '_ {
-        let potential = kind.potential();
-        self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(player) >= potential)
-            .map(move |(d, i, l)| {
-                let j = p.to_index(d).j;
-                Row::from_slots(l.slots_on(j), d, i, player, kind)
-            })
-            .flatten()
+        let (sk, n, exact) = kind.to_sequence(player);
+        self.sequences_on(p, player, sk, n, exact)
+            .map(move |(i, s)| Row::from_sequence(i, s, kind))
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
@@ -129,7 +122,7 @@ impl Square {
         exact: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(player) >= n + 1)
+            .filter(move |(_, _, l)| l.potential_cap(player) > n)
             .flat_map(move |(d, i, l)| {
                 l.sequences(player, kind, n, exact)
                     .map(move |(j, s)| (Index::new(d, i, j), s))
@@ -145,7 +138,7 @@ impl Square {
         exact: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(player) >= n + 1)
+            .filter(move |(_, _, l)| l.potential_cap(player) > n)
             .flat_map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
                 l.sequences_on(j, player, kind, n, exact)

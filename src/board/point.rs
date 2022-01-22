@@ -84,6 +84,11 @@ impl Index {
         }
     }
 
+    pub fn subsequent<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + 'a {
+        let start = *self;
+        steps.iter().flat_map(move |&s| start.walk(s as i8))
+    }
+
     fn maxj(&self) -> u8 {
         let n = BOARD_SIZE - 1;
         let i = self.i;
