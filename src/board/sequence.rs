@@ -9,7 +9,7 @@ pub enum SequenceKind {
     Double,
 }
 
-use SequenceKind::*;
+pub use SequenceKind::*;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Sequence(pub u8);

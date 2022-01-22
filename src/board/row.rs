@@ -1,5 +1,7 @@
 use super::fundamentals::*;
 use super::point::*;
+use super::sequence::SequenceKind::*;
+use super::sequence::*;
 use super::slot::*;
 use std::fmt;
 
@@ -16,6 +18,17 @@ pub enum RowKind {
 use RowKind::*;
 
 impl RowKind {
+    pub fn to_sequence_kind_n(&self) -> (SequenceKind, u8) {
+        match self {
+            Two => (Double, 2),
+            Sword => (Single, 3),
+            Three => (Double, 3),
+            Four => (Single, 4),
+            Five => (Single, 5),
+            Overline => (Double, 5),
+        }
+    }
+
     pub fn nstones(&self) -> u8 {
         match self {
             Two => 2,
@@ -55,8 +68,8 @@ impl Row {
         end: Point,
         eye1: Option<Point>,
         eye2: Option<Point>,
-    ) -> Row {
-        Row {
+    ) -> Self {
+        Self {
             direction: direction,
             start: start,
             end: end,

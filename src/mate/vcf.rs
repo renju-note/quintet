@@ -63,7 +63,7 @@ struct VCFMoves {
 impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
         let next_player = state.next_player();
-        let mut last_fours = state.sequences_on(state.last_player(), Single, 4, state.last_move());
+        let mut last_fours = state.sequences_on(state.last_move(), state.last_player(), Single, 4);
         if let Some((index, last_four)) = last_fours.next() {
             if last_fours.next().is_some() {
                 return VCFMoves {
@@ -73,7 +73,7 @@ impl VCFMoves {
             }
             let last_four_eye = index.walk(last_four.eyes()[0] as i8).unwrap().to_point();
             let move_pairs = state
-                .sequences_on(next_player, Single, 3, last_four_eye)
+                .sequences_on(last_four_eye, next_player, Single, 3)
                 .map(|(i, s)| {
                     let eyes = s.eyes();
                     let e1 = i.walk(eyes[0] as i8).unwrap().to_point();
@@ -119,7 +119,7 @@ impl Iterator for VCFMoves {
             let mut state = self.state.play(attack);
             let has_multiple_four = {
                 let mut fours =
-                    state.sequences_on(state.last_player(), Single, 4, state.last_move());
+                    state.sequences_on(state.last_move(), state.last_player(), Single, 4);
                 fours.next();
                 fours.next().is_some()
             };

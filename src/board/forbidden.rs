@@ -1,6 +1,6 @@
 use super::fundamentals::*;
 use super::point::*;
-use super::row::*;
+use super::sequence::*;
 use super::square::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -34,31 +34,38 @@ pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(next: &Square, p: Point) -> bool {
-    let mut new_overlines = next.rows_on(Black, RowKind::Overline, p);
+    let mut new_overlines = next.sequences_on(p, Black, Double, 5, false);
     new_overlines.next().is_some()
 }
 
 fn double_four(next: &Square, p: Point) -> bool {
-    let new_fours = next.rows_on(Black, RowKind::Four, p).collect::<Vec<_>>();
-    new_fours.len() >= 2 && distinctive(&new_fours)
+    let new_fours = next
+        .sequences_on(p, Black, Single, 4, true)
+        .collect::<Vec<_>>();
+    new_fours.len() >= 2 && separated(&new_fours)
 }
 
 fn double_three(next: &Square, p: Point) -> bool {
-    let new_threes = next.rows_on(Black, RowKind::Three, p).collect::<Vec<_>>();
-    if new_threes.len() < 2 || !distinctive(&new_threes) {
+    let new_threes = next
+        .sequences_on(p, Black, Double, 3, true)
+        .collect::<Vec<_>>();
+    if new_threes.len() < 2 || !separated(&new_threes) {
         return false;
     }
     let truthy_threes = new_threes
         .into_iter()
-        .filter(|r| forbidden(&next, r.eye1.unwrap()).is_none())
+        .filter(|(i, s)| {
+            let eye = i.walk(s.eyes()[0] as i8).unwrap().to_point();
+            forbidden(&next, eye).is_none()
+        })
         .collect::<Vec<_>>();
-    truthy_threes.len() >= 2 && distinctive(&truthy_threes)
+    truthy_threes.len() >= 2 && separated(&truthy_threes)
 }
 
-fn distinctive(rows: &Vec<Row>) -> bool {
-    let first = &rows[0];
-    for row in rows.iter().skip(1) {
-        if !first.adjacent(row) {
+fn separated(sequences: &Vec<(Index, Sequence)>) -> bool {
+    let first_index_1 = sequences[0].0.walk(1);
+    for sequence in sequences.iter().skip(1) {
+        if Some(sequence.0) != first_index_1 {
             return true;
         }
     }

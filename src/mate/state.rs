@@ -54,16 +54,17 @@ impl GameState {
         kind: SequenceKind,
         n: u8,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.board.sequences(player, kind, n)
+        self.board.sequences(player, kind, n, player.is_black())
     }
 
     pub fn sequences_on(
         &self,
+        p: Point,
         player: Player,
         kind: SequenceKind,
         n: u8,
-        p: Point,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.board.sequences_on(player, kind, n, p)
+        self.board
+            .sequences_on(p, player, kind, n, player.is_black())
     }
 }
