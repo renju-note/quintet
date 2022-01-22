@@ -198,6 +198,36 @@ mod tests {
     }
 
     #[test]
+    fn test_sequences() -> Result<(), String> {
+        let line = "o--o--o---o---o".parse::<Line>()?;
+        let result = line.sequences(Black, Single, 2, true).collect::<Vec<_>>();
+        let expected = [
+            (0, Sequence(0b00001001)),
+            (2, Sequence(0b00010010)),
+            (3, Sequence(0b00001001)),
+            (6, Sequence(0b00010001)),
+            (10, Sequence(0b00010001)),
+        ];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_sequences_on() -> Result<(), String> {
+        let line = "o--o--o---o---o".parse::<Line>()?;
+        let result = line
+            .sequences_on(7, Black, Single, 2, true)
+            .collect::<Vec<_>>();
+        let expected = [
+            (2, Sequence(0b00010010)),
+            (3, Sequence(0b00001001)),
+            (6, Sequence(0b00010001)),
+        ];
+        assert_eq!(result, expected);
+        Ok(())
+    }
+
+    #[test]
     fn test_slots() -> Result<(), String> {
         let line = "oo-----o-----xx".parse::<Line>()?;
         let result = line.slots().collect::<Vec<_>>();
