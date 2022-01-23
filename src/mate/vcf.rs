@@ -40,14 +40,12 @@ pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> O
 }
 
 fn collect_four_move_pairs(state: &GameState) -> Vec<(Point, Point)> {
-    let mut last_four_eyes = state.last_four_eyes();
-    let may_last_four_eye = last_four_eyes.next();
-
-    if last_four_eyes.next().is_some() {
+    let last_four_eyes = state.last_four_eyes();
+    if last_four_eyes.len() > 1 {
         return vec![];
     }
 
-    if let Some(last_four_eye) = may_last_four_eye {
+    if let Some(&last_four_eye) = last_four_eyes.get(0) {
         return state
             .sequences_on(last_four_eye, state.next_player(), Single, 3)
             .flat_map(|(i, s)| {
@@ -195,6 +193,34 @@ mod tests {
         let result = solve(&mut state.clone(), 4, &mut HashSet::new());
         assert_eq!(result, None);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_opponent_overline_not_double_four() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . o . . . .
+         . . . . . . . . . . x . . . .
+         . . . . . . . . o . x . . . .
+         . . . . . . . . . o x . . . .
+         . . . . . . x o o o . . . . .
+         . . . . . . . . . . x . . . .
+         . . . . . . . . . . x . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = GameState::new(board, Black, Point(10, 8));
+        let result = solve(&mut state.clone(), 3, &mut HashSet::new());
+        let result = result.map(|ps| Points(ps).to_string());
+        let solution = "K8,L8,H11".split_whitespace().collect();
+        assert_eq!(result, Some(solution));
         Ok(())
     }
 

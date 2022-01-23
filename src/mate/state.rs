@@ -65,23 +65,24 @@ impl GameState {
             .sequences_on(p, player, kind, n, player.is_black())
     }
 
-    pub fn last_four_eyes(&self) -> impl Iterator<Item = Point> + '_ {
-        self.sequences_on(self.last_move(), self.last_player(), Single, 4)
+    pub fn last_four_eyes(&self) -> Vec<Point> {
+        let mut result = self
+            .sequences_on(self.last_move(), self.last_player(), Single, 4)
             .map(|(i, s)| i.walk(s.eyes()[0] as i8).to_point())
+            .collect::<Vec<_>>();
+        result.dedup();
+        result
     }
 
     pub fn won_by_last(&self) -> bool {
-        let mut last_fours = self.sequences_on(self.last_move(), self.last_player(), Single, 4);
-        let last_four = last_fours.next();
-        if last_four.is_none() {
+        let last_four_eyes = self.last_four_eyes();
+        if last_four_eyes.len() == 0 {
             return false;
         }
-        if last_fours.next().is_some() {
+        if last_four_eyes.len() > 1 {
             return true;
         }
-        let (index, sequence) = last_four.unwrap();
-        let last_four_eye = index.walk(sequence.eyes()[0] as i8).to_point();
-        self.is_forbidden_move(last_four_eye)
+        self.is_forbidden_move(last_four_eyes[0])
     }
 
     fn last_player(&self) -> Player {
