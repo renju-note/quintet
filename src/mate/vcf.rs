@@ -20,10 +20,7 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
             continue;
         }
         let mut state = state.play(attack);
-        if state.last_four_eyes().nth(1).is_some() {
-            return Some(vec![attack]);
-        }
-        if state.is_forbidden_move(defence) {
+        if state.won_by_last() {
             return Some(vec![attack]);
         }
         state.play_mut(defence);
@@ -96,16 +93,12 @@ pub fn is_solution(state: &GameState, cand_moves: &Vec<Point>) -> bool {
     if state.is_forbidden_move(attack) {
         return false;
     }
+
     let mut state = state.play(cand_attack);
     if cand_moves.len() == 1 {
-        if state.last_four_eyes().nth(1).is_some() {
-            return true;
-        }
-        if state.is_forbidden_move(defence) {
-            return true;
-        }
-        return false;
+        return state.won_by_last();
     }
+
     let cand_defence = cand_moves[1];
     if cand_defence != defence {
         return false;

@@ -33,10 +33,6 @@ impl GameState {
         self.next_player
     }
 
-    pub fn last_player(&self) -> Player {
-        self.next_player.opponent()
-    }
-
     pub fn last_move(&self) -> Point {
         self.last_move
     }
@@ -72,5 +68,23 @@ impl GameState {
     pub fn last_four_eyes(&self) -> impl Iterator<Item = Point> + '_ {
         self.sequences_on(self.last_move(), self.last_player(), Single, 4)
             .map(|(i, s)| i.walk(s.eyes()[0] as i8).to_point())
+    }
+
+    pub fn won_by_last(&self) -> bool {
+        let mut last_fours = self.sequences_on(self.last_move(), self.last_player(), Single, 4);
+        let last_four = last_fours.next();
+        if last_four.is_none() {
+            return false;
+        }
+        if last_fours.next().is_some() {
+            return true;
+        }
+        let (index, sequence) = last_four.unwrap();
+        let last_four_eye = index.walk(sequence.eyes()[0] as i8).to_point();
+        self.is_forbidden_move(last_four_eye)
+    }
+
+    fn last_player(&self) -> Player {
+        self.next_player.opponent()
     }
 }
