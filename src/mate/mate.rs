@@ -11,9 +11,9 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
     }
 
     let last_move = choose_last_move(board, player);
-    let state = GameState::new(board, player, last_move);
+    let state = GameState::new(board.clone(), player, last_move);
     let mut searched = HashSet::new();
-    let solution = vcf::solve(&state, depth, &mut searched);
+    let solution = vcf::solve(&mut state.clone(), depth, &mut searched);
 
     if trim {
         solution.map(|solution| vcf::trim(&state, &solution))
@@ -82,12 +82,12 @@ mod tests {
         .parse::<Board>()?;
         let result = solve_vcf(&board, White, 10, false);
         let result = result.map(|ps| Points(ps).to_string());
-        let expected = "H5,I6,E6,H9,F5,E5,C8,D7,G3,G1,C11,C9,C14,C13,D13".to_string();
+        let expected = "G1,G3,E6,H9,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
         assert_eq!(result, Some(expected));
 
         let result = solve_vcf(&board, White, 10, true);
         let result = result.map(|ps| Points(ps).to_string());
-        let expected = "H5,I6,E6,H9,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
+        let expected = "E6,H9,H5,I6,F5,E5,C8,D7,C11,C9,C14,C13,D13".to_string();
         assert_eq!(result, Some(expected));
         Ok(())
     }

@@ -3,7 +3,7 @@ use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
@@ -14,19 +14,66 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
     }
     searched.insert(hash);
 
-    for (attack, may_defence, may_next_state) in VCFMoves::new(state) {
-        if may_defence.is_none() {
+    let move_pairs = collect_four_move_pairs(&state);
+    let last_move = state.last_move();
+    for (attack, defence) in move_pairs {
+        if state.is_forbidden_move(attack) {
+            continue;
+        }
+
+        state.play_mut(attack);
+        if state.won_by_last() {
             return Some(vec![attack]);
         }
-        let defence = may_defence.unwrap();
-        let next_state = may_next_state.unwrap();
-        if let Some(mut ps) = solve(&next_state, depth - 1, searched) {
+
+        state.play_mut(defence);
+        if let Some(mut ps) = solve(state, depth - 1, searched) {
             let mut result = vec![attack, defence];
             result.append(&mut ps);
             return Some(result);
         }
+
+        state.undo_mut(attack);
+        state.undo_mut(last_move);
     }
     None
+}
+
+fn collect_four_move_pairs(state: &GameState) -> Vec<(Point, Point)> {
+    let mut last_four_eyes = state.last_four_eyes();
+    let may_last_four_eye = last_four_eyes.next();
+
+    if last_four_eyes.next().is_some() {
+        return vec![];
+    }
+
+    if let Some(last_four_eye) = may_last_four_eye {
+        return state
+            .sequences_on(last_four_eye, state.next_player(), Single, 3)
+            .flat_map(|(i, s)| {
+                let eyes = s.eyes();
+                let e1 = i.walk(eyes[0] as i8).to_point();
+                let e2 = i.walk(eyes[1] as i8).to_point();
+                if e1 == last_four_eye {
+                    Some((e1, e2))
+                } else if e2 == last_four_eye {
+                    Some((e2, e1))
+                } else {
+                    None
+                }
+            })
+            .collect();
+    }
+
+    state
+        .sequences(state.next_player(), Single, 3)
+        .flat_map(|(i, s)| {
+            let eyes = s.eyes();
+            let e1 = i.walk(eyes[0] as i8).to_point();
+            let e2 = i.walk(eyes[1] as i8).to_point();
+            [(e1, e2), (e2, e1)]
+        })
+        .collect()
 }
 
 pub fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
@@ -41,99 +88,36 @@ pub fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
     solution.clone()
 }
 
-pub fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
+pub fn is_solution(state: &GameState, cand_moves: &Vec<Point>) -> bool {
+    let cand_attack = cand_moves[0];
+
+    let move_pairs = collect_four_move_pairs(state);
+    let move_pair = move_pairs.iter().find(|(a, _)| *a == cand_attack);
+    if move_pair.is_none() {
+        return false;
+    }
+    let (attack, defence) = *move_pair.unwrap();
+
+    if state.is_forbidden_move(attack) {
+        return false;
+    }
+
     let mut state = state.clone();
-    for i in 0..((solution.len() + 1) / 2) {
-        let attack = solution[i * 2];
-        let may_defence = solution.get(i * 2 + 1).map(|&p| p);
-        if !VCFMoves::new(&state).any(|(a, d, _)| a == attack && d == may_defence) {
-            return false;
-        }
-        state.play_mut(attack);
-        may_defence.map(|defence| state.play_mut(defence));
+    state.play_mut(cand_attack);
+    if cand_moves.len() == 1 {
+        return state.won_by_last();
     }
-    true
-}
 
-struct VCFMoves {
-    state: GameState,
-    move_pairs: Vec<(Point, Point)>,
-}
-
-impl VCFMoves {
-    pub fn new(state: &GameState) -> Self {
-        let next_player = state.next_player();
-        let mut last_fours = state.sequences_on(state.last_move(), state.last_player(), Single, 4);
-        if let Some((index, last_four)) = last_fours.next() {
-            if last_fours.next().is_some() {
-                return VCFMoves {
-                    state: state.clone(),
-                    move_pairs: vec![],
-                };
-            }
-            let last_four_eye = index.walk(last_four.eyes()[0] as i8).to_point();
-            let move_pairs = state
-                .sequences_on(last_four_eye, next_player, Single, 3)
-                .map(|(i, s)| {
-                    let eyes = s.eyes();
-                    let e1 = i.walk(eyes[0] as i8).to_point();
-                    let e2 = i.walk(eyes[1] as i8).to_point();
-                    if e1 == last_four_eye {
-                        Some((e1, e2))
-                    } else if e2 == last_four_eye {
-                        Some((e2, e1))
-                    } else {
-                        None
-                    }
-                })
-                .flatten();
-            return VCFMoves {
-                state: state.clone(),
-                move_pairs: move_pairs.collect(),
-            };
-        }
-        let move_pairs = state
-            .sequences(next_player, Single, 3)
-            .map(|(i, s)| {
-                let eyes = s.eyes();
-                let e1 = i.walk(eyes[0] as i8).to_point();
-                let e2 = i.walk(eyes[1] as i8).to_point();
-                [(e1, e2), (e2, e1)]
-            })
-            .flatten();
-        return VCFMoves {
-            state: state.clone(),
-            move_pairs: move_pairs.collect(),
-        };
+    let cand_defence = cand_moves[1];
+    if cand_defence != defence {
+        return false;
     }
-}
+    state.play_mut(cand_defence);
 
-impl Iterator for VCFMoves {
-    type Item = (Point, Option<Point>, Option<GameState>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some((attack, defence)) = self.move_pairs.pop() {
-            if self.state.is_forbidden_move(attack) {
-                continue;
-            }
-            let mut state = self.state.play(attack);
-            let has_multiple_four = {
-                let mut fours =
-                    state.sequences_on(state.last_move(), state.last_player(), Single, 4);
-                fours.next();
-                fours.next().is_some()
-            };
-            if has_multiple_four {
-                return Some((attack, None, None));
-            }
-            if state.is_forbidden_move(defence) {
-                return Some((attack, None, None));
-            }
-            state.play_mut(defence);
-            return Some((attack, Some(defence), Some(state)));
-        }
-        None
-    }
+    let mut rest = cand_moves.clone();
+    rest.remove(0);
+    rest.remove(0);
+    is_solution(&state, &rest)
 }
 
 #[cfg(test)]
@@ -162,19 +146,19 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(&board, Black, Point(11, 10));
+        let state = GameState::new(board, Black, Point(11, 10));
 
-        let result = solve(&state, 12, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 12, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "
-            G6,H7,J12,K13,G9,F8,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
+            J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
             F14,F13,C11
         "
         .split_whitespace()
         .collect();
         assert_eq!(result, Some(solution));
 
-        let result = solve(&state, 11, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 11, &mut HashSet::new());
         assert_eq!(result, None);
 
         Ok(())
@@ -201,14 +185,14 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(&board, White, Point(12, 11));
+        let state = GameState::new(board, White, Point(12, 11));
 
-        let result = solve(&state, 5, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 5, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14".to_string();
         assert_eq!(result, Some(solution));
 
-        let result = solve(&state, 4, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 4, &mut HashSet::new());
         assert_eq!(result, None);
 
         Ok(())
@@ -236,8 +220,8 @@ mod tests {
          x . . o . o . . . . o o . o x
         "
         .parse::<Board>()?;
-        let state = GameState::new(&board, Black, Point(0, 0));
-        let result = solve(&state, u8::MAX, &mut HashSet::new());
+        let state = GameState::new(board, Black, Point(0, 0));
+        let result = solve(&mut state.clone(), u8::MAX, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "
             A7,A6,E2,C4,F3,G4,J1,M1,H1,I1,H3,H2,E3,G3,C3,B3,E5,E4,E1,G1,
