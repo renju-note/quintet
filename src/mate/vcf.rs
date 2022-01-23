@@ -40,12 +40,12 @@ pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> O
 }
 
 fn collect_four_move_pairs(state: &GameState) -> Vec<(Point, Point)> {
-    let last_four_eyes = state.last_four_eyes();
-    if last_four_eyes.len() > 1 {
+    let (last_four_eye, another) = state.last_four_eye_and_another();
+    if another {
         return vec![];
     }
 
-    if let Some(&last_four_eye) = last_four_eyes.get(0) {
+    if let Some(last_four_eye) = last_four_eye {
         return state
             .sequences_on(last_four_eye, state.next_player(), Single, 3)
             .flat_map(|(i, s)| {
