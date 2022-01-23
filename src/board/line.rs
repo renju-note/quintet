@@ -1,6 +1,5 @@
 use super::fundamentals::*;
 use super::sequence::*;
-use super::slot::*;
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
@@ -79,14 +78,6 @@ impl Line {
             (self.whites, self.blacks)
         };
         Sequences::new_on(i, self.size, my, op, kind, n, exact)
-    }
-
-    pub fn slots(&self) -> Slots {
-        Slots::new(self.size + 1, self.blacks << 1, self.whites << 1)
-    }
-
-    pub fn slots_on(&self, i: u8) -> Slots {
-        Slots::new_on(i + 1, self.size + 1, self.blacks << 1, self.whites << 1)
     }
 
     pub fn potential_cap(&self, player: Player) -> u8 {
@@ -242,86 +233,6 @@ mod tests {
         let expected = [];
         assert_eq!(result, expected);
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_slots() -> Result<(), String> {
-        let line = "oo-----o-----xx".parse::<Line>()?;
-        let result = line.slots().collect::<Vec<_>>();
-        let expected = [
-            (0, Slot(0b01000011)),
-            (1, Slot(0b01100001)),
-            (2, Slot(0b00100000)),
-            (3, Slot(0b01010000)),
-            (4, Slot(0b01001000)),
-            (5, Slot(0b01000100)),
-            (6, Slot(0b01000010)),
-            (7, Slot(0b01000001)),
-            (8, Slot(0b00100000)),
-            (9, Slot(0b10010000)),
-            (10, Slot(0b10011000)),
-        ];
-        assert_eq!(result, expected);
-        Ok(())
-    }
-
-    #[test]
-    fn test_slots_on() -> Result<(), String> {
-        let line = "oo-----o-----xx".parse::<Line>()?;
-        let result = line.slots_on(2).collect::<Vec<_>>();
-        let expected = [
-            (0, Slot(0b01000011)),
-            (1, Slot(0b01100001)),
-            (2, Slot(0b00100000)),
-            (3, Slot(0b01010000)),
-        ];
-        assert_eq!(result, expected);
-
-        let result = line.slots_on(5).collect::<Vec<_>>();
-        let expected = [
-            (0, Slot(0b01000011)),
-            (1, Slot(0b01100001)),
-            (2, Slot(0b00100000)),
-            (3, Slot(0b01010000)),
-            (4, Slot(0b01001000)),
-            (5, Slot(0b01000100)),
-            (6, Slot(0b01000010)),
-        ];
-        assert_eq!(result, expected);
-
-        let result = line.slots_on(6).collect::<Vec<_>>();
-        let expected = [
-            (1, Slot(0b01100001)),
-            (2, Slot(0b00100000)),
-            (3, Slot(0b01010000)),
-            (4, Slot(0b01001000)),
-            (5, Slot(0b01000100)),
-            (6, Slot(0b01000010)),
-            (7, Slot(0b01000001)),
-        ];
-        assert_eq!(result, expected);
-
-        let result = line.slots_on(7).collect::<Vec<_>>();
-        let expected = [
-            (2, Slot(0b00100000)),
-            (3, Slot(0b01010000)),
-            (4, Slot(0b01001000)),
-            (5, Slot(0b01000100)),
-            (6, Slot(0b01000010)),
-            (7, Slot(0b01000001)),
-            (8, Slot(0b00100000)),
-        ];
-        assert_eq!(result, expected);
-
-        let result = line.slots_on(12).collect::<Vec<_>>();
-        let expected = [
-            (7, Slot(0b01000001)),
-            (8, Slot(0b00100000)),
-            (9, Slot(0b10010000)),
-            (10, Slot(0b10011000)),
-        ];
-        assert_eq!(result, expected);
         Ok(())
     }
 
