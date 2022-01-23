@@ -1,3 +1,4 @@
+use super::super::board::SequenceKind::*;
 use super::super::board::*;
 
 #[derive(Clone)]
@@ -48,6 +49,11 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
+    pub fn board_hash_ahead(&self, attack: Point, defence: Point) -> u64 {
+        let next_hash = zobrist::apply(self.board_hash(), self.next_player(), attack);
+        zobrist::apply(next_hash, self.next_player().opponent(), defence)
+    }
+
     pub fn sequences(
         &self,
         player: Player,
@@ -66,5 +72,10 @@ impl GameState {
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.board
             .sequences_on(p, player, kind, n, player.is_black())
+    }
+
+    pub fn last_four_eyes(&self) -> impl Iterator<Item = Point> + '_ {
+        self.sequences_on(self.last_move(), self.last_player(), Single, 4)
+            .map(|(i, s)| i.walk(s.eyes()[0] as i8).to_point())
     }
 }
