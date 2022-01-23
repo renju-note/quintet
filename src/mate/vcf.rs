@@ -41,37 +41,39 @@ pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> O
 
 fn collect_four_move_pairs(state: &GameState) -> Vec<(Point, Point)> {
     let mut last_four_eyes = state.last_four_eyes();
-    if let Some(last_four_eye) = last_four_eyes.next() {
-        if last_four_eyes.next().is_some() {
-            vec![]
-        } else {
-            state
-                .sequences_on(last_four_eye, state.next_player(), Single, 3)
-                .flat_map(|(i, s)| {
-                    let eyes = s.eyes();
-                    let e1 = i.walk(eyes[0] as i8).to_point();
-                    let e2 = i.walk(eyes[1] as i8).to_point();
-                    if e1 == last_four_eye {
-                        Some((e1, e2))
-                    } else if e2 == last_four_eye {
-                        Some((e2, e1))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
-    } else {
-        state
-            .sequences(state.next_player(), Single, 3)
+    let may_last_four_eye = last_four_eyes.next();
+
+    if last_four_eyes.next().is_some() {
+        return vec![];
+    }
+
+    if let Some(last_four_eye) = may_last_four_eye {
+        return state
+            .sequences_on(last_four_eye, state.next_player(), Single, 3)
             .flat_map(|(i, s)| {
                 let eyes = s.eyes();
                 let e1 = i.walk(eyes[0] as i8).to_point();
                 let e2 = i.walk(eyes[1] as i8).to_point();
-                [(e1, e2), (e2, e1)]
+                if e1 == last_four_eye {
+                    Some((e1, e2))
+                } else if e2 == last_four_eye {
+                    Some((e2, e1))
+                } else {
+                    None
+                }
             })
-            .collect()
+            .collect();
     }
+
+    state
+        .sequences(state.next_player(), Single, 3)
+        .flat_map(|(i, s)| {
+            let eyes = s.eyes();
+            let e1 = i.walk(eyes[0] as i8).to_point();
+            let e2 = i.walk(eyes[1] as i8).to_point();
+            [(e1, e2), (e2, e1)]
+        })
+        .collect()
 }
 
 pub fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
