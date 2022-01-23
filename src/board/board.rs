@@ -243,20 +243,27 @@ mod tests {
             ),
         ];
         let white_twos = [
-            Row::new(
-                Horizontal,
-                Point(5, 6),
-                Point(8, 6),
-                Some(Point(6, 6)),
-                Some(Point(7, 6)),
-            ),
-            Row::new(
-                Ascending,
-                Point(7, 8),
-                Point(10, 11),
-                Some(Point(9, 10)),
-                Some(Point(10, 11)),
-            ),
+            Row {
+                direction: Horizontal,
+                start: Point(5, 6),
+                end: Point(8, 6),
+                eye1: Some(Point(6, 6)),
+                eye2: Some(Point(7, 6)),
+            },
+            Row {
+                direction: Ascending,
+                start: Point(6, 7),
+                end: Point(9, 10),
+                eye1: Some(Point(6, 7)),
+                eye2: Some(Point(9, 10)),
+            },
+            Row {
+                direction: Ascending,
+                start: Point(7, 8),
+                end: Point(10, 11),
+                eye1: Some(Point(9, 10)),
+                eye2: Some(Point(10, 11)),
+            },
         ];
         let white_threes = [Row::new(
             Ascending,

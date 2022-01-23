@@ -7,7 +7,8 @@ const SLOT_SIZE: u8 = 5;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
     Single,
-    Double,
+    Union,
+    Intersect,
 }
 
 pub use SequenceKind::*;
@@ -30,7 +31,7 @@ impl fmt::Debug for Sequence {
 pub struct Sequences {
     my: u16,
     op: u16,
-    double: bool,
+    kind: SequenceKind,
     n: u8,
     exact: bool,
     limit: u8,
@@ -43,7 +44,7 @@ impl Sequences {
         Self {
             my: my << 1,
             op: op << 1,
-            double: kind == Double,
+            kind: kind,
             n: n,
             exact: exact,
             limit: size - SLOT_SIZE,
@@ -64,7 +65,7 @@ impl Sequences {
         Self {
             my: my << 1,
             op: op << 1,
-            double: kind == Double,
+            kind: kind,
             n: n,
             exact: exact,
             limit: cmp::min(size - SLOT_SIZE, i),
@@ -73,17 +74,26 @@ impl Sequences {
         }
     }
 
-    fn matches(&self, op: u8, my: u8) -> bool {
-        if (op & 0b00111110) != 0b0 {
-            return false;
-        }
+    fn match_body(&self, my: u8) -> bool {
+        let body = (my & 0b00111110) >> 1;
+        util::count_ones(body) == self.n
+    }
 
+    fn match_head(&self, my: u8) -> bool {
+        let head = (my & 0b00011110) >> 1;
+        util::count_ones(head) == self.n
+    }
+
+    fn match_rest(&self, my: u8) -> bool {
+        let rest = (my & 0b00111100) >> 1;
+        util::count_ones(rest) == self.n
+    }
+
+    fn valid(&self, op: u8, my: u8) -> bool {
         if self.exact && my & 0b01000001 != 0b0 {
             return false;
         }
-
-        let stones = (my & 0b00111110) >> 1;
-        util::count_ones(stones) == self.n
+        (op & 0b00111110) == 0b0
     }
 }
 
@@ -99,19 +109,37 @@ impl Iterator for Sequences {
 
         let op = (self.op >> i & 0b01111111) as u8;
         let my = (self.my >> i & 0b01111111) as u8;
-        let matched = self.matches(op, my);
 
-        if self.double {
-            let prev_matched = self.prev_matched;
-            self.prev_matched = matched;
-            if prev_matched && matched {
-                let signature = (my & 0b00011110 | 0b00100000) >> 1;
-                return Some((i, Sequence(signature as u8)));
+        if !self.valid(op, my) {
+            self.prev_matched = false;
+            return self.next();
+        }
+
+        match self.kind {
+            Single => {
+                let matched = self.match_body(my);
+                if matched {
+                    let signature = (my & 0b00111110) >> 1;
+                    return Some((i, Sequence(signature as u8)));
+                }
             }
-        } else {
-            if matched {
-                let signature = (my & 0b00111110) >> 1;
-                return Some((i, Sequence(signature as u8)));
+            Union => {
+                let matched = self.match_body(my);
+                let prev_matched = self.prev_matched;
+                self.prev_matched = matched;
+                if prev_matched && matched {
+                    let signature = (my & 0b00111110) >> 1;
+                    return Some((i, Sequence(signature as u8)));
+                }
+            }
+            Intersect => {
+                let matched = self.match_body(my) && self.match_head(my);
+                let prev_matched = self.prev_matched;
+                self.prev_matched = self.match_rest(my);
+                if prev_matched && matched {
+                    let signature = (my & 0b00011110 | 0b00100000) >> 1;
+                    return Some((i, Sequence(signature as u8)));
+                }
             }
         }
 
@@ -149,23 +177,26 @@ mod tests {
         let result = Sequences::new(15, my, op, k, 3, false).collect::<Vec<_>>();
         let expected = [(9, Sequence(0b00011100)), (10, Sequence(0b00001110))];
         assert_eq!(result, expected);
-
-        let result = Sequences::new_on(7, 15, my, op, k, 2, false).collect::<Vec<_>>();
-        let expected = [(7, Sequence(0b00010001))];
-        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_sequences_double() {
-        let my = 0b001010100001010;
+        let my = 0b001000110001010;
         let op = 0b000000001000000;
-        let k = Double;
+
+        let k = Union;
 
         let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
-        let expected = [(1, Sequence(0b00010101)), (10, Sequence(0b00010101))];
+        let expected = [(1, Sequence(0b00000101)), (8, Sequence(0b00010001))];
         assert_eq!(result, expected);
 
-        let result = Sequences::new(9, my, op, k, 2, false).collect::<Vec<_>>();
+        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
+        let expected = [(1, Sequence(0b00000101))];
+        assert_eq!(result, expected);
+
+        let k = Intersect;
+
+        let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00010101))];
         assert_eq!(result, expected);
 
@@ -173,12 +204,27 @@ mod tests {
         let expected = [(1, Sequence(0b00010101))];
         assert_eq!(result, expected);
 
-        let result = Sequences::new(15, my, op, k, 3, false).collect::<Vec<_>>();
+        let my = 0b111101000110111;
+        let op = 0b000000000000000;
+
+        let k = Union;
+
+        let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
+        let expected = [(1, Sequence(0b00011011)), (10, Sequence(0b00011110))];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
         let expected = [];
         assert_eq!(result, expected);
 
-        let result = Sequences::new_on(10, 15, my, op, k, 2, false).collect::<Vec<_>>();
-        let expected = [(10, Sequence(0b00010101))];
+        let k = Intersect;
+
+        let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
+        let expected = [];
+        assert_eq!(result, expected);
+
+        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
+        let expected = [];
         assert_eq!(result, expected);
     }
 }

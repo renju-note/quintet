@@ -19,12 +19,12 @@ use RowKind::*;
 impl RowKind {
     pub fn to_sequence(&self, player: Player) -> (SequenceKind, u8, bool) {
         match self {
-            Two => (Double, 2, player.is_black()),
+            Two => (Intersect, 2, player.is_black()),
             Sword => (Single, 3, player.is_black()),
-            Three => (Double, 3, player.is_black()),
+            Three => (Intersect, 3, player.is_black()),
             Four => (Single, 4, player.is_black()),
             Five => (Single, 5, player.is_black()),
-            Overline => (Double, 5, false),
+            Overline => (Union, 5, false),
         }
     }
 
