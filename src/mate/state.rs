@@ -65,23 +65,26 @@ impl GameState {
             .sequences_on(p, player, kind, n, player.is_black())
     }
 
-    pub fn last_four_eyes(&self) -> impl Iterator<Item = Point> + '_ {
-        self.sequences_on(self.last_move(), self.last_player(), Single, 4)
-            .map(|(i, s)| i.walk(s.eyes()[0] as i8).to_point())
+    pub fn last_four_eye_and_another(&self) -> (Option<Point>, bool) {
+        let last_four_eyes = self
+            .sequences_on(self.last_move(), self.last_player(), Single, 4)
+            .map(|(i, s)| i.walk(s.eyes()[0] as i8).to_point());
+        let mut ret = None;
+        for eye in last_four_eyes {
+            if ret.map_or(false, |e| e != eye) {
+                return (ret, true);
+            }
+            ret = Some(eye);
+        }
+        (ret, false)
     }
 
     pub fn won_by_last(&self) -> bool {
-        let mut last_fours = self.sequences_on(self.last_move(), self.last_player(), Single, 4);
-        let last_four = last_fours.next();
-        if last_four.is_none() {
-            return false;
-        }
-        if last_fours.next().is_some() {
+        let (last_four_eye, another) = self.last_four_eye_and_another();
+        if another {
             return true;
         }
-        let (index, sequence) = last_four.unwrap();
-        let last_four_eye = index.walk(sequence.eyes()[0] as i8).to_point();
-        self.is_forbidden_move(last_four_eye)
+        last_four_eye.map_or(false, |e| self.is_forbidden_move(e))
     }
 
     fn last_player(&self) -> Player {
