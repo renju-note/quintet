@@ -3,7 +3,7 @@ use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
@@ -14,21 +14,27 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
     }
     searched.insert(hash);
 
-    let move_pairs = collect_four_move_pairs(state);
+    let move_pairs = collect_four_move_pairs(&state);
+    let last_move = state.last_move();
     for (attack, defence) in move_pairs {
         if state.is_forbidden_move(attack) {
             continue;
         }
-        let mut state = state.play(attack);
+
+        state.play_mut(attack);
         if state.won_by_last() {
             return Some(vec![attack]);
         }
+
         state.play_mut(defence);
-        if let Some(mut ps) = solve(&state, depth - 1, searched) {
+        if let Some(mut ps) = solve(state, depth - 1, searched) {
             let mut result = vec![attack, defence];
             result.append(&mut ps);
             return Some(result);
         }
+
+        state.undo_mut(attack);
+        state.undo_mut(last_move);
     }
     None
 }
@@ -94,7 +100,8 @@ pub fn is_solution(state: &GameState, cand_moves: &Vec<Point>) -> bool {
         return false;
     }
 
-    let mut state = state.play(cand_attack);
+    let mut state = state.clone();
+    state.play_mut(cand_attack);
     if cand_moves.len() == 1 {
         return state.won_by_last();
     }
@@ -137,9 +144,9 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(&board, Black, Point(11, 10));
+        let state = GameState::new(board, Black, Point(11, 10));
 
-        let result = solve(&state, 12, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 12, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "
             J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,F14,F13,C11
@@ -148,7 +155,7 @@ mod tests {
         .collect();
         assert_eq!(result, Some(solution));
 
-        let result = solve(&state, 11, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 11, &mut HashSet::new());
         assert_eq!(result, None);
 
         Ok(())
@@ -175,14 +182,14 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(&board, White, Point(12, 11));
+        let state = GameState::new(board, White, Point(12, 11));
 
-        let result = solve(&state, 5, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 5, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14".to_string();
         assert_eq!(result, Some(solution));
 
-        let result = solve(&state, 4, &mut HashSet::new());
+        let result = solve(&mut state.clone(), 4, &mut HashSet::new());
         assert_eq!(result, None);
 
         Ok(())
@@ -210,8 +217,8 @@ mod tests {
          x . . o . o . . . . o o . o x
         "
         .parse::<Board>()?;
-        let state = GameState::new(&board, Black, Point(0, 0));
-        let result = solve(&state, u8::MAX, &mut HashSet::new());
+        let state = GameState::new(board, Black, Point(0, 0));
+        let result = solve(&mut state.clone(), u8::MAX, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "
             A7,A6,E2,C4,F3,G4,J1,M1,H1,I1,H3,H2,E3,G3,C3,B3,E5,E4,E1,G1,

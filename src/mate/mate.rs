@@ -11,9 +11,9 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
     }
 
     let last_move = choose_last_move(board, player);
-    let state = GameState::new(board, player, last_move);
+    let state = GameState::new(board.clone(), player, last_move);
     let mut searched = HashSet::new();
-    let solution = vcf::solve(&state, depth, &mut searched);
+    let solution = vcf::solve(&mut state.clone(), depth, &mut searched);
 
     if trim {
         solution.map(|solution| vcf::trim(&state, &solution))

@@ -9,9 +9,9 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(board: &Board, next_player: Player, last_move: Point) -> Self {
+    pub fn new(board: Board, next_player: Player, last_move: Point) -> Self {
         Self {
-            board: board.clone(),
+            board: board,
             next_player: next_player,
             last_move: last_move,
         }
@@ -19,14 +19,14 @@ impl GameState {
 
     pub fn play_mut(&mut self, next_move: Point) {
         self.board.put_mut(self.next_player, next_move);
-        self.next_player = self.next_player().opponent();
+        self.next_player = self.last_player();
         self.last_move = next_move;
     }
 
-    pub fn play(&self, next_move: Point) -> Self {
-        let mut result = self.clone();
-        result.play_mut(next_move);
-        result
+    pub fn undo_mut(&mut self, last2_move: Point) {
+        self.board.remove_mut(self.last_move);
+        self.next_player = self.last_player();
+        self.last_move = last2_move;
     }
 
     pub fn next_player(&self) -> Player {
