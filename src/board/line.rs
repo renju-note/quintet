@@ -206,15 +206,52 @@ mod tests {
     #[test]
     fn test_sequences_on() -> Result<(), String> {
         let line = "o--o--o---o---o".parse::<Line>()?;
-        let result = line
-            .sequences_on(7, Black, Single, 2, true)
-            .collect::<Vec<_>>();
+        let result: Vec<_> = line.sequences_on(7, Black, Single, 2, true).collect();
         let expected = [
             (2, Sequence(0b00010010)),
             (3, Sequence(0b00001001)),
             (6, Sequence(0b00010001)),
         ];
         assert_eq!(result, expected);
+
+        let line = "---ooo---ooo---".parse::<Line>()?;
+        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, false).collect();
+        let expected = [
+            (2, Sequence(0b00001110)),
+            (3, Sequence(0b00000111)),
+            (7, Sequence(0b00011100)),
+            (8, Sequence(0b00001110)),
+        ];
+        assert_eq!(result, expected);
+        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, true).collect();
+        let expected = [
+            (2, Sequence(0b00001110)),
+            (3, Sequence(0b00000111)),
+            (7, Sequence(0b00011100)),
+            (8, Sequence(0b00001110)),
+        ];
+        assert_eq!(result, expected);
+        let result: Vec<_> = line.sequences_on(7, Black, Double, 3, false).collect();
+        let expected = [(3, Sequence(0b00010111)), (8, Sequence(0b00011110))];
+        assert_eq!(result, expected);
+        let result: Vec<_> = line.sequences_on(7, Black, Double, 3, true).collect();
+        let expected = [(3, Sequence(0b00010111)), (8, Sequence(0b00011110))];
+        assert_eq!(result, expected);
+
+        let line = "--ooo-----ooo--".parse::<Line>()?;
+        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, false).collect();
+        let expected = [(2, Sequence(0b00000111)), (8, Sequence(0b00011100))];
+        assert_eq!(result, expected);
+        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, true).collect();
+        let expected = [(2, Sequence(0b00000111)), (8, Sequence(0b00011100))];
+        assert_eq!(result, expected);
+        let result: Vec<_> = line.sequences_on(7, Black, Double, 3, false).collect();
+        let expected = [];
+        assert_eq!(result, expected);
+        let result: Vec<_> = line.sequences_on(7, Black, Double, 3, true).collect();
+        let expected = [];
+        assert_eq!(result, expected);
+
         Ok(())
     }
 
