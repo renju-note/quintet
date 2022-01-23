@@ -3,7 +3,6 @@ use super::fundamentals::*;
 use super::point::*;
 use super::row::*;
 use super::sequence::*;
-use super::slot::*;
 use super::square::*;
 use super::zobrist;
 use std::fmt;
@@ -87,14 +86,6 @@ impl Board {
         exact: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.square.sequences_on(p, player, kind, n, exact)
-    }
-
-    pub fn slots(&self) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.square.slots()
-    }
-
-    pub fn slots_on(&self, p: Point) -> impl Iterator<Item = (Index, Slot)> + '_ {
-        self.square.slots_on(p)
     }
 
     pub fn to_pretty_string(&self) -> String {
