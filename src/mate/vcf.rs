@@ -3,7 +3,7 @@ use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+pub fn solve_old(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
     }
@@ -21,6 +21,102 @@ pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Optio
         let defence = may_defence.unwrap();
         let next_state = may_next_state.unwrap();
         if let Some(mut ps) = solve(&next_state, depth - 1, searched) {
+            let mut result = vec![attack, defence];
+            result.append(&mut ps);
+            return Some(result);
+        }
+    }
+    None
+}
+
+pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+    if depth == 0 {
+        return None;
+    }
+
+    let hash = state.board_hash();
+    if searched.contains(&hash) {
+        return None;
+    }
+    searched.insert(hash);
+
+    let mut last_fours = state.sequences_on(state.last_move(), state.last_player(), Single, 4);
+    if let Some((index, last_four)) = last_fours.next() {
+        if last_fours.next().is_some() {
+            return None;
+        }
+        let last_four_eye = index.walk(last_four.eyes()[0] as i8).to_point();
+        let move_pair = state
+            .sequences_on(last_four_eye, state.next_player(), Single, 3)
+            .flat_map(|(i, s)| {
+                let eyes = s.eyes();
+                let e1 = i.walk(eyes[0] as i8).to_point();
+                let e2 = i.walk(eyes[1] as i8).to_point();
+                if e1 == last_four_eye {
+                    Some((e1, e2))
+                } else if e2 == last_four_eye {
+                    Some((e2, e1))
+                } else {
+                    None
+                }
+            })
+            .next();
+        if move_pair.is_none() {
+            return None;
+        }
+        let (attack, defence) = move_pair.unwrap();
+        if state.is_forbidden_move(attack) {
+            return None;
+        }
+        let mut state = state.play(attack);
+        let has_multiple_four = {
+            let mut fours = state.sequences_on(state.last_move(), state.last_player(), Single, 4);
+            fours.next();
+            fours.next().is_some()
+        };
+        if has_multiple_four {
+            return Some(vec![attack]);
+        }
+        if state.is_forbidden_move(defence) {
+            return Some(vec![attack]);
+        }
+        state.play_mut(defence);
+        return if let Some(mut ps) = solve(&state, depth - 1, searched) {
+            let mut result = vec![attack, defence];
+            result.append(&mut ps);
+            Some(result)
+        } else {
+            None
+        };
+    }
+
+    let move_pairs = state
+        .sequences(state.next_player(), Single, 3)
+        .flat_map(|(i, s)| {
+            let eyes = s.eyes();
+            let e1 = i.walk(eyes[0] as i8).to_point();
+            let e2 = i.walk(eyes[1] as i8).to_point();
+            [(e1, e2), (e2, e1)]
+        });
+
+    for (attack, defence) in move_pairs {
+        if state.is_forbidden_move(attack) {
+            continue;
+        }
+        let mut state = state.play(attack);
+        let has_multiple_four = {
+            let mut fours = state.sequences_on(state.last_move(), state.last_player(), Single, 4);
+            fours.next();
+            fours.next().is_some()
+        };
+        if has_multiple_four {
+            return Some(vec![attack]);
+        }
+        if state.is_forbidden_move(defence) {
+            return Some(vec![attack]);
+        }
+        state.play_mut(defence);
+        if let Some(mut ps) = solve(&state, depth - 1, searched) {
             let mut result = vec![attack, defence];
             result.append(&mut ps);
             return Some(result);
