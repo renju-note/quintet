@@ -3,32 +3,6 @@ use super::super::board::*;
 use super::state::*;
 use std::collections::HashSet;
 
-pub fn solve_old(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
-    if depth == 0 {
-        return None;
-    }
-
-    let hash = state.board_hash();
-    if searched.contains(&hash) {
-        return None;
-    }
-    searched.insert(hash);
-
-    for (attack, may_defence, may_next_state) in VCFMoves::new(state) {
-        if may_defence.is_none() {
-            return Some(vec![attack]);
-        }
-        let defence = may_defence.unwrap();
-        let next_state = may_next_state.unwrap();
-        if let Some(mut ps) = solve(&next_state, depth - 1, searched) {
-            let mut result = vec![attack, defence];
-            result.append(&mut ps);
-            return Some(result);
-        }
-    }
-    None
-}
-
 pub fn solve(state: &GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
     if depth == 0 {
         return None;
@@ -130,49 +104,11 @@ struct VCFMoves {
 
 impl VCFMoves {
     pub fn new(state: &GameState) -> Self {
-        let next_player = state.next_player();
-        let mut last_fours = state.sequences_on(state.last_move(), state.last_player(), Single, 4);
-        if let Some((index, last_four)) = last_fours.next() {
-            if last_fours.next().is_some() {
-                return VCFMoves {
-                    state: state.clone(),
-                    move_pairs: vec![],
-                };
-            }
-            let last_four_eye = index.walk(last_four.eyes()[0] as i8).to_point();
-            let move_pairs = state
-                .sequences_on(last_four_eye, next_player, Single, 3)
-                .map(|(i, s)| {
-                    let eyes = s.eyes();
-                    let e1 = i.walk(eyes[0] as i8).to_point();
-                    let e2 = i.walk(eyes[1] as i8).to_point();
-                    if e1 == last_four_eye {
-                        Some((e1, e2))
-                    } else if e2 == last_four_eye {
-                        Some((e2, e1))
-                    } else {
-                        None
-                    }
-                })
-                .flatten();
-            return VCFMoves {
-                state: state.clone(),
-                move_pairs: move_pairs.collect(),
-            };
-        }
-        let move_pairs = state
-            .sequences(next_player, Single, 3)
-            .map(|(i, s)| {
-                let eyes = s.eyes();
-                let e1 = i.walk(eyes[0] as i8).to_point();
-                let e2 = i.walk(eyes[1] as i8).to_point();
-                [(e1, e2), (e2, e1)]
-            })
-            .flatten();
-        return VCFMoves {
+        let move_pairs = collect_four_move_pairs(state);
+        VCFMoves {
             state: state.clone(),
-            move_pairs: move_pairs.collect(),
-        };
+            move_pairs: move_pairs,
+        }
     }
 }
 
@@ -185,13 +121,7 @@ impl Iterator for VCFMoves {
                 continue;
             }
             let mut state = self.state.play(attack);
-            let has_multiple_four = {
-                let mut fours =
-                    state.sequences_on(state.last_move(), state.last_player(), Single, 4);
-                fours.next();
-                fours.next().is_some()
-            };
-            if has_multiple_four {
+            if state.last_four_eyes().nth(1).is_some() {
                 return Some((attack, None, None));
             }
             if state.is_forbidden_move(defence) {
@@ -235,8 +165,7 @@ mod tests {
         let result = solve(&state, 12, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "
-            G6,H7,J12,K13,G9,F8,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
-            F14,F13,C11
+            J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,F14,F13,C11
         "
         .split_whitespace()
         .collect();

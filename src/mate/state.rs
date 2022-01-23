@@ -49,11 +49,6 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
-    pub fn board_hash_ahead(&self, attack: Point, defence: Point) -> u64 {
-        let next_hash = zobrist::apply(self.board_hash(), self.next_player(), attack);
-        zobrist::apply(next_hash, self.next_player().opponent(), defence)
-    }
-
     pub fn sequences(
         &self,
         player: Player,

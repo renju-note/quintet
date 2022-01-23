@@ -8,7 +8,7 @@ mod sequence;
 mod slot;
 mod square;
 mod util;
-pub mod zobrist;
+mod zobrist;
 
 pub use board::Board;
 pub use forbidden::ForbiddenKind;
