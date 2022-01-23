@@ -151,7 +151,8 @@ mod tests {
         let result = solve(&mut state.clone(), 12, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "
-            J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,F14,F13,C11
+            J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
+            F14,F13,C11
         "
         .split_whitespace()
         .collect();
