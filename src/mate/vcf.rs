@@ -83,55 +83,39 @@ pub fn trim(state: &GameState, solution: &Vec<Point>) -> Vec<Point> {
     solution.clone()
 }
 
-pub fn is_solution(state: &GameState, solution: &Vec<Point>) -> bool {
-    let mut state = state.clone();
-    for i in 0..((solution.len() + 1) / 2) {
-        let attack = solution[i * 2];
-        let may_defence = solution.get(i * 2 + 1).map(|&p| p);
-        if !VCFMoves::new(&state).any(|(a, d, _)| a == attack && d == may_defence) {
-            return false;
-        }
-        state.play_mut(attack);
-        may_defence.map(|defence| state.play_mut(defence));
+pub fn is_solution(state: &GameState, cand_moves: &Vec<Point>) -> bool {
+    let cand_attack = cand_moves[0];
+
+    let move_pairs = collect_four_move_pairs(state);
+    let move_pair = move_pairs.iter().find(|(a, _)| *a == cand_attack);
+    if move_pair.is_none() {
+        return false;
     }
-    true
-}
+    let (attack, defence) = *move_pair.unwrap();
 
-struct VCFMoves {
-    state: GameState,
-    move_pairs: Vec<(Point, Point)>,
-}
-
-impl VCFMoves {
-    pub fn new(state: &GameState) -> Self {
-        let move_pairs = collect_four_move_pairs(state);
-        VCFMoves {
-            state: state.clone(),
-            move_pairs: move_pairs,
-        }
+    if state.is_forbidden_move(attack) {
+        return false;
     }
-}
-
-impl Iterator for VCFMoves {
-    type Item = (Point, Option<Point>, Option<GameState>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some((attack, defence)) = self.move_pairs.pop() {
-            if self.state.is_forbidden_move(attack) {
-                continue;
-            }
-            let mut state = self.state.play(attack);
-            if state.last_four_eyes().nth(1).is_some() {
-                return Some((attack, None, None));
-            }
-            if state.is_forbidden_move(defence) {
-                return Some((attack, None, None));
-            }
-            state.play_mut(defence);
-            return Some((attack, Some(defence), Some(state)));
+    let mut state = state.play(cand_attack);
+    if cand_moves.len() == 1 {
+        if state.last_four_eyes().nth(1).is_some() {
+            return true;
         }
-        None
+        if state.is_forbidden_move(defence) {
+            return true;
+        }
+        return false;
     }
+    let cand_defence = cand_moves[1];
+    if cand_defence != defence {
+        return false;
+    }
+    state.play_mut(cand_defence);
+
+    let mut rest = cand_moves.clone();
+    rest.remove(0);
+    rest.remove(0);
+    is_solution(&state, &rest)
 }
 
 #[cfg(test)]
