@@ -1,5 +1,5 @@
 use super::super::board::Player::*;
-use super::super::board::RowKind::*;
+use super::super::board::SequenceKind::*;
 use super::super::board::*;
 use super::state::*;
 use super::vcf;
@@ -23,20 +23,25 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
 }
 
 fn validate_initial(board: &Board, player: Player) -> Result<(), Option<Vec<Point>>> {
-    let opponent = player.opponent();
-
     // Already exists five
-    if board.rows(player, Five).next().is_some() || board.rows(opponent, Five).next().is_some() {
+    if board.sequences(Black, Single, 5, true).next().is_some() {
+        return Err(None);
+    }
+    if board.sequences(White, Single, 5, false).next().is_some() {
         return Err(None);
     }
 
-    // Already exists overline
-    if board.rows(Black, Overline).next().is_some() {
+    // Already exists black overline
+    if board.sequences(Black, Union, 5, false).next().is_some() {
         return Err(None);
     }
 
     // Already exists four
-    if board.rows(player, Four).next().is_some() {
+    if board
+        .sequences(player, Single, 5, player.is_black())
+        .next()
+        .is_some()
+    {
         return Err(Some(vec![]));
     }
 
@@ -46,10 +51,11 @@ fn validate_initial(board: &Board, player: Player) -> Result<(), Option<Vec<Poin
 fn choose_last_move(board: &Board, player: Player) -> Point {
     let opponent = player.opponent();
     let stones = board.stones(opponent);
-    if let Some(four) = board.rows(opponent, Four).next() {
-        stones
-            .into_iter()
-            .find(|&s| s == four.start || s == four.end)
+    let mut opponent_fours = board.sequences(opponent, Single, 4, opponent.is_black());
+    if let Some((index, _)) = opponent_fours.next() {
+        let start = index.to_point();
+        let next = index.walk(1).to_point();
+        stones.into_iter().find(|&s| s == start || s == next)
     } else {
         stones.into_iter().next()
     }
