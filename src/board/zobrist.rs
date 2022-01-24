@@ -1,7 +1,7 @@
 use super::player::*;
 use super::point::*;
 
-pub fn from_points(blacks: &Points, whites: &Points) -> u64 {
+pub fn from_stones(blacks: &Points, whites: &Points) -> u64 {
     let mut result = new();
     for p in blacks.0.iter() {
         result = apply(result, Black, *p)

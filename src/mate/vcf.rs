@@ -49,9 +49,9 @@ fn collect_four_move_pairs(state: &GameState) -> Vec<(Point, Point)> {
         return state
             .sequences_on(last_four_eye, state.next_player(), Single, 3)
             .flat_map(|(i, s)| {
-                let eyes = s.eyes();
-                let e1 = i.walk(eyes[0] as i8).to_point();
-                let e2 = i.walk(eyes[1] as i8).to_point();
+                let mut eyes = i.mapped(s.eyes()).map(|i| i.to_point());
+                let e1 = eyes.next().unwrap();
+                let e2 = eyes.next().unwrap();
                 if e1 == last_four_eye {
                     Some((e1, e2))
                 } else if e2 == last_four_eye {
@@ -66,9 +66,9 @@ fn collect_four_move_pairs(state: &GameState) -> Vec<(Point, Point)> {
     state
         .sequences(state.next_player(), Single, 3)
         .flat_map(|(i, s)| {
-            let eyes = s.eyes();
-            let e1 = i.walk(eyes[0] as i8).to_point();
-            let e2 = i.walk(eyes[1] as i8).to_point();
+            let mut eyes = i.mapped(s.eyes()).map(|i| i.to_point());
+            let e1 = eyes.next().unwrap();
+            let e2 = eyes.next().unwrap();
             [(e1, e2), (e2, e1)]
         })
         .collect()
