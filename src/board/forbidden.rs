@@ -23,7 +23,10 @@ pub fn forbidden_strict(square: &Square, p: Point) -> Option<ForbiddenKind> {
     if square.stone(p).is_some() {
         return None;
     }
-    // TODO: check five
+    let mut next_fives = square.sequences_on(p, Black, Single, 4, true);
+    if next_fives.next().is_some() {
+        return None;
+    }
     forbidden(square, p)
 }
 
@@ -91,28 +94,28 @@ mod tests {
     #[test]
     fn test_forbiddens() -> Result<(), String> {
         let square = "
-         . . . . . . . . . . . . . . .
-         . . o . . . . . . o o o o . .
-         . o . o . . . . . . . . . . .
-         . . o . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . o . . .
+         . . . . . . . . . . . . . . o
+         . . o . . . . . . . . x o o .
+         . o . o . . . . . . . o . o .
+         . . o . . . . . . . . o o x .
          . . . . . . . . . . o . . . .
-         . . . . . . . . . o . . . . .
-         . . . . o o o . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . o . . . . . . . . . . . . .
+         . . o . . . . . . . . . . . .
+         . . . o . . . . . . . . . . .
+         . o o o . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . o o . o o o .
+         . o o . o o o . . . o o o o .
         "
         .parse::<Square>()?;
         let result = forbiddens(&square);
         let expected = [
             (DoubleThree, Point(2, 12)),
-            (DoubleFour, Point(8, 5)),
-            (Overline, Point(10, 0)),
+            (Overline, Point(3, 0)),
+            (DoubleFour, Point(4, 4)),
         ];
         assert_eq!(result, expected);
 
