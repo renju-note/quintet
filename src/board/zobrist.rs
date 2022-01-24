@@ -1,5 +1,6 @@
 use super::fundamentals::*;
 use super::point::*;
+use super::square::*;
 
 pub fn from_points(blacks: &Points, whites: &Points) -> u64 {
     let mut result = new();
@@ -45,7 +46,7 @@ mod tests {
     }
 }
 
-const TABLE_SIZE: usize = 2 * (BOARD_SIZE as usize) * (BOARD_SIZE as usize); // 450
+const TABLE_SIZE: usize = 2 * (SQUARE_SIZE as usize) * (SQUARE_SIZE as usize); // 450
 
 const EMPTY_CODE: u64 = 0x3453e3078a713e56;
 

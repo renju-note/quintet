@@ -5,10 +5,12 @@ use super::sequence::*;
 use std::fmt;
 use std::str::FromStr;
 
-const DIAGONAL_OMIT: u8 = 5 - 1;
-const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
+pub const SQUARE_SIZE: u8 = 15;
 
-type OrthogonalLines = [Line; BOARD_SIZE as usize];
+const DIAGONAL_OMIT: u8 = 5 - 1;
+const D_LINE_NUM: u8 = (SQUARE_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
+
+type OrthogonalLines = [Line; SQUARE_SIZE as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -191,7 +193,7 @@ impl Square {
 
     fn line_idx(index: Index) -> Option<usize> {
         let i = index.i;
-        match index.direction {
+        match index.d {
             Vertical => Some(i as usize),
             Horizontal => Some(i as usize),
             _ => {
@@ -255,12 +257,12 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         .split("\n")
         .map(|ls| ls.trim().parse::<Line>())
         .collect::<Result<Vec<_>, _>>()?;
-    if hlines_rev.len() != BOARD_SIZE as usize {
+    if hlines_rev.len() != SQUARE_SIZE as usize {
         return Err("Wrong num of lines");
     }
     let mut square = Square::new();
     for (i, hline) in hlines_rev.iter().rev().enumerate() {
-        if hline.size != BOARD_SIZE {
+        if hline.size != SQUARE_SIZE {
             return Err("Wrong line size");
         }
         for j in 0..hline.size {
@@ -275,47 +277,47 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
 
 fn orthogonal_lines() -> OrthogonalLines {
     [
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE),
     ]
 }
 
 fn diagonal_lines() -> DiagonalLines {
     [
-        Line::new(BOARD_SIZE - 10),
-        Line::new(BOARD_SIZE - 9),
-        Line::new(BOARD_SIZE - 8),
-        Line::new(BOARD_SIZE - 7),
-        Line::new(BOARD_SIZE - 6),
-        Line::new(BOARD_SIZE - 5),
-        Line::new(BOARD_SIZE - 4),
-        Line::new(BOARD_SIZE - 3),
-        Line::new(BOARD_SIZE - 2),
-        Line::new(BOARD_SIZE - 1),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE - 1),
-        Line::new(BOARD_SIZE - 2),
-        Line::new(BOARD_SIZE - 3),
-        Line::new(BOARD_SIZE - 4),
-        Line::new(BOARD_SIZE - 5),
-        Line::new(BOARD_SIZE - 6),
-        Line::new(BOARD_SIZE - 7),
-        Line::new(BOARD_SIZE - 8),
-        Line::new(BOARD_SIZE - 9),
-        Line::new(BOARD_SIZE - 10),
+        Line::new(SQUARE_SIZE - 10),
+        Line::new(SQUARE_SIZE - 9),
+        Line::new(SQUARE_SIZE - 8),
+        Line::new(SQUARE_SIZE - 7),
+        Line::new(SQUARE_SIZE - 6),
+        Line::new(SQUARE_SIZE - 5),
+        Line::new(SQUARE_SIZE - 4),
+        Line::new(SQUARE_SIZE - 3),
+        Line::new(SQUARE_SIZE - 2),
+        Line::new(SQUARE_SIZE - 1),
+        Line::new(SQUARE_SIZE),
+        Line::new(SQUARE_SIZE - 1),
+        Line::new(SQUARE_SIZE - 2),
+        Line::new(SQUARE_SIZE - 3),
+        Line::new(SQUARE_SIZE - 4),
+        Line::new(SQUARE_SIZE - 5),
+        Line::new(SQUARE_SIZE - 6),
+        Line::new(SQUARE_SIZE - 7),
+        Line::new(SQUARE_SIZE - 8),
+        Line::new(SQUARE_SIZE - 9),
+        Line::new(SQUARE_SIZE - 10),
     ]
 }
 

@@ -4,6 +4,8 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
+const MAX_SIZE: u8 = 16 - 1;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Line {
     blacks: u16,
@@ -20,9 +22,9 @@ impl Line {
         }
     }
 
-    pub fn put_mut(&mut self, player: Player, i: u8) {
+    pub fn put_mut(&mut self, r: Player, i: u8) {
         let stones = 0b1 << i;
-        let (blacks, whites) = match player {
+        let (blacks, whites) = match r {
             Black => (self.blacks | stones, self.whites & !stones),
             White => (self.blacks & !stones, self.whites | stones),
         };
@@ -47,48 +49,41 @@ impl Line {
         }
     }
 
-    pub fn stones(&self, player: Player) -> impl Iterator<Item = u8> {
-        let target = match player {
+    pub fn stones(&self, r: Player) -> impl Iterator<Item = u8> {
+        let target = match r {
             Black => self.blacks,
             White => self.whites,
         };
         (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
     }
 
-    pub fn sequences(&self, player: Player, kind: SequenceKind, n: u8, exact: bool) -> Sequences {
-        let (my, op) = if player.is_black() {
+    pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
+        let (my, op) = if r.is_black() {
             (self.blacks, self.whites)
         } else {
             (self.whites, self.blacks)
         };
-        Sequences::new(self.size, my, op, kind, n, exact)
+        Sequences::new(self.size, my, op, k, n, exact)
     }
 
-    pub fn sequences_on(
-        &self,
-        i: u8,
-        player: Player,
-        kind: SequenceKind,
-        n: u8,
-        exact: bool,
-    ) -> Sequences {
-        let (my, op) = if player.is_black() {
+    pub fn sequences_on(&self, i: u8, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
+        let (my, op) = if r.is_black() {
             (self.blacks, self.whites)
         } else {
             (self.whites, self.blacks)
         };
-        Sequences::new_on(i, self.size, my, op, kind, n, exact)
+        Sequences::new_on(i, self.size, my, op, k, n, exact)
     }
 
-    pub fn potential_cap(&self, player: Player) -> u8 {
-        let nstones_opponent = match player {
+    pub fn potential_cap(&self, r: Player) -> u8 {
+        let nstones_opponent = match r {
             Black => self.whites.count_ones(),
             White => self.blacks.count_ones(),
         } as u8;
         if self.size < nstones_opponent + 5 {
             return 0;
         }
-        let nstones = match player {
+        let nstones = match r {
             Black => self.blacks.count_ones(),
             White => self.whites.count_ones(),
         } as u8;
@@ -112,7 +107,7 @@ impl FromStr for Line {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let chars: Vec<char> = s.chars().filter(|c| !c.is_whitespace()).collect();
         let size = chars.len();
-        if size > BOARD_SIZE as usize {
+        if size > MAX_SIZE as usize {
             return Err("Wrong length.");
         }
         let mut line = Self::new(size as u8);
@@ -129,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_put_mut() {
-        let mut line = Line::new(BOARD_SIZE);
+        let mut line = Line::new(MAX_SIZE);
         line.put_mut(Black, 0);
         line.put_mut(White, 2);
         assert_eq!(line.blacks, 0b000000000000001);
@@ -144,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_remove_mut() {
-        let mut line = Line::new(BOARD_SIZE);
+        let mut line = Line::new(MAX_SIZE);
         line.put_mut(Black, 0);
         line.put_mut(White, 2);
         line.put_mut(Black, 4);

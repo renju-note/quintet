@@ -1,7 +1,8 @@
-use super::fundamentals::*;
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
+
+const N: u8 = 15;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -25,10 +26,10 @@ impl fmt::Display for Point {
 }
 
 impl Point {
-    pub fn to_index(&self, direction: Direction) -> Index {
+    pub fn to_index(&self, d: Direction) -> Index {
         let (x, y) = (self.0, self.1);
-        let n = BOARD_SIZE - 1;
-        match direction {
+        let n = N - 1;
+        match d {
             Vertical => Index::new(Vertical, x, y),
             Horizontal => Index::new(Horizontal, y, x),
             Ascending => {
@@ -65,7 +66,7 @@ impl FromStr for Point {
             .parse::<u8>()
             .ok()
             .map(|n| match n {
-                1..=BOARD_SIZE => Some(n - 1),
+                1..=N => Some(n - 1),
                 _ => None,
             })
             .flatten()
@@ -78,9 +79,9 @@ impl TryFrom<u8> for Point {
     type Error = &'static str;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let x = value / BOARD_SIZE;
-        let y = value % BOARD_SIZE;
-        if x < BOARD_SIZE && y < BOARD_SIZE {
+        let x = value / N;
+        let y = value % N;
+        if x < N && y < N {
             Ok(Point(x, y))
         } else {
             Err("Invalid code")
@@ -90,30 +91,26 @@ impl TryFrom<u8> for Point {
 
 impl From<Point> for u8 {
     fn from(value: Point) -> u8 {
-        value.0 * BOARD_SIZE + value.1
+        value.0 * N + value.1
     }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Index {
-    pub direction: Direction,
+    pub d: Direction,
     pub i: u8,
     pub j: u8,
 }
 
 impl Index {
-    pub fn new(direction: Direction, i: u8, j: u8) -> Self {
-        Self {
-            direction: direction,
-            i: i,
-            j: j,
-        }
+    pub fn new(d: Direction, i: u8, j: u8) -> Self {
+        Self { d: d, i: i, j: j }
     }
 
     pub fn to_point(&self) -> Point {
-        let n = BOARD_SIZE - 1;
+        let n = N - 1;
         let (i, j) = (self.i, self.j);
-        match self.direction {
+        match self.d {
             Vertical => Point(i, j),
             Horizontal => Point(j, i),
             Ascending => {
@@ -130,7 +127,7 @@ impl Index {
     }
 
     pub fn walk(&self, step: i8) -> Self {
-        Self::new(self.direction, self.i, (self.j as i8 + step) as u8)
+        Self::new(self.d, self.i, (self.j as i8 + step) as u8)
     }
 
     pub fn subsequence<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + 'a {
@@ -139,9 +136,9 @@ impl Index {
     }
 
     pub fn maxj(&self) -> u8 {
-        let n = BOARD_SIZE - 1;
+        let n = N - 1;
         let i = self.i;
-        match self.direction {
+        match self.d {
             Vertical | Horizontal => n,
             Ascending | Descending => {
                 if i < n {
@@ -156,11 +153,7 @@ impl Index {
 
 impl fmt::Debug for Index {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Index::new({:?}, {}, {})",
-            self.direction, self.i, self.j
-        )
+        write!(f, "Index::new({:?}, {}, {})", self.d, self.i, self.j)
     }
 }
 

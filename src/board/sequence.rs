@@ -1,6 +1,6 @@
 use std::fmt;
 
-const SLOT_SIZE: u8 = 5;
+const VICTORY: u8 = 5;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
@@ -45,7 +45,7 @@ impl Sequences {
             kind: kind,
             n: n,
             exact: exact,
-            limit: size - SLOT_SIZE,
+            limit: size - VICTORY,
             i: 0,
             prev_ok: false,
         }
@@ -66,13 +66,13 @@ impl Sequences {
             kind: kind,
             n: n,
             exact: exact,
-            limit: if i + SLOT_SIZE <= size {
+            limit: if i + VICTORY <= size {
                 i
             } else {
-                size - SLOT_SIZE
+                size - VICTORY
             },
-            i: if SLOT_SIZE - 1 <= i {
-                i - (SLOT_SIZE - 1)
+            i: if VICTORY - 1 <= i {
+                i - (VICTORY - 1)
             } else {
                 0
             },

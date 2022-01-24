@@ -9,7 +9,7 @@ mod zobrist;
 
 pub use board::Board;
 pub use forbidden::ForbiddenKind;
-pub use fundamentals::{Player, BOARD_SIZE};
+pub use fundamentals::Player;
 pub use line::Line;
 pub use point::{Direction, Index, Point, Points};
 pub use sequence::{Sequence, SequenceKind};

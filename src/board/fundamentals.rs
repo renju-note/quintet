@@ -1,8 +1,6 @@
 use std::convert::{From, TryFrom};
 use std::str::FromStr;
 
-pub const BOARD_SIZE: u8 = 15;
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Player {
     Black,

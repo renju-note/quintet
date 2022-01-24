@@ -30,21 +30,20 @@ impl Board {
         }
     }
 
-    pub fn put_mut(&mut self, player: Player, p: Point) {
+    pub fn put_mut(&mut self, r: Player, p: Point) {
         self.remove_mut(p);
-        self.square.put_mut(player, p);
-        self.update_z_hash(player, p);
+        self.square.put_mut(r, p);
+        self.update_z_hash(r, p);
     }
 
     pub fn remove_mut(&mut self, p: Point) {
-        self.stone(p)
-            .map(|existent| self.update_z_hash(existent, p));
+        self.stone(p).map(|r| self.update_z_hash(r, p));
         self.square.remove_mut(p);
     }
 
-    pub fn put(&self, player: Player, p: Point) -> Self {
+    pub fn put(&self, r: Player, p: Point) -> Self {
         let mut result = self.clone();
-        result.put_mut(player, p);
+        result.put_mut(r, p);
         result
     }
 
@@ -58,29 +57,29 @@ impl Board {
         self.square.stone(p)
     }
 
-    pub fn stones(&self, player: Player) -> impl Iterator<Item = Point> + '_ {
-        self.square.stones(player)
+    pub fn stones(&self, r: Player) -> impl Iterator<Item = Point> + '_ {
+        self.square.stones(r)
     }
 
     pub fn sequences(
         &self,
-        player: Player,
-        kind: SequenceKind,
+        r: Player,
+        k: SequenceKind,
         n: u8,
         exact: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences(player, kind, n, exact)
+        self.square.sequences(r, k, n, exact)
     }
 
     pub fn sequences_on(
         &self,
         p: Point,
-        player: Player,
-        kind: SequenceKind,
+        r: Player,
+        k: SequenceKind,
         n: u8,
         exact: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences_on(p, player, kind, n, exact)
+        self.square.sequences_on(p, r, k, n, exact)
     }
 
     pub fn to_pretty_string(&self) -> String {
@@ -103,8 +102,8 @@ impl Board {
         self.z_hash
     }
 
-    fn update_z_hash(&mut self, player: Player, p: Point) {
-        self.z_hash = zobrist::apply(self.z_hash, player, p);
+    fn update_z_hash(&mut self, r: Player, p: Point) {
+        self.z_hash = zobrist::apply(self.z_hash, r, p);
     }
 }
 
