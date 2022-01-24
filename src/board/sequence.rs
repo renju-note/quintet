@@ -1,4 +1,4 @@
-use super::util;
+use super::util::{count_ones, eyes};
 use std::fmt;
 
 const SLOT_SIZE: u8 = 5;
@@ -17,7 +17,7 @@ pub struct Sequence(pub u8);
 
 impl Sequence {
     pub fn eyes(&self) -> &'static [u8] {
-        util::eyes(self.0)
+        eyes(self.0)
     }
 }
 
@@ -80,22 +80,6 @@ impl Sequences {
             prev_ok: false,
         }
     }
-
-    fn match_all(&self, my: u8) -> bool {
-        util::count_ones((my & 0b00111110) >> 1) == self.n
-    }
-
-    fn match_head(&self, my: u8) -> bool {
-        util::count_ones((my & 0b00011110) >> 1) == self.n
-    }
-
-    fn match_rest(&self, my: u8) -> bool {
-        util::count_ones((my & 0b00111100) >> 1) == self.n
-    }
-
-    fn invalid(&self, my: u8, op: u8) -> bool {
-        op & 0b00111110 != 0b0 || self.exact && my & 0b01000001 != 0b0
-    }
 }
 
 impl Iterator for Sequences {
@@ -108,39 +92,36 @@ impl Iterator for Sequences {
         let i = self.i;
         self.i += 1;
 
-        let op = (self.op >> i & 0b01111111) as u8;
-        let my = (self.my >> i & 0b01111111) as u8;
+        let op_ = (self.op >> i & 0b01111111) as u8;
+        let my_ = (self.my >> i & 0b01111111) as u8;
 
-        if self.invalid(my, op) {
+        if op_ & 0b00111110 != 0b0 || self.exact && my_ & 0b01000001 != 0b0 {
             if self.kind != Single {
                 self.prev_ok = false;
             }
             return self.next();
         }
 
+        let my = (my_ >> 1) & 0b11111;
+        let ok = count_ones(my) == self.n;
         match self.kind {
             Single => {
-                if self.match_all(my) {
-                    let signature = (my & 0b00111110) >> 1;
-                    return Some((i, Sequence(signature)));
+                if ok {
+                    return Some((i, Sequence(my)));
                 }
             }
             Union => {
-                let ok = self.match_all(my);
                 let prev_ok = self.prev_ok;
                 self.prev_ok = ok;
                 if prev_ok && ok {
-                    let signature = (my & 0b00111110) >> 1;
-                    return Some((i, Sequence(signature)));
+                    return Some((i, Sequence(my)));
                 }
             }
             Intersect => {
-                let ok = self.match_all(my) && self.match_head(my);
                 let prev_ok = self.prev_ok;
-                self.prev_ok = self.match_rest(my);
-                if prev_ok && ok {
-                    let signature = (my & 0b00011110 | 0b00100000) >> 1;
-                    return Some((i, Sequence(signature)));
+                self.prev_ok = count_ones(my & 0b11110) == self.n;
+                if ok && prev_ok && count_ones(my & 0b01111) == self.n {
+                    return Some((i, Sequence(my & 0b01111 | 0b10000)));
                 }
             }
         }
