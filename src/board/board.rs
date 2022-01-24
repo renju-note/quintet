@@ -138,7 +138,6 @@ impl FromStr for Board {
 #[cfg(test)]
 mod tests {
     use super::ForbiddenKind::*;
-    use super::RowKind::*;
     use super::*;
 
     #[test]
@@ -193,84 +192,28 @@ mod tests {
         ];
         assert_eq!(board.stones(White).collect::<Vec<_>>(), whites);
 
-        let black_twos = [
-            Row::new(
-                Vertical,
-                Point(6, 6),
-                Point(6, 9),
-                Some(Point(6, 6)),
-                Some(Point(6, 7)),
-            ),
-            Row::new(
-                Vertical,
-                Point(6, 7),
-                Point(6, 10),
-                Some(Point(6, 7)),
-                Some(Point(6, 10)),
-            ),
-            Row::new(
-                Vertical,
-                Point(6, 8),
-                Point(6, 11),
-                Some(Point(6, 10)),
-                Some(Point(6, 11)),
-            ),
-            Row::new(
-                Horizontal,
-                Point(5, 7),
-                Point(8, 7),
-                Some(Point(5, 7)),
-                Some(Point(6, 7)),
-            ),
-            Row::new(
-                Horizontal,
-                Point(6, 7),
-                Point(9, 7),
-                Some(Point(6, 7)),
-                Some(Point(9, 7)),
-            ),
-            Row::new(
-                Horizontal,
-                Point(7, 7),
-                Point(10, 7),
-                Some(Point(9, 7)),
-                Some(Point(10, 7)),
-            ),
+        let black_twos_result: Vec<_> = board.sequences(Black, Intersect, 2, true).collect();
+        let black_twos_expected = [
+            (Index::new(Vertical, 6, 6), Sequence(0b00011100)),
+            (Index::new(Vertical, 6, 7), Sequence(0b00010110)),
+            (Index::new(Vertical, 6, 8), Sequence(0b00010011)),
+            (Index::new(Horizontal, 7, 5), Sequence(0b00011100)),
+            (Index::new(Horizontal, 7, 6), Sequence(0b00010110)),
+            (Index::new(Horizontal, 7, 7), Sequence(0b00010011)),
         ];
-        let white_twos = [
-            Row {
-                direction: Horizontal,
-                start: Point(5, 6),
-                end: Point(8, 6),
-                eye1: Some(Point(6, 6)),
-                eye2: Some(Point(7, 6)),
-            },
-            Row {
-                direction: Ascending,
-                start: Point(6, 7),
-                end: Point(9, 10),
-                eye1: Some(Point(6, 7)),
-                eye2: Some(Point(9, 10)),
-            },
-            Row {
-                direction: Ascending,
-                start: Point(7, 8),
-                end: Point(10, 11),
-                eye1: Some(Point(9, 10)),
-                eye2: Some(Point(10, 11)),
-            },
-        ];
-        let white_threes = [Row::new(
-            Ascending,
-            Point(5, 6),
-            Point(8, 9),
-            Some(Point(6, 7)),
-            None,
-        )];
+        assert_eq!(black_twos_result, black_twos_expected);
 
-        assert_eq!(board.rows(Black, Two).collect::<Vec<_>>(), black_twos);
-        assert_eq!(board.rows(White, Two).collect::<Vec<_>>(), white_twos);
-        assert_eq!(board.rows(White, Three).collect::<Vec<_>>(), white_threes);
+        let white_twos_result: Vec<_> = board.sequences(White, Intersect, 2, false).collect();
+        let white_twos_expected = [
+            (Index::new(Horizontal, 6, 5), Sequence(0b00011001)),
+            (Index::new(Ascending, 13, 6), Sequence(0b00010110)),
+            (Index::new(Ascending, 13, 7), Sequence(0b00010011)),
+        ];
+        assert_eq!(white_twos_result, white_twos_expected);
+
+        let white_threes_result: Vec<_> = board.sequences(White, Intersect, 3, false).collect();
+        let white_threes_expected = [(Index::new(Ascending, 13, 5), Sequence(0b00011101))];
+        assert_eq!(white_threes_result, white_threes_expected);
 
         assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
         assert_eq!(board.forbidden(Point(6, 7)), Some(DoubleThree));

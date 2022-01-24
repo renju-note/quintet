@@ -16,15 +16,13 @@ pub use Direction::*;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Point(pub u8, pub u8);
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Index {
-    pub direction: Direction,
-    pub i: u8,
-    pub j: u8,
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let x = char::from_u32(('A' as u8 + self.0) as u32).unwrap();
+        let y = self.1 + 1;
+        write!(f, "{}{}", x, y)
+    }
 }
-
-#[derive(Debug)]
-pub struct Points(pub Vec<Point>);
 
 impl Point {
     pub fn to_index(&self, direction: Direction) -> Index {
@@ -45,6 +43,62 @@ impl Point {
             }
         }
     }
+}
+
+impl FromStr for Point {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut cs = s.trim().chars();
+        let x = cs
+            .next()
+            .map(|c| match c {
+                'A'..='O' => Some(c as u8 - 'A' as u8),
+                'a'..='o' => Some(c as u8 - 'a' as u8),
+                _ => None,
+            })
+            .flatten()
+            .ok_or("Failed to parse x part.")?;
+        let y = cs
+            .take(2)
+            .collect::<String>()
+            .parse::<u8>()
+            .ok()
+            .map(|n| match n {
+                1..=BOARD_SIZE => Some(n - 1),
+                _ => None,
+            })
+            .flatten()
+            .ok_or("Failed to parse y part.")?;
+        Ok(Point(x, y))
+    }
+}
+
+impl TryFrom<u8> for Point {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        let x = value / BOARD_SIZE;
+        let y = value % BOARD_SIZE;
+        if x < BOARD_SIZE && y < BOARD_SIZE {
+            Ok(Point(x, y))
+        } else {
+            Err("Invalid code")
+        }
+    }
+}
+
+impl From<Point> for u8 {
+    fn from(value: Point) -> u8 {
+        value.0 * BOARD_SIZE + value.1
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub struct Index {
+    pub direction: Direction,
+    pub i: u8,
+    pub j: u8,
 }
 
 impl Index {
@@ -100,62 +154,18 @@ impl Index {
     }
 }
 
-impl fmt::Display for Point {
+impl fmt::Debug for Index {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let x = char::from_u32(('A' as u8 + self.0) as u32).unwrap();
-        let y = self.1 + 1;
-        write!(f, "{}{}", x, y)
+        write!(
+            f,
+            "Index::new({:?}, {}, {})",
+            self.direction, self.i, self.j
+        )
     }
 }
 
-impl FromStr for Point {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut cs = s.trim().chars();
-        let x = cs
-            .next()
-            .map(|c| match c {
-                'A'..='O' => Some(c as u8 - 'A' as u8),
-                'a'..='o' => Some(c as u8 - 'a' as u8),
-                _ => None,
-            })
-            .flatten()
-            .ok_or("Failed to parse x part.")?;
-        let y = cs
-            .take(2)
-            .collect::<String>()
-            .parse::<u8>()
-            .ok()
-            .map(|n| match n {
-                1..=BOARD_SIZE => Some(n - 1),
-                _ => None,
-            })
-            .flatten()
-            .ok_or("Failed to parse y part.")?;
-        Ok(Point(x, y))
-    }
-}
-
-impl TryFrom<u8> for Point {
-    type Error = &'static str;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let x = value / BOARD_SIZE;
-        let y = value % BOARD_SIZE;
-        if x < BOARD_SIZE && y < BOARD_SIZE {
-            Ok(Point(x, y))
-        } else {
-            Err("Invalid code")
-        }
-    }
-}
-
-impl From<Point> for u8 {
-    fn from(value: Point) -> u8 {
-        value.0 * BOARD_SIZE + value.1
-    }
-}
+#[derive(Debug)]
+pub struct Points(pub Vec<Point>);
 
 impl Points {
     pub fn into_vec(self) -> Vec<Point> {

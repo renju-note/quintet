@@ -328,7 +328,6 @@ fn diagonal_lines() -> DiagonalLines {
 
 #[cfg(test)]
 mod tests {
-    use super::RowKind::*;
     use super::*;
 
     #[test]
@@ -581,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rows_and_so_on() -> Result<(), String> {
+    fn test_sequences() -> Result<(), String> {
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -600,23 +599,12 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
-        let black_twos = [Row::new(
-            Ascending,
-            Point(7, 5),
-            Point(10, 8),
-            Some(Point(8, 6)),
-            Some(Point(9, 7)),
-        )];
-        let white_swords = [Row::new(
-            Horizontal,
-            Point(5, 8),
-            Point(9, 8),
-            Some(Point(5, 8)),
-            Some(Point(6, 8)),
-        )];
-
-        assert_eq!(square.rows(Black, Two).collect::<Vec<_>>(), black_twos);
-        assert_eq!(square.rows(White, Sword).collect::<Vec<_>>(), white_swords);
+        let result: Vec<_> = square.sequences(Black, Intersect, 2, true).collect();
+        let expected = [(Index::new(Ascending, 16, 5), Sequence(0b00011001))];
+        assert_eq!(result, expected);
+        let result: Vec<_> = square.sequences(White, Single, 3, false).collect();
+        let expected = [(Index::new(Horizontal, 8, 5), Sequence(0b00011100))];
+        assert_eq!(result, expected);
 
         Ok(())
     }
