@@ -1,7 +1,6 @@
 use super::forbidden::*;
 use super::fundamentals::*;
 use super::point::*;
-use super::row::*;
 use super::sequence::*;
 use super::square::*;
 use super::zobrist;
@@ -61,10 +60,6 @@ impl Board {
 
     pub fn stones(&self, player: Player) -> impl Iterator<Item = Point> + '_ {
         self.square.stones(player)
-    }
-
-    pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
-        self.square.rows(player, kind)
     }
 
     pub fn sequences(

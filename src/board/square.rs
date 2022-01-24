@@ -1,7 +1,6 @@
 use super::fundamentals::*;
 use super::line::*;
 use super::point::*;
-use super::row::*;
 use super::sequence::*;
 use std::fmt;
 use std::str::FromStr;
@@ -96,12 +95,6 @@ impl Square {
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn rows(&self, player: Player, kind: RowKind) -> impl Iterator<Item = Row> + '_ {
-        let (sk, n, exact) = kind.to_sequence(player);
-        self.sequences(player, sk, n, exact)
-            .map(move |(i, s)| Row::from_sequence(i, s, kind))
-    }
-
     pub fn sequences(
         &self,
         player: Player,
