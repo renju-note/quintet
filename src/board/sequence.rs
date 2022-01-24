@@ -1,5 +1,3 @@
-use super::util;
-use std::cmp;
 use std::fmt;
 
 const SLOT_SIZE: u8 = 5;
@@ -18,7 +16,7 @@ pub struct Sequence(pub u8);
 
 impl Sequence {
     pub fn eyes(&self) -> &'static [u8] {
-        util::eyes(self.0)
+        EYES[self.0 as usize]
     }
 }
 
@@ -36,7 +34,7 @@ pub struct Sequences {
     exact: bool,
     limit: u8,
     i: u8,
-    prev_matched: bool,
+    prev_ok: bool,
 }
 
 impl Sequences {
@@ -49,7 +47,7 @@ impl Sequences {
             exact: exact,
             limit: size - SLOT_SIZE,
             i: 0,
-            prev_matched: false,
+            prev_ok: false,
         }
     }
 
@@ -68,32 +66,18 @@ impl Sequences {
             kind: kind,
             n: n,
             exact: exact,
-            limit: cmp::min(size - SLOT_SIZE, i),
-            i: cmp::max(0, i as i8 - SLOT_SIZE as i8 + 1) as u8,
-            prev_matched: false,
+            limit: if i + SLOT_SIZE <= size {
+                i
+            } else {
+                size - SLOT_SIZE
+            },
+            i: if SLOT_SIZE - 1 <= i {
+                i - (SLOT_SIZE - 1)
+            } else {
+                0
+            },
+            prev_ok: false,
         }
-    }
-
-    fn match_body(&self, my: u8) -> bool {
-        let body = (my & 0b00111110) >> 1;
-        util::count_ones(body) == self.n
-    }
-
-    fn match_head(&self, my: u8) -> bool {
-        let head = (my & 0b00011110) >> 1;
-        util::count_ones(head) == self.n
-    }
-
-    fn match_rest(&self, my: u8) -> bool {
-        let rest = (my & 0b00111100) >> 1;
-        util::count_ones(rest) == self.n
-    }
-
-    fn valid(&self, op: u8, my: u8) -> bool {
-        if self.exact && my & 0b01000001 != 0b0 {
-            return false;
-        }
-        (op & 0b00111110) == 0b0
     }
 }
 
@@ -101,44 +85,43 @@ impl Iterator for Sequences {
     type Item = (u8, Sequence);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let i = self.i;
-        if i > self.limit {
+        if self.i > self.limit {
             return None;
         }
+        let i = self.i;
         self.i += 1;
 
-        let op = (self.op >> i & 0b01111111) as u8;
-        let my = (self.my >> i & 0b01111111) as u8;
+        let op_ = self.op >> i as u8;
+        let my_ = self.my >> i as u8;
 
-        if !self.valid(op, my) {
-            self.prev_matched = false;
+        if op_ & 0b00111110 != 0b0 || self.exact && my_ & 0b01000001 != 0b0 {
+            if self.kind != Single {
+                self.prev_ok = false;
+            }
             return self.next();
         }
 
+        let my = (my_ >> 1 & 0b00011111) as u8;
+        let ok = my.count_ones() as u8 == self.n;
         match self.kind {
             Single => {
-                let matched = self.match_body(my);
-                if matched {
-                    let signature = (my & 0b00111110) >> 1;
-                    return Some((i, Sequence(signature as u8)));
+                if ok {
+                    return Some((i, Sequence(my)));
                 }
             }
             Union => {
-                let matched = self.match_body(my);
-                let prev_matched = self.prev_matched;
-                self.prev_matched = matched;
-                if prev_matched && matched {
-                    let signature = (my & 0b00111110) >> 1;
-                    return Some((i, Sequence(signature as u8)));
+                let prev_ok = self.prev_ok;
+                self.prev_ok = ok;
+                if prev_ok && ok {
+                    return Some((i, Sequence(my)));
                 }
             }
             Intersect => {
-                let matched = self.match_body(my) && self.match_head(my);
-                let prev_matched = self.prev_matched;
-                self.prev_matched = self.match_rest(my);
-                if prev_matched && matched {
-                    let signature = (my & 0b00011110 | 0b00100000) >> 1;
-                    return Some((i, Sequence(signature as u8)));
+                let prev_ok = self.prev_ok;
+                self.prev_ok = (my & 0b00011110).count_ones() as u8 == self.n;
+                if ok && prev_ok && (my & 0b00001111).count_ones() as u8 == self.n {
+                    // discard non-eye
+                    return Some((i, Sequence(my & 0b00001111 | 0b00010000)));
                 }
             }
         }
@@ -146,6 +129,41 @@ impl Iterator for Sequences {
         self.next()
     }
 }
+
+const EYES: [&[u8]; 32] = [
+    &[0, 1, 2, 3, 4],
+    &[1, 2, 3, 4],
+    &[0, 2, 3, 4],
+    &[2, 3, 4],
+    &[0, 1, 3, 4],
+    &[1, 3, 4],
+    &[0, 3, 4],
+    &[3, 4],
+    &[0, 1, 2, 4],
+    &[1, 2, 4],
+    &[0, 2, 4],
+    &[2, 4],
+    &[0, 1, 4],
+    &[1, 4],
+    &[0, 4],
+    &[4],
+    &[0, 1, 2, 3],
+    &[1, 2, 3],
+    &[0, 2, 3],
+    &[2, 3],
+    &[0, 1, 3],
+    &[1, 3],
+    &[0, 3],
+    &[3],
+    &[0, 1, 2],
+    &[1, 2],
+    &[0, 2],
+    &[2],
+    &[0, 1],
+    &[1],
+    &[0],
+    &[],
+];
 
 #[cfg(test)]
 mod tests {
