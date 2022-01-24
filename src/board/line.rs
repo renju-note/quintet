@@ -57,6 +57,12 @@ impl Line {
         (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
     }
 
+    pub fn blanks(&self) -> impl Iterator<Item = u8> {
+        let blacks = self.blacks;
+        let whites = self.whites;
+        (0..self.size).filter(move |i| blacks & 0b1 << i == 0b0 && whites & 0b1 << i == 0b0)
+    }
+
     pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
         let (my, op) = if r.is_black() {
             (self.blacks, self.whites)

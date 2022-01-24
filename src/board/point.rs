@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
-const N: u8 = 15;
+pub const RANGE: u8 = 15;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Direction {
@@ -28,7 +28,7 @@ impl fmt::Display for Point {
 impl Point {
     pub fn to_index(&self, d: Direction) -> Index {
         let (x, y) = (self.0, self.1);
-        let n = N - 1;
+        let n = RANGE - 1;
         match d {
             Vertical => Index::new(Vertical, x, y),
             Horizontal => Index::new(Horizontal, y, x),
@@ -66,7 +66,7 @@ impl FromStr for Point {
             .parse::<u8>()
             .ok()
             .map(|n| match n {
-                1..=N => Some(n - 1),
+                1..=RANGE => Some(n - 1),
                 _ => None,
             })
             .flatten()
@@ -79,9 +79,9 @@ impl TryFrom<u8> for Point {
     type Error = &'static str;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let x = value / N;
-        let y = value % N;
-        if x < N && y < N {
+        let x = value / RANGE;
+        let y = value % RANGE;
+        if x < RANGE && y < RANGE {
             Ok(Point(x, y))
         } else {
             Err("Invalid code")
@@ -91,7 +91,7 @@ impl TryFrom<u8> for Point {
 
 impl From<Point> for u8 {
     fn from(value: Point) -> u8 {
-        value.0 * N + value.1
+        value.0 * RANGE + value.1
     }
 }
 
@@ -108,7 +108,7 @@ impl Index {
     }
 
     pub fn to_point(&self) -> Point {
-        let n = N - 1;
+        let n = RANGE - 1;
         let (i, j) = (self.i, self.j);
         match self.d {
             Vertical => Point(i, j),
@@ -136,7 +136,7 @@ impl Index {
     }
 
     pub fn maxj(&self) -> u8 {
-        let n = N - 1;
+        let n = RANGE - 1;
         let i = self.i;
         match self.d {
             Vertical | Horizontal => n,

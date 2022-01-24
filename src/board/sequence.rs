@@ -1,6 +1,12 @@
 use std::fmt;
 
-const VICTORY: u8 = 5;
+pub const VICTORY: u8 = 5;
+
+const CONTENT_MASK: u8 = 0b00111110;
+const MARGIN_MASK: u8 = 0b01000001;
+const HEAD_MASK: u8 = 0b00001111;
+const REST_MASK: u8 = 0b00011110;
+const LAST_MASK: u8 = 0b00010000;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
@@ -16,7 +22,7 @@ pub struct Sequence(pub u8);
 
 impl Sequence {
     pub fn eyes(&self) -> &'static [u8] {
-        EYES[self.0 as usize]
+        EYES_DATA[self.0 as usize]
     }
 }
 
@@ -29,7 +35,7 @@ impl fmt::Debug for Sequence {
 pub struct Sequences {
     my: u16,
     op: u16,
-    kind: SequenceKind,
+    k: SequenceKind,
     n: u8,
     exact: bool,
     limit: u8,
@@ -38,11 +44,11 @@ pub struct Sequences {
 }
 
 impl Sequences {
-    pub fn new(size: u8, my: u16, op: u16, kind: SequenceKind, n: u8, exact: bool) -> Self {
+    pub fn new(size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
-            kind: kind,
+            k: k,
             n: n,
             exact: exact,
             limit: size - VICTORY,
@@ -51,19 +57,11 @@ impl Sequences {
         }
     }
 
-    pub fn new_on(
-        i: u8,
-        size: u8,
-        my: u16,
-        op: u16,
-        kind: SequenceKind,
-        n: u8,
-        exact: bool,
-    ) -> Self {
+    pub fn new_on(i: u8, size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
-            kind: kind,
+            k: k,
             n: n,
             exact: exact,
             limit: if i + VICTORY <= size {
@@ -91,19 +89,19 @@ impl Iterator for Sequences {
         let i = self.i;
         self.i += 1;
 
-        let op_ = self.op >> i as u8;
-        let my_ = self.my >> i as u8;
+        let op_ = (self.op >> i) as u8;
+        let my_ = (self.my >> i) as u8;
 
-        if op_ & 0b00111110 != 0b0 || self.exact && my_ & 0b01000001 != 0b0 {
-            if self.kind != Single {
+        if op_ & CONTENT_MASK != 0b0 || self.exact && my_ & MARGIN_MASK != 0b0 {
+            if self.k != Single {
                 self.prev_ok = false;
             }
             return self.next();
         }
 
-        let my = (my_ >> 1 & 0b00011111) as u8;
+        let my = (my_ & CONTENT_MASK) >> 1 as u8;
         let ok = my.count_ones() as u8 == self.n;
-        match self.kind {
+        match self.k {
             Single => {
                 if ok {
                     return Some((i, Sequence(my)));
@@ -118,10 +116,10 @@ impl Iterator for Sequences {
             }
             Compact => {
                 let prev_ok = self.prev_ok;
-                self.prev_ok = (my & 0b00011110).count_ones() as u8 == self.n;
-                if ok && prev_ok && (my & 0b00001111).count_ones() as u8 == self.n {
+                self.prev_ok = (my & REST_MASK).count_ones() as u8 == self.n;
+                if ok && prev_ok && (my & HEAD_MASK).count_ones() as u8 == self.n {
                     // discard non-eye
-                    return Some((i, Sequence(my & 0b00001111 | 0b00010000)));
+                    return Some((i, Sequence(my & HEAD_MASK | LAST_MASK)));
                 }
             }
         }
@@ -130,7 +128,7 @@ impl Iterator for Sequences {
     }
 }
 
-const EYES: [&[u8]; 32] = [
+const EYES_DATA: [&[u8]; 32] = [
     &[0, 1, 2, 3, 4],
     &[1, 2, 3, 4],
     &[0, 2, 3, 4],

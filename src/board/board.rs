@@ -21,8 +21,8 @@ impl Board {
         }
     }
 
-    pub fn from_points(blacks: &Points, whites: &Points) -> Self {
-        let square = Square::from_points(blacks, whites);
+    pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
+        let square = Square::from_stones(blacks, whites);
         let z_hash = zobrist::from_points(blacks, whites);
         Self {
             square: square,

@@ -11,8 +11,7 @@ pub enum ForbiddenKind {
 }
 
 pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)> {
-    (0..SQUARE_SIZE)
-        .flat_map(|x| (0..SQUARE_SIZE).map(move |y| Point(x, y)))
+    q.empties()
         .map(|p| (forbidden_strict(q, p), p))
         .filter(|(k, _)| k.is_some())
         .map(|(k, p)| (k.unwrap(), p))
