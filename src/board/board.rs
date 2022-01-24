@@ -96,6 +96,10 @@ impl Board {
         forbiddens(&self.square)
     }
 
+    pub fn forbidden_strict(&self, p: Point) -> Option<ForbiddenKind> {
+        forbidden_strict(&self.square, p)
+    }
+
     pub fn forbidden(&self, p: Point) -> Option<ForbiddenKind> {
         forbidden(&self.square, p)
     }
