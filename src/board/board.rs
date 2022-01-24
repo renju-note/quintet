@@ -23,7 +23,7 @@ impl Board {
 
     pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
         let square = Square::from_stones(blacks, whites);
-        let z_hash = zobrist::from_points(blacks, whites);
+        let z_hash = zobrist::from_stones(blacks, whites);
         Self {
             square: square,
             z_hash: z_hash,
@@ -120,7 +120,7 @@ impl FromStr for Board {
         let square = s.parse::<Square>()?;
         let blacks = square.stones(Black).collect();
         let whites = square.stones(White).collect();
-        let z_hash = zobrist::from_points(&Points(blacks), &Points(whites));
+        let z_hash = zobrist::from_stones(&Points(blacks), &Points(whites));
 
         Ok(Self {
             square: square,
@@ -131,7 +131,6 @@ impl FromStr for Board {
 
 #[cfg(test)]
 mod tests {
-    use super::ForbiddenKind::*;
     use super::*;
 
     #[test]

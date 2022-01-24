@@ -10,6 +10,8 @@ pub enum ForbiddenKind {
     Overline,
 }
 
+pub use ForbiddenKind::*;
+
 pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)> {
     q.empties()
         .map(|p| (forbidden_strict(q, p), p))
@@ -31,11 +33,11 @@ pub fn forbidden_strict(q: &Square, p: Point) -> Option<ForbiddenKind> {
 
 pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind> {
     if overline(&q, p) {
-        Some(ForbiddenKind::Overline)
+        Some(Overline)
     } else if double_four(&q, p) {
-        Some(ForbiddenKind::DoubleFour)
+        Some(DoubleFour)
     } else if double_three(&q, p) {
-        Some(ForbiddenKind::DoubleThree)
+        Some(DoubleThree)
     } else {
         None
     }
@@ -65,7 +67,7 @@ fn truthy_double_three(next: &Square, p: Point) -> bool {
     let truthy_threes = next
         .sequences_on(p, Black, Compact, 3, true)
         .filter(|(i, s)| {
-            let eye = i.subsequence(s.eyes()).next().unwrap().to_point();
+            let eye = i.mapped(s.eyes()).next().unwrap().to_point();
             forbidden(&next, eye).is_none()
         });
     distinctive(&mut truthy_threes.map(|p| p.0))
@@ -87,7 +89,6 @@ fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::ForbiddenKind::*;
     use super::*;
 
     #[test]
