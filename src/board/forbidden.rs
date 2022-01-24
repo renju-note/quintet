@@ -13,41 +13,53 @@ pub enum ForbiddenKind {
 pub fn forbiddens(square: &Square) -> Vec<(ForbiddenKind, Point)> {
     (0..BOARD_SIZE)
         .flat_map(|x| (0..BOARD_SIZE).map(move |y| Point(x, y)))
-        .map(|p| (forbidden(square, p), p))
+        .map(|p| (forbidden_strict(square, p), p))
         .filter(|(k, _)| k.is_some())
         .map(|(k, p)| (k.unwrap(), p))
         .collect()
 }
 
+pub fn forbidden_strict(square: &Square, p: Point) -> Option<ForbiddenKind> {
+    if square.stone(p).is_some() {
+        return None;
+    }
+    // TODO: check five
+    forbidden(square, p)
+}
+
 pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
-    let mut next = square.clone();
-    next.put_mut(Black, p);
-    if overline(&next, p) {
+    if overline(&square, p) {
         Some(ForbiddenKind::Overline)
-    } else if double_four(&next, p) {
+    } else if double_four(&square, p) {
         Some(ForbiddenKind::DoubleFour)
-    } else if double_three(&next, p) {
+    } else if double_three(&square, p) {
         Some(ForbiddenKind::DoubleThree)
     } else {
         None
     }
 }
 
-fn overline(next: &Square, p: Point) -> bool {
-    let mut new_overlines = next.sequences_on(p, Black, Union, 5, false);
-    new_overlines.next().is_some()
+fn overline(square: &Square, p: Point) -> bool {
+    let mut next_overlines = square.sequences_on(p, Black, Union, 4, false);
+    next_overlines.next().is_some()
 }
 
-fn double_four(next: &Square, p: Point) -> bool {
-    let new_fours = next.sequences_on(p, Black, Single, 4, true);
-    distinctive(&mut new_fours.map(|p| p.0))
+fn double_four(square: &Square, p: Point) -> bool {
+    let next_fours = square.sequences_on(p, Black, Single, 3, true);
+    distinctive(&mut next_fours.map(|p| p.0))
 }
 
-fn double_three(next: &Square, p: Point) -> bool {
-    let new_threes = next.sequences_on(p, Black, Intersect, 3, true);
-    if !distinctive(&mut new_threes.map(|p| p.0)) {
+fn double_three(square: &Square, p: Point) -> bool {
+    let next_threes = square.sequences_on(p, Black, Intersect, 2, true);
+    if !distinctive(&mut next_threes.map(|p| p.0)) {
         return false;
     }
+    let mut next = square.clone();
+    next.put_mut(Black, p);
+    truthy_double_three(&next, p)
+}
+
+fn truthy_double_three(next: &Square, p: Point) -> bool {
     let truthy_threes = next
         .sequences_on(p, Black, Intersect, 3, true)
         .filter(|(i, s)| {
@@ -80,7 +92,7 @@ mod tests {
     fn test_forbiddens() -> Result<(), String> {
         let square = "
          . . . . . . . . . . . . . . .
-         . . o . . . . . . . . . . . .
+         . . o . . . . . . o o o o . .
          . o . o . . . . . . . . . . .
          . . o . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
