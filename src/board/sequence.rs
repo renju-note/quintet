@@ -5,8 +5,8 @@ const SLOT_SIZE: u8 = 5;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
     Single,
-    Union,
-    Intersect,
+    Double,
+    Compact,
 }
 
 pub use SequenceKind::*;
@@ -109,14 +109,14 @@ impl Iterator for Sequences {
                     return Some((i, Sequence(my)));
                 }
             }
-            Union => {
+            Double => {
                 let prev_ok = self.prev_ok;
                 self.prev_ok = ok;
                 if prev_ok && ok {
                     return Some((i, Sequence(my)));
                 }
             }
-            Intersect => {
+            Compact => {
                 let prev_ok = self.prev_ok;
                 self.prev_ok = (my & 0b00011110).count_ones() as u8 == self.n;
                 if ok && prev_ok && (my & 0b00001111).count_ones() as u8 == self.n {
@@ -198,11 +198,11 @@ mod tests {
     }
 
     #[test]
-    fn test_sequences_double() {
+    fn test_sequences_double_or_compact() {
         let my = 0b001000110001010;
         let op = 0b000000001000000;
 
-        let k = Union;
+        let k = Double;
 
         let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00000101)), (8, Sequence(0b00010001))];
@@ -212,7 +212,7 @@ mod tests {
         let expected = [(1, Sequence(0b00000101))];
         assert_eq!(result, expected);
 
-        let k = Intersect;
+        let k = Compact;
 
         let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00010101))];
@@ -225,7 +225,7 @@ mod tests {
         let my = 0b111101000110111;
         let op = 0b000000000000000;
 
-        let k = Union;
+        let k = Double;
 
         let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00011011)), (10, Sequence(0b00011110))];
@@ -235,7 +235,7 @@ mod tests {
         let expected = [];
         assert_eq!(result, expected);
 
-        let k = Intersect;
+        let k = Compact;
 
         let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
         let expected = [];

@@ -187,7 +187,7 @@ mod tests {
         ];
         assert_eq!(board.stones(White).collect::<Vec<_>>(), whites);
 
-        let black_twos_result: Vec<_> = board.sequences(Black, Intersect, 2, true).collect();
+        let black_twos_result: Vec<_> = board.sequences(Black, Compact, 2, true).collect();
         let black_twos_expected = [
             (Index::new(Vertical, 6, 6), Sequence(0b00011100)),
             (Index::new(Vertical, 6, 7), Sequence(0b00010110)),
@@ -198,7 +198,7 @@ mod tests {
         ];
         assert_eq!(black_twos_result, black_twos_expected);
 
-        let white_twos_result: Vec<_> = board.sequences(White, Intersect, 2, false).collect();
+        let white_twos_result: Vec<_> = board.sequences(White, Compact, 2, false).collect();
         let white_twos_expected = [
             (Index::new(Horizontal, 6, 5), Sequence(0b00011001)),
             (Index::new(Ascending, 13, 6), Sequence(0b00010110)),
@@ -206,7 +206,7 @@ mod tests {
         ];
         assert_eq!(white_twos_result, white_twos_expected);
 
-        let white_threes_result: Vec<_> = board.sequences(White, Intersect, 3, false).collect();
+        let white_threes_result: Vec<_> = board.sequences(White, Compact, 3, false).collect();
         let white_threes_expected = [(Index::new(Ascending, 13, 5), Sequence(0b00011101))];
         assert_eq!(white_threes_result, white_threes_expected);
 

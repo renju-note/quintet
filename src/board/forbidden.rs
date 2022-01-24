@@ -43,7 +43,7 @@ pub fn forbidden(square: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(square: &Square, p: Point) -> bool {
-    let mut next_overlines = square.sequences_on(p, Black, Union, 4, false);
+    let mut next_overlines = square.sequences_on(p, Black, Double, 4, false);
     next_overlines.next().is_some()
 }
 
@@ -53,7 +53,7 @@ fn double_four(square: &Square, p: Point) -> bool {
 }
 
 fn double_three(square: &Square, p: Point) -> bool {
-    let next_threes = square.sequences_on(p, Black, Intersect, 2, true);
+    let next_threes = square.sequences_on(p, Black, Compact, 2, true);
     if !distinctive(&mut next_threes.map(|p| p.0)) {
         return false;
     }
@@ -64,7 +64,7 @@ fn double_three(square: &Square, p: Point) -> bool {
 
 fn truthy_double_three(next: &Square, p: Point) -> bool {
     let truthy_threes = next
-        .sequences_on(p, Black, Intersect, 3, true)
+        .sequences_on(p, Black, Compact, 3, true)
         .filter(|(i, s)| {
             let eye = i.subsequence(s.eyes()).next().unwrap().to_point();
             forbidden(&next, eye).is_none()

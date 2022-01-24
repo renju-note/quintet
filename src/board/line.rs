@@ -212,10 +212,10 @@ mod tests {
         let result: Vec<_> = line.sequences_on(7, Black, Single, 3, true).collect();
         let expected = [(4, Sequence(0b00010110))];
         assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Intersect, 3, false).collect();
+        let result: Vec<_> = line.sequences_on(7, Black, Compact, 3, false).collect();
         let expected = [(5, Sequence(0b00011011))];
         assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Intersect, 3, true).collect();
+        let result: Vec<_> = line.sequences_on(7, Black, Compact, 3, true).collect();
         let expected = [];
         assert_eq!(result, expected);
 
@@ -226,10 +226,10 @@ mod tests {
         let result: Vec<_> = line.sequences_on(7, Black, Single, 3, true).collect();
         let expected = [(3, Sequence(0b00000111)), (7, Sequence(0b00011100))];
         assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Intersect, 3, false).collect();
+        let result: Vec<_> = line.sequences_on(7, Black, Compact, 3, false).collect();
         let expected = [];
         assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Intersect, 3, true).collect();
+        let result: Vec<_> = line.sequences_on(7, Black, Compact, 3, true).collect();
         let expected = [];
         assert_eq!(result, expected);
 

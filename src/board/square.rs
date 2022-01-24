@@ -592,7 +592,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
-        let result: Vec<_> = square.sequences(Black, Intersect, 2, true).collect();
+        let result: Vec<_> = square.sequences(Black, Compact, 2, true).collect();
         let expected = [(Index::new(Ascending, 16, 5), Sequence(0b00011001))];
         assert_eq!(result, expected);
         let result: Vec<_> = square.sequences(White, Single, 3, false).collect();
