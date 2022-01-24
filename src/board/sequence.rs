@@ -1,4 +1,3 @@
-use super::util::{count_ones, eyes};
 use std::fmt;
 
 const SLOT_SIZE: u8 = 5;
@@ -17,7 +16,7 @@ pub struct Sequence(pub u8);
 
 impl Sequence {
     pub fn eyes(&self) -> &'static [u8] {
-        eyes(self.0)
+        EYES[self.0 as usize]
     }
 }
 
@@ -92,8 +91,8 @@ impl Iterator for Sequences {
         let i = self.i;
         self.i += 1;
 
-        let op_ = (self.op >> i & 0b01111111) as u8;
-        let my_ = (self.my >> i & 0b01111111) as u8;
+        let op_ = self.op >> i as u8;
+        let my_ = self.my >> i as u8;
 
         if op_ & 0b00111110 != 0b0 || self.exact && my_ & 0b01000001 != 0b0 {
             if self.kind != Single {
@@ -102,8 +101,8 @@ impl Iterator for Sequences {
             return self.next();
         }
 
-        let my = (my_ >> 1) & 0b11111;
-        let ok = count_ones(my) == self.n;
+        let my = ((my_ >> 1) & 0b11111) as u8;
+        let ok = my.count_ones() as u8 == self.n;
         match self.kind {
             Single => {
                 if ok {
@@ -119,8 +118,8 @@ impl Iterator for Sequences {
             }
             Intersect => {
                 let prev_ok = self.prev_ok;
-                self.prev_ok = count_ones(my & 0b11110) == self.n;
-                if ok && prev_ok && count_ones(my & 0b01111) == self.n {
+                self.prev_ok = (my & 0b11110).count_ones() as u8 == self.n;
+                if ok && prev_ok && (my & 0b01111).count_ones() as u8 == self.n {
                     return Some((i, Sequence(my & 0b01111 | 0b10000)));
                 }
             }
@@ -129,6 +128,41 @@ impl Iterator for Sequences {
         self.next()
     }
 }
+
+const EYES: [&[u8]; 32] = [
+    &[0, 1, 2, 3, 4],
+    &[1, 2, 3, 4],
+    &[0, 2, 3, 4],
+    &[2, 3, 4],
+    &[0, 1, 3, 4],
+    &[1, 3, 4],
+    &[0, 3, 4],
+    &[3, 4],
+    &[0, 1, 2, 4],
+    &[1, 2, 4],
+    &[0, 2, 4],
+    &[2, 4],
+    &[0, 1, 4],
+    &[1, 4],
+    &[0, 4],
+    &[4],
+    &[0, 1, 2, 3],
+    &[1, 2, 3],
+    &[0, 2, 3],
+    &[2, 3],
+    &[0, 1, 3],
+    &[1, 3],
+    &[0, 3],
+    &[3],
+    &[0, 1, 2],
+    &[1, 2],
+    &[0, 2],
+    &[2],
+    &[0, 1],
+    &[1],
+    &[0],
+    &[],
+];
 
 #[cfg(test)]
 mod tests {
