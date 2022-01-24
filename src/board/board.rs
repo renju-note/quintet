@@ -1,5 +1,5 @@
 use super::forbidden::*;
-use super::fundamentals::*;
+use super::player::*;
 use super::point::*;
 use super::sequence::*;
 use super::square::*;

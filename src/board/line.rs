@@ -1,4 +1,4 @@
-use super::fundamentals::*;
+use super::player::*;
 use super::sequence::*;
 use std::convert::TryFrom;
 use std::fmt;

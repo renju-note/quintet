@@ -1,4 +1,4 @@
-use super::fundamentals::*;
+use super::player::*;
 use super::point::*;
 use super::square::*;
 
