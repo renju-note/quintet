@@ -1,12 +1,18 @@
 use std::fmt;
 
-const SLOT_SIZE: u8 = 5;
+pub const VICTORY: u8 = 5;
+
+const CONTENT_MASK: u8 = 0b00111110;
+const MARGIN_MASK: u8 = 0b01000001;
+const HEAD_MASK: u8 = 0b00001111;
+const REST_MASK: u8 = 0b00011110;
+const LAST_MASK: u8 = 0b00010000;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
     Single,
-    Union,
-    Intersect,
+    Double,
+    Compact,
 }
 
 pub use SequenceKind::*;
@@ -16,7 +22,7 @@ pub struct Sequence(pub u8);
 
 impl Sequence {
     pub fn eyes(&self) -> &'static [u8] {
-        EYES[self.0 as usize]
+        EYES_DATA[self.0 as usize]
     }
 }
 
@@ -29,7 +35,7 @@ impl fmt::Debug for Sequence {
 pub struct Sequences {
     my: u16,
     op: u16,
-    kind: SequenceKind,
+    k: SequenceKind,
     n: u8,
     exact: bool,
     limit: u8,
@@ -38,41 +44,33 @@ pub struct Sequences {
 }
 
 impl Sequences {
-    pub fn new(size: u8, my: u16, op: u16, kind: SequenceKind, n: u8, exact: bool) -> Self {
+    pub fn new(size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
-            kind: kind,
+            k: k,
             n: n,
             exact: exact,
-            limit: size - SLOT_SIZE,
+            limit: size - VICTORY,
             i: 0,
             prev_ok: false,
         }
     }
 
-    pub fn new_on(
-        i: u8,
-        size: u8,
-        my: u16,
-        op: u16,
-        kind: SequenceKind,
-        n: u8,
-        exact: bool,
-    ) -> Self {
+    pub fn new_on(i: u8, size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
-            kind: kind,
+            k: k,
             n: n,
             exact: exact,
-            limit: if i + SLOT_SIZE <= size {
+            limit: if i + VICTORY <= size {
                 i
             } else {
-                size - SLOT_SIZE
+                size - VICTORY
             },
-            i: if SLOT_SIZE - 1 <= i {
-                i - (SLOT_SIZE - 1)
+            i: if VICTORY - 1 <= i {
+                i - (VICTORY - 1)
             } else {
                 0
             },
@@ -91,37 +89,37 @@ impl Iterator for Sequences {
         let i = self.i;
         self.i += 1;
 
-        let op_ = self.op >> i as u8;
-        let my_ = self.my >> i as u8;
+        let op_ = (self.op >> i) as u8;
+        let my_ = (self.my >> i) as u8;
 
-        if op_ & 0b00111110 != 0b0 || self.exact && my_ & 0b01000001 != 0b0 {
-            if self.kind != Single {
+        if op_ & CONTENT_MASK != 0b0 || self.exact && my_ & MARGIN_MASK != 0b0 {
+            if self.k != Single {
                 self.prev_ok = false;
             }
             return self.next();
         }
 
-        let my = (my_ >> 1 & 0b00011111) as u8;
+        let my = (my_ & CONTENT_MASK) >> 1 as u8;
         let ok = my.count_ones() as u8 == self.n;
-        match self.kind {
+        match self.k {
             Single => {
                 if ok {
                     return Some((i, Sequence(my)));
                 }
             }
-            Union => {
+            Double => {
                 let prev_ok = self.prev_ok;
                 self.prev_ok = ok;
                 if prev_ok && ok {
                     return Some((i, Sequence(my)));
                 }
             }
-            Intersect => {
+            Compact => {
                 let prev_ok = self.prev_ok;
-                self.prev_ok = (my & 0b00011110).count_ones() as u8 == self.n;
-                if ok && prev_ok && (my & 0b00001111).count_ones() as u8 == self.n {
+                self.prev_ok = (my & REST_MASK).count_ones() as u8 == self.n;
+                if ok && prev_ok && (my & HEAD_MASK).count_ones() as u8 == self.n {
                     // discard non-eye
-                    return Some((i, Sequence(my & 0b00001111 | 0b00010000)));
+                    return Some((i, Sequence(my & HEAD_MASK | LAST_MASK)));
                 }
             }
         }
@@ -130,7 +128,7 @@ impl Iterator for Sequences {
     }
 }
 
-const EYES: [&[u8]; 32] = [
+const EYES_DATA: [&[u8]; 32] = [
     &[0, 1, 2, 3, 4],
     &[1, 2, 3, 4],
     &[0, 2, 3, 4],
@@ -198,11 +196,11 @@ mod tests {
     }
 
     #[test]
-    fn test_sequences_double() {
+    fn test_sequences_double_or_compact() {
         let my = 0b001000110001010;
         let op = 0b000000001000000;
 
-        let k = Union;
+        let k = Double;
 
         let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00000101)), (8, Sequence(0b00010001))];
@@ -212,7 +210,7 @@ mod tests {
         let expected = [(1, Sequence(0b00000101))];
         assert_eq!(result, expected);
 
-        let k = Intersect;
+        let k = Compact;
 
         let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00010101))];
@@ -225,7 +223,7 @@ mod tests {
         let my = 0b111101000110111;
         let op = 0b000000000000000;
 
-        let k = Union;
+        let k = Double;
 
         let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00011011)), (10, Sequence(0b00011110))];
@@ -235,7 +233,7 @@ mod tests {
         let expected = [];
         assert_eq!(result, expected);
 
-        let k = Intersect;
+        let k = Compact;
 
         let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
         let expected = [];

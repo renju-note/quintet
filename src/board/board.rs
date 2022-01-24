@@ -1,5 +1,5 @@
 use super::forbidden::*;
-use super::fundamentals::*;
+use super::player::*;
 use super::point::*;
 use super::sequence::*;
 use super::square::*;
@@ -21,8 +21,8 @@ impl Board {
         }
     }
 
-    pub fn from_points(blacks: &Points, whites: &Points) -> Self {
-        let square = Square::from_points(blacks, whites);
+    pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
+        let square = Square::from_stones(blacks, whites);
         let z_hash = zobrist::from_points(blacks, whites);
         Self {
             square: square,
@@ -30,21 +30,20 @@ impl Board {
         }
     }
 
-    pub fn put_mut(&mut self, player: Player, p: Point) {
+    pub fn put_mut(&mut self, r: Player, p: Point) {
         self.remove_mut(p);
-        self.square.put_mut(player, p);
-        self.update_z_hash(player, p);
+        self.square.put_mut(r, p);
+        self.update_z_hash(r, p);
     }
 
     pub fn remove_mut(&mut self, p: Point) {
-        self.stone(p)
-            .map(|existent| self.update_z_hash(existent, p));
+        self.stone(p).map(|r| self.update_z_hash(r, p));
         self.square.remove_mut(p);
     }
 
-    pub fn put(&self, player: Player, p: Point) -> Self {
+    pub fn put(&self, r: Player, p: Point) -> Self {
         let mut result = self.clone();
-        result.put_mut(player, p);
+        result.put_mut(r, p);
         result
     }
 
@@ -58,29 +57,29 @@ impl Board {
         self.square.stone(p)
     }
 
-    pub fn stones(&self, player: Player) -> impl Iterator<Item = Point> + '_ {
-        self.square.stones(player)
+    pub fn stones(&self, r: Player) -> impl Iterator<Item = Point> + '_ {
+        self.square.stones(r)
     }
 
     pub fn sequences(
         &self,
-        player: Player,
-        kind: SequenceKind,
+        r: Player,
+        k: SequenceKind,
         n: u8,
         exact: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences(player, kind, n, exact)
+        self.square.sequences(r, k, n, exact)
     }
 
     pub fn sequences_on(
         &self,
         p: Point,
-        player: Player,
-        kind: SequenceKind,
+        r: Player,
+        k: SequenceKind,
         n: u8,
         exact: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences_on(p, player, kind, n, exact)
+        self.square.sequences_on(p, r, k, n, exact)
     }
 
     pub fn to_pretty_string(&self) -> String {
@@ -103,8 +102,8 @@ impl Board {
         self.z_hash
     }
 
-    fn update_z_hash(&mut self, player: Player, p: Point) {
-        self.z_hash = zobrist::apply(self.z_hash, player, p);
+    fn update_z_hash(&mut self, r: Player, p: Point) {
+        self.z_hash = zobrist::apply(self.z_hash, r, p);
     }
 }
 
@@ -187,7 +186,7 @@ mod tests {
         ];
         assert_eq!(board.stones(White).collect::<Vec<_>>(), whites);
 
-        let black_twos_result: Vec<_> = board.sequences(Black, Intersect, 2, true).collect();
+        let black_twos_result: Vec<_> = board.sequences(Black, Compact, 2, true).collect();
         let black_twos_expected = [
             (Index::new(Vertical, 6, 6), Sequence(0b00011100)),
             (Index::new(Vertical, 6, 7), Sequence(0b00010110)),
@@ -198,7 +197,7 @@ mod tests {
         ];
         assert_eq!(black_twos_result, black_twos_expected);
 
-        let white_twos_result: Vec<_> = board.sequences(White, Intersect, 2, false).collect();
+        let white_twos_result: Vec<_> = board.sequences(White, Compact, 2, false).collect();
         let white_twos_expected = [
             (Index::new(Horizontal, 6, 5), Sequence(0b00011001)),
             (Index::new(Ascending, 13, 6), Sequence(0b00010110)),
@@ -206,7 +205,7 @@ mod tests {
         ];
         assert_eq!(white_twos_result, white_twos_expected);
 
-        let white_threes_result: Vec<_> = board.sequences(White, Intersect, 3, false).collect();
+        let white_threes_result: Vec<_> = board.sequences(White, Compact, 3, false).collect();
         let white_threes_expected = [(Index::new(Ascending, 13, 5), Sequence(0b00011101))];
         assert_eq!(white_threes_result, white_threes_expected);
 

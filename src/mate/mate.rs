@@ -32,7 +32,7 @@ fn validate_initial(board: &Board, player: Player) -> Result<(), Option<Vec<Poin
     }
 
     // Already exists black overline
-    if board.sequences(Black, Union, 5, false).next().is_some() {
+    if board.sequences(Black, Double, 5, false).next().is_some() {
         return Err(None);
     }
 

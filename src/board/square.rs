@@ -1,14 +1,14 @@
-use super::fundamentals::*;
 use super::line::*;
+use super::player::*;
 use super::point::*;
 use super::sequence::*;
 use std::fmt;
 use std::str::FromStr;
 
-const DIAGONAL_OMIT: u8 = 5 - 1;
-const D_LINE_NUM: u8 = (BOARD_SIZE - DIAGONAL_OMIT) * 2 - 1; // 21
+const D_LINE_OMIT: u8 = VICTORY - 1;
+const D_LINE_NUM: u8 = (RANGE - D_LINE_OMIT) * 2 - 1; // 21
 
-type OrthogonalLines = [Line; BOARD_SIZE as usize];
+type OrthogonalLines = [Line; RANGE as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -39,7 +39,7 @@ impl Square {
         square
     }
 
-    pub fn from_points(blacks: &Points, whites: &Points) -> Self {
+    pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
         let mut square = Self::new();
         for &p in blacks.0.iter() {
             square.put_mut(Black, p);
@@ -89,6 +89,17 @@ impl Square {
             .enumerate()
             .map(move |(i, l)| {
                 l.stones(player)
+                    .map(move |j| Index::new(Vertical, i as u8, j).to_point())
+            })
+            .flatten()
+    }
+
+    pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
+        self.vlines
+            .iter()
+            .enumerate()
+            .map(move |(i, l)| {
+                l.blanks()
                     .map(move |j| Index::new(Vertical, i as u8, j).to_point())
             })
             .flatten()
@@ -154,13 +165,13 @@ impl Square {
             .alines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Ascending, (i as u8 + DIAGONAL_OMIT), l));
+            .map(|(i, l)| (Ascending, (i as u8 + D_LINE_OMIT), l));
 
         let diter = self
             .dlines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Descending, (i as u8 + DIAGONAL_OMIT), l));
+            .map(|(i, l)| (Descending, (i as u8 + D_LINE_OMIT), l));
 
         viter.chain(hiter).chain(aiter).chain(diter)
     }
@@ -191,12 +202,12 @@ impl Square {
 
     fn line_idx(index: Index) -> Option<usize> {
         let i = index.i;
-        match index.direction {
+        match index.d {
             Vertical => Some(i as usize),
             Horizontal => Some(i as usize),
             _ => {
-                if DIAGONAL_OMIT <= i && i < DIAGONAL_OMIT + D_LINE_NUM {
-                    Some((i - DIAGONAL_OMIT) as usize)
+                if D_LINE_OMIT <= i && i < D_LINE_OMIT + D_LINE_NUM {
+                    Some((i - D_LINE_OMIT) as usize)
                 } else {
                     None
                 }
@@ -226,7 +237,7 @@ impl FromStr for Square {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains("/") {
-            from_str_points(s)
+            from_str_stones(s)
         } else if s.contains(",") {
             from_str_moves(s)
         } else {
@@ -240,13 +251,13 @@ fn from_str_moves(s: &str) -> Result<Square, &'static str> {
     Ok(Square::from_moves(&moves))
 }
 
-fn from_str_points(s: &str) -> Result<Square, &'static str> {
+fn from_str_stones(s: &str) -> Result<Square, &'static str> {
     let mut codes = s.trim().split("/");
     let blacks_str = codes.next().ok_or("Wrong format.")?;
     let whites_str = codes.next().ok_or("Wrong format.")?;
     let blacks = blacks_str.parse::<Points>()?;
     let whites = whites_str.parse::<Points>()?;
-    Ok(Square::from_points(&blacks, &whites))
+    Ok(Square::from_stones(&blacks, &whites))
 }
 
 fn from_str_display(s: &str) -> Result<Square, &'static str> {
@@ -255,12 +266,12 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         .split("\n")
         .map(|ls| ls.trim().parse::<Line>())
         .collect::<Result<Vec<_>, _>>()?;
-    if hlines_rev.len() != BOARD_SIZE as usize {
+    if hlines_rev.len() != RANGE as usize {
         return Err("Wrong num of lines");
     }
     let mut square = Square::new();
     for (i, hline) in hlines_rev.iter().rev().enumerate() {
-        if hline.size != BOARD_SIZE {
+        if hline.size != RANGE {
             return Err("Wrong line size");
         }
         for j in 0..hline.size {
@@ -275,47 +286,47 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
 
 fn orthogonal_lines() -> OrthogonalLines {
     [
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
+        Line::new(RANGE),
     ]
 }
 
 fn diagonal_lines() -> DiagonalLines {
     [
-        Line::new(BOARD_SIZE - 10),
-        Line::new(BOARD_SIZE - 9),
-        Line::new(BOARD_SIZE - 8),
-        Line::new(BOARD_SIZE - 7),
-        Line::new(BOARD_SIZE - 6),
-        Line::new(BOARD_SIZE - 5),
-        Line::new(BOARD_SIZE - 4),
-        Line::new(BOARD_SIZE - 3),
-        Line::new(BOARD_SIZE - 2),
-        Line::new(BOARD_SIZE - 1),
-        Line::new(BOARD_SIZE),
-        Line::new(BOARD_SIZE - 1),
-        Line::new(BOARD_SIZE - 2),
-        Line::new(BOARD_SIZE - 3),
-        Line::new(BOARD_SIZE - 4),
-        Line::new(BOARD_SIZE - 5),
-        Line::new(BOARD_SIZE - 6),
-        Line::new(BOARD_SIZE - 7),
-        Line::new(BOARD_SIZE - 8),
-        Line::new(BOARD_SIZE - 9),
-        Line::new(BOARD_SIZE - 10),
+        Line::new(RANGE - 10),
+        Line::new(RANGE - 9),
+        Line::new(RANGE - 8),
+        Line::new(RANGE - 7),
+        Line::new(RANGE - 6),
+        Line::new(RANGE - 5),
+        Line::new(RANGE - 4),
+        Line::new(RANGE - 3),
+        Line::new(RANGE - 2),
+        Line::new(RANGE - 1),
+        Line::new(RANGE),
+        Line::new(RANGE - 1),
+        Line::new(RANGE - 2),
+        Line::new(RANGE - 3),
+        Line::new(RANGE - 4),
+        Line::new(RANGE - 5),
+        Line::new(RANGE - 6),
+        Line::new(RANGE - 7),
+        Line::new(RANGE - 8),
+        Line::new(RANGE - 9),
+        Line::new(RANGE - 10),
     ]
 }
 
@@ -592,7 +603,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
-        let result: Vec<_> = square.sequences(Black, Intersect, 2, true).collect();
+        let result: Vec<_> = square.sequences(Black, Compact, 2, true).collect();
         let expected = [(Index::new(Ascending, 16, 5), Sequence(0b00011001))];
         assert_eq!(result, expected);
         let result: Vec<_> = square.sequences(White, Single, 3, false).collect();

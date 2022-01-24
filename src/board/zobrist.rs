@@ -1,4 +1,4 @@
-use super::fundamentals::*;
+use super::player::*;
 use super::point::*;
 
 pub fn from_points(blacks: &Points, whites: &Points) -> u64 {
@@ -45,7 +45,7 @@ mod tests {
     }
 }
 
-const TABLE_SIZE: usize = 2 * (BOARD_SIZE as usize) * (BOARD_SIZE as usize); // 450
+const TABLE_SIZE: usize = 2 * (RANGE as usize) * (RANGE as usize); // 450
 
 const EMPTY_CODE: u64 = 0x3453e3078a713e56;
 
