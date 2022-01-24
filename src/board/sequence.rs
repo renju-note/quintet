@@ -101,7 +101,7 @@ impl Iterator for Sequences {
             return self.next();
         }
 
-        let my = ((my_ >> 1) & 0b11111) as u8;
+        let my = (my_ >> 1 & 0b00011111) as u8;
         let ok = my.count_ones() as u8 == self.n;
         match self.kind {
             Single => {
@@ -118,9 +118,10 @@ impl Iterator for Sequences {
             }
             Intersect => {
                 let prev_ok = self.prev_ok;
-                self.prev_ok = (my & 0b11110).count_ones() as u8 == self.n;
-                if ok && prev_ok && (my & 0b01111).count_ones() as u8 == self.n {
-                    return Some((i, Sequence(my & 0b01111 | 0b10000)));
+                self.prev_ok = (my & 0b00011110).count_ones() as u8 == self.n;
+                if ok && prev_ok && (my & 0b00001111).count_ones() as u8 == self.n {
+                    // discard non-eye
+                    return Some((i, Sequence(my & 0b00001111 | 0b00010000)));
                 }
             }
         }
