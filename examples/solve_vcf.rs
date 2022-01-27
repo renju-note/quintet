@@ -5,20 +5,18 @@ use std::time::Instant;
 
 fn main() -> Result<(), &'static str> {
     let args = env::args().collect::<Vec<String>>();
-    let player = args[1].parse::<Player>()?;
-    println!("Player: {:?}\n", player);
+    let turn = args[1].parse::<Player>()?;
+    println!("Player: {:?}\n", turn);
     let board = args[2].parse::<Board>()?;
     println!("Board:\n\n{}\n", board.to_pretty_string());
-
-    solve(player, board);
-
+    solve(board, turn);
     Ok(())
 }
 
-fn solve(player: Player, board: Board) {
+fn solve(board: Board, turn: Player) {
     println!("Solving...\n");
     let start = Instant::now();
-    let may_solution = mate::solve_vcf(&board, player, u8::MAX, true);
+    let may_solution = mate::solve_vcf(&board, turn, u8::MAX);
     let elapsed = start.elapsed();
     println!("Elapsed: {:?}", elapsed);
     match may_solution {
