@@ -54,20 +54,13 @@ fn choose_last_moves(board: &Board, player: Player) -> (Point, Point) {
     let last_move = if let Some((index, _)) = opponent_fours.next() {
         let start = index.to_point();
         let next = index.walk(1).to_point();
-        board
-            .stones(opponent)
-            .into_iter()
-            .find(|&s| s == start || s == next)
+        board.stones(opponent).find(|&s| s == start || s == next)
     } else {
-        board.stones(opponent).into_iter().next()
-    }
-    .unwrap_or(Point(0, 0));
-    let last2_move = board
-        .stones(player)
-        .into_iter()
-        .next()
-        .unwrap_or(Point(0, 0));
-    (last_move, last2_move)
+        board.stones(opponent).next()
+    };
+    let last2_move = board.stones(player).next();
+    let default = Point(0, 0);
+    (last_move.unwrap_or(default), last2_move.unwrap_or(default))
 }
 
 #[cfg(test)]
