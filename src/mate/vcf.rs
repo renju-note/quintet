@@ -34,7 +34,7 @@ pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> O
         .next_sequences_on(state.last2_move(), Single, 3)
         .flat_map(sword_eyes_pair)
         .collect();
-    for (attack, defence) in neighbor_move_pairs {
+    for &(attack, defence) in &neighbor_move_pairs {
         let result = solve_one(state, depth, searched, attack, defence);
         if result.is_some() {
             return result;
@@ -46,6 +46,9 @@ pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> O
         .flat_map(sword_eyes_pair)
         .collect();
     for (attack, defence) in move_pairs {
+        if neighbor_move_pairs.iter().any(|(a, _)| *a == attack) {
+            continue;
+        }
         let result = solve_one(state, depth, searched, attack, defence);
         if result.is_some() {
             return result;
