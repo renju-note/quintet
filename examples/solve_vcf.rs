@@ -18,7 +18,7 @@ fn main() -> Result<(), &'static str> {
 fn solve(player: Player, board: Board) {
     println!("Solving...\n");
     let start = Instant::now();
-    let may_solution = mate::solve_vcf(&board, player, u8::MAX, true);
+    let may_solution = mate::solve_vcf(&board, player, u8::MAX);
     let elapsed = start.elapsed();
     println!("Elapsed: {:?}", elapsed);
     match may_solution {

@@ -65,26 +65,6 @@ impl GameState {
         self.board.zobrist_hash()
     }
 
-    pub fn sequences(
-        &self,
-        player: Player,
-        kind: SequenceKind,
-        n: u8,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.board.sequences(player, kind, n, player.is_black())
-    }
-
-    pub fn sequences_on(
-        &self,
-        p: Point,
-        player: Player,
-        kind: SequenceKind,
-        n: u8,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.board
-            .sequences_on(p, player, kind, n, player.is_black())
-    }
-
     pub fn next_sequences(
         &self,
         k: SequenceKind,
@@ -104,9 +84,19 @@ impl GameState {
         self.board.sequences_on(p, r, k, n, r.is_black())
     }
 
+    pub fn last_sequences_on(
+        &self,
+        p: Point,
+        k: SequenceKind,
+        n: u8,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        let r = self.last_player();
+        self.board.sequences_on(p, r, k, n, r.is_black())
+    }
+
     pub fn inspect_last_four_eyes(&self) -> (Option<Point>, bool) {
         let last_four_eyes = self
-            .sequences_on(self.last_move(), self.last_player(), Single, 4)
+            .last_sequences_on(self.last_move(), Single, 4)
             .map(|(i, s)| i.walk(s.eyes()[0] as i8).to_point());
         let mut ret = None;
         for eye in last_four_eyes {
