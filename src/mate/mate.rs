@@ -10,8 +10,8 @@ pub fn solve_vcf(board: &Board, player: Player, depth: u8, trim: bool) -> Option
         return e;
     }
 
-    let last_move = choose_last_move(board, player);
-    let state = GameState::new(board.clone(), player, last_move);
+    let (last_move, last2_move) = choose_last_moves(board, player);
+    let state = GameState::new(board.clone(), player, last_move, last2_move);
     let mut searched = HashSet::new();
     let solution = vcf::solve(&mut state.clone(), depth, &mut searched);
 
@@ -48,18 +48,26 @@ fn validate_initial(board: &Board, player: Player) -> Result<(), Option<Vec<Poin
     Ok(())
 }
 
-fn choose_last_move(board: &Board, player: Player) -> Point {
+fn choose_last_moves(board: &Board, player: Player) -> (Point, Point) {
     let opponent = player.opponent();
-    let stones = board.stones(opponent);
     let mut opponent_fours = board.sequences(opponent, Single, 4, opponent.is_black());
-    if let Some((index, _)) = opponent_fours.next() {
+    let last_move = if let Some((index, _)) = opponent_fours.next() {
         let start = index.to_point();
         let next = index.walk(1).to_point();
-        stones.into_iter().find(|&s| s == start || s == next)
+        board
+            .stones(opponent)
+            .into_iter()
+            .find(|&s| s == start || s == next)
     } else {
-        stones.into_iter().next()
+        board.stones(opponent).into_iter().next()
     }
-    .unwrap_or(Point(0, 0))
+    .unwrap_or(Point(0, 0));
+    let last2_move = board
+        .stones(player)
+        .into_iter()
+        .next()
+        .unwrap_or(Point(0, 0));
+    (last_move, last2_move)
 }
 
 #[cfg(test)]

@@ -14,33 +14,88 @@ pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> O
     }
     searched.insert(hash);
 
-    let move_pairs = collect_four_move_pairs(&state);
-    let last_move = state.last_move();
-    for (attack, defence) in move_pairs {
-        if state.is_forbidden_move(attack) {
-            continue;
-        }
-
-        state.play_mut(attack);
-        if state.won_by_last() {
-            return Some(vec![attack]);
-        }
-
-        state.play_mut(defence);
-        if let Some(mut ps) = solve(state, depth - 1, searched) {
-            let mut result = vec![attack, defence];
-            result.append(&mut ps);
-            return Some(result);
-        }
-
-        state.undo_mut(attack);
-        state.undo_mut(last_move);
+    let (may_last_eye, has_another_eye) = state.inspect_last_four_eyes();
+    if has_another_eye {
+        return None;
+    } else if let Some(last_eye) = may_last_eye {
+        let may_move_pair = state
+            .next_sequences_on(last_eye, Single, 3)
+            .flat_map(sword_eyes_pair)
+            .filter(|&(e1, _)| e1 == last_eye)
+            .next();
+        return if let Some((attack, defence)) = may_move_pair {
+            solve_one(state, depth, searched, attack, defence)
+        } else {
+            None
+        };
     }
+
+    let neighbor_move_pairs: Vec<_> = state
+        .next_sequences_on(state.last2_move(), Single, 3)
+        .flat_map(sword_eyes_pair)
+        .collect();
+    for (attack, defence) in neighbor_move_pairs {
+        let result = solve_one(state, depth, searched, attack, defence);
+        if result.is_some() {
+            return result;
+        }
+    }
+
+    let move_pairs: Vec<_> = state
+        .next_sequences(Single, 3)
+        .flat_map(sword_eyes_pair)
+        .collect();
+    for (attack, defence) in move_pairs {
+        let result = solve_one(state, depth, searched, attack, defence);
+        if result.is_some() {
+            return result;
+        }
+    }
+
     None
 }
 
+fn solve_one(
+    state: &mut GameState,
+    depth: u8,
+    searched: &mut HashSet<u64>,
+    attack: Point,
+    defence: Point,
+) -> Option<Vec<Point>> {
+    if state.is_forbidden_move(attack) {
+        return None;
+    }
+
+    let last_move = state.last_move();
+    let last2_move = state.last2_move();
+
+    state.play_mut(attack);
+    if state.won_by_last() {
+        return Some(vec![attack]);
+    }
+
+    state.play_mut(defence);
+    if let Some(mut ps) = solve(state, depth - 1, searched) {
+        let mut result = vec![attack, defence];
+        result.append(&mut ps);
+        return Some(result);
+    }
+
+    state.undo_mut(last_move);
+    state.undo_mut(last2_move);
+
+    None
+}
+
+fn sword_eyes_pair((start, sword): (Index, Sequence)) -> [(Point, Point); 2] {
+    let mut eyes = start.mapped(sword.eyes()).map(|i| i.to_point());
+    let e1 = eyes.next().unwrap();
+    let e2 = eyes.next().unwrap();
+    [(e1, e2), (e2, e1)]
+}
+
 fn collect_four_move_pairs(state: &GameState) -> Vec<(Point, Point)> {
-    let (last_four_eye, another) = state.last_four_eye_and_another();
+    let (last_four_eye, another) = state.inspect_last_four_eyes();
     if another {
         return vec![];
     }
@@ -144,7 +199,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, Black, Point(11, 10));
+        let state = GameState::new(board, Black, Point(11, 10), Point(11, 13));
 
         let result = solve(&mut state.clone(), 12, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
@@ -183,7 +238,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, White, Point(12, 11));
+        let state = GameState::new(board, White, Point(12, 11), Point(7, 7));
 
         let result = solve(&mut state.clone(), 5, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
@@ -216,7 +271,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, Black, Point(10, 8));
+        let state = GameState::new(board, Black, Point(10, 8), Point(8, 9));
         let result = solve(&mut state.clone(), 3, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "K8,L8,H11".split_whitespace().collect();
@@ -246,7 +301,7 @@ mod tests {
          x . . o . o . . . . o o . o x
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, Black, Point(0, 0));
+        let state = GameState::new(board, Black, Point(0, 0), Point(0, 4));
         let result = solve(&mut state.clone(), u8::MAX, &mut HashSet::new());
         let result = result.map(|ps| Points(ps).to_string());
         let solution = "
