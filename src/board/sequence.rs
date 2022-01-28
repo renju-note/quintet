@@ -4,9 +4,9 @@ pub const VICTORY: u8 = 5;
 
 const TARGET_MASK: u8 = 0b00111110;
 const MARGIN_MASK: u8 = 0b01000001;
-const HEAD_MASK: u8 = 0b00001111;
-const REST_MASK: u8 = 0b00011110;
-const LAST_MASK: u8 = 0b00010000;
+const HEAD_MASK: u8 = 0b00011110;
+const REST_MASK: u8 = 0b00111100;
+const LAST_MASK: u8 = 0b00100000;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
@@ -99,19 +99,19 @@ impl Iterator for Sequences {
             return self.next();
         }
 
-        let my = (my_ & TARGET_MASK) >> 1 as u8;
+        let my = my_ & TARGET_MASK;
         let ok = my.count_ones() as u8 == self.n;
         match self.k {
             Single => {
                 if ok {
-                    return Some((i, Sequence(my)));
+                    return Some((i, Sequence(my >> 1)));
                 }
             }
             Double => {
                 let prev_ok = self.prev_ok;
                 self.prev_ok = ok;
                 if prev_ok && ok {
-                    return Some((i, Sequence(my)));
+                    return Some((i, Sequence(my >> 1)));
                 }
             }
             Compact => {
@@ -119,7 +119,10 @@ impl Iterator for Sequences {
                 self.prev_ok = (my & REST_MASK).count_ones() as u8 == self.n;
                 if ok && prev_ok && (my & HEAD_MASK).count_ones() as u8 == self.n {
                     // discard non-eye
-                    return Some((i, Sequence(my & HEAD_MASK | LAST_MASK)));
+                    // I know '& HEAD_MASK' is not necessary,
+                    // but I found removing it makes VCF solver slower for 5-10%.
+                    // It'a mistery...
+                    return Some((i, Sequence((my & HEAD_MASK | LAST_MASK) >> 1)));
                 }
             }
         }
