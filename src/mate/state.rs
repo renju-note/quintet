@@ -35,10 +35,7 @@ impl GameState {
 
     pub fn won_by_last(&self) -> bool {
         let (may_last_eye, has_another_eye) = self.inspect_last_four_eyes();
-        if has_another_eye {
-            return true;
-        }
-        may_last_eye.map_or(false, |e| self.is_forbidden_move(e))
+        has_another_eye || may_last_eye.map_or(false, |e| self.is_forbidden_move(e))
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
