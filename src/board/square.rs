@@ -108,15 +108,15 @@ impl Square {
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
     pub fn sequences(
         &self,
-        player: Player,
-        kind: SequenceKind,
+        r: Player,
+        k: SequenceKind,
         n: u8,
-        exact: bool,
+        strict: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(player) > n)
+            .filter(move |(_, _, l)| l.potential_cap(r) > n)
             .flat_map(move |(d, i, l)| {
-                l.sequences(player, kind, n, exact)
+                l.sequences(r, k, n, strict)
                     .map(move |(j, s)| (Index::new(d, i, j), s))
             })
     }
@@ -124,16 +124,16 @@ impl Square {
     pub fn sequences_on(
         &self,
         p: Point,
-        player: Player,
-        kind: SequenceKind,
+        r: Player,
+        k: SequenceKind,
         n: u8,
-        exact: bool,
+        strict: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(player) > n)
+            .filter(move |(_, _, l)| l.potential_cap(r) > n)
             .flat_map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
-                l.sequences_on(j, player, kind, n, exact)
+                l.sequences_on(j, r, k, n, strict)
                     .map(move |(j, s)| (Index::new(d, i, j), s))
             })
     }

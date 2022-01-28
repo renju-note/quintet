@@ -63,22 +63,29 @@ impl Line {
         (0..self.size).filter(move |i| blacks & 0b1 << i == 0b0 && whites & 0b1 << i == 0b0)
     }
 
-    pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
+    pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, strict: bool) -> Sequences {
         let (my, op) = if r.is_black() {
             (self.blacks, self.whites)
         } else {
             (self.whites, self.blacks)
         };
-        Sequences::new(self.size, my, op, k, n, exact)
+        Sequences::new(self.size, my, op, k, n, strict)
     }
 
-    pub fn sequences_on(&self, i: u8, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
+    pub fn sequences_on(
+        &self,
+        i: u8,
+        r: Player,
+        k: SequenceKind,
+        n: u8,
+        strict: bool,
+    ) -> Sequences {
         let (my, op) = if r.is_black() {
             (self.blacks, self.whites)
         } else {
             (self.whites, self.blacks)
         };
-        Sequences::new_on(i, self.size, my, op, k, n, exact)
+        Sequences::new_on(i, self.size, my, op, k, n, strict)
     }
 
     pub fn potential_cap(&self, r: Player) -> u8 {

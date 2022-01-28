@@ -66,9 +66,9 @@ impl Board {
         r: Player,
         k: SequenceKind,
         n: u8,
-        exact: bool,
+        strict: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences(r, k, n, exact)
+        self.square.sequences(r, k, n, strict)
     }
 
     pub fn sequences_on(
@@ -77,9 +77,9 @@ impl Board {
         r: Player,
         k: SequenceKind,
         n: u8,
-        exact: bool,
+        strict: bool,
     ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences_on(p, r, k, n, exact)
+        self.square.sequences_on(p, r, k, n, strict)
     }
 
     pub fn to_pretty_string(&self) -> String {

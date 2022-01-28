@@ -2,7 +2,7 @@ use std::fmt;
 
 pub const VICTORY: u8 = 5;
 
-const CONTENT_MASK: u8 = 0b00111110;
+const TARGET_MASK: u8 = 0b00111110;
 const MARGIN_MASK: u8 = 0b01000001;
 const HEAD_MASK: u8 = 0b00001111;
 const REST_MASK: u8 = 0b00011110;
@@ -37,33 +37,33 @@ pub struct Sequences {
     op: u16,
     k: SequenceKind,
     n: u8,
-    exact: bool,
+    strict: bool,
     limit: u8,
     i: u8,
     prev_ok: bool,
 }
 
 impl Sequences {
-    pub fn new(size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
+    pub fn new(size: u8, my: u16, op: u16, k: SequenceKind, n: u8, strict: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
             k: k,
             n: n,
-            exact: exact,
+            strict: strict,
             limit: size - VICTORY,
             i: 0,
             prev_ok: false,
         }
     }
 
-    pub fn new_on(i: u8, size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
+    pub fn new_on(i: u8, size: u8, my: u16, op: u16, k: SequenceKind, n: u8, strict: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
             k: k,
             n: n,
-            exact: exact,
+            strict: strict,
             limit: if i + VICTORY <= size {
                 i
             } else {
@@ -92,14 +92,14 @@ impl Iterator for Sequences {
         let op_ = (self.op >> i) as u8;
         let my_ = (self.my >> i) as u8;
 
-        if op_ & CONTENT_MASK != 0b0 || self.exact && my_ & MARGIN_MASK != 0b0 {
+        if op_ & TARGET_MASK != 0b0 || self.strict && my_ & MARGIN_MASK != 0b0 {
             if self.k != Single {
                 self.prev_ok = false;
             }
             return self.next();
         }
 
-        let my = (my_ & CONTENT_MASK) >> 1 as u8;
+        let my = (my_ & TARGET_MASK) >> 1 as u8;
         let ok = my.count_ones() as u8 == self.n;
         match self.k {
             Single => {
