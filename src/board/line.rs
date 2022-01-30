@@ -1,4 +1,5 @@
 use super::player::*;
+use super::potential::*;
 use super::sequence::*;
 use std::convert::TryFrom;
 use std::fmt;
@@ -86,6 +87,15 @@ impl Line {
             (self.whites, self.blacks)
         };
         Sequences::new_on(i, self.size, my, op, k, n, strict)
+    }
+
+    pub fn potentials(&self, r: Player, min: u8, strict: bool) -> Potentials {
+        let (my, op) = if r.is_black() {
+            (self.blacks, self.whites)
+        } else {
+            (self.whites, self.blacks)
+        };
+        Potentials::new(self.size, my, op, min, strict)
     }
 
     pub fn potential_cap(&self, r: Player) -> u8 {
