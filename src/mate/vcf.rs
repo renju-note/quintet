@@ -73,6 +73,7 @@ fn solve_one(
 
     let last2_move_attack = state.game().last2_move();
     state.play_mut(attack);
+
     if let Some(win) = state.game().won_by_last() {
         state.undo_mut(last2_move_attack);
         return Some(Solution::new(win, vec![attack]));
@@ -80,6 +81,7 @@ fn solve_one(
 
     let last2_move_defence = state.game().last2_move();
     state.play_mut(defence);
+
     if let Some(mut solution) = solve(state, depth, deadends) {
         let mut path = vec![attack, defence];
         path.append(&mut solution.path);

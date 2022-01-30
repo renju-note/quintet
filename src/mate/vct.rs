@@ -28,9 +28,9 @@ pub fn solve(
     // TODO: check opponents' VCF
 
     // TODO: + fours
-    let cand_attacks = state.field().collect_sorted();
+    let attacks = state.field().collect_sorted().into_iter().map(|t| t.0);
 
-    for (attack, _) in cand_attacks {
+    for attack in attacks {
         let may_solution = solve_one(
             state,
             depth - 1,
@@ -79,7 +79,8 @@ fn solve_one(
 
     // TODO: + fours, + counters,
     let mut may_solution = Some(Solution::new(Win::Unknown(), vec![attack]));
-    for defence in threat {
+    let defences = state.threat_defences(threat);
+    for defence in defences {
         if state.game().is_forbidden_move(defence) {
             continue;
         }
@@ -168,10 +169,15 @@ impl State {
         vcf::solve(state, depth, vcf_deadends)
     }
 
-    pub fn solve_threat(&self, depth: u8, vcf_deadends: &mut HashSet<u64>) -> Option<Vec<Point>> {
+    pub fn solve_threat(&self, depth: u8, vcf_deadends: &mut HashSet<u64>) -> Option<Solution> {
         let threat_state = self.game.pass();
         let state = &mut vcf::State::new(threat_state);
-        vcf::solve(state, depth - 1, vcf_deadends).map(|s| s.path)
+        vcf::solve(state, depth - 1, vcf_deadends)
+    }
+
+    pub fn threat_defences(&self, threat: Solution) -> Vec<Point> {
+        // TODO: four, counter, forbidden breaker
+        threat.path
     }
 
     fn update_potentials_along(&mut self, p: Point) {
