@@ -1,8 +1,8 @@
 use super::super::board::Player::*;
 use super::super::board::SequenceKind::*;
 use super::super::board::*;
-use super::state::*;
 use super::vcf;
+use super::vct;
 use std::collections::HashSet;
 
 pub fn solve_vcf(board: &Board, turn: Player, depth: u8) -> Option<Vec<Point>> {
@@ -10,10 +10,30 @@ pub fn solve_vcf(board: &Board, turn: Player, depth: u8) -> Option<Vec<Point>> {
         return e;
     }
 
-    let (last_move, last2_move) = choose_last_moves(board, turn);
-    let state = GameState::new(board.clone(), turn, last_move, last2_move);
-    let mut searched = HashSet::new();
-    vcf::solve(&mut state.clone(), depth, &mut searched)
+    let state = &mut vcf::State::init(board.clone(), turn);
+    let mem = &mut HashSet::new();
+    vcf::solve(state, depth, mem).map(|s| s.path)
+}
+
+pub fn solve_vct(board: &Board, turn: Player, depth: u8) -> Option<Vec<Point>> {
+    if let Err(e) = validate_initial(board, turn) {
+        return e;
+    }
+
+    let state = &mut vct::State::init(board.clone(), turn);
+    let deadends = &mut HashSet::new();
+    let vcf_deadends = &mut HashSet::new();
+    let op_deadends = &mut HashSet::new();
+    let op_vcf_deadends = &mut HashSet::new();
+    vct::solve(
+        state,
+        depth,
+        deadends,
+        vcf_deadends,
+        op_deadends,
+        op_vcf_deadends,
+    )
+    .map(|s| s.path)
 }
 
 fn validate_initial(board: &Board, turn: Player) -> Result<(), Option<Vec<Point>>> {
@@ -40,19 +60,4 @@ fn validate_initial(board: &Board, turn: Player) -> Result<(), Option<Vec<Point>
     }
 
     Ok(())
-}
-
-fn choose_last_moves(board: &Board, turn: Player) -> (Point, Point) {
-    let last = turn.opponent();
-    let mut last_fours = board.sequences(last, Single, 4, last.is_black());
-    let last_move = if let Some((index, _)) = last_fours.next() {
-        let start = index.to_point();
-        let next = index.walk(1).to_point();
-        board.stones(last).find(|&s| s == start || s == next)
-    } else {
-        board.stones(last).next()
-    };
-    let last2_move = board.stones(turn).next();
-    let default = Point(0, 0);
-    (last_move.unwrap_or(default), last2_move.unwrap_or(default))
 }

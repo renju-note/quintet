@@ -1,41 +1,42 @@
 use super::super::board::SequenceKind::*;
 use super::super::board::*;
-use super::state::*;
+use super::game::*;
 use std::collections::HashSet;
 
-pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> Option<Vec<Point>> {
+pub fn solve(state: &mut State, depth: u8, deadends: &mut HashSet<u64>) -> Option<Solution> {
     if depth == 0 {
         return None;
     }
 
-    let hash = state.board_hash();
-    if searched.contains(&hash) {
+    let board_hash = state.game().board().zobrist_hash();
+    if deadends.contains(&board_hash) {
         return None;
     }
-    searched.insert(hash);
 
-    let (may_last_eye, has_another_eye) = state.inspect_last_four_eyes();
-    if has_another_eye {
+    let (may_first_eye, may_another_eye) = state.game().inspect_last_four_eyes();
+    if may_another_eye.is_some() {
+        deadends.insert(board_hash);
         return None;
-    } else if let Some(last_eye) = may_last_eye {
+    } else if let Some(last_eye) = may_first_eye {
         let may_move_pair = state
             .next_sequences_on(last_eye, Single, 3)
             .flat_map(sword_eyes_pair)
             .filter(|&(e1, _)| e1 == last_eye)
             .next();
         return if let Some((attack, defence)) = may_move_pair {
-            solve_one(state, depth, searched, attack, defence)
+            solve_one(state, depth - 1, attack, defence, deadends)
         } else {
+            deadends.insert(board_hash);
             None
         };
     }
 
     let neighbor_move_pairs: Vec<_> = state
-        .next_sequences_on(state.last2_move(), Single, 3)
+        .next_sequences_on(state.game().last2_move(), Single, 3)
         .flat_map(sword_eyes_pair)
         .collect();
     for &(attack, defence) in &neighbor_move_pairs {
-        let result = solve_one(state, depth, searched, attack, defence);
+        let result = solve_one(state, depth - 1, attack, defence, deadends);
         if result.is_some() {
             return result;
         }
@@ -49,44 +50,46 @@ pub fn solve(state: &mut GameState, depth: u8, searched: &mut HashSet<u64>) -> O
         if neighbor_move_pairs.iter().any(|(a, _)| *a == attack) {
             continue;
         }
-        let result = solve_one(state, depth, searched, attack, defence);
+        let result = solve_one(state, depth - 1, attack, defence, deadends);
         if result.is_some() {
             return result;
         }
     }
 
+    deadends.insert(board_hash);
     None
 }
 
 fn solve_one(
-    state: &mut GameState,
+    state: &mut State,
     depth: u8,
-    searched: &mut HashSet<u64>,
     attack: Point,
     defence: Point,
-) -> Option<Vec<Point>> {
-    if state.is_forbidden_move(attack) {
+    deadends: &mut HashSet<u64>,
+) -> Option<Solution> {
+    if state.game().is_forbidden_move(attack) {
         return None;
     }
 
-    let last_move = state.last_move();
-    let last2_move = state.last2_move();
-
+    let last2_move_attack = state.game().last2_move();
     state.play_mut(attack);
-    if state.won_by_last() {
-        return Some(vec![attack]);
+    if let Some(win) = state.game().won_by_last() {
+        state.undo_mut(last2_move_attack);
+        return Some(Solution::new(win, vec![attack]));
     }
 
+    let last2_move_defence = state.game().last2_move();
     state.play_mut(defence);
-    if let Some(mut ps) = solve(state, depth - 1, searched) {
-        let mut result = vec![attack, defence];
-        result.append(&mut ps);
-        return Some(result);
+    if let Some(mut solution) = solve(state, depth, deadends) {
+        let mut path = vec![attack, defence];
+        path.append(&mut solution.path);
+        state.undo_mut(last2_move_defence);
+        state.undo_mut(last2_move_attack);
+        return Some(Solution::new(solution.win, path));
     }
 
-    state.undo_mut(last_move);
-    state.undo_mut(last2_move);
-
+    state.undo_mut(last2_move_defence);
+    state.undo_mut(last2_move_attack);
     None
 }
 
@@ -95,6 +98,52 @@ fn sword_eyes_pair((start, sword): (Index, Sequence)) -> [(Point, Point); 2] {
     let e1 = eyes.next().unwrap();
     let e2 = eyes.next().unwrap();
     [(e1, e2), (e2, e1)]
+}
+
+pub struct State {
+    game: GameState,
+}
+
+impl State {
+    pub fn new(game: GameState) -> Self {
+        Self { game: game }
+    }
+
+    pub fn init(board: Board, turn: Player) -> Self {
+        let game = GameState::init(board, turn);
+        Self::new(game)
+    }
+
+    pub fn game(&self) -> &'_ GameState {
+        &self.game
+    }
+
+    pub fn play_mut(&mut self, next_move: Point) {
+        self.game.play_mut(next_move);
+    }
+
+    pub fn undo_mut(&mut self, last2_move: Point) {
+        self.game.undo_mut(last2_move);
+    }
+
+    pub fn next_sequences(
+        &self,
+        k: SequenceKind,
+        n: u8,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        let r = self.game().turn();
+        self.game.board().sequences(r, k, n, r.is_black())
+    }
+
+    pub fn next_sequences_on(
+        &self,
+        p: Point,
+        k: SequenceKind,
+        n: u8,
+    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
+        let r = self.game().turn();
+        self.game.board().sequences_on(p, r, k, n, r.is_black())
+    }
 }
 
 #[cfg(test)]
@@ -123,10 +172,10 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, Black, Point(11, 10), Point(11, 13));
+        let state = &mut State::init(board, Black);
 
-        let result = solve(&mut state.clone(), 12, &mut HashSet::new());
-        let result = result.map(|ps| Points(ps).to_string());
+        let result = solve(state, 12, &mut HashSet::new());
+        let result = result.map(|s| Points(s.path).to_string());
         let solution = "
             J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
             F14,F13,C11
@@ -135,7 +184,7 @@ mod tests {
         .collect();
         assert_eq!(result, Some(solution));
 
-        let result = solve(&mut state.clone(), 11, &mut HashSet::new());
+        let result = solve(state, 11, &mut HashSet::new());
         assert_eq!(result, None);
 
         Ok(())
@@ -162,14 +211,14 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, White, Point(12, 11), Point(7, 7));
+        let state = &mut State::init(board, White);
 
-        let result = solve(&mut state.clone(), 5, &mut HashSet::new());
-        let result = result.map(|ps| Points(ps).to_string());
+        let result = solve(state, 5, &mut HashSet::new());
+        let result = result.map(|s| Points(s.path).to_string());
         let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14".to_string();
         assert_eq!(result, Some(solution));
 
-        let result = solve(&mut state.clone(), 4, &mut HashSet::new());
+        let result = solve(state, 4, &mut HashSet::new());
         assert_eq!(result, None);
 
         Ok(())
@@ -195,9 +244,9 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, Black, Point(10, 8), Point(8, 9));
-        let result = solve(&mut state.clone(), 3, &mut HashSet::new());
-        let result = result.map(|ps| Points(ps).to_string());
+        let state = &mut State::init(board, Black);
+        let result = solve(state, 3, &mut HashSet::new());
+        let result = result.map(|s| Points(s.path).to_string());
         let solution = "K8,L8,H11".split_whitespace().collect();
         assert_eq!(result, Some(solution));
         Ok(())
@@ -224,9 +273,9 @@ mod tests {
          . . . o . . o x . . o . . . o
         "
         .parse::<Board>()?;
-        let state = GameState::new(board, Black, Point(0, 0), Point(0, 4));
-        let result = solve(&mut state.clone(), u8::MAX, &mut HashSet::new());
-        let result = result.map(|ps| Points(ps).to_string());
+        let state = &mut State::init(board, Black);
+        let result = solve(state, u8::MAX, &mut HashSet::new());
+        let result = result.map(|s| Points(s.path).to_string());
         let solution = "
             F6,G7,C3,B2,E1,D2,C1,F1,A1,B1,A4,A3,C4,E4,C5,C2,C6,C7,D5,B5,
             E6,B3,D6,B6,G8,F7,D7,D3,F5,G5,G4,H3,F8,E7,I8,E8,F2,E3,F3,F4,
