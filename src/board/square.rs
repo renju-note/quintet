@@ -138,6 +138,35 @@ impl Square {
             })
     }
 
+    pub fn potentials(
+        &self,
+        r: Player,
+        min: u8,
+        strict: bool,
+    ) -> impl Iterator<Item = (Index, u8)> + '_ {
+        self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
+            .flat_map(move |(d, i, l)| {
+                l.potentials(r, min, strict)
+                    .map(move |(j, p)| (Index::new(d, i, j), p))
+            })
+    }
+
+    pub fn potentials_along(
+        &self,
+        p: Point,
+        r: Player,
+        min: u8,
+        strict: bool,
+    ) -> impl Iterator<Item = (Index, u8)> + '_ {
+        self.iter_lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
+            .flat_map(move |(d, i, l)| {
+                l.potentials(r, min, strict)
+                    .map(move |(j, p)| (Index::new(d, i, j), p))
+            })
+    }
+
     pub fn to_pretty_string(&self) -> String {
         let mut result = String::new();
         for (i, l) in self.hlines.iter().enumerate().rev() {
@@ -608,6 +637,48 @@ mod tests {
         assert_eq!(result, expected);
         let result: Vec<_> = square.sequences(White, Single, 3, false).collect();
         let expected = [(Index::new(Horizontal, 8, 5), Sequence(0b00011100))];
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_potentials() -> Result<(), String> {
+        let square = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . x x x o . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Square>()?;
+        let result: Vec<_> = square.potentials(Black, 3, true).collect();
+        let expected = [
+            (Index::new(Vertical, 7, 3), 3),
+            (Index::new(Vertical, 7, 4), 3),
+            (Index::new(Vertical, 7, 6), 3),
+            (Index::new(Ascending, 16, 4), 3),
+            (Index::new(Ascending, 16, 6), 6),
+            (Index::new(Ascending, 16, 7), 6),
+            (Index::new(Ascending, 16, 9), 3),
+        ];
+        assert_eq!(result, expected);
+        let result: Vec<_> = square.potentials(White, 3, false).collect();
+        let expected = [
+            (Index::new(Horizontal, 8, 4), 3),
+            (Index::new(Horizontal, 8, 5), 7),
+            (Index::new(Horizontal, 8, 6), 7),
+        ];
         assert_eq!(result, expected);
 
         Ok(())

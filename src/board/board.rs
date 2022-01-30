@@ -82,6 +82,25 @@ impl Board {
         self.square.sequences_on(p, r, k, n, strict)
     }
 
+    pub fn potentials(
+        &self,
+        r: Player,
+        min: u8,
+        strict: bool,
+    ) -> impl Iterator<Item = (Index, u8)> + '_ {
+        self.square.potentials(r, min, strict)
+    }
+
+    pub fn potentials_along(
+        &self,
+        p: Point,
+        r: Player,
+        min: u8,
+        strict: bool,
+    ) -> impl Iterator<Item = (Index, u8)> + '_ {
+        self.square.potentials_along(p, r, min, strict)
+    }
+
     pub fn to_pretty_string(&self) -> String {
         self.square.to_pretty_string()
     }
@@ -168,25 +187,34 @@ mod tests {
         );
         assert_eq!(board.to_string(), expected);
 
-        let blacks = vec![
+        // stones
+        let result = board.stones(Black).collect::<Vec<_>>();
+        let expected = vec![
             Point(6, 8),
             Point(6, 9),
             Point(7, 7),
             Point(8, 7),
             Point(9, 9),
         ];
-        assert_eq!(board.stones(Black).collect::<Vec<_>>(), blacks);
-        let whites = vec![
+        assert_eq!(result, expected);
+
+        let result = board.stones(White).collect::<Vec<_>>();
+        let expected = vec![
             Point(5, 6),
             Point(7, 8),
             Point(8, 6),
             Point(8, 8),
             Point(8, 9),
         ];
-        assert_eq!(board.stones(White).collect::<Vec<_>>(), whites);
+        assert_eq!(result, expected);
 
-        let black_twos_result: Vec<_> = board.sequences(Black, Compact, 2, true).collect();
-        let black_twos_expected = [
+        // forbiddens
+        assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
+        assert_eq!(board.forbidden(Point(6, 7)), Some(DoubleThree));
+
+        // sequences
+        let result: Vec<_> = board.sequences(Black, Compact, 2, true).collect();
+        let expected = [
             (Index::new(Vertical, 6, 6), Sequence(0b00011100)),
             (Index::new(Vertical, 6, 7), Sequence(0b00010110)),
             (Index::new(Vertical, 6, 8), Sequence(0b00010011)),
@@ -194,22 +222,60 @@ mod tests {
             (Index::new(Horizontal, 7, 6), Sequence(0b00010110)),
             (Index::new(Horizontal, 7, 7), Sequence(0b00010011)),
         ];
-        assert_eq!(black_twos_result, black_twos_expected);
+        assert_eq!(result, expected);
 
-        let white_twos_result: Vec<_> = board.sequences(White, Compact, 2, false).collect();
-        let white_twos_expected = [
+        let result: Vec<_> = board.sequences(White, Compact, 2, false).collect();
+        let expected = [
             (Index::new(Horizontal, 6, 5), Sequence(0b00011001)),
             (Index::new(Ascending, 13, 6), Sequence(0b00010110)),
             (Index::new(Ascending, 13, 7), Sequence(0b00010011)),
         ];
-        assert_eq!(white_twos_result, white_twos_expected);
+        assert_eq!(result, expected);
 
-        let white_threes_result: Vec<_> = board.sequences(White, Compact, 3, false).collect();
-        let white_threes_expected = [(Index::new(Ascending, 13, 5), Sequence(0b00011101))];
-        assert_eq!(white_threes_result, white_threes_expected);
+        let result: Vec<_> = board.sequences(White, Compact, 3, false).collect();
+        let expected = [(Index::new(Ascending, 13, 5), Sequence(0b00011101))];
+        assert_eq!(result, expected);
 
-        assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
-        assert_eq!(board.forbidden(Point(6, 7)), Some(DoubleThree));
+        // potentials
+        let result: Vec<_> = board.potentials(Black, 3, true).collect();
+        let expected = [
+            (Index::new(Vertical, 6, 5), 3),
+            (Index::new(Vertical, 6, 6), 6),
+            (Index::new(Vertical, 6, 7), 9),
+            (Index::new(Vertical, 6, 10), 9),
+            (Index::new(Vertical, 6, 11), 6),
+            (Index::new(Vertical, 6, 12), 3),
+            (Index::new(Horizontal, 7, 4), 3),
+            (Index::new(Horizontal, 7, 5), 6),
+            (Index::new(Horizontal, 7, 6), 9),
+            (Index::new(Horizontal, 7, 9), 9),
+            (Index::new(Horizontal, 7, 10), 6),
+            (Index::new(Horizontal, 7, 11), 3),
+            (Index::new(Descending, 14, 3), 3),
+            (Index::new(Descending, 14, 4), 3),
+            (Index::new(Descending, 14, 5), 3),
+        ];
+        assert_eq!(result, expected);
+
+        let result: Vec<_> = board.potentials(White, 3, true).collect();
+        let expected = [
+            (Index::new(Vertical, 8, 10), 3),
+            (Index::new(Vertical, 8, 11), 3),
+            (Index::new(Vertical, 8, 12), 3),
+            (Index::new(Horizontal, 6, 4), 3),
+            (Index::new(Horizontal, 6, 6), 6),
+            (Index::new(Horizontal, 6, 7), 6),
+            (Index::new(Horizontal, 6, 9), 3),
+            (Index::new(Horizontal, 8, 9), 3),
+            (Index::new(Horizontal, 8, 10), 3),
+            (Index::new(Horizontal, 8, 11), 3),
+            (Index::new(Ascending, 13, 4), 4),
+            (Index::new(Ascending, 13, 6), 8),
+            (Index::new(Ascending, 13, 9), 7),
+            (Index::new(Ascending, 13, 10), 3),
+            (Index::new(Ascending, 13, 11), 3),
+        ];
+        assert_eq!(result, expected);
 
         Ok(())
     }
