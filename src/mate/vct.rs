@@ -16,20 +16,25 @@ pub fn solve(
         return None;
     }
 
-    let hash = state.game().board().zobrist_hash();
-    if deadends.contains(&hash) {
+    let board_hash = state.game().board().zobrist_hash();
+    if deadends.contains(&board_hash) {
         return None;
     }
+
+    if state.game().won_by_last().is_some() {
+        deadends.insert(board_hash);
+        return None;
+    }
+
+    // TODO: check opponents' four
 
     if let Some(vcf) = state.solve_vcf(depth, vcf_deadends) {
         return Some(vcf);
     }
 
-    // TODO: check opponents' VCF
+    // TODO: check opponents' threat
 
-    // TODO: + fours
     let attacks = state.field().collect_sorted().into_iter().map(|t| t.0);
-
     for attack in attacks {
         let may_solution = solve_one(
             state,
@@ -45,7 +50,7 @@ pub fn solve(
         }
     }
 
-    deadends.insert(hash);
+    deadends.insert(board_hash);
     None
 }
 
@@ -70,14 +75,20 @@ fn solve_one(
         return Some(Solution::new(win, vec![attack]));
     }
 
+    // TODO: check four
+
+    if state.solve_vcf(u8::MAX, op_vcf_deadends).is_some() {
+        state.undo_mut(last2_move_attack);
+        return None;
+    }
+
     let may_threat = state.solve_threat(depth, vcf_deadends);
     if may_threat.is_none() {
         state.undo_mut(last2_move_attack);
         return None;
     }
-    let threat = may_threat.unwrap(); // TODO: last five move
+    let threat = may_threat.unwrap();
 
-    // TODO: + fours, + counters,
     let mut may_solution = Some(Solution::new(Win::Unknown(), vec![attack]));
     let defences = state.threat_defences(threat);
     for defence in defences {
@@ -176,7 +187,7 @@ impl State {
     }
 
     pub fn threat_defences(&self, threat: Solution) -> Vec<Point> {
-        // TODO: four, counter, forbidden breaker
+        // TODO: last five moves, four, counter, forbidden breaker
         threat.path
     }
 
