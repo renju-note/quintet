@@ -94,7 +94,7 @@ impl GameState {
     pub fn inspect_last_four_eyes(&self) -> (Option<Point>, bool) {
         let last_four_eyes = self
             .last_sequences_on(self.last_move(), Single, 4)
-            .map(|(i, s)| i.walk(s.eyes()[0] as i8).to_point());
+            .map(|(i, s)| i.walk(s.eyes()[0]).to_point());
         let mut ret = None;
         for eye in last_four_eyes {
             if ret.map_or(false, |e| e != eye) {
