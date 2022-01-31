@@ -42,7 +42,9 @@ pub fn solve(
         }
     }
 
-    // TODO: open three to open four
+    if let Some(solution) = state.inspect_next_open_four() {
+        return Some(solution);
+    }
 
     if let Some(vcf) = state.solve_vcf(depth, vcf_deadends) {
         return Some(vcf);
@@ -205,6 +207,7 @@ impl State {
 
     pub fn init(board: Board, turn: Player) -> Self {
         let attacker = turn;
+        // TODO: opponent potential field if white
         let field = PotentialField::new(board.potentials(attacker, 3, attacker.is_black()));
         let game = GameState::init(board, turn);
         Self::new(attacker, game, field)
@@ -264,6 +267,25 @@ impl State {
             .flat_map(|(i, s)| i.mapped(s.eyes()).map(|i| i.to_point()));
         result.extend(sword_eyes);
         result
+    }
+
+    pub fn inspect_next_open_four(&self) -> Option<Solution> {
+        let turn = self.game().turn();
+        self.game()
+            .board()
+            .sequences(turn, Compact, 3, turn.is_black())
+            .map(|(i, s)| {
+                (
+                    i.walk(s.eyes()[0]).to_point(),
+                    (
+                        i.walk_checked(-1).unwrap().to_point(),
+                        i.walk_checked(4).unwrap().to_point(),
+                    ),
+                )
+            })
+            .filter(|&(p, _)| !self.game().is_forbidden_move(p))
+            .map(|(e, (p1, p2))| Solution::new(Win::Fours(p1, p2), vec![e]))
+            .next()
     }
 
     fn update_potentials_along(&mut self, p: Point) {
