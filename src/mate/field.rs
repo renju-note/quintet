@@ -1,16 +1,40 @@
 use super::super::board::Direction::*;
+use super::super::board::Player::*;
 use super::super::board::*;
 
 #[derive(Default, Clone)]
+pub struct Potential {
+    v: u8,
+    h: u8,
+    a: u8,
+    d: u8,
+}
+
+impl Potential {
+    fn set(&mut self, d: Direction, o: u8) {
+        match d {
+            Vertical => self.v = o,
+            Horizontal => self.h = o,
+            Ascending => self.a = o,
+            Descending => self.d = o,
+        }
+    }
+
+    fn sum(&self) -> u8 {
+        self.v + self.h + self.a + self.d
+    }
+}
+
+#[derive(Default, Clone)]
 pub struct PotentialField {
-    potentials: [[u8; RANGE as usize]; RANGE as usize],
+    potentials: [[Potential; RANGE as usize]; RANGE as usize],
 }
 
 impl PotentialField {
     pub fn new(potentials: impl Iterator<Item = (Index, u8)>) -> Self {
         let mut result = Self::default();
         for (idx, o) in potentials {
-            result.add(idx.to_point(), o);
+            result.set(idx, o);
         }
         result
     }
@@ -20,7 +44,7 @@ impl PotentialField {
             .flat_map(|x| {
                 (0..RANGE).map(move |y| {
                     let p = Point(x, y);
-                    (p, self.get(p))
+                    (p, self.sum(p))
                 })
             })
             .filter(|&(_, o)| o > 0)
@@ -30,8 +54,31 @@ impl PotentialField {
     pub fn update_along(&mut self, p: Point, potentials: impl Iterator<Item = (Index, u8)>) {
         self.reset_along(p);
         for (idx, o) in potentials {
-            self.add(idx.to_point(), o);
+            self.set(idx, o);
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn overlay(&self, board: &Board) -> String {
+        (0..RANGE)
+            .rev()
+            .map(|y| {
+                (0..RANGE)
+                    .map(|x| {
+                        let p = Point(x, y);
+                        match board.stone(p) {
+                            Some(Black) => " o".to_string(),
+                            Some(White) => " x".to_string(),
+                            None => match self.sum(p) {
+                                0 => " .".to_string(),
+                                po => format!("{: >2}", po),
+                            },
+                        }
+                    })
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     fn reset_along(&mut self, p: Point) {
@@ -51,26 +98,22 @@ impl PotentialField {
             })
         });
         for idx in neighbor_indices {
-            self.reset(idx.to_point());
+            self.set(idx, 0);
         }
     }
 
-    fn get(&self, p: Point) -> u8 {
-        self.potentials[p.0 as usize][p.1 as usize]
+    fn sum(&self, p: Point) -> u8 {
+        self.potentials[p.0 as usize][p.1 as usize].sum()
     }
 
-    fn add(&mut self, p: Point, o: u8) {
-        self.potentials[p.0 as usize][p.1 as usize] += o;
-    }
-
-    fn reset(&mut self, p: Point) {
-        self.potentials[p.0 as usize][p.1 as usize] = 0;
+    fn set(&mut self, i: Index, o: u8) {
+        let p = i.to_point();
+        self.potentials[p.0 as usize][p.1 as usize].set(i.d, o)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::board::Player::*;
     use super::*;
 
     #[test]
@@ -95,7 +138,7 @@ mod tests {
         .parse::<Board>()?;
 
         let field = PotentialField::new(board.potentials(Black, 3, true));
-        let result = overlay(&board, &field);
+        let result = field.overlay(&board);
         let expected = trim_lines_string(
             "
              . . . . . . . . . . . . . . .
@@ -118,7 +161,7 @@ mod tests {
         assert_eq!(result, expected);
 
         let mut field = PotentialField::new(board.potentials(White, 3, false));
-        let result = overlay(&board, &field);
+        let result = field.overlay(&board);
         let expected = trim_lines_string(
             "
              . . . . . . . . . . . . . . .
@@ -143,7 +186,7 @@ mod tests {
         let p = Point(5, 6);
         board.put_mut(White, p);
         field.update_along(p, board.potentials_along(p, White, 3, false));
-        let result = overlay(&board, &field);
+        let result = field.overlay(&board);
         let expected = trim_lines_string(
             "
              . . . . . . . . . . . . . . .
@@ -187,28 +230,6 @@ mod tests {
         assert_eq!(result, expected);
 
         Ok(())
-    }
-
-    fn overlay(board: &Board, field: &PotentialField) -> String {
-        (0..RANGE)
-            .rev()
-            .map(|y| {
-                (0..RANGE)
-                    .map(|x| {
-                        let p = Point(x, y);
-                        match board.stone(p) {
-                            Some(Black) => " o".to_string(),
-                            Some(White) => " x".to_string(),
-                            None => match field.get(p) {
-                                0 => " .".to_string(),
-                                po => format!("{: >2}", po),
-                            },
-                        }
-                    })
-                    .collect::<String>()
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
     }
 
     fn trim_lines_string(s: &str) -> String {
