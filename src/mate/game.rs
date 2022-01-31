@@ -146,4 +146,11 @@ impl Solution {
             path: path,
         }
     }
+
+    pub fn prepend(self, moves: Vec<Point>) -> Self {
+        let mut moves = moves;
+        let mut rest = self.path;
+        moves.append(&mut rest);
+        Solution::new(self.win, moves)
+    }
 }

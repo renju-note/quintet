@@ -42,6 +42,8 @@ pub fn solve(
         }
     }
 
+    // TODO: open three to open four
+
     if let Some(vcf) = state.solve_vcf(depth, vcf_deadends) {
         return Some(vcf);
     }
@@ -111,7 +113,7 @@ fn solve_attack(
                     op_vcf_deadends,
                 );
                 state.undo_mut(last2_move);
-                return result;
+                return result.map(|solution| solution.prepend(vec![attack, abs]));
             }
         }
     }
@@ -131,7 +133,7 @@ fn solve_attack(
     let mut result = Some(Solution::new(Win::Unknown(), vec![attack]));
     let defences = state.threat_defences(threat);
     for defence in defences {
-        let may_solution = solve_defence(
+        let new_result = solve_defence(
             state,
             depth,
             defence,
@@ -140,18 +142,16 @@ fn solve_attack(
             op_deadends,
             op_vcf_deadends,
         );
-        if may_solution.is_none() {
+        if new_result.is_none() {
             result = None;
             break;
         }
         let solution = result.unwrap();
-        let mut rest_vct = may_solution.unwrap();
-        if rest_vct.path.len() + 2 > solution.path.len() {
-            let mut new_path = vec![attack, defence];
-            new_path.append(&mut rest_vct.path);
-            result = Some(Solution::new(rest_vct.win, new_path));
+        let new_solution = new_result.unwrap();
+        result = if new_solution.path.len() + 2 > solution.path.len() {
+            Some(new_solution.prepend(vec![attack, defence]))
         } else {
-            result = Some(solution)
+            Some(solution)
         }
     }
 
@@ -335,7 +335,7 @@ mod tests {
 
         let result = solve(state, 4, &mut emp(), &mut emp(), &mut emp(), &mut emp());
         let result = result.map(|s| Points(s.path).to_string());
-        let expected = Some("I10,I8,J11,F7,K12".to_string());
+        let expected = Some("I10,I6,I11,I8,J11,F7,K12".to_string());
         assert_eq!(result, expected);
 
         let result = solve(state, 3, &mut emp(), &mut emp(), &mut emp(), &mut emp());
