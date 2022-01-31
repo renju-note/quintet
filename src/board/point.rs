@@ -14,7 +14,7 @@ pub enum Direction {
 
 pub use Direction::*;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Point(pub u8, pub u8);
 
 impl fmt::Display for Point {
