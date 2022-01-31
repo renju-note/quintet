@@ -79,6 +79,21 @@ impl GameState {
         }
     }
 
+    pub fn inspect_last_win_or_abs(&self) -> Option<Result<Win, Point>> {
+        let (may_first_eye, may_another_eye) = self.inspect_last_four_eyes();
+        if may_first_eye.is_some() && may_another_eye.is_some() {
+            let win = Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap());
+            Some(Ok(win))
+        } else if may_first_eye.map_or(false, |e| self.is_forbidden_move(e)) {
+            let win = Win::Forbidden(may_first_eye.unwrap());
+            Some(Ok(win))
+        } else if may_first_eye.is_some() {
+            Some(Err(may_first_eye.unwrap()))
+        } else {
+            None
+        }
+    }
+
     pub fn inspect_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last = self.last();
         let last_four_eyes = self

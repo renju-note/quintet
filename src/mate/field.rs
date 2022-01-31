@@ -15,8 +15,8 @@ impl PotentialField {
         result
     }
 
-    pub fn collect_sorted(&self) -> Vec<(Point, u8)> {
-        let mut result: Vec<_> = (0..RANGE)
+    pub fn collect_nonzeros(&self) -> Vec<(Point, u8)> {
+        (0..RANGE)
             .flat_map(|x| {
                 (0..RANGE).map(move |y| {
                     let p = Point(x, y);
@@ -24,9 +24,7 @@ impl PotentialField {
                 })
             })
             .filter(|&(_, o)| o > 0)
-            .collect();
-        result.sort_by(|a, b| b.1.cmp(&a.1));
-        result
+            .collect()
     }
 
     pub fn update_along(&mut self, p: Point, potentials: impl Iterator<Item = (Index, u8)>) {
@@ -167,22 +165,22 @@ mod tests {
         );
         assert_eq!(result, expected);
 
-        let result = field.collect_sorted();
+        let result = field.collect_nonzeros();
         let expected = [
-            (Point(6, 7), 14),
-            (Point(9, 10), 10),
-            (Point(4, 5), 7),
-            (Point(6, 6), 6),
-            (Point(7, 6), 6),
-            (Point(10, 11), 6),
             (Point(3, 4), 3),
+            (Point(4, 5), 7),
             (Point(4, 6), 3),
+            (Point(6, 6), 6),
+            (Point(6, 7), 14),
+            (Point(7, 6), 6),
             (Point(8, 10), 3),
             (Point(8, 11), 3),
             (Point(8, 12), 3),
             (Point(9, 6), 3),
             (Point(9, 8), 3),
+            (Point(9, 10), 10),
             (Point(10, 8), 3),
+            (Point(10, 11), 6),
             (Point(11, 8), 3),
             (Point(11, 12), 3),
         ];
