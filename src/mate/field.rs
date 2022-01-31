@@ -21,6 +21,7 @@ impl Potential {
     }
 
     fn sum(&self) -> u8 {
+        // TODO: faster computation
         self.v + self.h + self.a + self.d
     }
 }

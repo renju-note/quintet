@@ -63,6 +63,7 @@ pub fn solve(
     }
     candidates.sort_by(|a, b| b.1.cmp(&a.1));
 
+    // TODO: IDDFS
     for attack in candidates.into_iter().map(|t| t.0) {
         let result = solve_attack(
             state,
