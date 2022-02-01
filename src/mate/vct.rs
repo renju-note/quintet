@@ -89,7 +89,7 @@ impl Solver {
     fn solve_defences(&mut self, state: &mut State, depth: u8) -> Option<Solution> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
-                Ok(win) => Some(Solution::new(win)),
+                Ok(win) => Some(Solution::new(win, vec![])),
                 Err(abs) => self.solve_defence(state, depth, abs),
             };
         }
@@ -104,7 +104,7 @@ impl Solver {
         }
 
         let defences = state.threat_defences(may_threat.unwrap());
-        let mut result = Some(Solution::new(Win::Unknown()));
+        let mut result = Some(Solution::new(Win::Unknown(), vec![]));
         for defence in defences {
             let new_result = self.solve_defence(state, depth, defence);
             if new_result.is_none() {
@@ -126,7 +126,7 @@ impl Solver {
 
     fn solve_defence(&mut self, state: &mut State, depth: u8, defence: Point) -> Option<Solution> {
         if state.game().is_forbidden_move(defence) {
-            return Some(Solution::new(Win::Forbidden(defence)));
+            return Some(Solution::new(Win::Forbidden(defence), vec![]));
         }
 
         let last2_move = state.game().last2_move();
@@ -255,7 +255,7 @@ impl State {
                 )
             })
             .filter(|&(p, _)| !self.game.is_forbidden_move(p))
-            .map(|(e, (p1, p2))| Solution::new(Win::Fours(p1, p2)).prepend(e))
+            .map(|(e, (p1, p2))| Solution::new(Win::Fours(p1, p2), vec![e]))
             .next()
     }
 

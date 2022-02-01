@@ -140,10 +140,10 @@ pub struct Solution {
 }
 
 impl Solution {
-    pub fn new(win: Win) -> Self {
+    pub fn new(win: Win, path: Vec<Point>) -> Self {
         Self {
             win: win,
-            path: vec![],
+            path: path,
         }
     }
 

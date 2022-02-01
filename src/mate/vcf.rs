@@ -91,7 +91,7 @@ impl Solver {
 
     fn solve_defence(&mut self, state: &mut State, depth: u8, defence: Point) -> Option<Solution> {
         if let Some(win) = state.game().won_by_last() {
-            return Some(Solution::new(win));
+            return Some(Solution::new(win, vec![]));
         }
 
         let last2_move_defence = state.game().last2_move();
