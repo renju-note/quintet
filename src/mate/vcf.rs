@@ -24,54 +24,50 @@ impl Solver {
             return None;
         }
 
+        let result = self.solve_all(state, depth);
+
+        if result.is_none() {
+            self.deadends.insert(board_hash);
+        }
+        result
+    }
+
+    pub fn solve_all(&mut self, state: &mut State, depth: u8) -> Option<Solution> {
         let (may_first_eye, may_another_eye) = state.game().inspect_last_four_eyes();
         if may_another_eye.is_some() {
-            self.deadends.insert(board_hash);
             return None;
-        } else if let Some(last_eye) = may_first_eye {
-            let may_move_pair = state
-                .next_sequences_on(last_eye, Single, 3)
-                .flat_map(sword_eyes_pair)
-                .filter(|&(e1, _)| e1 == last_eye)
-                .next();
-            return if let Some((attack, defence)) = may_move_pair {
-                self.solve_one(state, depth - 1, attack, defence)
+        }
+        if let Some(op_four_eye) = may_first_eye {
+            return if let Some((attack, defence)) = state.abs_attack_defence_pair(op_four_eye) {
+                self.solve_attack(state, depth - 1, attack, defence)
             } else {
-                self.deadends.insert(board_hash);
                 None
             };
         }
 
-        let neighbor_move_pairs: Vec<_> = state
-            .next_sequences_on(state.game().last2_move(), Single, 3)
-            .flat_map(sword_eyes_pair)
-            .collect();
-        for &(attack, defence) in &neighbor_move_pairs {
-            let result = self.solve_one(state, depth - 1, attack, defence);
+        let neighbor_pairs = state.neighbor_attack_defence_pairs();
+        for &(attack, defence) in &neighbor_pairs {
+            let result = self.solve_attack(state, depth - 1, attack, defence);
             if result.is_some() {
                 return result;
             }
         }
 
-        let move_pairs: Vec<_> = state
-            .next_sequences(Single, 3)
-            .flat_map(sword_eyes_pair)
-            .collect();
-        for &(attack, defence) in &move_pairs {
-            if neighbor_move_pairs.iter().any(|(a, _)| *a == attack) {
+        let pairs = state.attack_defence_pairs();
+        for &(attack, defence) in &pairs {
+            if neighbor_pairs.iter().any(|(a, _)| *a == attack) {
                 continue;
             }
-            let result = self.solve_one(state, depth - 1, attack, defence);
+            let result = self.solve_attack(state, depth - 1, attack, defence);
             if result.is_some() {
                 return result;
             }
         }
 
-        self.deadends.insert(board_hash);
         None
     }
 
-    fn solve_one(
+    fn solve_attack(
         &mut self,
         state: &mut State,
         depth: u8,
@@ -81,32 +77,37 @@ impl Solver {
         if state.game().is_forbidden_move(attack) {
             return None;
         }
+
         let last2_move_attack = state.game().last2_move();
-        state.play_mut(attack);
+        state.game().play_mut(attack);
+
+        let result = self.solve_defence(state, depth, attack, defence);
+
+        state.game().undo_mut(last2_move_attack);
+        result
+    }
+
+    fn solve_defence(
+        &mut self,
+        state: &mut State,
+        depth: u8,
+        attack: Point,
+        defence: Point,
+    ) -> Option<Solution> {
         if let Some(win) = state.game().won_by_last() {
-            state.undo_mut(last2_move_attack);
             return Some(Solution::new(win, vec![attack]));
         }
-        let last2_move_defence = state.game().last2_move();
-        state.play_mut(defence);
-        if let Some(mut solution) = self.solve(state, depth) {
-            let mut path = vec![attack, defence];
-            path.append(&mut solution.path);
-            state.undo_mut(last2_move_defence);
-            state.undo_mut(last2_move_attack);
-            return Some(Solution::new(solution.win, path));
-        }
-        state.undo_mut(last2_move_defence);
-        state.undo_mut(last2_move_attack);
-        None
-    }
-}
 
-fn sword_eyes_pair((start, sword): (Index, Sequence)) -> [(Point, Point); 2] {
-    let mut eyes = start.mapped(sword.eyes()).map(|i| i.to_point());
-    let e1 = eyes.next().unwrap();
-    let e2 = eyes.next().unwrap();
-    [(e1, e2), (e2, e1)]
+        let last2_move_defence = state.game().last2_move();
+        state.game().play_mut(defence);
+
+        let result = self
+            .solve(state, depth)
+            .map(|s| s.prepend(vec![attack, defence]));
+
+        state.game().undo_mut(last2_move_defence);
+        result
+    }
 }
 
 pub struct State {
@@ -123,35 +124,43 @@ impl State {
         Self::new(game)
     }
 
-    pub fn game(&self) -> &'_ GameState {
-        &self.game
+    pub fn game(&mut self) -> &'_ mut GameState {
+        &mut self.game
     }
 
-    pub fn play_mut(&mut self, next_move: Point) {
-        self.game.play_mut(next_move);
+    pub fn abs_attack_defence_pair(&self, op_four_eye: Point) -> Option<(Point, Point)> {
+        let r = self.game.turn();
+        self.game
+            .board()
+            .sequences_on(op_four_eye, r, Single, 3, r.is_black())
+            .flat_map(Self::sword_eyes_pair)
+            .filter(|&(e1, _)| e1 == op_four_eye)
+            .next()
     }
 
-    pub fn undo_mut(&mut self, last2_move: Point) {
-        self.game.undo_mut(last2_move);
+    pub fn neighbor_attack_defence_pairs(&self) -> Vec<(Point, Point)> {
+        let r = self.game.turn();
+        self.game
+            .board()
+            .sequences_on(self.game.last2_move(), r, Single, 3, r.is_black())
+            .flat_map(Self::sword_eyes_pair)
+            .collect()
     }
 
-    pub fn next_sequences(
-        &self,
-        k: SequenceKind,
-        n: u8,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        let r = self.game().turn();
-        self.game.board().sequences(r, k, n, r.is_black())
+    pub fn attack_defence_pairs(&self) -> Vec<(Point, Point)> {
+        let r = self.game.turn();
+        self.game
+            .board()
+            .sequences(r, Single, 3, r.is_black())
+            .flat_map(Self::sword_eyes_pair)
+            .collect()
     }
 
-    pub fn next_sequences_on(
-        &self,
-        p: Point,
-        k: SequenceKind,
-        n: u8,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        let r = self.game().turn();
-        self.game.board().sequences_on(p, r, k, n, r.is_black())
+    fn sword_eyes_pair((start, sword): (Index, Sequence)) -> [(Point, Point); 2] {
+        let mut eyes = start.mapped(sword.eyes()).map(|i| i.to_point());
+        let e1 = eyes.next().unwrap();
+        let e2 = eyes.next().unwrap();
+        [(e1, e2), (e2, e1)]
     }
 }
 
