@@ -81,29 +81,23 @@ impl Solver {
         let last2_move_attack = state.game().last2_move();
         state.game().play_mut(attack);
 
-        let result = self.solve_defence(state, depth, attack, defence);
+        let result = self
+            .solve_defence(state, depth, defence)
+            .map(|s| s.prepend(attack));
 
         state.game().undo_mut(last2_move_attack);
         result
     }
 
-    fn solve_defence(
-        &mut self,
-        state: &mut State,
-        depth: u8,
-        attack: Point,
-        defence: Point,
-    ) -> Option<Solution> {
+    fn solve_defence(&mut self, state: &mut State, depth: u8, defence: Point) -> Option<Solution> {
         if let Some(win) = state.game().won_by_last() {
-            return Some(Solution::new(win, vec![attack]));
+            return Some(Solution::new(win));
         }
 
         let last2_move_defence = state.game().last2_move();
         state.game().play_mut(defence);
 
-        let result = self
-            .solve(state, depth)
-            .map(|s| s.prepend(vec![attack, defence]));
+        let result = self.solve(state, depth).map(|s| s.prepend(defence));
 
         state.game().undo_mut(last2_move_defence);
         result

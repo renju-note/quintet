@@ -80,24 +80,17 @@ impl Solver {
         let last2_move = state.game().last2_move();
         state.play_mut(attack);
 
-        let result = self.solve_attack_defences(state, depth, attack);
+        let result = self.solve_defences(state, depth).map(|s| s.prepend(attack));
 
         state.undo_mut(last2_move);
         return result;
     }
 
-    fn solve_attack_defences(
-        &mut self,
-        state: &mut State,
-        depth: u8,
-        attack: Point,
-    ) -> Option<Solution> {
+    fn solve_defences(&mut self, state: &mut State, depth: u8) -> Option<Solution> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
-                Ok(win) => Some(Solution::new(win, vec![attack])),
-                Err(abs) => self
-                    .solve_defence(state, depth, abs)
-                    .map(|s| s.prepend(vec![attack, abs])),
+                Ok(win) => Some(Solution::new(win)),
+                Err(abs) => self.solve_defence(state, depth, abs),
             };
         }
 
@@ -111,7 +104,7 @@ impl Solver {
         }
 
         let defences = state.threat_defences(may_threat.unwrap());
-        let mut result = Some(Solution::new(Win::Unknown(), vec![attack]));
+        let mut result = Some(Solution::new(Win::Unknown()));
         for defence in defences {
             let new_result = self.solve_defence(state, depth, defence);
             if new_result.is_none() {
@@ -121,7 +114,7 @@ impl Solver {
             let new_solution = new_result.unwrap();
             result = result.map(|solution| {
                 if new_solution.path.len() + 2 > solution.path.len() {
-                    new_solution.prepend(vec![attack, defence])
+                    new_solution
                 } else {
                     solution
                 }
@@ -133,13 +126,13 @@ impl Solver {
 
     fn solve_defence(&mut self, state: &mut State, depth: u8, defence: Point) -> Option<Solution> {
         if state.game().is_forbidden_move(defence) {
-            return Some(Solution::new(Win::Forbidden(defence), vec![]));
+            return Some(Solution::new(Win::Forbidden(defence)));
         }
 
         let last2_move = state.game().last2_move();
         state.play_mut(defence);
 
-        let result = self.solve(state, depth - 1);
+        let result = self.solve(state, depth - 1).map(|s| s.prepend(defence));
 
         state.undo_mut(last2_move);
         result
@@ -262,7 +255,7 @@ impl State {
                 )
             })
             .filter(|&(p, _)| !self.game.is_forbidden_move(p))
-            .map(|(e, (p1, p2))| Solution::new(Win::Fours(p1, p2), vec![e]))
+            .map(|(e, (p1, p2))| Solution::new(Win::Fours(p1, p2)).prepend(e))
             .next()
     }
 
@@ -303,7 +296,7 @@ mod tests {
 
         let result = solver.solve(state, 4);
         let result = result.map(|s| Points(s.path).to_string());
-        let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
+        let expected = Some("F10,J6,I10,J10,H11,H12,G12".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);
@@ -337,7 +330,7 @@ mod tests {
 
         let result = solver.solve(state, 4);
         let result = result.map(|s| Points(s.path).to_string());
-        let expected = Some("I10,I6,I11,I8,J11,F7,K12".to_string());
+        let expected = Some("I10,I11,I6,I8,J11,F7,K12".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);

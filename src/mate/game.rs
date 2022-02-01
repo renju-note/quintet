@@ -140,17 +140,20 @@ pub struct Solution {
 }
 
 impl Solution {
-    pub fn new(win: Win, path: Vec<Point>) -> Self {
+    pub fn new(win: Win) -> Self {
+        Self {
+            win: win,
+            path: vec![],
+        }
+    }
+
+    pub fn prepend(mut self, m: Point) -> Self {
+        let win = self.win;
+        let mut path = vec![m];
+        path.append(&mut self.path);
         Self {
             win: win,
             path: path,
         }
-    }
-
-    pub fn prepend(self, moves: Vec<Point>) -> Self {
-        let mut moves = moves;
-        let mut rest = self.path;
-        moves.append(&mut rest);
-        Solution::new(self.win, moves)
     }
 }
