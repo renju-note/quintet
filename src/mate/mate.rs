@@ -40,7 +40,7 @@ fn validate_initial(board: &Board, turn: Player) -> Result<(), Option<Vec<Point>
 
     // Already exists four
     if board
-        .sequences(turn, Single, 5, turn.is_black())
+        .sequences(turn, Single, 4, turn.is_black())
         .next()
         .is_some()
     {
