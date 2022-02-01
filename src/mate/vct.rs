@@ -113,7 +113,7 @@ impl Solver {
             }
             let new_solution = new_result.unwrap();
             result = result.map(|solution| {
-                if new_solution.path.len() + 2 > solution.path.len() {
+                if solution.win == Win::Unknown() || new_solution.path.len() > solution.path.len() {
                     new_solution
                 } else {
                     solution
@@ -296,7 +296,7 @@ mod tests {
 
         let result = solver.solve(state, 4);
         let result = result.map(|s| Points(s.path).to_string());
-        let expected = Some("F10,J6,I10,J10,H11,H12,G12".to_string());
+        let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);
@@ -330,7 +330,7 @@ mod tests {
 
         let result = solver.solve(state, 4);
         let result = result.map(|s| Points(s.path).to_string());
-        let expected = Some("I10,I11,I6,I8,J11,F7,K12".to_string());
+        let expected = Some("I10,I6,I11,I8,J11,F7,K12".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);
