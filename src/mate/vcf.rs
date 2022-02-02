@@ -39,7 +39,7 @@ impl Solver {
         }
         if let Some(op_four_eye) = may_first_eye {
             return if let Some((attack, defence)) = state.abs_attack_defence_pair(op_four_eye) {
-                self.solve_attack(state, depth - 1, attack, defence)
+                self.solve_attack(state, depth, attack, defence)
             } else {
                 None
             };
@@ -47,7 +47,7 @@ impl Solver {
 
         let neighbor_pairs = state.neighbor_attack_defence_pairs();
         for &(attack, defence) in &neighbor_pairs {
-            let result = self.solve_attack(state, depth - 1, attack, defence);
+            let result = self.solve_attack(state, depth, attack, defence);
             if result.is_some() {
                 return result;
             }
@@ -58,7 +58,7 @@ impl Solver {
             if neighbor_pairs.iter().any(|(a, _)| *a == attack) {
                 continue;
             }
-            let result = self.solve_attack(state, depth - 1, attack, defence);
+            let result = self.solve_attack(state, depth, attack, defence);
             if result.is_some() {
                 return result;
             }
@@ -97,7 +97,7 @@ impl Solver {
         let last2_move_defence = state.game().last2_move();
         state.game().play_mut(defence);
 
-        let result = self.solve(state, depth).map(|s| s.prepend(defence));
+        let result = self.solve(state, depth - 1).map(|s| s.prepend(defence));
 
         state.game().undo_mut(last2_move_defence);
         result
