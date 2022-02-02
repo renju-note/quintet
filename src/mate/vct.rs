@@ -224,8 +224,7 @@ impl State {
         self.update_potentials_along(last_move);
     }
 
-    pub fn threat_defences(&self, threat: Mate) -> Vec<Point> {
-        // TODO: counter
+    pub fn threat_defences(&mut self, threat: Mate) -> Vec<Point> {
         let mut result = threat.path.clone();
         match threat.win {
             Win::Fours(p1, p2) => {
@@ -243,6 +242,7 @@ impl State {
             .sequences(turn, Single, 4, turn.is_black())
             .flat_map(|(i, s)| i.mapped(s.eyes()).map(|i| i.to_point()));
         result.extend(sword_eyes);
+        result.extend(self.counters(threat));
         result
     }
 
@@ -270,6 +270,27 @@ impl State {
         let potentials = self.game.board().potentials_along(p, r, 3, r.is_black());
         self.field.update_along(p, potentials);
     }
+
+    fn counters(&mut self, threat: Mate) -> Vec<Point> {
+        let mut game = self.game.pass();
+        let threater = game.turn();
+        let mut result = vec![];
+        for &p in &threat.path {
+            let turn = game.turn();
+            game.play_mut(p);
+            if turn == threater {
+                continue;
+            }
+            let swords = game
+                .board()
+                .sequences_on(p, turn, Single, 3, turn.is_black());
+            for (i, s) in swords {
+                let eyes = i.mapped(s.eyes()).map(|i| i.to_point());
+                result.extend(eyes);
+            }
+        }
+        result
+    }
 }
 
 #[cfg(test)]
@@ -279,6 +300,7 @@ mod tests {
 
     #[test]
     fn test_black() -> Result<(), String> {
+        // No. 02 from 5-moves-to-win problems by Hiroshi Okabe
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -341,6 +363,41 @@ mod tests {
 
         let result = solver.solve(state, 3);
         let result = result.map(|s| Points(s.path).to_string());
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_counter() -> Result<(), String> {
+        // No. 63 from 5-moves-to-win problems by Hiroshi Okabe
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . o . . . . .
+         . . . . . . . o x . . . . . .
+         . . . x x o . x o . . . . . .
+         . . . . . o . o o x . . . . .
+         . . . . . . . o x . . . . . .
+         . . . . . . x . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), White);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 4);
+        let result = result.map(|s| Points(s.path).to_string());
+        let expected = Some("F7,E8,G8,E6,G5,G7,H6".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 3);
         assert_eq!(result, None);
 
         Ok(())
