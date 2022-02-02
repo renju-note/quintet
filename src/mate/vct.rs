@@ -188,6 +188,7 @@ impl State {
     pub fn init(board: Board, turn: Player) -> Self {
         let attacker = turn;
         // TODO: opponent potential field if white
+        // TODO: potential 2 for mise-move
         let field = PotentialField::new(board.potentials(attacker, 3, attacker.is_black()));
         let game = Game::init(board, turn);
         Self::new(attacker, game, field)
@@ -232,7 +233,12 @@ impl State {
             }
             Win::Forbidden(p) => {
                 result.push(p);
-            } // TODO: points on p
+                let board = self.game.board();
+                let neighbors = board
+                    .points_along(p, 5)
+                    .filter(|&p| board.stone(p).is_none());
+                result.extend(neighbors);
+            }
             _ => (),
         }
         let turn = self.turn();
@@ -395,6 +401,41 @@ mod tests {
         let result = solver.solve(state, 4);
         let result = result.map(|s| Points(s.path).to_string());
         let expected = Some("F7,E8,G8,E6,G5,G7,H6".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 3);
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_forbidden_breaker() -> Result<(), String> {
+        // No. 68 from 5-moves-to-win problems by Hiroshi Okabe
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . x . . . . . . .
+         . . . . . . . o x o . . . . .
+         . . . . . . o x o . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), Black);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 4);
+        let result = result.map(|s| Points(s.path).to_string());
+        let expected = Some("J8,I7,I8,G8,L8,K8,K7".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);

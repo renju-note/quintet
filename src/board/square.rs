@@ -94,6 +94,19 @@ impl Square {
             .flatten()
     }
 
+    pub fn points_along(&self, p: Point, limit: u8) -> impl Iterator<Item = Point> + '_ {
+        let limit = limit as i8;
+        vec![
+            p.to_index(Vertical),
+            p.to_index(Horizontal),
+            p.to_index(Ascending),
+            p.to_index(Descending),
+        ]
+        .into_iter()
+        .flat_map(move |idx| (-limit..=limit).flat_map(move |j| idx.walk_checked(j)))
+        .map(|idx| idx.to_point())
+    }
+
     pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
         self.vlines
             .iter()
