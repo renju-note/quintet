@@ -2,14 +2,14 @@ use super::super::board::SequenceKind::*;
 use super::super::board::*;
 
 #[derive(Clone)]
-pub struct GameState {
+pub struct Game {
     board: Board,
     turn: Player,
     last_move: Point,
     last2_move: Point,
 }
 
-impl GameState {
+impl Game {
     pub fn new(board: Board, turn: Player, last_move: Point, last2_move: Point) -> Self {
         Self {
             board: board,
@@ -134,12 +134,12 @@ pub enum Win {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Solution {
+pub struct Mate {
     pub win: Win,
     pub path: Vec<Point>,
 }
 
-impl Solution {
+impl Mate {
     pub fn new(win: Win, path: Vec<Point>) -> Self {
         Self {
             win: win,
@@ -151,9 +151,6 @@ impl Solution {
         let win = self.win;
         let mut path = vec![m];
         path.append(&mut self.path);
-        Self {
-            win: win,
-            path: path,
-        }
+        Self::new(win, path)
     }
 }
