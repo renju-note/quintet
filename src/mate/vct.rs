@@ -25,15 +25,15 @@ impl Solver {
             return None;
         }
 
-        let board_hash = state.game().board().zobrist_hash();
-        if self.deadends.contains(&board_hash) {
+        let hash = state.game().get_hash(depth);
+        if self.deadends.contains(&hash) {
             return None;
         }
 
         let result = self.solve_all(state, depth);
 
         if result.is_none() {
-            self.deadends.insert(board_hash);
+            self.deadends.insert(hash);
         }
         result
     }
@@ -66,12 +66,14 @@ impl Solver {
                 .collect();
         }
         candidates.sort_by(|a, b| b.1.cmp(&a.1));
+        let attacks = candidates.into_iter().map(|t| t.0).collect::<Vec<_>>();
 
-        // TODO: IDDFS
-        for attack in candidates.into_iter().map(|t| t.0) {
-            let result = self.solve_attack(state, depth, attack);
-            if result.is_some() {
-                return result;
+        for d in 1..=depth {
+            for &attack in &attacks {
+                let result = self.solve_attack(state, d, attack);
+                if result.is_some() {
+                    return result;
+                }
             }
         }
 

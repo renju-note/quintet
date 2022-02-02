@@ -16,14 +16,7 @@ fn main() -> Result<(), &'static str> {
 fn solve(board: Board, turn: Player) {
     println!("Solving...\n");
     let start = Instant::now();
-    let mut may_solution: Option<Vec<Point>> = None;
-    for depth in 1..u8::MAX {
-        println!("Depth: {}", depth);
-        may_solution = mate::solve_vct(&board, turn, depth);
-        if may_solution.is_some() {
-            break;
-        }
-    }
+    let may_solution = mate::solve_vct(&board, turn, u8::MAX);
     let elapsed = start.elapsed();
     println!("Elapsed: {:?}", elapsed);
     match may_solution {

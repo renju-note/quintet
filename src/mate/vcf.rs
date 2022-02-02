@@ -19,15 +19,15 @@ impl Solver {
             return None;
         }
 
-        let board_hash = state.game().board().zobrist_hash();
-        if self.deadends.contains(&board_hash) {
+        let hash = state.game().get_hash(depth);
+        if self.deadends.contains(&hash) {
             return None;
         }
 
         let result = self.solve_all(state, depth);
 
         if result.is_none() {
-            self.deadends.insert(board_hash);
+            self.deadends.insert(hash);
         }
         result
     }

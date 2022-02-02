@@ -44,6 +44,10 @@ impl Game {
         self.turn.opponent()
     }
 
+    pub fn get_hash(&self, depth: u8) -> u64 {
+        zobrist::apply_depth(self.board.zobrist_hash(), depth)
+    }
+
     pub fn play_mut(&mut self, next_move: Point) {
         self.board.put_mut(self.turn, next_move);
         self.turn = self.last();
