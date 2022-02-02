@@ -21,6 +21,17 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+        // IDDFS
+        for d in 1..=depth {
+            let result = self.solve_depth(state, d);
+            if result.is_some() {
+                return result;
+            }
+        }
+        None
+    }
+
+    fn solve_depth(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
         if depth == 0 {
             return None;
         }
@@ -30,7 +41,7 @@ impl Solver {
             return None;
         }
 
-        let result = self.solve_all(state, depth);
+        let result = self.solve_attacks(state, depth);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -38,7 +49,7 @@ impl Solver {
         result
     }
 
-    pub fn solve_all(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+    pub fn solve_attacks(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
                 Ok(_) => None,
@@ -67,13 +78,10 @@ impl Solver {
         }
         candidates.sort_by(|a, b| b.1.cmp(&a.1));
         let attacks = candidates.into_iter().map(|t| t.0).collect::<Vec<_>>();
-
-        for d in 1..=depth {
-            for &attack in &attacks {
-                let result = self.solve_attack(state, d, attack);
-                if result.is_some() {
-                    return result;
-                }
+        for &attack in &attacks {
+            let result = self.solve_attack(state, depth, attack);
+            if result.is_some() {
+                return result;
             }
         }
 

@@ -24,7 +24,7 @@ impl Solver {
             return None;
         }
 
-        let result = self.solve_all(state, depth);
+        let result = self.solve_attacks(state, depth);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -32,7 +32,7 @@ impl Solver {
         result
     }
 
-    pub fn solve_all(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+    pub fn solve_attacks(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
         let (may_first_eye, may_another_eye) = state.game().inspect_last_four_eyes();
         if may_another_eye.is_some() {
             return None;
