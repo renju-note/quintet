@@ -190,7 +190,6 @@ impl State {
     }
 
     pub fn init(board: Board, turn: Player) -> Self {
-        // TODO: opponent potential field if white
         let field = PotentialField::init(turn, 2, &board);
         let game = Game::init(board, turn);
         Self::new(turn, game, field)
