@@ -61,8 +61,13 @@ impl Board {
         self.square.stones(r)
     }
 
-    pub fn points_along(&self, p: Point, limit: u8) -> impl Iterator<Item = Point> + '_ {
-        self.square.points_along(p, limit)
+    pub fn neighbors(
+        &self,
+        p: Point,
+        distance: u8,
+        only_empty: bool,
+    ) -> impl Iterator<Item = Point> + '_ {
+        self.square.neighbors(p, distance, only_empty)
     }
 
     pub fn sequences(
