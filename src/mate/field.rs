@@ -26,21 +26,42 @@ impl Potential {
     }
 }
 
-#[derive(Default, Clone)]
+type Potentials = [[Potential; RANGE as usize]; RANGE as usize];
+
+#[derive(Clone)]
 pub struct PotentialField {
-    potentials: [[Potential; RANGE as usize]; RANGE as usize],
+    potentials: Potentials,
+    player: Player,
+    min: u8,
 }
 
 impl PotentialField {
-    pub fn new(potentials: impl Iterator<Item = (Index, u8)>) -> Self {
-        let mut result = Self::default();
-        for (idx, o) in potentials {
+    pub fn new(player: Player, min: u8) -> Self {
+        Self {
+            potentials: Potentials::default(),
+            player: player,
+            min: min,
+        }
+    }
+
+    pub fn init(player: Player, min: u8, board: &Board) -> Self {
+        let mut result = Self::new(player, min);
+        let os = board.potentials(player, min, player.is_black());
+        for (idx, o) in os {
             result.set(idx, o);
         }
         result
     }
 
-    pub fn collect_nonzeros(&self) -> Vec<(Point, u8)> {
+    pub fn update_along(&mut self, p: Point, board: &Board) {
+        self.reset_along(p);
+        let os = board.potentials_along(p, self.player, self.min, self.player.is_black());
+        for (idx, o) in os {
+            self.set(idx, o);
+        }
+    }
+
+    pub fn collect(&self, min: u8) -> Vec<(Point, u8)> {
         (0..RANGE)
             .flat_map(|x| {
                 (0..RANGE).map(move |y| {
@@ -48,15 +69,8 @@ impl PotentialField {
                     (p, self.sum(p))
                 })
             })
-            .filter(|&(_, o)| o > 0)
+            .filter(|&(_, o)| o >= min)
             .collect()
-    }
-
-    pub fn update_along(&mut self, p: Point, potentials: impl Iterator<Item = (Index, u8)>) {
-        self.reset_along(p);
-        for (idx, o) in potentials {
-            self.set(idx, o);
-        }
     }
 
     #[allow(dead_code)]
@@ -119,26 +133,26 @@ mod tests {
 
     #[test]
     fn test() -> Result<(), String> {
-        let mut board = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . o . x o . . . . .
-         . . . . . . o x x . . . . . .
-         . . . . . . . o o . . . . . .
-         . . . . . . . . x . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
+        let board = "
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . o . . o . . . . .
+             . . . . . . o x x . . . . . .
+             . . . . . . . o . . . . . . .
+             . . . . . . . . x . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
 
-        let field = PotentialField::new(board.potentials(Black, 3, true));
+        let field = PotentialField::init(Black, 3, &board);
         let result = field.overlay(&board);
         let expected = trim_lines_string(
             "
@@ -147,9 +161,9 @@ mod tests {
              . . . . . . 3 . . . . . . . .
              . . . 3 . . 6 . . . . . . . .
              . . . . 3 . 9 . . . . . . . .
-             . . . . . 3 o . x o . . . . .
+             . . . . . 6 o 6 6 o 3 . . . .
              . . . . . . o x x . . . . . .
-             . . . . 3 618 o o 9 6 3 . . .
+             . . . . . . 9 o . . . . . . .
              . . . . . . 6 . x . . . . . .
              . . . . . . 3 . . . . . . . .
              . . . . . . . . . . . . . . .
@@ -157,11 +171,104 @@ mod tests {
              . . . . . . . . . . . . . . .
              . . . . . . . . . . . . . . .
              . . . . . . . . . . . . . . .
-            ",
+        ",
         );
         assert_eq!(result, expected);
 
-        let mut field = PotentialField::new(board.potentials(White, 3, false));
+        let field = PotentialField::init(Black, 2, &board);
+        let result = field.overlay(&board);
+        let expected = trim_lines_string(
+            "
+             . . . . . . . . . . . . . . .
+             . . 2 . . 2 . . . 2 2 . . 2 .
+             . . . 2 . . 7 . . 8 2 . 2 . .
+             . . . 3 2 . 6 6 610 . 2 . . .
+             . . . . 3 2 9 814 8 2 . . . .
+             . . 2 4 410 o16 8 o 7 4 4 2 .
+             . . 2 2 210 o x x 8 8 . . . .
+             . . . 2101417 o 812 4 8 . . .
+             . . . 4 6 . 8 2 x 4 . . 4 . .
+             . . 2 4 . 2 3 2 . 2 . . . 2 .
+             . . 2 . 2 . . 2 . . . . . . .
+             . . . 2 . . . 2 . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+        ",
+        );
+        assert_eq!(result, expected);
+
+        let field = PotentialField::init(White, 3, &board);
+        let result = field.overlay(&board);
+        let expected = trim_lines_string(
+            "
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . 3 . . . . . .
+             . . . . . . o . 6 o . . . . .
+             . . . . . . o x x 3 3 3 . . .
+             . . . . . . . o 9 . . . . . .
+             . . . . . . . . x . . . . . .
+             . . . . . . . . 6 . . . . . .
+             . . . . . . . . 3 . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+        ",
+        );
+        assert_eq!(result, expected);
+
+        let field = PotentialField::init(White, 2, &board);
+        let result = field.overlay(&board);
+        let expected = trim_lines_string(
+            "
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . 2 . . 2 2 . . 2 . . .
+             . . . . . 4 . 2 4 . 4 . . . .
+             . . . . . . 6 2 7 6 . . 2 . .
+             . . . . . . o1018 o . 4 . . .
+             . . . . . . o x x 511 5 2 . .
+             . . . . . . 8 o1516 . . . . .
+             . . . . 210 6 8 x1012 4 2 . .
+             . . . . 4 . . 810 2 2 4 . . .
+             . . . 2 . . 6 . 7 . 2 2 2 . .
+             . . . . . 4 . . 4 . . 2 . . .
+             . . . . 2 . . . 2 . . . 2 . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+        ",
+        );
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_() -> Result<(), String> {
+        let mut board = "
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . o . x o . . . . .
+             . . . . . . o x x . . . . . .
+             . . . . . . . o o . . . . . .
+             . . . . . . . . x . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+             . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let mut field = PotentialField::init(White, 3, &board);
         let result = field.overlay(&board);
         let expected = trim_lines_string(
             "
@@ -186,7 +293,7 @@ mod tests {
 
         let p = Point(5, 6);
         board.put_mut(White, p);
-        field.update_along(p, board.potentials_along(p, White, 3, false));
+        field.update_along(p, &board);
         let result = field.overlay(&board);
         let expected = trim_lines_string(
             "
@@ -209,7 +316,7 @@ mod tests {
         );
         assert_eq!(result, expected);
 
-        let result = field.collect_nonzeros();
+        let result = field.collect(3);
         let expected = [
             (Point(3, 4), 3),
             (Point(4, 5), 7),

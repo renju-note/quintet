@@ -61,6 +61,10 @@ impl Board {
         self.square.stones(r)
     }
 
+    pub fn points_along(&self, p: Point, limit: u8) -> impl Iterator<Item = Point> + '_ {
+        self.square.points_along(p, limit)
+    }
+
     pub fn sequences(
         &self,
         r: Player,
