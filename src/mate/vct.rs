@@ -447,10 +447,10 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . x . . . . . . .
-         . . . . . . . o . . . . . . .
+         . . . . . . . o o . . . . . .
          . . . . . . . o x . . . . . .
          . . . . . . . x x o . . . . .
-         . . . . . . o o . . . . . . .
+         . . . . . . o o x . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -460,12 +460,12 @@ mod tests {
         let state = &mut State::init(board.clone(), White);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 6);
+        let result = solver.solve(state, 5);
         let result = result.map(|s| Points(s.path).to_string());
-        let expected = Some("I5,I8,J4,K3,F8,G7,I4,I3,E6,G1,F6".to_string());
+        let expected = Some("J4,K3,F8,G7,I4,I3,E6,G1,F6".to_string());
         assert_eq!(result, expected);
 
-        let result = solver.solve(state, 5);
+        let result = solver.solve(state, 4);
         assert_eq!(result, None);
 
         Ok(())
