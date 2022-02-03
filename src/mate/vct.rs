@@ -57,10 +57,6 @@ impl Solver {
             };
         }
 
-        if let Some(mate) = state.inspect_next_open_four() {
-            return Some(mate);
-        }
-
         if let Some(vcf) = self.solve_vcf(state, state.turn(), depth) {
             return Some(vcf);
         }
@@ -68,7 +64,7 @@ impl Solver {
         let mut candidates = state.field().collect_nonzeros();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
             let op_threat_defences = state
-                .threat_defences(op_threat)
+                .threat_defences(&op_threat)
                 .into_iter()
                 .collect::<HashSet<Point>>();
             candidates = candidates
@@ -78,6 +74,14 @@ impl Solver {
         }
         candidates.sort_by(|a, b| b.1.cmp(&a.1));
         let attacks = candidates.into_iter().map(|t| t.0).collect::<Vec<_>>();
+
+        for &attack in &attacks {
+            let result = self.solve_attack(state, 1, attack);
+            if result.is_some() {
+                return result;
+            }
+        }
+
         for &attack in &attacks {
             let result = self.solve_attack(state, depth, attack);
             if result.is_some() {
@@ -119,7 +123,7 @@ impl Solver {
             return None;
         }
 
-        let defences = state.threat_defences(may_threat.unwrap());
+        let defences = state.threat_defences(&may_threat.unwrap());
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
         for defence in defences {
             let new_result = self.solve_defence(state, depth, defence);
@@ -225,7 +229,14 @@ impl State {
         self.update_potentials_along(last_move);
     }
 
-    pub fn threat_defences(&mut self, threat: Mate) -> Vec<Point> {
+    pub fn threat_defences(&mut self, threat: &Mate) -> Vec<Point> {
+        let mut result = self.direct_defences(threat);
+        result.extend(self.counter_defences(threat));
+        result.extend(self.sword_eyes());
+        result
+    }
+
+    fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = threat.path.clone();
         match threat.win {
             Win::Fours(p1, p2) => {
@@ -241,43 +252,10 @@ impl State {
             }
             _ => (),
         }
-        let turn = self.turn();
-        let sword_eyes = self
-            .game
-            .board()
-            .sequences(turn, Single, 4, turn.is_black())
-            .flat_map(|(i, s)| i.mapped(s.eyes()).map(|i| i.to_point()));
-        result.extend(sword_eyes);
-        result.extend(self.counters(threat));
         result
     }
 
-    pub fn inspect_next_open_four(&self) -> Option<Mate> {
-        let turn = self.turn();
-        self.game
-            .board()
-            .sequences(turn, Compact, 3, turn.is_black())
-            .map(|(i, s)| {
-                (
-                    i.walk(s.eyes()[0]).to_point(),
-                    (
-                        i.walk_checked(-1).unwrap().to_point(),
-                        i.walk_checked(4).unwrap().to_point(),
-                    ),
-                )
-            })
-            .filter(|&(p, _)| !self.game.is_forbidden_move(p))
-            .map(|(e, (p1, p2))| Mate::new(Win::Fours(p1, p2), vec![e]))
-            .next()
-    }
-
-    fn update_potentials_along(&mut self, p: Point) {
-        let r = self.attacker();
-        let potentials = self.game.board().potentials_along(p, r, 3, r.is_black());
-        self.field.update_along(p, potentials);
-    }
-
-    fn counters(&mut self, threat: Mate) -> Vec<Point> {
+    fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut game = self.game.pass();
         let threater = game.turn();
         let mut result = vec![];
@@ -296,6 +274,21 @@ impl State {
             }
         }
         result
+    }
+
+    fn sword_eyes(&self) -> Vec<Point> {
+        let turn = self.turn();
+        self.game
+            .board()
+            .sequences(turn, Single, 4, turn.is_black())
+            .flat_map(|(i, s)| i.mapped(s.eyes()).map(|i| i.to_point()))
+            .collect()
+    }
+
+    fn update_potentials_along(&mut self, p: Point) {
+        let r = self.attacker();
+        let potentials = self.game.board().potentials_along(p, r, 3, r.is_black());
+        self.field.update_along(p, potentials);
     }
 }
 
