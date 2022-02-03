@@ -436,4 +436,38 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_dual_forbiddens() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . x . . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . o x . . . . . .
+         . . . . . . . x x o . . . . .
+         . . . . . . o o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), White);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 6);
+        let result = result.map(|s| Points(s.path).to_string());
+        let expected = Some("I5,I8,J4,K3,F8,G7,I4,I3,E6,G1,F6".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 5);
+        assert_eq!(result, None);
+
+        Ok(())
+    }
 }
