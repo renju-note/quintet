@@ -61,7 +61,7 @@ impl Solver {
             return Some(vcf);
         }
 
-        let mut candidates = state.field().collect_nonzeros();
+        let mut candidates = state.attack_candidates();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
             let op_threat_defences = state
                 .threat_defences(&op_threat)
@@ -190,12 +190,10 @@ impl State {
     }
 
     pub fn init(board: Board, turn: Player) -> Self {
-        let attacker = turn;
         // TODO: opponent potential field if white
-        // TODO: potential 2 for mise-move
-        let field = PotentialField::new(board.potentials(attacker, 3, attacker.is_black()));
+        let field = PotentialField::init(turn, 2, &board);
         let game = Game::init(board, turn);
-        Self::new(attacker, game, field)
+        Self::new(turn, game, field)
     }
 
     pub fn attacker(&self) -> Player {
@@ -204,10 +202,6 @@ impl State {
 
     pub fn game(&self) -> &'_ Game {
         &self.game
-    }
-
-    pub fn field(&self) -> &'_ PotentialField {
-        &self.field
     }
 
     pub fn turn(&self) -> Player {
@@ -220,13 +214,18 @@ impl State {
 
     pub fn play_mut(&mut self, next_move: Point) {
         self.game.play_mut(next_move);
-        self.update_potentials_along(next_move);
+        self.field.update_along(next_move, self.game.board());
     }
 
     pub fn undo_mut(&mut self, last2_move: Point) {
         let last_move = self.game.last_move();
         self.game.undo_mut(last2_move);
-        self.update_potentials_along(last_move);
+        self.field.update_along(last_move, self.game.board());
+    }
+
+    pub fn attack_candidates(&self) -> Vec<(Point, u8)> {
+        let min = if self.attacker == Player::Black { 4 } else { 3 };
+        self.field.collect(min)
     }
 
     pub fn threat_defences(&mut self, threat: &Mate) -> Vec<Point> {
@@ -283,12 +282,6 @@ impl State {
             .sequences(turn, Single, 4, turn.is_black())
             .flat_map(|(i, s)| i.mapped(s.eyes()).map(|i| i.to_point()))
             .collect()
-    }
-
-    fn update_potentials_along(&mut self, p: Point) {
-        let r = self.attacker();
-        let potentials = self.game.board().potentials_along(p, r, 3, r.is_black());
-        self.field.update_along(p, potentials);
     }
 }
 
@@ -437,6 +430,42 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
+    #[test]
+    fn test_mise_move() -> Result<(), String> {
+        // https://twitter.com/nachirenju/status/1487315157382414336
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . x o o . . . . . .
+         . . . . . o o o x x . . . . .
+         . . . . o x x x x o . . . . .
+         . . . x . x o o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), Black);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 7);
+        let result = result.map(|s| Points(s.path).to_string());
+        let expected = Some("G12,E10,F12,E12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 6);
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
     #[test]
     fn test_dual_forbiddens() -> Result<(), String> {
         let board = "
@@ -462,7 +491,7 @@ mod tests {
 
         let result = solver.solve(state, 5);
         let result = result.map(|s| Points(s.path).to_string());
-        let expected = Some("J4,K3,F8,G7,I4,I3,E6,G1,F6".to_string());
+        let expected = Some("J4,K3,I4,I3,F8,G7,E6,G1,F6".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 4);
