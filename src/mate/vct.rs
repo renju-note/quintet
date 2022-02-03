@@ -63,16 +63,12 @@ impl Solver {
 
         let mut candidates = state.attack_candidates();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
-            let op_threat_defences = state
-                .threat_defences(&op_threat)
-                .into_iter()
-                .collect::<HashSet<Point>>();
-            candidates = candidates
-                .into_iter()
-                .filter(|(p, _)| op_threat_defences.contains(p))
-                .collect();
+            let op_threat_defences = state.threat_defences(&op_threat);
+            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
+            candidates.retain(|(p, _)| op_threat_defences.contains(p));
         }
         candidates.sort_by(|a, b| b.1.cmp(&a.1));
+
         let attacks = candidates.into_iter().map(|t| t.0).collect::<Vec<_>>();
 
         for &attack in &attacks {
@@ -100,7 +96,7 @@ impl Solver {
         let last2_move = state.game().last2_move();
         state.play_mut(attack);
 
-        let result = self.solve_defences(state, depth).map(|s| s.prepend(attack));
+        let result = self.solve_defences(state, depth).map(|m| m.unshift(attack));
 
         state.undo_mut(last2_move);
         return result;
@@ -152,7 +148,7 @@ impl Solver {
         let last2_move = state.game().last2_move();
         state.play_mut(defence);
 
-        let result = self.solve(state, depth - 1).map(|s| s.prepend(defence));
+        let result = self.solve(state, depth - 1).map(|m| m.unshift(defence));
 
         state.undo_mut(last2_move);
         result
@@ -242,11 +238,7 @@ impl State {
             }
             Win::Forbidden(p) => {
                 result.push(p);
-                let board = self.game.board();
-                let neighbors = board
-                    .points_along(p, 5)
-                    .filter(|&p| board.stone(p).is_none());
-                result.extend(neighbors);
+                result.extend(self.game.board().neighbors(p, 5, true));
             }
             _ => (),
         }
@@ -314,7 +306,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 4);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
         assert_eq!(result, expected);
 
@@ -348,12 +340,12 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 4);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("I10,I6,I11,I8,J11,F7,K12".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         assert_eq!(result, None);
 
         Ok(())
@@ -384,7 +376,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 4);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("F7,E8,G8,E6,G5,G7,H6".to_string());
         assert_eq!(result, expected);
 
@@ -419,7 +411,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 4);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("J8,I7,I8,G8,L8,K8,K7".to_string());
         assert_eq!(result, expected);
 
@@ -455,7 +447,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 7);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("G12,E10,F12,E12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
         assert_eq!(result, expected);
 
@@ -489,7 +481,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 5);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("J4,K3,I4,I3,F8,G7,E6,G1,F6".to_string());
         assert_eq!(result, expected);
 

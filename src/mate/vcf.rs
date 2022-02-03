@@ -83,7 +83,7 @@ impl Solver {
 
         let result = self
             .solve_defence(state, depth, defence)
-            .map(|s| s.prepend(attack));
+            .map(|m| m.unshift(attack));
 
         state.game().undo_mut(last2_move_attack);
         result
@@ -97,7 +97,7 @@ impl Solver {
         let last2_move_defence = state.game().last2_move();
         state.game().play_mut(defence);
 
-        let result = self.solve(state, depth - 1).map(|s| s.prepend(defence));
+        let result = self.solve(state, depth - 1).map(|m| m.unshift(defence));
 
         state.game().undo_mut(last2_move_defence);
         result
@@ -188,7 +188,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 12);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let mate = "
             J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
             F14,F13,C11
@@ -228,7 +228,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 5);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let mate = "L13,L11,K12,J11,I12,H12,I13,I14,H14".to_string();
         assert_eq!(result, Some(mate));
 
@@ -262,7 +262,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, 3);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let mate = "K8,L8,H11".split_whitespace().collect();
         assert_eq!(result, Some(mate));
         Ok(())
@@ -293,7 +293,7 @@ mod tests {
         let mut solver = Solver::init();
 
         let result = solver.solve(state, u8::MAX);
-        let result = result.map(|s| Points(s.path).to_string());
+        let result = result.map(|m| Points(m.path).to_string());
         let mate = "
             F6,G7,C3,B2,E1,D2,C1,F1,A1,B1,A4,A3,C4,E4,C5,C2,C6,C7,D5,B5,
             E6,B3,D6,B6,G8,F7,D7,D3,F5,G5,G4,H3,F8,E7,I8,E8,F2,E3,F3,F4,

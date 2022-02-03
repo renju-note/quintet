@@ -151,7 +151,7 @@ impl Mate {
         }
     }
 
-    pub fn prepend(mut self, m: Point) -> Self {
+    pub fn unshift(mut self, m: Point) -> Self {
         let win = self.win;
         let mut path = vec![m];
         path.append(&mut self.path);

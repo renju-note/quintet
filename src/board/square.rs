@@ -94,8 +94,13 @@ impl Square {
             .flatten()
     }
 
-    pub fn points_along(&self, p: Point, limit: u8) -> impl Iterator<Item = Point> + '_ {
-        let limit = limit as i8;
+    pub fn neighbors(
+        &self,
+        p: Point,
+        distance: u8,
+        only_empty: bool,
+    ) -> impl Iterator<Item = Point> + '_ {
+        let d = distance as i8;
         vec![
             p.to_index(Vertical),
             p.to_index(Horizontal),
@@ -103,8 +108,9 @@ impl Square {
             p.to_index(Descending),
         ]
         .into_iter()
-        .flat_map(move |idx| (-limit..=limit).flat_map(move |j| idx.walk_checked(j)))
+        .flat_map(move |idx| (-d..=d).flat_map(move |j| idx.walk_checked(j)))
         .map(|idx| idx.to_point())
+        .filter(move |&p| !only_empty || self.stone(p).is_none())
     }
 
     pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
