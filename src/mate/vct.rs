@@ -251,7 +251,7 @@ impl State {
         let mut result = threat.path.clone();
         match threat.win {
             Win::Fours(p1, p2) => {
-                result.extend([p1, p2]); // TODO: another side four
+                result.extend([p1, p2]);
             }
             Win::Forbidden(p) => {
                 result.push(p);
@@ -287,7 +287,7 @@ impl State {
         let turn = self.turn();
         self.game
             .board()
-            .sequences(turn, Single, 4, turn.is_black())
+            .sequences(turn, Single, 3, turn.is_black())
             .flat_map(|(i, s)| i.mapped(s.eyes()).map(|i| i.to_point()))
             .collect()
     }
