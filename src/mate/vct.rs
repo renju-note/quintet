@@ -30,17 +30,17 @@ impl Solver {
         None
     }
 
-    fn solve_depth_width(&mut self, state: &mut State, depth: u8, width: u8) -> Option<Mate> {
-        if depth == 0 {
+    fn solve_depth_width(&mut self, state: &mut State, d: u8, w: u8) -> Option<Mate> {
+        if d == 0 {
             return None;
         }
 
-        let hash = state.game().get_hash(depth, width);
+        let hash = state.game().get_hash(d, w);
         if self.deadends.contains(&hash) {
             return None;
         }
 
-        let result = self.solve_attacks(state, depth, width);
+        let result = self.solve_attacks(state, d, w);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -48,34 +48,28 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, depth: u8, width: u8) -> Option<Mate> {
+    pub fn solve_attacks(&mut self, state: &mut State, d: u8, w: u8) -> Option<Mate> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
                 Ok(_) => None,
-                Err(abs) => self.solve_attack(state, depth, width, abs),
+                Err(abs) => self.solve_attack(state, d, w, abs),
             };
         }
 
-        if let Some(vcf) = self.solve_vcf(state, state.turn(), depth) {
+        if let Some(vcf) = self.solve_vcf(state, state.turn(), d) {
             return Some(vcf);
         }
 
-        let mut candidates = state.potential_points();
+        let mut attacks = state.potential_points();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
             let op_threat_defences = state.threat_defences(&op_threat);
-            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
-            candidates.retain(|(p, _)| op_threat_defences.contains(p));
+            Self::filter_potential_points(&mut attacks, op_threat_defences);
         }
-        candidates.sort_by(|a, b| b.1.cmp(&a.1));
+        attacks.sort_by(|a, b| b.1.cmp(&a.1));
+        attacks.truncate(w as usize);
 
-        let attacks = candidates
-            .into_iter()
-            .take(width as usize)
-            .map(|t| t.0)
-            .collect::<Vec<_>>();
-
-        for attack in attacks {
-            let result = self.solve_attack(state, depth, width, attack);
+        for (attack, _) in attacks {
+            let result = self.solve_attack(state, d, w, attack);
             if result.is_some() {
                 return result;
             }
@@ -84,13 +78,7 @@ impl Solver {
         None
     }
 
-    fn solve_attack(
-        &mut self,
-        state: &mut State,
-        depth: u8,
-        width: u8,
-        attack: Point,
-    ) -> Option<Mate> {
+    fn solve_attack(&mut self, state: &mut State, d: u8, w: u8, attack: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(attack) {
             return None;
         }
@@ -98,19 +86,17 @@ impl Solver {
         let last2_move = state.game().last2_move();
         state.play_mut(attack);
 
-        let result = self
-            .solve_defences(state, depth, width)
-            .map(|m| m.unshift(attack));
+        let result = self.solve_defences(state, d, w).map(|m| m.unshift(attack));
 
         state.undo_mut(last2_move);
         return result;
     }
 
-    fn solve_defences(&mut self, state: &mut State, depth: u8, width: u8) -> Option<Mate> {
+    fn solve_defences(&mut self, state: &mut State, d: u8, w: u8) -> Option<Mate> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
                 Ok(win) => Some(Mate::new(win, vec![])),
-                Err(abs) => self.solve_defence(state, depth, width, abs),
+                Err(abs) => self.solve_defence(state, d, w, abs),
             };
         }
 
@@ -118,22 +104,19 @@ impl Solver {
             return None;
         }
 
-        let may_threat = self.solve_vcf(state, state.last(), depth - 1);
+        let may_threat = self.solve_vcf(state, state.last(), d - 1);
         if may_threat.is_none() {
             return None;
         }
 
-        let defences = state
-            .threat_defences(&may_threat.unwrap())
-            .into_iter()
-            .collect::<HashSet<_>>();
-        let mut priorities = state.potential_points();
-        priorities.retain(|(p, _)| defences.contains(p));
-        priorities.sort_by(|a, b| b.1.cmp(&a.1));
-        let defences = priorities.into_iter().map(|t| t.0).collect::<Vec<_>>();
+        let mut defences = state.potential_points();
+        let threat_defences = state.threat_defences(&may_threat.unwrap());
+        Self::filter_potential_points(&mut defences, threat_defences);
+        defences.sort_by(|a, b| b.1.cmp(&a.1));
+
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
-        for defence in defences {
-            let new_result = self.solve_defence(state, depth, width, defence);
+        for (defence, _) in defences {
+            let new_result = self.solve_defence(state, d, w, defence);
             if new_result.is_none() {
                 result = None;
                 break;
@@ -151,13 +134,7 @@ impl Solver {
         result
     }
 
-    fn solve_defence(
-        &mut self,
-        state: &mut State,
-        depth: u8,
-        width: u8,
-        defence: Point,
-    ) -> Option<Mate> {
+    fn solve_defence(&mut self, state: &mut State, d: u8, w: u8, defence: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(defence) {
             return Some(Mate::new(Win::Forbidden(defence), vec![]));
         }
@@ -166,7 +143,7 @@ impl Solver {
         state.play_mut(defence);
 
         let result = self
-            .solve_depth_width(state, depth - 1, width)
+            .solve_depth_width(state, d - 1, w)
             .map(|m| m.unshift(defence));
 
         state.undo_mut(last2_move);
@@ -200,6 +177,11 @@ impl Solver {
             .collect::<Vec<_>>();
         dws.sort_by(|a, b| a.2.cmp(&b.2));
         dws.into_iter().map(|(d, w, _)| (d, w)).collect()
+    }
+
+    fn filter_potential_points(pps: &mut Vec<(Point, u8)>, flt: Vec<Point>) {
+        let flt = flt.into_iter().collect::<HashSet<_>>();
+        pps.retain(|(p, _)| flt.contains(p));
     }
 }
 
