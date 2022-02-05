@@ -21,18 +21,7 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
-        let mut dws = (1..=max_depth)
-            .flat_map(|d| {
-                [1 as u8, 2, 3, 4, 5].map(|lw| {
-                    let w = (2 as u32).pow(lw as u32) as u8;
-                    d.checked_add(lw).map(|n| (d, w, n))
-                })
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-        dws.sort_by(|a, b| a.2.cmp(&b.2));
-        for (d, w, _) in dws {
-            println!("D: {}, W: {}", d, w);
+        for (d, w) in Self::depth_width_priorities(max_depth) {
             let result = self.solve_depth_width(state, d, w);
             if result.is_some() {
                 return result;
@@ -190,6 +179,20 @@ impl Solver {
         } else {
             self.op_vcf_solver.solve(state, depth)
         }
+    }
+
+    fn depth_width_priorities(max_depth: u8) -> Vec<(u8, u8)> {
+        let mut dws = (1..=max_depth)
+            .flat_map(|d| {
+                [1 as u8, 2, 3, 4, 5].map(|lw| {
+                    let w = (2 as u32).pow(lw as u32) as u8;
+                    d.checked_add(lw).map(|n| (d, w, n))
+                })
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        dws.sort_by(|a, b| a.2.cmp(&b.2));
+        dws.into_iter().map(|(d, w, _)| (d, w)).collect()
     }
 }
 
