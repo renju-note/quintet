@@ -695,8 +695,8 @@ mod tests {
         let result: Vec<_> = square.potentials(White, 3, false).collect();
         let expected = [
             (Index::new(Horizontal, 8, 4), 3),
-            (Index::new(Horizontal, 8, 5), 7),
-            (Index::new(Horizontal, 8, 6), 7),
+            (Index::new(Horizontal, 8, 5), 4),
+            (Index::new(Horizontal, 8, 6), 4),
         ];
         assert_eq!(result, expected);
 
