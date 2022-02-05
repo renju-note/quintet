@@ -21,8 +21,8 @@ pub fn apply(current: u64, player: Player, p: Point) -> u64 {
     current ^ code
 }
 
-pub fn apply_depth_width(current: u64, depth: u8, width: u8) -> u64 {
-    current ^ DEPTH_TABLE[depth as usize] ^ WIDTH_TABLE[width as usize]
+pub fn apply_depth_breadth(current: u64, depth: u8, breadth: u8) -> u64 {
+    current ^ BREADTH_TABLE[depth as usize] ^ WIDTH_TABLE[breadth as usize]
 }
 
 fn get_code(player: Player, p: Point) -> u64 {
@@ -506,7 +506,7 @@ const CODE_TABLE: [u64; TABLE_SIZE] = [
     0x8d34b1a9eafa6b57,
 ];
 
-const DEPTH_TABLE: [u64; 256] = [
+const BREADTH_TABLE: [u64; 256] = [
     0xd5c4d8a490fd8689,
     0xea767ba8443999f6,
     0xa2aaca5641e2f103,
