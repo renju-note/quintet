@@ -60,7 +60,7 @@ impl Solver {
             return Some(vcf);
         }
 
-        let mut candidates = state.attack_candidates();
+        let mut candidates = state.potential_points();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
             let op_threat_defences = state.threat_defences(&op_threat);
             let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
@@ -123,7 +123,14 @@ impl Solver {
             return None;
         }
 
-        let defences = state.threat_defences(&may_threat.unwrap());
+        let defences = state
+            .threat_defences(&may_threat.unwrap())
+            .into_iter()
+            .collect::<HashSet<_>>();
+        let mut priorities = state.potential_points();
+        priorities.retain(|(p, _)| defences.contains(p));
+        priorities.sort_by(|a, b| b.1.cmp(&a.1));
+        let defences = priorities.into_iter().map(|t| t.0).collect::<Vec<_>>();
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
         for defence in defences {
             let new_result = self.solve_defence(state, depth, width, defence);
@@ -244,7 +251,7 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn attack_candidates(&self) -> Vec<(Point, u8)> {
+    pub fn potential_points(&self) -> Vec<(Point, u8)> {
         let min = if self.attacker == Player::Black { 4 } else { 3 };
         self.field.collect(min)
     }
@@ -367,7 +374,7 @@ mod tests {
 
         let result = solver.solve(state, 4);
         let result = result.map(|m| Points(m.path).to_string());
-        let expected = Some("I10,I6,I11,I8,J11,F7,K12".to_string());
+        let expected = Some("I10,I6,I11,I8,J11,J8,G8".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);
@@ -508,7 +515,7 @@ mod tests {
 
         let result = solver.solve(state, 5);
         let result = result.map(|m| Points(m.path).to_string());
-        let expected = Some("J4,K3,I4,I3,F8,G7,E6,G1,F6".to_string());
+        let expected = Some("J4,K3,I4,I3,F8,G7,E6,G9,G6".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 4);
