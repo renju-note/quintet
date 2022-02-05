@@ -20,10 +20,9 @@ impl Solver {
         }
     }
 
-    pub fn solve(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
-        // IDDFS
-        for d in 1..=depth {
-            let result = self.solve_depth(state, d);
+    pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
+        for (d, b) in Self::depth_breadth_priorities(max_depth) {
+            let result = self.solve_depth_breadth(state, d, b);
             if result.is_some() {
                 return result;
             }
@@ -31,17 +30,17 @@ impl Solver {
         None
     }
 
-    fn solve_depth(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
-        if depth == 0 {
+    fn solve_depth_breadth(&mut self, state: &mut State, d: u8, b: u8) -> Option<Mate> {
+        if d == 0 {
             return None;
         }
 
-        let hash = state.game().get_hash(depth);
+        let hash = state.game().get_hash(d, b);
         if self.deadends.contains(&hash) {
             return None;
         }
 
-        let result = self.solve_attacks(state, depth);
+        let result = self.solve_attacks(state, d, b);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -49,37 +48,28 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+    pub fn solve_attacks(&mut self, state: &mut State, d: u8, b: u8) -> Option<Mate> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
                 Ok(_) => None,
-                Err(abs) => self.solve_attack(state, depth, abs),
+                Err(abs) => self.solve_attack(state, d, b, abs),
             };
         }
 
-        if let Some(vcf) = self.solve_vcf(state, state.turn(), depth) {
+        if let Some(vcf) = self.solve_vcf(state, state.turn(), d) {
             return Some(vcf);
         }
 
-        let mut candidates = state.attack_candidates();
+        let mut attacks = state.potential_points();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
             let op_threat_defences = state.threat_defences(&op_threat);
-            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
-            candidates.retain(|(p, _)| op_threat_defences.contains(p));
+            Self::filter_potential_points(&mut attacks, op_threat_defences);
         }
-        candidates.sort_by(|a, b| b.1.cmp(&a.1));
+        attacks.sort_by(|a, b| b.1.cmp(&a.1));
+        attacks.truncate(b as usize);
 
-        let attacks = candidates.into_iter().map(|t| t.0).collect::<Vec<_>>();
-
-        for &attack in &attacks {
-            let result = self.solve_attack(state, 1, attack);
-            if result.is_some() {
-                return result;
-            }
-        }
-
-        for &attack in &attacks {
-            let result = self.solve_attack(state, depth, attack);
+        for (attack, _) in attacks {
+            let result = self.solve_attack(state, d, b, attack);
             if result.is_some() {
                 return result;
             }
@@ -88,7 +78,7 @@ impl Solver {
         None
     }
 
-    fn solve_attack(&mut self, state: &mut State, depth: u8, attack: Point) -> Option<Mate> {
+    fn solve_attack(&mut self, state: &mut State, d: u8, b: u8, attack: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(attack) {
             return None;
         }
@@ -96,17 +86,17 @@ impl Solver {
         let last2_move = state.game().last2_move();
         state.play_mut(attack);
 
-        let result = self.solve_defences(state, depth).map(|m| m.unshift(attack));
+        let result = self.solve_defences(state, d, b).map(|m| m.unshift(attack));
 
         state.undo_mut(last2_move);
         return result;
     }
 
-    fn solve_defences(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+    fn solve_defences(&mut self, state: &mut State, d: u8, b: u8) -> Option<Mate> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
                 Ok(win) => Some(Mate::new(win, vec![])),
-                Err(abs) => self.solve_defence(state, depth, abs),
+                Err(abs) => self.solve_defence(state, d, b, abs),
             };
         }
 
@@ -114,15 +104,19 @@ impl Solver {
             return None;
         }
 
-        let may_threat = self.solve_vcf(state, state.last(), depth - 1);
+        let may_threat = self.solve_vcf(state, state.last(), d - 1);
         if may_threat.is_none() {
             return None;
         }
 
-        let defences = state.threat_defences(&may_threat.unwrap());
+        let mut defences = state.potential_points();
+        let threat_defences = state.threat_defences(&may_threat.unwrap());
+        Self::filter_potential_points(&mut defences, threat_defences);
+        defences.sort_by(|a, b| b.1.cmp(&a.1));
+
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
-        for defence in defences {
-            let new_result = self.solve_defence(state, depth, defence);
+        for (defence, _) in defences {
+            let new_result = self.solve_defence(state, d, b, defence);
             if new_result.is_none() {
                 result = None;
                 break;
@@ -140,7 +134,7 @@ impl Solver {
         result
     }
 
-    fn solve_defence(&mut self, state: &mut State, depth: u8, defence: Point) -> Option<Mate> {
+    fn solve_defence(&mut self, state: &mut State, d: u8, b: u8, defence: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(defence) {
             return Some(Mate::new(Win::Forbidden(defence), vec![]));
         }
@@ -148,13 +142,15 @@ impl Solver {
         let last2_move = state.game().last2_move();
         state.play_mut(defence);
 
-        let result = self.solve(state, depth - 1).map(|m| m.unshift(defence));
+        let result = self
+            .solve_depth_breadth(state, d - 1, b)
+            .map(|m| m.unshift(defence));
 
         state.undo_mut(last2_move);
         result
     }
 
-    fn solve_vcf(&mut self, state: &mut State, turn: Player, depth: u8) -> Option<Mate> {
+    fn solve_vcf(&mut self, state: &mut State, turn: Player, max_depth: u8) -> Option<Mate> {
         let attacker = state.attacker();
         let game = state.game();
         let state = &mut vcf::State::new(if turn == game.last() {
@@ -163,10 +159,29 @@ impl Solver {
             game.clone()
         });
         if turn == attacker {
-            self.vcf_solver.solve(state, depth)
+            self.vcf_solver.solve(state, max_depth)
         } else {
-            self.op_vcf_solver.solve(state, depth)
+            self.op_vcf_solver.solve(state, max_depth)
         }
+    }
+
+    fn depth_breadth_priorities(max_depth: u8) -> Vec<(u8, u8)> {
+        let mut dws = (1..=max_depth)
+            .flat_map(|d| {
+                [1 as u8, 2, 3, 4, 5].map(|lb| {
+                    let b = (2 as u32).pow(lb as u32) as u8;
+                    d.checked_add(lb).map(|n| (d, b, n))
+                })
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        dws.sort_by(|a, b| a.2.cmp(&b.2));
+        dws.into_iter().map(|(d, b, _)| (d, b)).collect()
+    }
+
+    fn filter_potential_points(pps: &mut Vec<(Point, u8)>, flt: Vec<Point>) {
+        let flt = flt.into_iter().collect::<HashSet<_>>();
+        pps.retain(|(p, _)| flt.contains(p));
     }
 }
 
@@ -218,7 +233,7 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn attack_candidates(&self) -> Vec<(Point, u8)> {
+    pub fn potential_points(&self) -> Vec<(Point, u8)> {
         let min = if self.attacker == Player::Black { 4 } else { 3 };
         self.field.collect(min)
     }
@@ -341,7 +356,7 @@ mod tests {
 
         let result = solver.solve(state, 4);
         let result = result.map(|m| Points(m.path).to_string());
-        let expected = Some("I10,I6,I11,I8,J11,F7,K12".to_string());
+        let expected = Some("I10,I6,I11,I8,J11,J8,G8".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 3);
@@ -482,7 +497,7 @@ mod tests {
 
         let result = solver.solve(state, 5);
         let result = result.map(|m| Points(m.path).to_string());
-        let expected = Some("J4,K3,I4,I3,F8,G7,E6,G1,F6".to_string());
+        let expected = Some("J4,K3,I4,I3,F8,G7,E6,G9,G6".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 4);
