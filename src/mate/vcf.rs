@@ -23,7 +23,7 @@ impl Solver {
             return None;
         }
 
-        let hash = state.game().get_hash(depth);
+        let hash = state.game().get_hash(depth, u8::MAX);
         if self.deadends.contains(&hash) {
             return None;
         }
