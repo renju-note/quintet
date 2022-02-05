@@ -3,7 +3,7 @@ use super::super::board::*;
 use super::field::*;
 use super::game::*;
 use super::vcf;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub struct Solver {
     deadends: HashSet<u64>,
@@ -63,7 +63,8 @@ impl Solver {
         let mut attacks = state.potential_points();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
             let op_threat_defences = state.threat_defences(&op_threat);
-            Self::filter_potential_points(&mut attacks, op_threat_defences);
+            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
+            attacks.retain(|(p, _)| op_threat_defences.contains(p));
         }
         attacks.sort_by(|a, b| b.1.cmp(&a.1));
         attacks.truncate(b as usize);
@@ -109,13 +110,19 @@ impl Solver {
             return None;
         }
 
-        let mut defences = state.potential_points();
-        let threat_defences = state.threat_defences(&may_threat.unwrap());
-        Self::filter_potential_points(&mut defences, threat_defences);
-        defences.sort_by(|a, b| b.1.cmp(&a.1));
+        let mut defences = state.threat_defences(&may_threat.unwrap());
+        let mut potentials: HashMap<Point, u8> = HashMap::new();
+        for (p, o) in state.potential_points() {
+            potentials.insert(p, o);
+        }
+        defences.sort_by(|a, b| {
+            let oa = potentials.get(a).unwrap_or(&0);
+            let ob = potentials.get(b).unwrap_or(&0);
+            ob.cmp(oa)
+        });
 
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
-        for (defence, _) in defences {
+        for defence in defences {
             let new_result = self.solve_defence(state, d, b, defence);
             if new_result.is_none() {
                 result = None;
@@ -177,11 +184,6 @@ impl Solver {
             .collect::<Vec<_>>();
         dws.sort_by(|a, b| a.2.cmp(&b.2));
         dws.into_iter().map(|(d, b, _)| (d, b)).collect()
-    }
-
-    fn filter_potential_points(pps: &mut Vec<(Point, u8)>, flt: Vec<Point>) {
-        let flt = flt.into_iter().collect::<HashSet<_>>();
-        pps.retain(|(p, _)| flt.contains(p));
     }
 }
 
@@ -249,7 +251,7 @@ impl State {
         let mut result = threat.path.clone();
         match threat.win {
             Win::Fours(p1, p2) => {
-                result.extend([p1, p2]);
+                result.extend([p1, p2]); // TODO: another side four
             }
             Win::Forbidden(p) => {
                 result.push(p);
