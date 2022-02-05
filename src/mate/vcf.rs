@@ -15,6 +15,10 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+        self.solve_depth(state, depth)
+    }
+
+    fn solve_depth(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
         if depth == 0 {
             return None;
         }
@@ -97,7 +101,9 @@ impl Solver {
         let last2_move_defence = state.game().last2_move();
         state.game().play_mut(defence);
 
-        let result = self.solve(state, depth - 1).map(|m| m.unshift(defence));
+        let result = self
+            .solve_depth(state, depth - 1)
+            .map(|m| m.unshift(defence));
 
         state.game().undo_mut(last2_move_defence);
         result
@@ -187,7 +193,7 @@ mod tests {
         let state = &mut State::init(board, Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 12);
+        let result = solver.solve_depth(state, 12);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "
             J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
@@ -197,7 +203,7 @@ mod tests {
         .collect();
         assert_eq!(result, Some(mate));
 
-        let result = solver.solve(state, 11);
+        let result = solver.solve_depth(state, 11);
         assert_eq!(result, None);
 
         Ok(())
@@ -227,12 +233,12 @@ mod tests {
         let state = &mut State::init(board, White);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 5);
+        let result = solver.solve_depth(state, 5);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "L13,L11,K12,J11,I12,H12,I13,I14,H14".to_string();
         assert_eq!(result, Some(mate));
 
-        let result = solver.solve(state, 4);
+        let result = solver.solve_depth(state, 4);
         assert_eq!(result, None);
 
         Ok(())
@@ -261,7 +267,7 @@ mod tests {
         let state = &mut State::init(board, Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 3);
+        let result = solver.solve_depth(state, 3);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "K8,L8,H11".split_whitespace().collect();
         assert_eq!(result, Some(mate));
@@ -292,7 +298,7 @@ mod tests {
         let state = &mut State::init(board, Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, u8::MAX);
+        let result = solver.solve_depth(state, u8::MAX);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "
             F6,G7,C3,B2,E1,D2,C1,F1,A1,B1,A4,A3,C4,E4,C5,C2,C6,C7,D5,B5,
