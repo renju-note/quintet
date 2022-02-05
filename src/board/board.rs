@@ -280,7 +280,7 @@ mod tests {
             (Index::new(Horizontal, 8, 11), 3),
             (Index::new(Ascending, 13, 4), 4),
             (Index::new(Ascending, 13, 6), 8),
-            (Index::new(Ascending, 13, 9), 7),
+            (Index::new(Ascending, 13, 9), 4),
             (Index::new(Ascending, 13, 10), 3),
             (Index::new(Ascending, 13, 11), 3),
         ];

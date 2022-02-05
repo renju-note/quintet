@@ -40,35 +40,38 @@ impl Iterator for Potentials {
 
         let my_ = (self.my >> i) as u8;
         let op_ = (self.op >> i) as u8;
+        let is_fullsize = i <= self.limit - VICTORY;
+        let is_valid = op_ & TARGET_MASK == 0b0 && (!self.strict || my_ & MARGIN_MASK == 0b0);
         let blank = my_ & FIRST_MASK == 0b0 && op_ & FIRST_MASK == 0b0;
-
-        if i > self.limit - VICTORY {
-            let ret = self.acc[(i - (self.limit - VICTORY)) as usize];
-            return if blank && ret >= self.min {
-                Some((i, ret))
-            } else {
-                self.next()
-            };
-        }
 
         self.acc[0] = self.acc[1];
         self.acc[1] = self.acc[2];
         self.acc[2] = self.acc[3];
         self.acc[3] = self.acc[4];
-        self.acc[4] = 0;
-
-        if op_ & TARGET_MASK == 0b0 && (!self.strict || my_ & MARGIN_MASK == 0b0) {
+        self.acc[4] = if is_fullsize && is_valid {
             let p = (my_ & TARGET_MASK).count_ones() as u8 + 1;
             if p >= self.min {
-                self.acc[0] += p;
-                self.acc[1] += p;
-                self.acc[2] += p;
-                self.acc[3] += p;
-                self.acc[4] += p;
+                p
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        let mut max = 0;
+        let mut count = 0;
+        for i in 0..5 {
+            let p = self.acc[i];
+            if p > max {
+                max = p;
+                count = 1;
+            } else if p == max {
+                count += 1
             }
         }
 
-        let ret = self.acc[0];
+        let ret = max * count;
         if blank && ret >= self.min {
             Some((i, ret))
         } else {
@@ -93,14 +96,25 @@ mod tests {
             (3, 6),
             (5, 3),
             (8, 6),
-            (9, 10),
-            (10, 14),
+            (9, 4),
+            (10, 8),
             (14, 4),
         ];
         assert_eq!(result, expected);
 
         let result = Potentials::new(15, my, op, 3, true).collect::<Vec<_>>();
         let expected = [(0, 3), (1, 6), (3, 6), (5, 3), (9, 4), (10, 8), (14, 4)];
+        assert_eq!(result, expected);
+
+        let my = 0b000001100000000;
+        let op = 0b000000000000000;
+
+        let result = Potentials::new(15, my, op, 3, false).collect::<Vec<_>>();
+        let expected = [(5, 3), (6, 6), (7, 9), (10, 9), (11, 6), (12, 3)];
+        assert_eq!(result, expected);
+
+        let result = Potentials::new(15, my, op, 3, true).collect::<Vec<_>>();
+        let expected = [(5, 3), (6, 6), (7, 9), (10, 9), (11, 6), (12, 3)];
         assert_eq!(result, expected);
     }
 }
