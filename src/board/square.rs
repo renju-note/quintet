@@ -127,8 +127,12 @@ impl Square {
 
     pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
         let (sk, n, strict) = k.to_sequence(r);
-        self.sequences(r, sk, n, strict)
-            .map(|(i, s)| Structure::new(i, s))
+        self.iter_lines()
+            .filter(move |(_, _, l)| l.potential_cap(r) > n)
+            .flat_map(move |(d, i, l)| {
+                l.sequences(r, sk, n, strict)
+                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
+            })
     }
 
     pub fn structures_on(
@@ -138,40 +142,12 @@ impl Square {
         k: StructureKind,
     ) -> impl Iterator<Item = Structure> + '_ {
         let (sk, n, strict) = k.to_sequence(r);
-        self.sequences_on(p, r, sk, n, strict)
-            .map(|(i, s)| Structure::new(i, s))
-    }
-
-    // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/
-    pub fn sequences(
-        &self,
-        r: Player,
-        k: SequenceKind,
-        n: u8,
-        strict: bool,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(r) > n)
-            .flat_map(move |(d, i, l)| {
-                l.sequences(r, k, n, strict)
-                    .map(move |(j, s)| (Index::new(d, i, j), s))
-            })
-    }
-
-    pub fn sequences_on(
-        &self,
-        p: Point,
-        r: Player,
-        k: SequenceKind,
-        n: u8,
-        strict: bool,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
         self.iter_lines_on(p)
             .filter(move |(_, _, l)| l.potential_cap(r) > n)
             .flat_map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
-                l.sequences_on(j, r, k, n, strict)
-                    .map(move |(j, s)| (Index::new(d, i, j), s))
+                l.sequences_on(j, r, sk, n, strict)
+                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
             })
     }
 
@@ -669,11 +645,17 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
-        let result: Vec<_> = square.sequences(Black, Compact, 2, true).collect();
-        let expected = [(Index::new(Ascending, 16, 5), Sequence(0b00011001))];
+        let result: Vec<_> = square.structures(Black, Two).collect();
+        let expected = [Structure::new(
+            Index::new(Ascending, 16, 5),
+            Sequence(0b00011001),
+        )];
         assert_eq!(result, expected);
-        let result: Vec<_> = square.sequences(White, Single, 3, false).collect();
-        let expected = [(Index::new(Horizontal, 8, 5), Sequence(0b00011100))];
+        let result: Vec<_> = square.structures(White, Sword).collect();
+        let expected = [Structure::new(
+            Index::new(Horizontal, 8, 5),
+            Sequence(0b00011100),
+        )];
         assert_eq!(result, expected);
 
         Ok(())

@@ -1,7 +1,6 @@
 use super::forbidden::*;
 use super::player::*;
 use super::point::*;
-use super::sequence::*;
 use super::square::*;
 use super::structure::*;
 use super::zobrist;
@@ -84,27 +83,6 @@ impl Board {
         self.square.structures_on(p, r, k)
     }
 
-    pub fn sequences(
-        &self,
-        r: Player,
-        k: SequenceKind,
-        n: u8,
-        strict: bool,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences(r, k, n, strict)
-    }
-
-    pub fn sequences_on(
-        &self,
-        p: Point,
-        r: Player,
-        k: SequenceKind,
-        n: u8,
-        strict: bool,
-    ) -> impl Iterator<Item = (Index, Sequence)> + '_ {
-        self.square.sequences_on(p, r, k, n, strict)
-    }
-
     pub fn potentials(
         &self,
         r: Player,
@@ -173,6 +151,7 @@ impl FromStr for Board {
 
 #[cfg(test)]
 mod tests {
+    use super::super::sequence::*;
     use super::*;
 
     #[test]
@@ -235,28 +214,31 @@ mod tests {
         assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
         assert_eq!(board.forbidden(Point(6, 7)), Some(DoubleThree));
 
-        // sequences
-        let result: Vec<_> = board.sequences(Black, Compact, 2, true).collect();
+        // structures
+        let result: Vec<_> = board.structures(Black, Two).collect();
         let expected = [
-            (Index::new(Vertical, 6, 6), Sequence(0b00011100)),
-            (Index::new(Vertical, 6, 7), Sequence(0b00010110)),
-            (Index::new(Vertical, 6, 8), Sequence(0b00010011)),
-            (Index::new(Horizontal, 7, 5), Sequence(0b00011100)),
-            (Index::new(Horizontal, 7, 6), Sequence(0b00010110)),
-            (Index::new(Horizontal, 7, 7), Sequence(0b00010011)),
+            Structure::new(Index::new(Vertical, 6, 6), Sequence(0b00011100)),
+            Structure::new(Index::new(Vertical, 6, 7), Sequence(0b00010110)),
+            Structure::new(Index::new(Vertical, 6, 8), Sequence(0b00010011)),
+            Structure::new(Index::new(Horizontal, 7, 5), Sequence(0b00011100)),
+            Structure::new(Index::new(Horizontal, 7, 6), Sequence(0b00010110)),
+            Structure::new(Index::new(Horizontal, 7, 7), Sequence(0b00010011)),
         ];
         assert_eq!(result, expected);
 
-        let result: Vec<_> = board.sequences(White, Compact, 2, false).collect();
+        let result: Vec<_> = board.structures(White, Two).collect();
         let expected = [
-            (Index::new(Horizontal, 6, 5), Sequence(0b00011001)),
-            (Index::new(Ascending, 13, 6), Sequence(0b00010110)),
-            (Index::new(Ascending, 13, 7), Sequence(0b00010011)),
+            Structure::new(Index::new(Horizontal, 6, 5), Sequence(0b00011001)),
+            Structure::new(Index::new(Ascending, 13, 6), Sequence(0b00010110)),
+            Structure::new(Index::new(Ascending, 13, 7), Sequence(0b00010011)),
         ];
         assert_eq!(result, expected);
 
-        let result: Vec<_> = board.sequences(White, Compact, 3, false).collect();
-        let expected = [(Index::new(Ascending, 13, 5), Sequence(0b00011101))];
+        let result: Vec<_> = board.structures(White, Three).collect();
+        let expected = [Structure::new(
+            Index::new(Ascending, 13, 5),
+            Sequence(0b00011101),
+        )];
         assert_eq!(result, expected);
 
         // potentials
