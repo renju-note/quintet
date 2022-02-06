@@ -2,6 +2,7 @@ use super::line::*;
 use super::player::*;
 use super::point::*;
 use super::sequence::*;
+use super::structure::*;
 use std::fmt;
 use std::str::FromStr;
 
@@ -122,6 +123,23 @@ impl Square {
                     .map(move |j| Index::new(Vertical, i as u8, j).to_point())
             })
             .flatten()
+    }
+
+    pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
+        let (sk, n, strict) = k.to_sequence(r);
+        self.sequences(r, sk, n, strict)
+            .map(|(i, s)| Structure::new(i, s))
+    }
+
+    pub fn structures_on(
+        &self,
+        p: Point,
+        r: Player,
+        k: StructureKind,
+    ) -> impl Iterator<Item = Structure> + '_ {
+        let (sk, n, strict) = k.to_sequence(r);
+        self.sequences_on(p, r, sk, n, strict)
+            .map(|(i, s)| Structure::new(i, s))
     }
 
     // https://depth-first.com/articles/2020/06/22/returning-rust-iterators/

@@ -3,6 +3,7 @@ use super::player::*;
 use super::point::*;
 use super::sequence::*;
 use super::square::*;
+use super::structure::*;
 use super::zobrist;
 use std::fmt;
 use std::str::FromStr;
@@ -68,6 +69,19 @@ impl Board {
         only_empty: bool,
     ) -> impl Iterator<Item = Point> + '_ {
         self.square.neighbors(p, distance, only_empty)
+    }
+
+    pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
+        self.square.structures(r, k)
+    }
+
+    pub fn structures_on(
+        &self,
+        p: Point,
+        r: Player,
+        k: StructureKind,
+    ) -> impl Iterator<Item = Structure> + '_ {
+        self.square.structures_on(p, r, k)
     }
 
     pub fn sequences(
