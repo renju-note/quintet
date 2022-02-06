@@ -1,7 +1,7 @@
 use super::player::*;
 use super::point::*;
-use super::sequence::*;
 use super::square::*;
+use super::structure::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ForbiddenKind {
@@ -24,7 +24,7 @@ pub fn forbidden_strict(q: &Square, p: Point) -> Option<ForbiddenKind> {
     if q.stone(p).is_some() {
         return None;
     }
-    let mut next_fives = q.sequences_on(p, Black, Single, 4, true);
+    let mut next_fives = q.structures_on(p, Black, Four);
     if next_fives.next().is_some() {
         return None;
     }
@@ -44,18 +44,18 @@ pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(q: &Square, p: Point) -> bool {
-    let mut next_overlines = q.sequences_on(p, Black, Double, 4, false);
+    let mut next_overlines = q.structures_on(p, Black, NextOverFive);
     next_overlines.next().is_some()
 }
 
 fn double_four(q: &Square, p: Point) -> bool {
-    let next_fours = q.sequences_on(p, Black, Single, 3, true);
-    distinctive(&mut next_fours.map(|p| p.0))
+    let next_fours = q.structures_on(p, Black, Sword);
+    distinctive(&mut next_fours.map(|s| s.start_index()))
 }
 
 fn double_three(q: &Square, p: Point) -> bool {
-    let next_threes = q.sequences_on(p, Black, Compact, 2, true);
-    if !distinctive(&mut next_threes.map(|p| p.0)) {
+    let next_threes = q.structures_on(p, Black, Two);
+    if !distinctive(&mut next_threes.map(|s| s.start_index())) {
         return false;
     }
     let mut next = q.clone();
@@ -64,13 +64,11 @@ fn double_three(q: &Square, p: Point) -> bool {
 }
 
 fn truthy_double_three(next: &Square, p: Point) -> bool {
-    let truthy_threes = next
-        .sequences_on(p, Black, Compact, 3, true)
-        .filter(|(i, s)| {
-            let eye = i.mapped(s.eyes()).next().unwrap().to_point();
-            forbidden(&next, eye).is_none()
-        });
-    distinctive(&mut truthy_threes.map(|p| p.0))
+    let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
+        let eye = s.eyes().next().unwrap();
+        forbidden(&next, eye).is_none()
+    });
+    distinctive(&mut truthy_threes.map(|s| s.start_index()))
 }
 
 fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {

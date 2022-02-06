@@ -1,4 +1,4 @@
-use super::super::board::SequenceKind::*;
+use super::super::board::StructureKind::*;
 use super::super::board::*;
 use super::field::*;
 use super::game::*;
@@ -272,23 +272,19 @@ impl State {
             if turn == threater {
                 continue;
             }
-            let swords = game
-                .board()
-                .sequences_on(p, turn, Single, 3, turn.is_black());
-            for (i, s) in swords {
-                let eyes = i.mapped(s.eyes()).map(|i| i.to_point());
-                result.extend(eyes);
+            let swords = game.board().structures_on(p, turn, Sword);
+            for s in swords {
+                result.extend(s.eyes());
             }
         }
         result
     }
 
     fn sword_eyes(&self) -> Vec<Point> {
-        let turn = self.turn();
         self.game
             .board()
-            .sequences(turn, Single, 3, turn.is_black())
-            .flat_map(|(i, s)| i.mapped(s.eyes()).map(|i| i.to_point()))
+            .structures(self.turn(), Sword)
+            .flat_map(|s| s.eyes())
             .collect()
     }
 }

@@ -1,4 +1,4 @@
-use super::super::board::SequenceKind::*;
+use super::super::board::StructureKind::*;
 use super::super::board::*;
 use super::game::*;
 use std::collections::HashSet;
@@ -129,35 +129,32 @@ impl State {
     }
 
     pub fn abs_attack_defence_pair(&self, op_four_eye: Point) -> Option<(Point, Point)> {
-        let r = self.game.turn();
         self.game
             .board()
-            .sequences_on(op_four_eye, r, Single, 3, r.is_black())
+            .structures_on(op_four_eye, self.game.turn(), Sword)
             .flat_map(Self::sword_eyes_pair)
             .filter(|&(e1, _)| e1 == op_four_eye)
             .next()
     }
 
     pub fn neighbor_attack_defence_pairs(&self) -> Vec<(Point, Point)> {
-        let r = self.game.turn();
         self.game
             .board()
-            .sequences_on(self.game.last2_move(), r, Single, 3, r.is_black())
+            .structures_on(self.game.last2_move(), self.game.turn(), Sword)
             .flat_map(Self::sword_eyes_pair)
             .collect()
     }
 
     pub fn attack_defence_pairs(&self) -> Vec<(Point, Point)> {
-        let r = self.game.turn();
         self.game
             .board()
-            .sequences(r, Single, 3, r.is_black())
+            .structures(self.game.turn(), Sword)
             .flat_map(Self::sword_eyes_pair)
             .collect()
     }
 
-    fn sword_eyes_pair((start, sword): (Index, Sequence)) -> [(Point, Point); 2] {
-        let mut eyes = start.mapped(sword.eyes()).map(|i| i.to_point());
+    fn sword_eyes_pair(sword: Structure) -> [(Point, Point); 2] {
+        let mut eyes = sword.eyes();
         let e1 = eyes.next().unwrap();
         let e2 = eyes.next().unwrap();
         [(e1, e2), (e2, e1)]

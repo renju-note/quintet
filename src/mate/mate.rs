@@ -1,5 +1,5 @@
 use super::super::board::Player::*;
-use super::super::board::SequenceKind::*;
+use super::super::board::StructureKind::*;
 use super::super::board::*;
 use super::vcf;
 use super::vct;
@@ -25,27 +25,17 @@ pub fn solve_vct(board: &Board, turn: Player, depth: u8) -> Option<Vec<Point>> {
 }
 
 fn validate_initial(board: &Board, turn: Player) -> Result<(), Option<Vec<Point>>> {
-    // Already exists five
-    if board.sequences(Black, Single, 5, true).next().is_some() {
+    if board.structures(Black, Five).next().is_some() {
         return Err(None);
     }
-    if board.sequences(White, Single, 5, false).next().is_some() {
+    if board.structures(White, Five).next().is_some() {
         return Err(None);
     }
-
-    // Already exists black overline
-    if board.sequences(Black, Double, 5, false).next().is_some() {
+    if board.structures(Black, OverFive).next().is_some() {
         return Err(None);
     }
-
-    // Already exists four
-    if board
-        .sequences(turn, Single, 4, turn.is_black())
-        .next()
-        .is_some()
-    {
+    if board.structures(turn, Four).next().is_some() {
         return Err(Some(vec![]));
     }
-
     Ok(())
 }
