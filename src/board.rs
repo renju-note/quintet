@@ -6,6 +6,7 @@ mod point;
 mod potential;
 mod sequence;
 mod square;
+mod structure;
 pub mod zobrist;
 
 pub use board::Board;
@@ -16,3 +17,4 @@ pub use point::{Direction, Index, Point, Points, RANGE};
 pub use potential::{Potentials, VICTORY};
 pub use sequence::{Sequence, SequenceKind};
 pub use square::Square;
+pub use structure::{Structure, StructureKind};

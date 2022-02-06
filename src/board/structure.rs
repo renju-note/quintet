@@ -10,10 +10,11 @@ pub enum StructureKind {
     OpenFour,
     Four,
     Five,
+    NextOverFive,
     OverFive,
 }
 
-use StructureKind::*;
+pub use StructureKind::*;
 
 impl StructureKind {
     pub fn to_sequence(&self, r: Player) -> (SequenceKind, u8, bool) {
@@ -24,6 +25,7 @@ impl StructureKind {
             Sword => (Single, 3, r.is_black()),
             Four => (Single, 4, r.is_black()),
             Five => (Single, 5, r.is_black()),
+            NextOverFive => (Double, 4, false),
             OverFive => (Double, 5, false),
         }
     }
@@ -41,6 +43,10 @@ impl Structure {
             start: start,
             sequence: sequence,
         }
+    }
+
+    pub fn start_index(&self) -> Index {
+        self.start
     }
 
     pub fn start(&self) -> Point {
