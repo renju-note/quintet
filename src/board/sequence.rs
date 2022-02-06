@@ -17,7 +17,7 @@ pub enum SequenceKind {
 
 pub use SequenceKind::*;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct Sequence(pub u8);
 
 impl Sequence {

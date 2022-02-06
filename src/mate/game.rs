@@ -1,4 +1,4 @@
-use super::super::board::SequenceKind::*;
+use super::super::board::StructureKind::*;
 use super::super::board::*;
 
 #[derive(Clone)]
@@ -88,11 +88,10 @@ impl Game {
     }
 
     pub fn inspect_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
-        let last = self.last();
         let last_four_eyes = self
             .board
-            .sequences_on(self.last_move(), last, Single, 4, last.is_black())
-            .map(|(i, s)| i.walk(s.eyes()[0]).to_point());
+            .structures_on(self.last_move(), self.last(), Four)
+            .flat_map(|r| r.eyes());
         let mut ret = None;
         for eye in last_four_eyes {
             if ret.map_or(false, |e| e != eye) {
@@ -116,11 +115,10 @@ impl Game {
 
     fn choose_last_moves(board: &Board, turn: Player) -> (Point, Point) {
         let last = turn.opponent();
-        let mut last_fours = board.sequences(last, Single, 4, last.is_black());
-        let last_move = if let Some((index, _)) = last_fours.next() {
-            let start = index.to_point();
-            let next = index.walk(1).to_point();
-            board.stones(last).find(|&s| s == start || s == next)
+        let mut last_fours = board.structures(last, Four);
+        let last_move = if let Some(four) = last_fours.next() {
+            let stone = four.stones().next().unwrap();
+            board.stones(last).find(|&s| s == stone)
         } else {
             board.stones(last).next()
         };

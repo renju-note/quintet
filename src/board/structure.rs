@@ -6,8 +6,8 @@ use super::sequence::*;
 pub enum StructureKind {
     Two,
     Three,
-    Sword,
     OpenFour,
+    Sword,
     Four,
     Five,
     NextOverFive,
