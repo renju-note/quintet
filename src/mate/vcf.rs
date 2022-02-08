@@ -83,13 +83,13 @@ impl Solver {
         }
 
         let last2_move_attack = state.game().last2_move();
-        state.game().play_mut(attack);
+        state.game().play(attack);
 
         let result = self
             .solve_defence(state, limit, defence)
             .map(|m| m.unshift(attack));
 
-        state.game().undo_mut(last2_move_attack);
+        state.game().undo(last2_move_attack);
         result
     }
 
@@ -99,13 +99,13 @@ impl Solver {
         }
 
         let last2_move_defence = state.game().last2_move();
-        state.game().play_mut(defence);
+        state.game().play(defence);
 
         let result = self
             .solve_limit(state, limit - 1)
             .map(|m| m.unshift(defence));
 
-        state.game().undo_mut(last2_move_defence);
+        state.game().undo(last2_move_defence);
         result
     }
 }

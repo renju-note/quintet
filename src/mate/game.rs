@@ -48,14 +48,14 @@ impl Game {
         zobrist::apply_limit(self.board.zobrist_hash(), limit)
     }
 
-    pub fn play_mut(&mut self, next_move: Point) {
+    pub fn play(&mut self, next_move: Point) {
         self.board.put_mut(self.turn, next_move);
         self.turn = self.last();
         self.last2_move = self.last_move();
         self.last_move = next_move;
     }
 
-    pub fn undo_mut(&mut self, last2_move: Point) {
+    pub fn undo(&mut self, last2_move: Point) {
         self.board.remove_mut(self.last_move);
         self.turn = self.last();
         self.last_move = self.last2_move();

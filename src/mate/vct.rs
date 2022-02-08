@@ -191,13 +191,13 @@ impl State {
     }
 
     pub fn play(&mut self, next_move: Point) {
-        self.game.play_mut(next_move);
+        self.game.play(next_move);
         self.field.update_along(next_move, self.game.board());
     }
 
     pub fn undo(&mut self, last2_move: Point) {
         let last_move = self.game.last_move();
-        self.game.undo_mut(last2_move);
+        self.game.undo(last2_move);
         self.field.update_along(last_move, self.game.board());
     }
 
@@ -259,7 +259,7 @@ impl State {
         let mut result = vec![];
         for &p in &threat.path {
             let turn = game.turn();
-            game.play_mut(p);
+            game.play(p);
             if turn == threater {
                 continue;
             }
