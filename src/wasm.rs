@@ -4,26 +4,26 @@ use std::convert::{From, TryFrom};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, depth: u8) -> Option<Box<[u8]>> {
+pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, max_depth: u8) -> Option<Box<[u8]>> {
     let blacks = Points::try_from(blacks);
     let whites = Points::try_from(whites);
     if !blacks.is_ok() || !whites.is_ok() {
         return None;
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
-    let solution = mate::solve_vcf(&board, Player::from(black), depth);
+    let solution = mate::solve_vcf(&board, Player::from(black), max_depth);
     solution.map(|ps| <Vec<u8>>::from(Points(ps)).into_boxed_slice())
 }
 
 #[wasm_bindgen]
-pub fn solve_vct(blacks: &[u8], whites: &[u8], black: bool, depth: u8) -> Option<Box<[u8]>> {
+pub fn solve_vct(blacks: &[u8], whites: &[u8], black: bool, max_depth: u8) -> Option<Box<[u8]>> {
     let blacks = Points::try_from(blacks);
     let whites = Points::try_from(whites);
     if !blacks.is_ok() || !whites.is_ok() {
         return None;
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
-    let solution = mate::solve_vct(&board, Player::from(black), depth);
+    let solution = mate::solve_vct(&board, Player::from(black), max_depth);
     solution.map(|ps| <Vec<u8>>::from(Points(ps)).into_boxed_slice())
 }
 

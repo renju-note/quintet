@@ -21,20 +21,20 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
-        self.solve_depth(state, max_depth)
+        self.solve_limit(state, max_depth)
     }
 
-    fn solve_depth(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
-        if depth == 0 {
+    fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if limit == 0 {
             return None;
         }
 
-        let hash = state.game().get_hash(depth);
+        let hash = state.game().get_hash(limit);
         if self.deadends.contains(&hash) {
             return None;
         }
 
-        let result = self.solve_attacks(state, depth);
+        let result = self.solve_attacks(state, limit);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -42,15 +42,15 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+    pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
                 Ok(_) => None,
-                Err(abs) => self.solve_attack(state, depth, abs),
+                Err(abs) => self.solve_attack(state, limit, abs),
             };
         }
 
-        if let Some(vcf) = self.solve_vcf(state, state.turn(), depth) {
+        if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
             return Some(vcf);
         }
 
@@ -59,7 +59,7 @@ impl Solver {
         let attacks = state.sorted_attacks(may_op_threat);
 
         for attack in attacks {
-            let result = self.solve_attack(state, depth, attack);
+            let result = self.solve_attack(state, limit, attack);
             if result.is_some() {
                 return result;
             }
@@ -68,7 +68,7 @@ impl Solver {
         None
     }
 
-    fn solve_attack(&mut self, state: &mut State, depth: u8, attack: Point) -> Option<Mate> {
+    fn solve_attack(&mut self, state: &mut State, limit: u8, attack: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(attack) {
             return None;
         }
@@ -76,17 +76,17 @@ impl Solver {
         let last2_move = state.game().last2_move();
         state.play(attack);
 
-        let result = self.solve_defences(state, depth).map(|m| m.unshift(attack));
+        let result = self.solve_defences(state, limit).map(|m| m.unshift(attack));
 
         state.undo(last2_move);
         return result;
     }
 
-    fn solve_defences(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
+    fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
             return match last_win_or_abs {
                 Ok(win) => Some(Mate::new(win, vec![])),
-                Err(abs) => self.solve_defence(state, depth, abs),
+                Err(abs) => self.solve_defence(state, limit, abs),
             };
         }
 
@@ -94,7 +94,7 @@ impl Solver {
             return None;
         }
 
-        let may_threat = self.solve_vcf(state, state.last(), depth - 1);
+        let may_threat = self.solve_vcf(state, state.last(), limit - 1);
         if may_threat.is_none() {
             return None;
         }
@@ -103,7 +103,7 @@ impl Solver {
 
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
         for defence in defences {
-            let new_result = self.solve_defence(state, depth, defence);
+            let new_result = self.solve_defence(state, limit, defence);
             if new_result.is_none() {
                 result = None;
                 break;
@@ -121,7 +121,7 @@ impl Solver {
         result
     }
 
-    fn solve_defence(&mut self, state: &mut State, depth: u8, defence: Point) -> Option<Mate> {
+    fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(defence) {
             return Some(Mate::new(Win::Forbidden(defence), vec![]));
         }
@@ -130,7 +130,7 @@ impl Solver {
         state.play(defence);
 
         let result = self
-            .solve_depth(state, depth - 1)
+            .solve_limit(state, limit - 1)
             .map(|m| m.unshift(defence));
 
         state.undo(last2_move);

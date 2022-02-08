@@ -17,12 +17,11 @@ pub fn new() -> u64 {
 }
 
 pub fn apply(current: u64, player: Player, p: Point) -> u64 {
-    let code = get_code(player, p);
-    current ^ code
+    current ^ get_code(player, p)
 }
 
-pub fn apply_depth(current: u64, depth: u8) -> u64 {
-    current ^ DEPTH_TABLE[depth as usize]
+pub fn apply_limit(current: u64, limit: u8) -> u64 {
+    current ^ LIMIT_TABLE[limit as usize]
 }
 
 fn get_code(player: Player, p: Point) -> u64 {
@@ -506,7 +505,7 @@ const CODE_TABLE: [u64; TABLE_SIZE] = [
     0x8d34b1a9eafa6b57,
 ];
 
-const DEPTH_TABLE: [u64; 256] = [
+const LIMIT_TABLE: [u64; 256] = [
     0xd5c4d8a490fd8689,
     0xea767ba8443999f6,
     0xa2aaca5641e2f103,
