@@ -43,8 +43,8 @@ impl Solver {
     }
 
     pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
-            return match last_win_or_abs {
+        if let Some(lose_or_abs) = state.inspect_last_win_or_abs() {
+            return match lose_or_abs {
                 Ok(_) => None,
                 Err(abs) => self.solve_attack(state, limit, abs),
             };
@@ -83,8 +83,8 @@ impl Solver {
     }
 
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
-            return match last_win_or_abs {
+        if let Some(win_or_abs) = state.inspect_last_win_or_abs() {
+            return match win_or_abs {
                 Ok(win) => Some(Mate::new(win, vec![])),
                 Err(abs) => self.solve_defence(state, limit, abs),
             };
@@ -199,6 +199,21 @@ impl State {
         let last_move = self.game.last_move();
         self.game.undo(last2_move);
         self.field.update_along(last_move, self.game.board());
+    }
+
+    pub fn inspect_last_win_or_abs(&self) -> Option<Result<Win, Point>> {
+        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
+        if may_first_eye.is_some() && may_another_eye.is_some() {
+            let win = Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap());
+            Some(Ok(win))
+        } else if may_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
+            let win = Win::Forbidden(may_first_eye.unwrap());
+            Some(Ok(win))
+        } else if may_first_eye.is_some() {
+            Some(Err(may_first_eye.unwrap()))
+        } else {
+            None
+        }
     }
 
     pub fn sorted_attacks(&self, may_op_threat: Option<Mate>) -> Vec<Point> {

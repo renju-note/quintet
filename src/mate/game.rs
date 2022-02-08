@@ -72,21 +72,6 @@ impl Game {
         self.turn.is_black() && self.board.forbidden(p).is_some()
     }
 
-    pub fn inspect_last_win_or_abs(&self) -> Option<Result<Win, Point>> {
-        let (may_first_eye, may_another_eye) = self.inspect_last_four_eyes();
-        if may_first_eye.is_some() && may_another_eye.is_some() {
-            let win = Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap());
-            Some(Ok(win))
-        } else if may_first_eye.map_or(false, |e| self.is_forbidden_move(e)) {
-            let win = Win::Forbidden(may_first_eye.unwrap());
-            Some(Ok(win))
-        } else if may_first_eye.is_some() {
-            Some(Err(may_first_eye.unwrap()))
-        } else {
-            None
-        }
-    }
-
     pub fn inspect_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last_four_eyes = self
             .board
@@ -100,17 +85,6 @@ impl Game {
             ret = Some(eye);
         }
         (ret, None)
-    }
-
-    pub fn won_by_last(&self) -> Option<Win> {
-        let (may_first_eye, may_another_eye) = self.inspect_last_four_eyes();
-        if may_first_eye.is_some() && may_another_eye.is_some() {
-            Some(Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap()))
-        } else if may_first_eye.map_or(false, |e| self.is_forbidden_move(e)) {
-            Some(Win::Forbidden(may_first_eye.unwrap()))
-        } else {
-            None
-        }
     }
 
     fn choose_last_moves(board: &Board, turn: Player) -> (Point, Point) {

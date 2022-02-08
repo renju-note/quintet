@@ -94,7 +94,7 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
-        if let Some(win) = state.game().won_by_last() {
+        if let Some(win) = state.won_by_last() {
             return Some(Mate::new(win, vec![]));
         }
 
@@ -126,6 +126,17 @@ impl State {
 
     pub fn game(&mut self) -> &'_ mut Game {
         &mut self.game
+    }
+
+    pub fn won_by_last(&self) -> Option<Win> {
+        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
+        if may_first_eye.is_some() && may_another_eye.is_some() {
+            Some(Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap()))
+        } else if may_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
+            Some(Win::Forbidden(may_first_eye.unwrap()))
+        } else {
+            None
+        }
     }
 
     pub fn abs_attack_defence_pair(&self, op_four_eye: Point) -> Option<(Point, Point)> {
