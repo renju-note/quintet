@@ -60,16 +60,11 @@ impl Solver {
             return Some(vcf);
         }
 
-        let mut attacks = state.potentials();
-        if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
-            let op_threat_defences = state.threat_defences(&op_threat);
-            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
-            attacks.retain(|(p, _)| op_threat_defences.contains(p));
-        }
-        attacks.sort_by(|a, b| b.1.cmp(&a.1));
+        let may_op_threat = self.solve_vcf(state, state.last(), u8::MAX);
+        let mut attacks = state.sorted_attacks(may_op_threat);
         attacks.truncate(b as usize);
 
-        for (attack, _) in attacks {
+        for attack in attacks {
             let result = self.solve_attack(state, d, b, attack);
             if result.is_some() {
                 return result;
@@ -110,16 +105,7 @@ impl Solver {
             return None;
         }
 
-        let mut defences = state.threat_defences(&may_threat.unwrap());
-        let mut potentials: HashMap<Point, u8> = HashMap::new();
-        for (p, o) in state.potentials() {
-            potentials.insert(p, o);
-        }
-        defences.sort_by(|a, b| {
-            let oa = potentials.get(a).unwrap_or(&0);
-            let ob = potentials.get(b).unwrap_or(&0);
-            ob.cmp(oa)
-        });
+        let defences = state.sorted_defences(may_threat.unwrap());
 
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
         for defence in defences {
@@ -235,12 +221,37 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
+    pub fn sorted_attacks(&self, may_op_threat: Option<Mate>) -> Vec<Point> {
+        let mut potentials = self.potentials();
+        if let Some(op_threat) = may_op_threat {
+            let op_threat_defences = self.threat_defences(&op_threat);
+            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
+            potentials.retain(|(p, _)| op_threat_defences.contains(p));
+        }
+        potentials.sort_by(|a, b| b.1.cmp(&a.1));
+        potentials.into_iter().map(|t| t.0).collect()
+    }
+
+    pub fn sorted_defences(&self, threat: Mate) -> Vec<Point> {
+        let mut result = self.threat_defences(&threat);
+        let mut potential_map = HashMap::new();
+        for (p, o) in self.potentials() {
+            potential_map.insert(p, o);
+        }
+        result.sort_by(|a, b| {
+            let oa = potential_map.get(a).unwrap_or(&0);
+            let ob = potential_map.get(b).unwrap_or(&0);
+            ob.cmp(oa)
+        });
+        result
+    }
+
     pub fn potentials(&self) -> Vec<(Point, u8)> {
         let min = if self.attacker == Player::Black { 4 } else { 3 };
         self.field.collect(min)
     }
 
-    pub fn threat_defences(&mut self, threat: &Mate) -> Vec<Point> {
+    pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = self.direct_defences(threat);
         result.extend(self.counter_defences(threat));
         result.extend(self.four_moves());
