@@ -60,7 +60,7 @@ impl Solver {
             return Some(vcf);
         }
 
-        let mut attacks = state.potential_points();
+        let mut attacks = state.potentials();
         if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
             let op_threat_defences = state.threat_defences(&op_threat);
             let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
@@ -85,11 +85,11 @@ impl Solver {
         }
 
         let last2_move = state.game().last2_move();
-        state.play_mut(attack);
+        state.play(attack);
 
         let result = self.solve_defences(state, d, b).map(|m| m.unshift(attack));
 
-        state.undo_mut(last2_move);
+        state.undo(last2_move);
         return result;
     }
 
@@ -112,7 +112,7 @@ impl Solver {
 
         let mut defences = state.threat_defences(&may_threat.unwrap());
         let mut potentials: HashMap<Point, u8> = HashMap::new();
-        for (p, o) in state.potential_points() {
+        for (p, o) in state.potentials() {
             potentials.insert(p, o);
         }
         defences.sort_by(|a, b| {
@@ -147,13 +147,13 @@ impl Solver {
         }
 
         let last2_move = state.game().last2_move();
-        state.play_mut(defence);
+        state.play(defence);
 
         let result = self
             .solve_depth_breadth(state, d - 1, b)
             .map(|m| m.unshift(defence));
 
-        state.undo_mut(last2_move);
+        state.undo(last2_move);
         result
     }
 
@@ -224,18 +224,18 @@ impl State {
         self.game.last()
     }
 
-    pub fn play_mut(&mut self, next_move: Point) {
+    pub fn play(&mut self, next_move: Point) {
         self.game.play_mut(next_move);
         self.field.update_along(next_move, self.game.board());
     }
 
-    pub fn undo_mut(&mut self, last2_move: Point) {
+    pub fn undo(&mut self, last2_move: Point) {
         let last_move = self.game.last_move();
         self.game.undo_mut(last2_move);
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn potential_points(&self) -> Vec<(Point, u8)> {
+    pub fn potentials(&self) -> Vec<(Point, u8)> {
         let min = if self.attacker == Player::Black { 4 } else { 3 };
         self.field.collect(min)
     }
@@ -243,7 +243,7 @@ impl State {
     pub fn threat_defences(&mut self, threat: &Mate) -> Vec<Point> {
         let mut result = self.direct_defences(threat);
         result.extend(self.counter_defences(threat));
-        result.extend(self.sword_eyes());
+        result.extend(self.four_moves());
         result
     }
 
@@ -280,7 +280,7 @@ impl State {
         result
     }
 
-    fn sword_eyes(&self) -> Vec<Point> {
+    fn four_moves(&self) -> Vec<Point> {
         self.game
             .board()
             .structures(self.turn(), Sword)
