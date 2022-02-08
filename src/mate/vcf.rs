@@ -14,8 +14,8 @@ impl Solver {
         }
     }
 
-    pub fn solve(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
-        self.solve_depth(state, depth)
+    pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
+        self.solve_depth(state, max_depth)
     }
 
     fn solve_depth(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
@@ -23,7 +23,7 @@ impl Solver {
             return None;
         }
 
-        let hash = state.game().get_hash(depth, u8::MAX);
+        let hash = state.game().get_hash(depth);
         if self.deadends.contains(&hash) {
             return None;
         }
