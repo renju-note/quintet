@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 pub struct Solver {
     deadends: HashSet<u64>,
     vcf_solver: vcf::Solver,
-    op_vcf_solver: vcf::Solver,
+    opponent_vcf_solver: vcf::Solver,
 }
 
 impl Solver {
@@ -16,7 +16,7 @@ impl Solver {
         Self {
             deadends: HashSet::new(),
             vcf_solver: vcf::Solver::init(),
-            op_vcf_solver: vcf::Solver::init(),
+            opponent_vcf_solver: vcf::Solver::init(),
         }
     }
 
@@ -43,10 +43,10 @@ impl Solver {
     }
 
     pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(lose_or_abs) = state.inspect_last_win_or_abs() {
-            return match lose_or_abs {
+        if let Some(lose_or_move) = state.check_last_win_or_mandatory_move() {
+            return match lose_or_move {
                 Ok(_) => None,
-                Err(abs) => self.solve_attack(state, limit, abs),
+                Err(m) => self.solve_attack(state, limit, m),
             };
         }
 
@@ -54,9 +54,9 @@ impl Solver {
             return Some(vcf);
         }
 
-        let may_op_threat = self.solve_vcf(state, state.last(), u8::MAX);
+        let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
 
-        let attacks = state.sorted_attacks(may_op_threat);
+        let attacks = state.sorted_attacks(maybe_opponent_threat);
 
         for attack in attacks {
             let result = self.solve_attack(state, limit, attack);
@@ -83,10 +83,10 @@ impl Solver {
     }
 
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(win_or_abs) = state.inspect_last_win_or_abs() {
-            return match win_or_abs {
-                Ok(win) => Some(Mate::new(win, vec![])),
-                Err(abs) => self.solve_defence(state, limit, abs),
+        if let Some(win_or_move) = state.check_last_win_or_mandatory_move() {
+            return match win_or_move {
+                Ok(w) => Some(Mate::new(w, vec![])),
+                Err(m) => self.solve_defence(state, limit, m),
             };
         }
 
@@ -94,12 +94,12 @@ impl Solver {
             return None;
         }
 
-        let may_threat = self.solve_vcf(state, state.last(), limit - 1);
-        if may_threat.is_none() {
+        let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
+        if maybe_threat.is_none() {
             return None;
         }
 
-        let defences = state.sorted_defences(may_threat.unwrap());
+        let defences = state.sorted_defences(maybe_threat.unwrap());
 
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
         for defence in defences {
@@ -109,13 +109,7 @@ impl Solver {
                 break;
             }
             let new_mate = new_result.unwrap();
-            result = result.map(|mate| {
-                if mate.win == Win::Unknown() || new_mate.path.len() > mate.path.len() {
-                    new_mate
-                } else {
-                    mate
-                }
-            });
+            result = result.map(|mate| Mate::preferred(mate, new_mate));
         }
 
         result
@@ -148,7 +142,7 @@ impl Solver {
         if turn == attacker {
             self.vcf_solver.solve(state, max_depth)
         } else {
-            self.op_vcf_solver.solve(state, max_depth)
+            self.opponent_vcf_solver.solve(state, max_depth)
         }
     }
 }
@@ -201,27 +195,27 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn inspect_last_win_or_abs(&self) -> Option<Result<Win, Point>> {
-        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
-        if may_first_eye.is_some() && may_another_eye.is_some() {
-            let win = Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap());
+    pub fn check_last_win_or_mandatory_move(&self) -> Option<Result<Win, Point>> {
+        let (maybe_first_eye, maybe_another_eye) = self.game.check_last_four_eyes();
+        if maybe_first_eye.is_some() && maybe_another_eye.is_some() {
+            let win = Win::Fours(maybe_first_eye.unwrap(), maybe_another_eye.unwrap());
             Some(Ok(win))
-        } else if may_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
-            let win = Win::Forbidden(may_first_eye.unwrap());
+        } else if maybe_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
+            let win = Win::Forbidden(maybe_first_eye.unwrap());
             Some(Ok(win))
-        } else if may_first_eye.is_some() {
-            Some(Err(may_first_eye.unwrap()))
+        } else if maybe_first_eye.is_some() {
+            Some(Err(maybe_first_eye.unwrap()))
         } else {
             None
         }
     }
 
-    pub fn sorted_attacks(&self, may_op_threat: Option<Mate>) -> Vec<Point> {
+    pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
         let mut potentials = self.potentials();
-        if let Some(op_threat) = may_op_threat {
-            let op_threat_defences = self.threat_defences(&op_threat);
-            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
-            potentials.retain(|(p, _)| op_threat_defences.contains(p));
+        if let Some(threat) = maybe_threat {
+            let threat_defences = self.threat_defences(&threat);
+            let threat_defences = threat_defences.into_iter().collect::<HashSet<_>>();
+            potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
         potentials.into_iter().map(|t| t.0).collect()

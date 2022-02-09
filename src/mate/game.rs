@@ -72,7 +72,7 @@ impl Game {
         self.turn.is_black() && self.board.forbidden(p).is_some()
     }
 
-    pub fn inspect_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
+    pub fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last_four_eyes = self
             .board
             .structures_on(self.last_move(), self.last(), Four)
@@ -128,5 +128,13 @@ impl Mate {
         let mut path = vec![m];
         path.append(&mut self.path);
         Self::new(win, path)
+    }
+
+    pub fn preferred(old: Self, new: Self) -> Self {
+        if old.win == Win::Unknown() || new.path.len() > old.path.len() {
+            new
+        } else {
+            old
+        }
     }
 }

@@ -28,7 +28,7 @@ impl Solver {
             return None;
         }
 
-        let result = self.solve_attacks(state, limit);
+        let result = self.solve_move_pairs(state, limit);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -36,16 +36,16 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(abs_attack_defence_pair) = state.may_abs_attack_defence_pair() {
-            return if let Some((attack, defence)) = abs_attack_defence_pair {
+    pub fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if let Some(maybe_mandatory_pair) = state.check_mandatory_move_pair() {
+            return if let Some((attack, defence)) = maybe_mandatory_pair {
                 self.solve_attack(state, limit, attack, defence)
             } else {
                 None
             };
         }
 
-        let neighbor_pairs = state.neighbor_attack_defence_pairs();
+        let neighbor_pairs = state.neighbor_move_pairs();
         for &(attack, defence) in &neighbor_pairs {
             let result = self.solve_attack(state, limit, attack, defence);
             if result.is_some() {
@@ -53,7 +53,7 @@ impl Solver {
             }
         }
 
-        let pairs = state.attack_defence_pairs();
+        let pairs = state.move_pairs();
         for &(attack, defence) in &pairs {
             if neighbor_pairs.iter().any(|(a, _)| *a == attack) {
                 continue;
@@ -125,52 +125,55 @@ impl State {
     }
 
     pub fn won_by_last(&self) -> Option<Win> {
-        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
-        if may_first_eye.is_some() && may_another_eye.is_some() {
-            Some(Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap()))
-        } else if may_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
-            Some(Win::Forbidden(may_first_eye.unwrap()))
+        let (maybe_first_eye, maybe_another_eye) = self.game.check_last_four_eyes();
+        if maybe_first_eye.is_some() && maybe_another_eye.is_some() {
+            Some(Win::Fours(
+                maybe_first_eye.unwrap(),
+                maybe_another_eye.unwrap(),
+            ))
+        } else if maybe_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
+            Some(Win::Forbidden(maybe_first_eye.unwrap()))
         } else {
             None
         }
     }
 
-    pub fn may_abs_attack_defence_pair(&self) -> Option<Option<(Point, Point)>> {
-        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
-        if may_another_eye.is_some() {
+    pub fn check_mandatory_move_pair(&self) -> Option<Option<(Point, Point)>> {
+        let (maybe_first_eye, maybe_another_eye) = self.game.check_last_four_eyes();
+        if maybe_another_eye.is_some() {
             return Some(None);
         }
-        if may_first_eye.is_none() {
+        if maybe_first_eye.is_none() {
             return None;
         }
-        let op_four_eye = may_first_eye.unwrap();
-        let abs_attack_defence_pair = self
+        let opponent_four_eye = maybe_first_eye.unwrap();
+        let mandatory_move_pair = self
             .game
             .board()
-            .structures_on(op_four_eye, self.game.turn(), Sword)
-            .flat_map(Self::sword_eyes_pair)
-            .filter(|&(e1, _)| e1 == op_four_eye)
+            .structures_on(opponent_four_eye, self.game.turn(), Sword)
+            .flat_map(Self::sword_eyes_pairs)
+            .filter(|&(e1, _)| e1 == opponent_four_eye)
             .next();
-        Some(abs_attack_defence_pair)
+        Some(mandatory_move_pair)
     }
 
-    pub fn neighbor_attack_defence_pairs(&self) -> Vec<(Point, Point)> {
+    pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
         self.game
             .board()
             .structures_on(self.game.last2_move(), self.game.turn(), Sword)
-            .flat_map(Self::sword_eyes_pair)
+            .flat_map(Self::sword_eyes_pairs)
             .collect()
     }
 
-    pub fn attack_defence_pairs(&self) -> Vec<(Point, Point)> {
+    pub fn move_pairs(&self) -> Vec<(Point, Point)> {
         self.game
             .board()
             .structures(self.game.turn(), Sword)
-            .flat_map(Self::sword_eyes_pair)
+            .flat_map(Self::sword_eyes_pairs)
             .collect()
     }
 
-    fn sword_eyes_pair(sword: Structure) -> [(Point, Point); 2] {
+    fn sword_eyes_pairs(sword: Structure) -> [(Point, Point); 2] {
         let mut eyes = sword.eyes();
         let e1 = eyes.next().unwrap();
         let e2 = eyes.next().unwrap();
