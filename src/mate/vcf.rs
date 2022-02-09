@@ -14,21 +14,21 @@ impl Solver {
         }
     }
 
-    pub fn solve(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
-        self.solve_depth(state, depth)
+    pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
+        self.solve_limit(state, max_depth)
     }
 
-    fn solve_depth(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
-        if depth == 0 {
+    fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if limit == 0 {
             return None;
         }
 
-        let hash = state.game().get_hash(depth, u8::MAX);
+        let hash = state.game().get_hash(limit);
         if self.deadends.contains(&hash) {
             return None;
         }
 
-        let result = self.solve_attacks(state, depth);
+        let result = self.solve_attacks(state, limit);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -36,14 +36,10 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, depth: u8) -> Option<Mate> {
-        let (may_first_eye, may_another_eye) = state.game().inspect_last_four_eyes();
-        if may_another_eye.is_some() {
-            return None;
-        }
-        if let Some(op_four_eye) = may_first_eye {
-            return if let Some((attack, defence)) = state.abs_attack_defence_pair(op_four_eye) {
-                self.solve_attack(state, depth, attack, defence)
+    pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if let Some(abs_attack_defence_pair) = state.may_abs_attack_defence_pair() {
+            return if let Some((attack, defence)) = abs_attack_defence_pair {
+                self.solve_attack(state, limit, attack, defence)
             } else {
                 None
             };
@@ -51,7 +47,7 @@ impl Solver {
 
         let neighbor_pairs = state.neighbor_attack_defence_pairs();
         for &(attack, defence) in &neighbor_pairs {
-            let result = self.solve_attack(state, depth, attack, defence);
+            let result = self.solve_attack(state, limit, attack, defence);
             if result.is_some() {
                 return result;
             }
@@ -62,7 +58,7 @@ impl Solver {
             if neighbor_pairs.iter().any(|(a, _)| *a == attack) {
                 continue;
             }
-            let result = self.solve_attack(state, depth, attack, defence);
+            let result = self.solve_attack(state, limit, attack, defence);
             if result.is_some() {
                 return result;
             }
@@ -74,7 +70,7 @@ impl Solver {
     fn solve_attack(
         &mut self,
         state: &mut State,
-        depth: u8,
+        limit: u8,
         attack: Point,
         defence: Point,
     ) -> Option<Mate> {
@@ -83,29 +79,29 @@ impl Solver {
         }
 
         let last2_move_attack = state.game().last2_move();
-        state.game().play_mut(attack);
+        state.game().play(attack);
 
         let result = self
-            .solve_defence(state, depth, defence)
+            .solve_defence(state, limit, defence)
             .map(|m| m.unshift(attack));
 
-        state.game().undo_mut(last2_move_attack);
+        state.game().undo(last2_move_attack);
         result
     }
 
-    fn solve_defence(&mut self, state: &mut State, depth: u8, defence: Point) -> Option<Mate> {
-        if let Some(win) = state.game().won_by_last() {
+    fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
+        if let Some(win) = state.won_by_last() {
             return Some(Mate::new(win, vec![]));
         }
 
         let last2_move_defence = state.game().last2_move();
-        state.game().play_mut(defence);
+        state.game().play(defence);
 
         let result = self
-            .solve_depth(state, depth - 1)
+            .solve_limit(state, limit - 1)
             .map(|m| m.unshift(defence));
 
-        state.game().undo_mut(last2_move_defence);
+        state.game().undo(last2_move_defence);
         result
     }
 }
@@ -128,13 +124,34 @@ impl State {
         &mut self.game
     }
 
-    pub fn abs_attack_defence_pair(&self, op_four_eye: Point) -> Option<(Point, Point)> {
-        self.game
+    pub fn won_by_last(&self) -> Option<Win> {
+        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
+        if may_first_eye.is_some() && may_another_eye.is_some() {
+            Some(Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap()))
+        } else if may_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
+            Some(Win::Forbidden(may_first_eye.unwrap()))
+        } else {
+            None
+        }
+    }
+
+    pub fn may_abs_attack_defence_pair(&self) -> Option<Option<(Point, Point)>> {
+        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
+        if may_another_eye.is_some() {
+            return Some(None);
+        }
+        if may_first_eye.is_none() {
+            return None;
+        }
+        let op_four_eye = may_first_eye.unwrap();
+        let abs_attack_defence_pair = self
+            .game
             .board()
             .structures_on(op_four_eye, self.game.turn(), Sword)
             .flat_map(Self::sword_eyes_pair)
             .filter(|&(e1, _)| e1 == op_four_eye)
-            .next()
+            .next();
+        Some(abs_attack_defence_pair)
     }
 
     pub fn neighbor_attack_defence_pairs(&self) -> Vec<(Point, Point)> {
@@ -190,7 +207,7 @@ mod tests {
         let state = &mut State::init(board, Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve_depth(state, 12);
+        let result = solver.solve(state, 12);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "
             J12,K13,G9,F8,G6,H7,G8,G7,G12,G11,F12,I12,D12,E12,F10,E11,E10,D10,F11,D9,
@@ -200,7 +217,7 @@ mod tests {
         .collect();
         assert_eq!(result, Some(mate));
 
-        let result = solver.solve_depth(state, 11);
+        let result = solver.solve(state, 11);
         assert_eq!(result, None);
 
         Ok(())
@@ -230,12 +247,12 @@ mod tests {
         let state = &mut State::init(board, White);
         let mut solver = Solver::init();
 
-        let result = solver.solve_depth(state, 5);
+        let result = solver.solve(state, 5);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "L13,L11,K12,J11,I12,H12,I13,I14,H14".to_string();
         assert_eq!(result, Some(mate));
 
-        let result = solver.solve_depth(state, 4);
+        let result = solver.solve(state, 4);
         assert_eq!(result, None);
 
         Ok(())
@@ -264,7 +281,7 @@ mod tests {
         let state = &mut State::init(board, Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve_depth(state, 3);
+        let result = solver.solve(state, 3);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "K8,L8,H11".split_whitespace().collect();
         assert_eq!(result, Some(mate));
@@ -295,7 +312,7 @@ mod tests {
         let state = &mut State::init(board, Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve_depth(state, u8::MAX);
+        let result = solver.solve(state, u8::MAX);
         let result = result.map(|m| Points(m.path).to_string());
         let mate = "
             F6,G7,C3,B2,E1,D2,C1,F1,A1,B1,A4,A3,C4,E4,C5,C2,C6,C7,D5,B5,

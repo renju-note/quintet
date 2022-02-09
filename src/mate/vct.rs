@@ -21,26 +21,20 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
-        for (d, b) in Self::depth_breadth_priorities(max_depth) {
-            let result = self.solve_depth_breadth(state, d, b);
-            if result.is_some() {
-                return result;
-            }
-        }
-        None
+        self.solve_limit(state, max_depth)
     }
 
-    fn solve_depth_breadth(&mut self, state: &mut State, d: u8, b: u8) -> Option<Mate> {
-        if d == 0 {
+    fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if limit == 0 {
             return None;
         }
 
-        let hash = state.game().get_hash(d, b);
+        let hash = state.game().get_hash(limit);
         if self.deadends.contains(&hash) {
             return None;
         }
 
-        let result = self.solve_attacks(state, d, b);
+        let result = self.solve_attacks(state, limit);
 
         if result.is_none() {
             self.deadends.insert(hash);
@@ -48,29 +42,24 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, d: u8, b: u8) -> Option<Mate> {
-        if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
-            return match last_win_or_abs {
+    pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if let Some(lose_or_abs) = state.inspect_last_win_or_abs() {
+            return match lose_or_abs {
                 Ok(_) => None,
-                Err(abs) => self.solve_attack(state, d, b, abs),
+                Err(abs) => self.solve_attack(state, limit, abs),
             };
         }
 
-        if let Some(vcf) = self.solve_vcf(state, state.turn(), d) {
+        if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
             return Some(vcf);
         }
 
-        let mut attacks = state.potential_points();
-        if let Some(op_threat) = self.solve_vcf(state, state.last(), u8::MAX) {
-            let op_threat_defences = state.threat_defences(&op_threat);
-            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
-            attacks.retain(|(p, _)| op_threat_defences.contains(p));
-        }
-        attacks.sort_by(|a, b| b.1.cmp(&a.1));
-        attacks.truncate(b as usize);
+        let may_op_threat = self.solve_vcf(state, state.last(), u8::MAX);
 
-        for (attack, _) in attacks {
-            let result = self.solve_attack(state, d, b, attack);
+        let attacks = state.sorted_attacks(may_op_threat);
+
+        for attack in attacks {
+            let result = self.solve_attack(state, limit, attack);
             if result.is_some() {
                 return result;
             }
@@ -79,25 +68,25 @@ impl Solver {
         None
     }
 
-    fn solve_attack(&mut self, state: &mut State, d: u8, b: u8, attack: Point) -> Option<Mate> {
+    fn solve_attack(&mut self, state: &mut State, limit: u8, attack: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(attack) {
             return None;
         }
 
         let last2_move = state.game().last2_move();
-        state.play_mut(attack);
+        state.play(attack);
 
-        let result = self.solve_defences(state, d, b).map(|m| m.unshift(attack));
+        let result = self.solve_defences(state, limit).map(|m| m.unshift(attack));
 
-        state.undo_mut(last2_move);
+        state.undo(last2_move);
         return result;
     }
 
-    fn solve_defences(&mut self, state: &mut State, d: u8, b: u8) -> Option<Mate> {
-        if let Some(last_win_or_abs) = state.game().inspect_last_win_or_abs() {
-            return match last_win_or_abs {
+    fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if let Some(win_or_abs) = state.inspect_last_win_or_abs() {
+            return match win_or_abs {
                 Ok(win) => Some(Mate::new(win, vec![])),
-                Err(abs) => self.solve_defence(state, d, b, abs),
+                Err(abs) => self.solve_defence(state, limit, abs),
             };
         }
 
@@ -105,25 +94,16 @@ impl Solver {
             return None;
         }
 
-        let may_threat = self.solve_vcf(state, state.last(), d - 1);
+        let may_threat = self.solve_vcf(state, state.last(), limit - 1);
         if may_threat.is_none() {
             return None;
         }
 
-        let mut defences = state.threat_defences(&may_threat.unwrap());
-        let mut potentials: HashMap<Point, u8> = HashMap::new();
-        for (p, o) in state.potential_points() {
-            potentials.insert(p, o);
-        }
-        defences.sort_by(|a, b| {
-            let oa = potentials.get(a).unwrap_or(&0);
-            let ob = potentials.get(b).unwrap_or(&0);
-            ob.cmp(oa)
-        });
+        let defences = state.sorted_defences(may_threat.unwrap());
 
         let mut result = Some(Mate::new(Win::Unknown(), vec![]));
         for defence in defences {
-            let new_result = self.solve_defence(state, d, b, defence);
+            let new_result = self.solve_defence(state, limit, defence);
             if new_result.is_none() {
                 result = None;
                 break;
@@ -141,19 +121,19 @@ impl Solver {
         result
     }
 
-    fn solve_defence(&mut self, state: &mut State, d: u8, b: u8, defence: Point) -> Option<Mate> {
+    fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
         if state.game().is_forbidden_move(defence) {
             return Some(Mate::new(Win::Forbidden(defence), vec![]));
         }
 
         let last2_move = state.game().last2_move();
-        state.play_mut(defence);
+        state.play(defence);
 
         let result = self
-            .solve_depth_breadth(state, d - 1, b)
+            .solve_limit(state, limit - 1)
             .map(|m| m.unshift(defence));
 
-        state.undo_mut(last2_move);
+        state.undo(last2_move);
         result
     }
 
@@ -170,20 +150,6 @@ impl Solver {
         } else {
             self.op_vcf_solver.solve(state, max_depth)
         }
-    }
-
-    fn depth_breadth_priorities(max_depth: u8) -> Vec<(u8, u8)> {
-        let mut dws = (1..=max_depth)
-            .flat_map(|d| {
-                [1 as u8, 2, 3, 4, 5].map(|lb| {
-                    let b = (2 as u32).pow(lb as u32) as u8;
-                    d.checked_add(lb).map(|n| (d, b, n))
-                })
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-        dws.sort_by(|a, b| a.2.cmp(&b.2));
-        dws.into_iter().map(|(d, b, _)| (d, b)).collect()
     }
 }
 
@@ -224,26 +190,66 @@ impl State {
         self.game.last()
     }
 
-    pub fn play_mut(&mut self, next_move: Point) {
-        self.game.play_mut(next_move);
+    pub fn play(&mut self, next_move: Point) {
+        self.game.play(next_move);
         self.field.update_along(next_move, self.game.board());
     }
 
-    pub fn undo_mut(&mut self, last2_move: Point) {
+    pub fn undo(&mut self, last2_move: Point) {
         let last_move = self.game.last_move();
-        self.game.undo_mut(last2_move);
+        self.game.undo(last2_move);
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn potential_points(&self) -> Vec<(Point, u8)> {
+    pub fn inspect_last_win_or_abs(&self) -> Option<Result<Win, Point>> {
+        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
+        if may_first_eye.is_some() && may_another_eye.is_some() {
+            let win = Win::Fours(may_first_eye.unwrap(), may_another_eye.unwrap());
+            Some(Ok(win))
+        } else if may_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
+            let win = Win::Forbidden(may_first_eye.unwrap());
+            Some(Ok(win))
+        } else if may_first_eye.is_some() {
+            Some(Err(may_first_eye.unwrap()))
+        } else {
+            None
+        }
+    }
+
+    pub fn sorted_attacks(&self, may_op_threat: Option<Mate>) -> Vec<Point> {
+        let mut potentials = self.potentials();
+        if let Some(op_threat) = may_op_threat {
+            let op_threat_defences = self.threat_defences(&op_threat);
+            let op_threat_defences = op_threat_defences.into_iter().collect::<HashSet<_>>();
+            potentials.retain(|(p, _)| op_threat_defences.contains(p));
+        }
+        potentials.sort_by(|a, b| b.1.cmp(&a.1));
+        potentials.into_iter().map(|t| t.0).collect()
+    }
+
+    pub fn sorted_defences(&self, threat: Mate) -> Vec<Point> {
+        let mut result = self.threat_defences(&threat);
+        let mut potential_map = HashMap::new();
+        for (p, o) in self.potentials() {
+            potential_map.insert(p, o);
+        }
+        result.sort_by(|a, b| {
+            let oa = potential_map.get(a).unwrap_or(&0);
+            let ob = potential_map.get(b).unwrap_or(&0);
+            ob.cmp(oa)
+        });
+        result
+    }
+
+    fn potentials(&self) -> Vec<(Point, u8)> {
         let min = if self.attacker == Player::Black { 4 } else { 3 };
         self.field.collect(min)
     }
 
-    pub fn threat_defences(&mut self, threat: &Mate) -> Vec<Point> {
+    fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = self.direct_defences(threat);
         result.extend(self.counter_defences(threat));
-        result.extend(self.sword_eyes());
+        result.extend(self.four_moves());
         result
     }
 
@@ -268,7 +274,7 @@ impl State {
         let mut result = vec![];
         for &p in &threat.path {
             let turn = game.turn();
-            game.play_mut(p);
+            game.play(p);
             if turn == threater {
                 continue;
             }
@@ -280,7 +286,7 @@ impl State {
         result
     }
 
-    fn sword_eyes(&self) -> Vec<Point> {
+    fn four_moves(&self) -> Vec<Point> {
         self.game
             .board()
             .structures(self.turn(), Sword)
