@@ -43,7 +43,7 @@ impl Solver {
     }
 
     pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(lose_or_move) = state.check_last_win_or_mandatory_move() {
+        if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
             return match lose_or_move {
                 Ok(_) => None,
                 Err(m) => self.solve_attack(state, limit, m),
@@ -83,7 +83,7 @@ impl Solver {
     }
 
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(win_or_move) = state.check_last_win_or_mandatory_move() {
+        if let Some(win_or_move) = state.check_win_or_mandatory_move() {
             return match win_or_move {
                 Ok(w) => Some(Mate::new(w, vec![])),
                 Err(m) => self.solve_defence(state, limit, m),
@@ -195,7 +195,7 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn check_last_win_or_mandatory_move(&self) -> Option<Result<Win, Point>> {
+    pub fn check_win_or_mandatory_move(&self) -> Option<Result<Win, Point>> {
         let (maybe_first_eye, maybe_another_eye) = self.game.check_last_four_eyes();
         if maybe_first_eye.is_some() && maybe_another_eye.is_some() {
             let win = Win::Fours(maybe_first_eye.unwrap(), maybe_another_eye.unwrap());

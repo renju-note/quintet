@@ -37,8 +37,8 @@ impl Solver {
     }
 
     pub fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(maybe_mandatory_pair) = state.check_mandatory_move_pair() {
-            return if let Some((attack, defence)) = maybe_mandatory_pair {
+        if let Some(maybe_move_pair) = state.check_mandatory_move_pair() {
+            return if let Some((attack, defence)) = maybe_move_pair {
                 self.solve_attack(state, limit, attack, defence)
             } else {
                 None
