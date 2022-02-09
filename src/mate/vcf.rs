@@ -37,12 +37,8 @@ impl Solver {
     }
 
     pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        let (may_first_eye, may_another_eye) = state.game().inspect_last_four_eyes();
-        if may_another_eye.is_some() {
-            return None;
-        }
-        if let Some(op_four_eye) = may_first_eye {
-            return if let Some((attack, defence)) = state.abs_attack_defence_pair(op_four_eye) {
+        if let Some(abs_attack_defence_pair) = state.may_abs_attack_defence_pair() {
+            return if let Some((attack, defence)) = abs_attack_defence_pair {
                 self.solve_attack(state, limit, attack, defence)
             } else {
                 None
@@ -139,13 +135,23 @@ impl State {
         }
     }
 
-    pub fn abs_attack_defence_pair(&self, op_four_eye: Point) -> Option<(Point, Point)> {
-        self.game
+    pub fn may_abs_attack_defence_pair(&self) -> Option<Option<(Point, Point)>> {
+        let (may_first_eye, may_another_eye) = self.game.inspect_last_four_eyes();
+        if may_another_eye.is_some() {
+            return Some(None);
+        }
+        if may_first_eye.is_none() {
+            return None;
+        }
+        let op_four_eye = may_first_eye.unwrap();
+        let abs_attack_defence_pair = self
+            .game
             .board()
             .structures_on(op_four_eye, self.game.turn(), Sword)
             .flat_map(Self::sword_eyes_pair)
             .filter(|&(e1, _)| e1 == op_four_eye)
-            .next()
+            .next();
+        Some(abs_attack_defence_pair)
     }
 
     pub fn neighbor_attack_defence_pairs(&self) -> Vec<(Point, Point)> {
