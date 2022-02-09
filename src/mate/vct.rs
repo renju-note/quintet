@@ -196,15 +196,16 @@ impl State {
     }
 
     pub fn check_win_or_mandatory_move(&self) -> Option<Result<Win, Point>> {
-        let (maybe_first_eye, maybe_another_eye) = self.game.check_last_four_eyes();
-        if maybe_first_eye.is_some() && maybe_another_eye.is_some() {
-            let win = Win::Fours(maybe_first_eye.unwrap(), maybe_another_eye.unwrap());
+        let (maybe_first, maybe_another) = self.game.check_last_four_eyes();
+        if maybe_first.is_some() && maybe_another.is_some() {
+            let win = Win::Fours(maybe_first.unwrap(), maybe_another.unwrap());
             Some(Ok(win))
-        } else if maybe_first_eye.map_or(false, |e| self.game.is_forbidden_move(e)) {
-            let win = Win::Forbidden(maybe_first_eye.unwrap());
+        } else if maybe_first.map_or(false, |e| self.game.is_forbidden_move(e)) {
+            let win = Win::Forbidden(maybe_first.unwrap());
             Some(Ok(win))
-        } else if maybe_first_eye.is_some() {
-            Some(Err(maybe_first_eye.unwrap()))
+        } else if maybe_first.is_some() {
+            let mandatory_move = maybe_first.unwrap();
+            Some(Err(mandatory_move))
         } else {
             None
         }
