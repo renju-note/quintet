@@ -74,6 +74,8 @@ Elapsed: 8.763508458s
 K11,K10,N12,M11,N8,H5,H6,L8,J5,J7,M5,L4,M6,K5,N5,L7,J4,G7,K3,L2,M4,M3,M8,M7,N7,I6,F3,G5,G3,O1,N2,K2,F4,F6,F1,F2,J3,J2,I3,H3,N4,N6,N1,N3,K4
 ```
 
+Original game: https://www.renju.net/media/games.php?gameid=92337
+
 ## Release
 
 ```
