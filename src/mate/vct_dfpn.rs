@@ -96,57 +96,6 @@ impl Solver {
     }
 }
 
-const INF: usize = usize::MAX;
-
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-struct Node {
-    pn: usize,
-    dn: usize,
-    limit: u8,
-}
-
-impl Node {
-    pub fn new(pn: usize, dn: usize, limit: u8) -> Self {
-        Self {
-            pn: pn,
-            dn: dn,
-            limit: limit,
-        }
-    }
-
-    pub fn init(limit: u8) -> Self {
-        Self::new(1, 1, limit)
-    }
-
-    pub fn root(limit: u8) -> Self {
-        Self::new(INF - 1, INF - 1, limit)
-    }
-
-    pub fn inf_pn(limit: u8) -> Self {
-        Self::new(INF, 0, limit)
-    }
-
-    pub fn inf_dn(limit: u8) -> Self {
-        Self::new(0, INF, limit)
-    }
-}
-
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let pn = if self.pn == INF {
-            "INF".to_string()
-        } else {
-            self.pn.to_string()
-        };
-        let dn = if self.dn == INF {
-            "INF".to_string()
-        } else {
-            self.dn.to_string()
-        };
-        write!(f, "(pn: {}, dn: {})", pn, dn)
-    }
-}
-
 struct Searcher {
     table: HashMap<u64, Node>,
     vcf_solver: vcf::Solver,
@@ -351,6 +300,57 @@ impl Searcher {
 
     fn lookup(&self, hash: u64, limit: u8) -> Node {
         self.table.get(&hash).map_or(Node::init(limit), |c| *c)
+    }
+}
+
+const INF: usize = usize::MAX;
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+struct Node {
+    pn: usize,
+    dn: usize,
+    limit: u8,
+}
+
+impl Node {
+    pub fn new(pn: usize, dn: usize, limit: u8) -> Self {
+        Self {
+            pn: pn,
+            dn: dn,
+            limit: limit,
+        }
+    }
+
+    pub fn init(limit: u8) -> Self {
+        Self::new(1, 1, limit)
+    }
+
+    pub fn root(limit: u8) -> Self {
+        Self::new(INF - 1, INF - 1, limit)
+    }
+
+    pub fn inf_pn(limit: u8) -> Self {
+        Self::new(INF, 0, limit)
+    }
+
+    pub fn inf_dn(limit: u8) -> Self {
+        Self::new(0, INF, limit)
+    }
+}
+
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let pn = if self.pn == INF {
+            "INF".to_string()
+        } else {
+            self.pn.to_string()
+        };
+        let dn = if self.dn == INF {
+            "INF".to_string()
+        } else {
+            self.dn.to_string()
+        };
+        write!(f, "(pn: {}, dn: {})", pn, dn)
     }
 }
 
