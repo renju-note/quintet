@@ -27,7 +27,7 @@ pub fn solve_vct_dfpn(board: &Board, turn: Player, max_depth: u8) -> Option<Vec<
     if let Err(e) = validate(board, turn) {
         return e;
     }
-    let state = &mut vct_dfpn::State::init(board.clone(), turn);
+    let state = &mut vct::State::init(board.clone(), turn);
     let mut solver = vct_dfpn::Solver::init();
     solver.solve(state, max_depth).map(|s| s.path)
 }

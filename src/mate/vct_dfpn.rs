@@ -1,9 +1,8 @@
-use super::super::board::StructureKind::*;
 use super::super::board::*;
-use super::field::*;
 use super::game::*;
 use super::vcf;
-use std::collections::{HashMap, HashSet};
+use super::vct::State;
+use std::collections::HashMap;
 use std::fmt;
 
 pub struct Solver {
@@ -26,18 +25,13 @@ impl Solver {
     }
 
     fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if limit == 0 {
-            return None;
-        }
         self.solve_attacks(state, limit)
     }
 
     pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
-            return match lose_or_move {
-                Ok(_) => None,
-                Err(m) => self.solve_attack(state, limit, m),
-            };
+            let m = lose_or_move.err().unwrap();
+            return self.solve_attack(state, limit, m);
         }
 
         if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
@@ -72,14 +66,7 @@ impl Solver {
             };
         }
 
-        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
-            return None;
-        }
-
         let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
-        if maybe_threat.is_none() {
-            return None;
-        }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut game = state.game().clone();
@@ -96,10 +83,6 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
-        if state.game().is_forbidden_move(defence) {
-            return Some(Mate::new(Win::Forbidden(defence), vec![]));
-        }
-
         let last2_move = state.game().last2_move();
         state.play(defence);
         let limit = limit - 1;
@@ -110,57 +93,6 @@ impl Solver {
 
     fn solve_vcf(&mut self, state: &mut State, turn: Player, max_depth: u8) -> Option<Mate> {
         self.searcher.solve_vcf(state, turn, max_depth)
-    }
-}
-
-const INF: usize = usize::MAX;
-
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-struct Node {
-    pn: usize,
-    dn: usize,
-    limit: u8,
-}
-
-impl Node {
-    pub fn new(pn: usize, dn: usize, limit: u8) -> Self {
-        Self {
-            pn: pn,
-            dn: dn,
-            limit: limit,
-        }
-    }
-
-    pub fn init(limit: u8) -> Self {
-        Self::new(1, 1, limit)
-    }
-
-    pub fn root(limit: u8) -> Self {
-        Self::new(INF - 1, INF - 1, limit)
-    }
-
-    pub fn inf_pn(limit: u8) -> Self {
-        Self::new(INF, 0, limit)
-    }
-
-    pub fn inf_dn(limit: u8) -> Self {
-        Self::new(0, INF, limit)
-    }
-}
-
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let pn = if self.pn == INF {
-            "INF".to_string()
-        } else {
-            self.pn.to_string()
-        };
-        let dn = if self.dn == INF {
-            "INF".to_string()
-        } else {
-            self.dn.to_string()
-        };
-        write!(f, "(pn: {}, dn: {})", pn, dn)
     }
 }
 
@@ -371,153 +303,54 @@ impl Searcher {
     }
 }
 
-pub struct State {
-    attacker: Player,
-    game: Game,
-    field: PotentialField,
+const INF: usize = usize::MAX;
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+struct Node {
+    pn: usize,
+    dn: usize,
+    limit: u8,
 }
 
-impl State {
-    pub fn new(attacker: Player, game: Game, field: PotentialField) -> Self {
+impl Node {
+    pub fn new(pn: usize, dn: usize, limit: u8) -> Self {
         Self {
-            attacker: attacker,
-            game: game,
-            field: field,
+            pn: pn,
+            dn: dn,
+            limit: limit,
         }
     }
 
-    pub fn init(board: Board, turn: Player) -> Self {
-        let field = PotentialField::init(turn, 2, &board);
-        let game = Game::init(board, turn);
-        Self::new(turn, game, field)
+    pub fn init(limit: u8) -> Self {
+        Self::new(1, 1, limit)
     }
 
-    pub fn attacker(&self) -> Player {
-        self.attacker
+    pub fn root(limit: u8) -> Self {
+        Self::new(INF - 1, INF - 1, limit)
     }
 
-    pub fn game(&self) -> &'_ Game {
-        &self.game
+    pub fn inf_pn(limit: u8) -> Self {
+        Self::new(INF, 0, limit)
     }
 
-    pub fn turn(&self) -> Player {
-        self.game.turn()
+    pub fn inf_dn(limit: u8) -> Self {
+        Self::new(0, INF, limit)
     }
+}
 
-    pub fn last(&self) -> Player {
-        self.game.last()
-    }
-
-    pub fn play(&mut self, next_move: Point) {
-        self.game.play(next_move);
-        self.field.update_along(next_move, self.game.board());
-    }
-
-    pub fn undo(&mut self, last2_move: Point) {
-        let last_move = self.game.last_move();
-        self.game.undo(last2_move);
-        self.field.update_along(last_move, self.game.board());
-    }
-
-    pub fn check_win_or_mandatory_move(&self) -> Option<Result<Win, Point>> {
-        let (maybe_first, maybe_another) = self.game.check_last_four_eyes();
-        if maybe_first.is_some() && maybe_another.is_some() {
-            let win = Win::Fours(maybe_first.unwrap(), maybe_another.unwrap());
-            Some(Ok(win))
-        } else if maybe_first.map_or(false, |e| self.game.is_forbidden_move(e)) {
-            let win = Win::Forbidden(maybe_first.unwrap());
-            Some(Ok(win))
-        } else if maybe_first.is_some() {
-            let mandatory_move = maybe_first.unwrap();
-            Some(Err(mandatory_move))
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let pn = if self.pn == INF {
+            "INF".to_string()
         } else {
-            None
-        }
-    }
-
-    pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
-        let mut potentials = self.potentials();
-        if let Some(threat) = maybe_threat {
-            let threat_defences = self.threat_defences(&threat);
-            let threat_defences = threat_defences.into_iter().collect::<HashSet<_>>();
-            potentials.retain(|(p, _)| threat_defences.contains(p));
-        }
-        potentials.sort_by(|a, b| b.1.cmp(&a.1));
-        potentials
-            .into_iter()
-            .map(|t| t.0)
-            .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect()
-    }
-
-    pub fn sorted_defences(&self, threat: Mate) -> Vec<Point> {
-        let mut result = self.threat_defences(&threat);
-        let mut potential_map = HashMap::new();
-        for (p, o) in self.potentials() {
-            potential_map.insert(p, o);
-        }
-        result.sort_by(|a, b| {
-            let oa = potential_map.get(a).unwrap_or(&0);
-            let ob = potential_map.get(b).unwrap_or(&0);
-            ob.cmp(oa)
-        });
-        result
-            .into_iter()
-            .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect()
-    }
-
-    fn potentials(&self) -> Vec<(Point, u8)> {
-        let min = if self.attacker == Player::Black { 4 } else { 3 };
-        self.field.collect(min)
-    }
-
-    fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = self.direct_defences(threat);
-        result.extend(self.counter_defences(threat));
-        result.extend(self.four_moves());
-        result
-    }
-
-    fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = threat.path.clone();
-        match threat.win {
-            Win::Fours(p1, p2) => {
-                result.extend([p1, p2]);
-            }
-            Win::Forbidden(p) => {
-                result.push(p);
-                result.extend(self.game.board().neighbors(p, 5, true));
-            }
-            _ => (),
-        }
-        result
-    }
-
-    fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut game = self.game.pass();
-        let threater = game.turn();
-        let mut result = vec![];
-        for &p in &threat.path {
-            let turn = game.turn();
-            game.play(p);
-            if turn == threater {
-                continue;
-            }
-            let swords = game.board().structures_on(p, turn, Sword);
-            for s in swords {
-                result.extend(s.eyes());
-            }
-        }
-        result
-    }
-
-    fn four_moves(&self) -> Vec<Point> {
-        self.game
-            .board()
-            .structures(self.turn(), Sword)
-            .flat_map(|s| s.eyes())
-            .collect()
+            self.pn.to_string()
+        };
+        let dn = if self.dn == INF {
+            "INF".to_string()
+        } else {
+            self.dn.to_string()
+        };
+        write!(f, "(pn: {}, dn: {})", pn, dn)
     }
 }
 

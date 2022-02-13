@@ -72,10 +72,6 @@ impl Solver {
     }
 
     fn solve_attack(&mut self, state: &mut State, limit: u8, attack: Point) -> Option<Mate> {
-        if state.game().is_forbidden_move(attack) {
-            return None;
-        }
-
         let last2_move = state.game().last2_move();
         state.play(attack);
         let result = self.solve_defences(state, limit).map(|m| m.unshift(attack));
@@ -116,10 +112,6 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
-        if state.game().is_forbidden_move(defence) {
-            return Some(Mate::new(Win::Forbidden(defence), vec![]));
-        }
-
         let last2_move = state.game().last2_move();
         state.play(defence);
         let limit = limit - 1;
@@ -216,7 +208,11 @@ impl State {
             potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
-        potentials.into_iter().map(|t| t.0).collect()
+        potentials
+            .into_iter()
+            .map(|t| t.0)
+            .filter(|&p| !self.game.is_forbidden_move(p))
+            .collect()
     }
 
     pub fn sorted_defences(&self, threat: Mate) -> Vec<Point> {
@@ -231,6 +227,9 @@ impl State {
             ob.cmp(oa)
         });
         result
+            .into_iter()
+            .filter(|&p| !self.game.is_forbidden_move(p))
+            .collect()
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
