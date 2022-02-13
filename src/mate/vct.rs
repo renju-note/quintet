@@ -432,7 +432,6 @@ mod tests {
         Ok(())
     }
 
-    #[ignore]
     #[test]
     fn test_mise_move() -> Result<(), String> {
         // https://twitter.com/nachirenju/status/1487315157382414336
@@ -459,7 +458,7 @@ mod tests {
 
         let result = solver.solve(state, 7);
         let result = result.map(|m| Points(m.path).to_string());
-        let expected = Some("G12,E10,F12,E12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
+        let expected = Some("G12,E10,F12,I12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
         assert_eq!(result, expected);
 
         let result = solver.solve(state, 6);

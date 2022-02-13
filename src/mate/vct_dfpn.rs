@@ -198,8 +198,8 @@ impl Searcher {
             };
         }
 
-        if self.solve_vcf(state, state.turn(), limit).is_some() {
-            return Node::inf_dn(limit);
+        if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
+            return Node::inf_dn(limit - (vcf.path.len() as u8 + 1) / 2);
         }
 
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
@@ -591,6 +591,145 @@ mod tests {
 
         let result = solver.solve(state, 3);
         let result = result.map(|m| Points(m.path).to_string());
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_counter() -> Result<(), String> {
+        // No. 63 from 5-moves-to-win problems by Hiroshi Okabe
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . o . . . . .
+         . . . . . . . o x . . . . . .
+         . . . x x o . x o . . . . . .
+         . . . . . o . o o x . . . . .
+         . . . . . . . o x . . . . . .
+         . . . . . . x . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), White);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 4);
+        let result = result.map(|m| Points(m.path).to_string());
+        let expected = Some("F7,E8,G8,E6,G5,G7,H6".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 3);
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_forbidden_breaker() -> Result<(), String> {
+        // No. 68 from 5-moves-to-win problems by Hiroshi Okabe
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . x . . . . . . .
+         . . . . . . . o x o . . . . .
+         . . . . . . o x o . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), Black);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 4);
+        let result = result.map(|m| Points(m.path).to_string());
+        let expected = Some("J8,I7,I8,G8,L8,K8,K7".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 3);
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_mise_move() -> Result<(), String> {
+        // https://twitter.com/nachirenju/status/1487315157382414336
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . x o o . . . . . .
+         . . . . . o o o x x . . . . .
+         . . . . o x x x x o . . . . .
+         . . . x . x o o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), Black);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 7);
+        let result = result.map(|m| Points(m.path).to_string());
+        let expected = Some("G12,E10,F12,I12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 6);
+        assert_eq!(result, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dual_forbiddens() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . x . . . . . . .
+         . . . . . . . o o . . . . . .
+         . . . . . . . o x . . . . . .
+         . . . . . . . x x o . . . . .
+         . . . . . . o o x . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        let state = &mut State::init(board.clone(), White);
+        let mut solver = Solver::init();
+
+        let result = solver.solve(state, 5);
+        let result = result.map(|m| Points(m.path).to_string());
+        let expected = Some("J4,G7,I4,I3,E6,G4,G6".to_string());
+        assert_eq!(result, expected);
+
+        let result = solver.solve(state, 4);
         assert_eq!(result, None);
 
         Ok(())
