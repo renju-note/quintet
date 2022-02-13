@@ -102,11 +102,8 @@ impl Solver {
 
         let last2_move = state.game().last2_move();
         state.play(defence);
-
-        let result = self
-            .solve_limit(state, limit - 1)
-            .map(|m| m.unshift(defence));
-
+        let limit = limit - 1;
+        let result = self.solve_limit(state, limit).map(|m| m.unshift(defence));
         state.undo(last2_move);
         result
     }
@@ -208,9 +205,6 @@ impl Searcher {
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
 
         let attacks = state.sorted_attacks(maybe_opponent_threat);
-        if attacks.is_empty() {
-            return Node::inf_pn(limit);
-        }
         self.loop_attacks(state, &attacks, bound, limit)
     }
 
@@ -226,8 +220,8 @@ impl Searcher {
             if current.pn > bound.pn || current.dn > bound.dn {
                 return current;
             }
-            let (next, bound) = best.unwrap();
-            self.expand_attack(state, next, bound, limit);
+            let (next, next_bound) = best.unwrap();
+            self.expand_attack(state, next, next_bound, limit);
         }
     }
 
@@ -259,9 +253,6 @@ impl Searcher {
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
-        if defences.is_empty() {
-            return Node::inf_dn(limit);
-        }
         self.loop_defences(state, &defences, bound, limit)
     }
 
@@ -277,8 +268,8 @@ impl Searcher {
             if current.dn > bound.dn || current.pn > bound.pn {
                 return current;
             }
-            let (next, bound) = best.unwrap();
-            self.expand_defence(state, next, bound, limit);
+            let (next, next_bound) = best.unwrap();
+            self.expand_defence(state, next, next_bound, limit);
         }
     }
 
