@@ -25,18 +25,13 @@ impl Solver {
     }
 
     fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if limit == 0 {
-            return None;
-        }
         self.solve_attacks(state, limit)
     }
 
     pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
-            return match lose_or_move {
-                Ok(_) => None,
-                Err(m) => self.solve_attack(state, limit, m),
-            };
+            let m = lose_or_move.err().unwrap();
+            return self.solve_attack(state, limit, m);
         }
 
         if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
@@ -71,14 +66,7 @@ impl Solver {
             };
         }
 
-        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
-            return None;
-        }
-
         let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
-        if maybe_threat.is_none() {
-            return None;
-        }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut game = state.game().clone();
@@ -95,10 +83,6 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
-        if state.game().is_forbidden_move(defence) {
-            return Some(Mate::new(Win::Forbidden(defence), vec![]));
-        }
-
         let last2_move = state.game().last2_move();
         state.play(defence);
         let limit = limit - 1;
