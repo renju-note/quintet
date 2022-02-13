@@ -21,7 +21,13 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
-        self.solve_limit(state, max_depth)
+        // IDDFS
+        for limit in 1..=max_depth {
+            if let Some(mate) = self.solve_limit(state, limit) {
+                return Some(mate);
+            }
+        }
+        None
     }
 
     fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
@@ -33,9 +39,7 @@ impl Solver {
         if self.deadends.contains(&hash) {
             return None;
         }
-
         let result = self.solve_attacks(state, limit);
-
         if result.is_none() {
             self.deadends.insert(hash);
         }
@@ -64,7 +68,6 @@ impl Solver {
                 return result;
             }
         }
-
         None
     }
 
@@ -75,11 +78,9 @@ impl Solver {
 
         let last2_move = state.game().last2_move();
         state.play(attack);
-
         let result = self.solve_defences(state, limit).map(|m| m.unshift(attack));
-
         state.undo(last2_move);
-        return result;
+        result
     }
 
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
@@ -111,7 +112,6 @@ impl Solver {
             let new_mate = new_result.unwrap();
             result = result.map(|mate| Mate::preferred(mate, new_mate));
         }
-
         result
     }
 
@@ -122,11 +122,8 @@ impl Solver {
 
         let last2_move = state.game().last2_move();
         state.play(defence);
-
-        let result = self
-            .solve_limit(state, limit - 1)
-            .map(|m| m.unshift(defence));
-
+        let limit = limit - 1;
+        let result = self.solve_limit(state, limit).map(|m| m.unshift(defence));
         state.undo(last2_move);
         result
     }
