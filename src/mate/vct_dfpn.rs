@@ -34,10 +34,6 @@ impl Solver {
             return self.solve_attack(state, limit, m);
         }
 
-        if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
-            return Some(vcf);
-        }
-
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
         let attacks = state.sorted_attacks(maybe_opponent_threat);
         let mut game = state.game().clone();
@@ -45,6 +41,12 @@ impl Solver {
             let node = self.searcher.lookup_move(&mut game, attack, limit);
             if node.pn == 0 {
                 return self.solve_attack(state, limit, attack);
+            }
+        }
+        for max_depth in 0..=limit {
+            let result = self.solve_vcf(state, state.turn(), max_depth);
+            if result.is_some() {
+                return result;
             }
         }
         None
@@ -91,8 +93,8 @@ impl Solver {
         result
     }
 
-    fn solve_vcf(&mut self, state: &mut State, turn: Player, max_depth: u8) -> Option<Mate> {
-        self.searcher.solve_vcf(state, turn, max_depth)
+    fn solve_vcf(&mut self, state: &mut State, turn: Player, limit: u8) -> Option<Mate> {
+        self.searcher.solve_vcf(state, turn, limit)
     }
 }
 
@@ -130,8 +132,8 @@ impl Searcher {
             };
         }
 
-        if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
-            return Node::inf_dn(limit - (vcf.path.len() as u8 + 1) / 2);
+        if self.solve_vcf(state, state.turn(), limit).is_some() {
+            return Node::inf_dn(limit);
         }
 
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
@@ -275,7 +277,7 @@ impl Searcher {
         (Node::new(pn, dn, l), best)
     }
 
-    pub fn solve_vcf(&mut self, state: &mut State, turn: Player, max_depth: u8) -> Option<Mate> {
+    pub fn solve_vcf(&mut self, state: &mut State, turn: Player, limit: u8) -> Option<Mate> {
         let attacker = state.attacker();
         let game = state.game();
         let state = &mut vcf::State::new(if turn == game.last() {
@@ -283,11 +285,20 @@ impl Searcher {
         } else {
             game.clone()
         });
-        if turn == attacker {
-            self.vcf_solver.solve(state, max_depth)
-        } else {
-            self.opponent_vcf_solver.solve(state, max_depth)
+        for max_depth in [0, 1, limit] {
+            if max_depth > limit {
+                return None;
+            }
+            let result = if turn == attacker {
+                self.vcf_solver.solve(state, max_depth)
+            } else {
+                self.opponent_vcf_solver.solve(state, max_depth)
+            };
+            if result.is_some() {
+                return result;
+            }
         }
+        None
     }
 
     pub fn lookup_move(&self, game: &mut Game, m: Point, limit: u8) -> Node {
