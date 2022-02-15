@@ -51,20 +51,20 @@ impl Game {
     pub fn play(&mut self, next_move: Point) {
         self.board.put_mut(self.turn, next_move);
         self.turn = self.last();
-        self.last2_move = self.last_move();
+        self.last2_move = self.last_move;
         self.last_move = next_move;
     }
 
     pub fn undo(&mut self, last2_move: Point) {
         self.board.remove_mut(self.last_move);
         self.turn = self.last();
-        self.last_move = self.last2_move();
+        self.last_move = self.last2_move;
         self.last2_move = last2_move;
     }
 
     pub fn pass(&self) -> Self {
-        let last2_move = self.last_move();
-        let last_move = self.board.stones(self.turn()).next().unwrap();
+        let last2_move = self.last_move;
+        let last_move = self.last2_move;
         Self::new(self.board.clone(), self.last(), last_move, last2_move)
     }
 
