@@ -21,13 +21,7 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
-        // IDDFS
-        for limit in 1..=max_depth {
-            if let Some(mate) = self.solve_limit(state, limit) {
-                return Some(mate);
-            }
-        }
-        None
+        self.solve_limit(state, max_depth)
     }
 
     fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {

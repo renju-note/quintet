@@ -27,9 +27,7 @@ impl Solver {
         if self.deadends.contains(&hash) {
             return None;
         }
-
         let result = self.solve_move_pairs(state, limit);
-
         if result.is_none() {
             self.deadends.insert(hash);
         }
@@ -78,14 +76,12 @@ impl Solver {
             return None;
         }
 
-        let last2_move_attack = state.game().last2_move();
+        let last2_move = state.game().last2_move();
         state.game().play(attack);
-
         let result = self
             .solve_defence(state, limit, defence)
             .map(|m| m.unshift(attack));
-
-        state.game().undo(last2_move_attack);
+        state.game().undo(last2_move);
         result
     }
 
@@ -94,14 +90,12 @@ impl Solver {
             return Some(Mate::new(win, vec![]));
         }
 
-        let last2_move_defence = state.game().last2_move();
+        let last2_move = state.game().last2_move();
         state.game().play(defence);
-
         let result = self
             .solve_limit(state, limit - 1)
             .map(|m| m.unshift(defence));
-
-        state.game().undo(last2_move_defence);
+        state.game().undo(last2_move);
         result
     }
 }
@@ -116,8 +110,7 @@ impl State {
     }
 
     pub fn init(board: Board, turn: Player) -> Self {
-        let game = Game::init(board, turn);
-        Self::new(game)
+        Self::new(Game::init(board, turn))
     }
 
     pub fn game(&mut self) -> &'_ mut Game {

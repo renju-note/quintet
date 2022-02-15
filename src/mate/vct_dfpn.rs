@@ -285,7 +285,7 @@ impl Searcher {
         } else {
             game.clone()
         });
-        for max_depth in [0, 1, limit] {
+        for max_depth in [1, limit] {
             if max_depth > limit {
                 return None;
             }

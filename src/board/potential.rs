@@ -61,8 +61,7 @@ impl Iterator for Potentials {
 
         let mut max = 0;
         let mut count = 0;
-        for i in 0..5 {
-            let p = self.acc[i];
+        for p in self.acc {
             if p > max {
                 max = p;
                 count = 1;
@@ -70,8 +69,8 @@ impl Iterator for Potentials {
                 count += 1
             }
         }
-
         let ret = max * count;
+
         if blank && ret >= self.min {
             Some((i, ret))
         } else {
