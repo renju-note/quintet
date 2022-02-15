@@ -68,16 +68,8 @@ impl Sequences {
             k: k,
             n: n,
             strict: strict,
-            limit: if i + VICTORY <= size {
-                i
-            } else {
-                size - VICTORY
-            },
-            i: if VICTORY - 1 <= i {
-                i - (VICTORY - 1)
-            } else {
-                0
-            },
+            limit: i.min(size - VICTORY),
+            i: i.max(VICTORY - 1) - (VICTORY - 1),
             prev_ok: false,
         }
     }
