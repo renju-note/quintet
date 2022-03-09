@@ -3,6 +3,7 @@ use super::super::board::StructureKind::*;
 use super::super::board::*;
 use super::vcf;
 use super::vct;
+use super::vct_dfpn;
 use super::vct_pn;
 
 pub fn solve_vcf(board: &Board, turn: Player, max_depth: u8) -> Option<Vec<Point>> {
@@ -20,6 +21,15 @@ pub fn solve_vct(board: &Board, turn: Player, max_depth: u8) -> Option<Vec<Point
     }
     let state = &mut vct::State::init(board.clone(), turn);
     let mut solver = vct::Solver::init();
+    solver.solve(state, max_depth).map(|s| s.path)
+}
+
+pub fn solve_vct_dfpn(board: &Board, turn: Player, max_depth: u8) -> Option<Vec<Point>> {
+    if let Err(e) = validate(board, turn) {
+        return e;
+    }
+    let state = &mut vct::State::init(board.clone(), turn);
+    let mut solver = vct_dfpn::Solver::init();
     solver.solve(state, max_depth).map(|s| s.path)
 }
 
