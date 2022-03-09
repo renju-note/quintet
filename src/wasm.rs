@@ -28,19 +28,14 @@ pub fn solve_vct(blacks: &[u8], whites: &[u8], black: bool, max_depth: u8) -> Op
 }
 
 #[wasm_bindgen]
-pub fn solve_vct_dfpn(
-    blacks: &[u8],
-    whites: &[u8],
-    black: bool,
-    max_depth: u8,
-) -> Option<Box<[u8]>> {
+pub fn solve_vct_pn(blacks: &[u8], whites: &[u8], black: bool, max_depth: u8) -> Option<Box<[u8]>> {
     let blacks = Points::try_from(blacks);
     let whites = Points::try_from(whites);
     if !blacks.is_ok() || !whites.is_ok() {
         return None;
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
-    let solution = mate::solve_vct_dfpn(&board, Player::from(black), max_depth);
+    let solution = mate::solve_vct_pn(&board, Player::from(black), max_depth);
     solution.map(|ps| <Vec<u8>>::from(Points(ps)).into_boxed_slice())
 }
 
