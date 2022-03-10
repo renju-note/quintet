@@ -201,7 +201,9 @@ impl Searcher {
     ) -> Node {
         Node::new(
             threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF)),
-            threshold.dn + next1.dn - current.dn,
+            (threshold.dn - current.dn)
+                .checked_add(next1.dn)
+                .unwrap_or(INF),
             current.limit,
         )
     }
@@ -267,7 +269,7 @@ impl Searcher {
         limit: u8,
     ) -> (Node, Option<Point>, Node, Node) {
         let mut game = state.game().clone();
-        let mut current = Node::inf_pn(limit);
+        let mut current = Node::inf_dn(limit);
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_dn(limit);
         let mut next2 = Node::inf_dn(limit);
@@ -301,7 +303,9 @@ impl Searcher {
         next2: Node,
     ) -> Node {
         Node::new(
-            threshold.pn + next1.pn - current.pn,
+            (threshold.pn - current.pn)
+                .checked_add(next1.pn)
+                .unwrap_or(INF),
             threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF)),
             current.limit,
         )
