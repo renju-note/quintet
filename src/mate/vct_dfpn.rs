@@ -168,55 +168,6 @@ impl Searcher {
         }
     }
 
-    fn select_attack(
-        &self,
-        state: &State,
-        attacks: &[Point],
-        limit: u8,
-    ) -> (Node, Option<Point>, Node, Node) {
-        let mut game = state.game().clone();
-        let mut current = Node::inf_pn(limit);
-        let mut selected: Option<Point> = None;
-        let mut next1 = Node::inf_pn(limit);
-        let mut next2 = Node::inf_pn(limit);
-        for &attack in attacks {
-            let child = self.lookup_child(&mut game, attack, limit);
-            current = Node::new(
-                current.pn.min(child.pn),
-                current.dn.checked_add(child.dn).unwrap_or(INF),
-                current.limit.min(child.limit),
-            );
-            if child.pn < next1.pn {
-                selected.replace(attack);
-                next2 = next1;
-                next1 = child;
-            } else if child.pn < next2.pn {
-                next2 = child;
-            }
-            if current.pn == 0 {
-                current = Node::inf_dn(current.limit);
-                break;
-            }
-        }
-        (current, selected, next1, next2)
-    }
-
-    fn next_threshold_attack(
-        &self,
-        threshold: Node,
-        current: Node,
-        next1: Node,
-        next2: Node,
-    ) -> Node {
-        Node::new(
-            threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF)),
-            (threshold.dn - current.dn)
-                .checked_add(next1.dn)
-                .unwrap_or(INF),
-            current.limit,
-        )
-    }
-
     fn expand_attack(
         &mut self,
         state: &mut State,
@@ -271,6 +222,71 @@ impl Searcher {
         }
     }
 
+    fn expand_defence(
+        &mut self,
+        state: &mut State,
+        defence: Point,
+        threshold: Node,
+        limit: u8,
+    ) -> Node {
+        let last2_move = state.game().last2_move();
+        state.play(defence);
+        let hash = state.game().get_hash(limit);
+        let result = self.search_limit(state, threshold, limit - 1);
+        self.table.insert(hash, result.clone());
+        state.undo(last2_move);
+        result
+    }
+
+    fn select_attack(
+        &self,
+        state: &State,
+        attacks: &[Point],
+        limit: u8,
+    ) -> (Node, Option<Point>, Node, Node) {
+        let mut game = state.game().clone();
+        let mut current = Node::inf_pn(limit);
+        let mut selected: Option<Point> = None;
+        let mut next1 = Node::inf_pn(limit);
+        let mut next2 = Node::inf_pn(limit);
+        for &attack in attacks {
+            let child = self.lookup_child(&mut game, attack, limit);
+            current = Node::new(
+                current.pn.min(child.pn),
+                current.dn.checked_add(child.dn).unwrap_or(INF),
+                current.limit.min(child.limit),
+            );
+            if child.pn < next1.pn {
+                selected.replace(attack);
+                next2 = next1;
+                next1 = child;
+            } else if child.pn < next2.pn {
+                next2 = child;
+            }
+            if current.pn == 0 {
+                current = Node::inf_dn(current.limit);
+                break;
+            }
+        }
+        (current, selected, next1, next2)
+    }
+
+    fn next_threshold_attack(
+        &self,
+        threshold: Node,
+        current: Node,
+        next1: Node,
+        next2: Node,
+    ) -> Node {
+        Node::new(
+            threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF)),
+            (threshold.dn - current.dn)
+                .checked_add(next1.dn)
+                .unwrap_or(INF),
+            current.limit,
+        )
+    }
+
     fn select_defence(
         &self,
         state: &State,
@@ -318,22 +334,6 @@ impl Searcher {
             threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF)),
             current.limit,
         )
-    }
-
-    fn expand_defence(
-        &mut self,
-        state: &mut State,
-        defence: Point,
-        threshold: Node,
-        limit: u8,
-    ) -> Node {
-        let last2_move = state.game().last2_move();
-        state.play(defence);
-        let hash = state.game().get_hash(limit);
-        let result = self.search_limit(state, threshold, limit - 1);
-        self.table.insert(hash, result.clone());
-        state.undo(last2_move);
-        result
     }
 
     pub fn solve_vcf(&mut self, state: &mut State, turn: Player, limit: u8) -> Option<Mate> {
