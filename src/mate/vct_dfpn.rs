@@ -109,16 +109,16 @@ impl Solver {
 
 struct Searcher {
     table: HashMap<u64, Node>,
-    vcf_solver: vcf::Solver,
-    opponent_vcf_solver: vcf::Solver,
+    attacker_vcf_solver: vcf::Solver,
+    defender_vcf_solver: vcf::Solver,
 }
 
 impl Searcher {
     pub fn init() -> Self {
         Self {
             table: HashMap::new(),
-            vcf_solver: vcf::Solver::init(),
-            opponent_vcf_solver: vcf::Solver::init(),
+            attacker_vcf_solver: vcf::Solver::init(),
+            defender_vcf_solver: vcf::Solver::init(),
         }
     }
 
@@ -148,18 +148,9 @@ impl Searcher {
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
 
         let attacks = state.sorted_attacks(maybe_opponent_threat);
-        self.loop_attacks(state, &attacks, threshold, limit)
-    }
 
-    fn loop_attacks(
-        &mut self,
-        state: &mut State,
-        attacks: &[Point],
-        threshold: Node,
-        limit: u8,
-    ) -> Node {
         loop {
-            let (current, selected, next1, next2) = self.select_attack(state, attacks, limit);
+            let (current, selected, next1, next2) = self.select_attack(state, &attacks, limit);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
@@ -207,18 +198,9 @@ impl Searcher {
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
-        self.loop_defences(state, &defences, threshold, limit)
-    }
 
-    fn loop_defences(
-        &mut self,
-        state: &mut State,
-        defences: &[Point],
-        threshold: Node,
-        limit: u8,
-    ) -> Node {
         loop {
-            let (current, selected, next1, next2) = self.select_defence(state, defences, limit);
+            let (current, selected, next1, next2) = self.select_defence(state, &defences, limit);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
@@ -360,9 +342,9 @@ impl Searcher {
                 return None;
             }
             let result = if turn == attacker {
-                self.vcf_solver.solve(state, max_depth)
+                self.attacker_vcf_solver.solve(state, max_depth)
             } else {
-                self.opponent_vcf_solver.solve(state, max_depth)
+                self.defender_vcf_solver.solve(state, max_depth)
             };
             if result.is_some() {
                 return result;
