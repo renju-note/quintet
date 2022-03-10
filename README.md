@@ -42,9 +42,9 @@ H5,I6,E6,H9,F5,E5,C8,D7,C11,C9,C14,C13,D13
 ### VCT
 
 ```
-$ cargo build --release --example solve_vct_pn
+$ cargo build --release --example solve_vct_dfpn
 
-$ ./target/release/examples/solve_vct_pn x H8,I9,H7,J8,F8,H9,G9,H10,G11,F10,I10,G10,I8,J9,E10,K9,L9,G8,J10,K7,L6,K8,K6,L10,I7,J6,M9,I5,H4,F7,
+$ ./target/release/examples/solve_vct_dfpn x H8,I9,H7,J8,F8,H9,G9,H10,G11,F10,I10,G10,I8,J9,E10,K9,L9,G8,J10,K7,L6,K8,K6,L10,I7,J6,M9,I5,H4,F7,
 G6,E6,D5,F5,G4
 Player: White
 
