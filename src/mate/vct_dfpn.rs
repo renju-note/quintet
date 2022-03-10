@@ -1,3 +1,10 @@
+/*
+Df-pn algorithm is proposed in the following paper:
+
+Nagai, Ayumu, and Hiroshi Imai.
+"Proof for the equivalence between some best-first algorithms and depth-first algorithms for AND/OR trees."
+IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
+*/
 use super::super::board::*;
 use super::game::*;
 use super::vcf;
@@ -152,7 +159,7 @@ impl Searcher {
         limit: u8,
     ) -> Node {
         loop {
-            let (current, selected, next1, next2) = self.select_attack2(state, attacks, limit);
+            let (current, selected, next1, next2) = self.select_attack(state, attacks, limit);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
@@ -161,7 +168,7 @@ impl Searcher {
         }
     }
 
-    fn select_attack2(
+    fn select_attack(
         &self,
         state: &State,
         attacks: &[Point],
@@ -255,7 +262,7 @@ impl Searcher {
         limit: u8,
     ) -> Node {
         loop {
-            let (current, selected, next1, next2) = self.select_defence2(state, defences, limit);
+            let (current, selected, next1, next2) = self.select_defence(state, defences, limit);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
@@ -264,7 +271,7 @@ impl Searcher {
         }
     }
 
-    fn select_defence2(
+    fn select_defence(
         &self,
         state: &State,
         defences: &[Point],
