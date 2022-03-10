@@ -38,7 +38,7 @@ impl Solver {
         let attacks = state.sorted_attacks(maybe_opponent_threat);
         let mut game = state.game().clone();
         for attack in attacks {
-            let node = self.searcher.lookup_next(&mut game, attack, limit);
+            let node = self.searcher.lookup_child(&mut game, attack, limit);
             if node.pn == 0 {
                 return self.solve_attack(state, limit, attack);
             }
@@ -75,7 +75,7 @@ impl Solver {
         let mut min_limit = u8::MAX;
         let mut selected_defence = Point(0, 0);
         for defence in defences {
-            let node = self.searcher.lookup_next(&mut game, defence, limit);
+            let node = self.searcher.lookup_child(&mut game, defence, limit);
             if node.pn == 0 && node.limit < min_limit {
                 min_limit = node.limit;
                 selected_defence = defence;
@@ -150,13 +150,60 @@ impl Searcher {
         limit: u8,
     ) -> Node {
         loop {
-            let (current, selected) = self.select_attack(state, attacks, limit);
-            if current.pn > threshold.pn || current.dn > threshold.dn {
+            let (current, selected, next1, next2) = self.select_attack2(state, attacks, limit);
+            if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
-            let (attack, next) = selected.unwrap();
-            self.expand_attack(state, attack, next, limit);
+            let next_threshold = self.next_threshold_attack(threshold, current, next1, next2);
+            self.expand_attack(state, selected.unwrap(), next_threshold, limit);
         }
+    }
+
+    fn select_attack2(
+        &self,
+        state: &State,
+        attacks: &[Point],
+        limit: u8,
+    ) -> (Node, Option<Point>, Node, Node) {
+        let mut game = state.game().clone();
+        let mut current = Node::inf_pn(limit);
+        let mut selected: Option<Point> = None;
+        let mut next1 = Node::inf_pn(limit);
+        let mut next2 = Node::inf_pn(limit);
+        for &attack in attacks {
+            let child = self.lookup_child(&mut game, attack, limit);
+            current = Node::new(
+                current.pn.min(child.pn),
+                current.dn.checked_add(child.dn).unwrap_or(INF),
+                current.limit.min(child.limit),
+            );
+            if child.pn < next1.pn {
+                selected.replace(attack);
+                next2 = next1;
+                next1 = child;
+            } else if child.pn < next2.pn {
+                next2 = child;
+            }
+            if current.pn == 0 {
+                current = Node::inf_dn(current.limit);
+                break;
+            }
+        }
+        (current, selected, next1, next2)
+    }
+
+    fn next_threshold_attack(
+        &self,
+        threshold: Node,
+        current: Node,
+        next1: Node,
+        next2: Node,
+    ) -> Node {
+        Node::new(
+            threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF)),
+            threshold.dn + next1.dn - current.dn,
+            current.limit,
+        )
     }
 
     fn expand_attack(
@@ -204,13 +251,60 @@ impl Searcher {
         limit: u8,
     ) -> Node {
         loop {
-            let (current, selected) = self.select_defence(state, defences, limit);
-            if current.dn > threshold.dn || current.pn > threshold.pn {
+            let (current, selected, next1, next2) = self.select_defence2(state, defences, limit);
+            if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
-            let (defence, next) = selected.unwrap();
-            self.expand_defence(state, defence, next, limit);
+            let next_threshold = self.next_threshold_defence(threshold, current, next1, next2);
+            self.expand_defence(state, selected.unwrap(), next_threshold, limit);
         }
+    }
+
+    fn select_defence2(
+        &self,
+        state: &State,
+        defences: &[Point],
+        limit: u8,
+    ) -> (Node, Option<Point>, Node, Node) {
+        let mut game = state.game().clone();
+        let mut current = Node::inf_pn(limit);
+        let mut selected: Option<Point> = None;
+        let mut next1 = Node::inf_dn(limit);
+        let mut next2 = Node::inf_dn(limit);
+        for &defence in defences {
+            let child = self.lookup_child(&mut game, defence, limit);
+            current = Node::new(
+                current.pn.checked_add(child.pn).unwrap_or(INF),
+                current.dn.min(child.dn),
+                current.limit.min(child.limit),
+            );
+            if child.dn < next1.dn {
+                selected.replace(defence);
+                next2 = next1;
+                next1 = child;
+            } else if child.dn < next2.dn {
+                next2 = child;
+            }
+            if current.dn == 0 {
+                current = Node::inf_pn(current.limit);
+                break;
+            }
+        }
+        (current, selected, next1, next2)
+    }
+
+    fn next_threshold_defence(
+        &self,
+        threshold: Node,
+        current: Node,
+        next1: Node,
+        next2: Node,
+    ) -> Node {
+        Node::new(
+            threshold.pn + next1.pn - current.pn,
+            threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF)),
+            current.limit,
+        )
     }
 
     fn expand_defence(
@@ -227,60 +321,6 @@ impl Searcher {
         self.table.insert(hash, result.clone());
         state.undo(last2_move);
         result
-    }
-
-    fn select_attack(
-        &self,
-        state: &State,
-        attacks: &[Point],
-        limit: u8,
-    ) -> (Node, Option<(Point, Node)>) {
-        let mut game = state.game().clone();
-        let mut current = Node::inf_pn(limit);
-        let mut selected: Option<(Point, Node)> = None;
-        for &attack in attacks {
-            let next = self.lookup_next(&mut game, attack, limit);
-            if next.pn < current.pn {
-                selected.replace((attack, next));
-            }
-            current = Node::new(
-                current.pn.min(next.pn),
-                current.dn.checked_add(next.dn).unwrap_or(INF),
-                current.limit.min(next.limit),
-            );
-            if current.pn == 0 {
-                current = Node::inf_dn(current.limit);
-                break;
-            }
-        }
-        (current, selected)
-    }
-
-    fn select_defence(
-        &self,
-        state: &State,
-        defences: &[Point],
-        limit: u8,
-    ) -> (Node, Option<(Point, Node)>) {
-        let mut game = state.game().clone();
-        let mut current = Node::inf_dn(limit);
-        let mut selected: Option<(Point, Node)> = None;
-        for &defence in defences {
-            let next = self.lookup_next(&mut game, defence, limit);
-            if next.dn < current.dn {
-                selected.replace((defence, next));
-            }
-            current = Node::new(
-                current.pn.checked_add(next.pn).unwrap_or(INF),
-                current.dn.min(next.dn),
-                current.limit.min(next.limit),
-            );
-            if current.dn == 0 {
-                current = Node::inf_pn(current.limit);
-                break;
-            }
-        }
-        (current, selected)
     }
 
     pub fn solve_vcf(&mut self, state: &mut State, turn: Player, limit: u8) -> Option<Mate> {
@@ -307,7 +347,7 @@ impl Searcher {
         None
     }
 
-    pub fn lookup_next(&self, game: &mut Game, m: Point, limit: u8) -> Node {
+    pub fn lookup_child(&self, game: &mut Game, m: Point, limit: u8) -> Node {
         let last2_move = game.last2_move();
         game.play(m);
         let result = self.lookup(game.get_hash(limit), limit);
