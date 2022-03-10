@@ -5,6 +5,8 @@ use super::vct::State;
 use std::collections::HashMap;
 use std::fmt;
 
+// MEMO: Debug printing example is 6e2bace
+
 pub struct Solver {
     searcher: Searcher,
 }
@@ -102,7 +104,6 @@ struct Searcher {
     table: HashMap<u64, Node>,
     vcf_solver: vcf::Solver,
     opponent_vcf_solver: vcf::Solver,
-    max_depth: u8,
 }
 
 impl Searcher {
@@ -111,16 +112,10 @@ impl Searcher {
             table: HashMap::new(),
             vcf_solver: vcf::Solver::init(),
             opponent_vcf_solver: vcf::Solver::init(),
-            max_depth: 0,
         }
     }
 
-    fn indent(&self, attack: bool, limit: u8) -> String {
-        "    ".repeat((self.max_depth - limit) as usize) + if attack { "" } else { "  " }
-    }
-
     pub fn search(&mut self, state: &mut State, max_depth: u8) -> Node {
-        self.max_depth = max_depth;
         self.search_limit(state, Node::root(max_depth), max_depth)
     }
 
@@ -158,12 +153,6 @@ impl Searcher {
     ) -> Node {
         loop {
             let (current, selected, next1, next2) = self.select_attack2(state, attacks, limit);
-            println!(
-                "{}attack: {} {}",
-                self.indent(true, limit),
-                selected.map_or("None".to_string(), |p| p.to_string()),
-                current,
-            );
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
@@ -267,12 +256,6 @@ impl Searcher {
     ) -> Node {
         loop {
             let (current, selected, next1, next2) = self.select_defence2(state, defences, limit);
-            println!(
-                "{}defence: {} {}",
-                self.indent(false, limit),
-                selected.map_or("None".to_string(), |p| p.to_string()),
-                current,
-            );
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
