@@ -197,12 +197,12 @@ impl Searcher {
             };
         }
 
-        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
+        let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
+        if maybe_threat.is_none() {
             return Node::inf_pn(limit);
         }
 
-        let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
-        if maybe_threat.is_none() {
+        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
             return Node::inf_pn(limit);
         }
 
