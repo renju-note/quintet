@@ -109,16 +109,16 @@ impl Solver {
 
 struct Searcher {
     table: HashMap<u64, Node>,
-    vcf_solver: vcf::Solver,
-    opponent_vcf_solver: vcf::Solver,
+    attacker_vcf_solver: vcf::Solver,
+    defender_vcf_solver: vcf::Solver,
 }
 
 impl Searcher {
     pub fn init() -> Self {
         Self {
             table: HashMap::new(),
-            vcf_solver: vcf::Solver::init(),
-            opponent_vcf_solver: vcf::Solver::init(),
+            attacker_vcf_solver: vcf::Solver::init(),
+            defender_vcf_solver: vcf::Solver::init(),
         }
     }
 
@@ -137,7 +137,7 @@ impl Searcher {
         if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
             return match lose_or_move {
                 Ok(_) => Node::inf_pn(limit),
-                Err(m) => self.loop_attacks(state, &[m], threshold, limit),
+                Err(m) => self.expand_attack(state, m, threshold, limit),
             };
         }
 
@@ -148,18 +148,9 @@ impl Searcher {
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
 
         let attacks = state.sorted_attacks(maybe_opponent_threat);
-        self.loop_attacks(state, &attacks, threshold, limit)
-    }
 
-    fn loop_attacks(
-        &mut self,
-        state: &mut State,
-        attacks: &[Point],
-        threshold: Node,
-        limit: u8,
-    ) -> Node {
         loop {
-            let (current, selected, next1, next2) = self.select_attack(state, attacks, limit);
+            let (current, selected, next1, next2) = self.select_attack(state, &attacks, limit);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
@@ -178,6 +169,11 @@ impl Searcher {
         let last2_move = state.game().last2_move();
         state.play(attack);
         let hash = state.game().get_hash(limit);
+        let current = self.lookup(hash, limit);
+        if current.pn >= threshold.pn || current.dn >= threshold.dn {
+            state.undo(last2_move);
+            return current;
+        }
         let result = self.search_defences(state, threshold, limit);
         self.table.insert(hash, result.clone());
         state.undo(last2_move);
@@ -188,12 +184,8 @@ impl Searcher {
         if let Some(win_or_move) = state.check_win_or_mandatory_move() {
             return match win_or_move {
                 Ok(_) => Node::inf_dn(limit),
-                Err(m) => self.loop_defences(state, &[m], threshold, limit),
+                Err(m) => self.expand_defence(state, m, threshold, limit),
             };
-        }
-
-        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
-            return Node::inf_pn(limit);
         }
 
         let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
@@ -201,19 +193,14 @@ impl Searcher {
             return Node::inf_pn(limit);
         }
 
-        let defences = state.sorted_defences(maybe_threat.unwrap());
-        self.loop_defences(state, &defences, threshold, limit)
-    }
+        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
+            return Node::inf_pn(limit);
+        }
 
-    fn loop_defences(
-        &mut self,
-        state: &mut State,
-        defences: &[Point],
-        threshold: Node,
-        limit: u8,
-    ) -> Node {
+        let defences = state.sorted_defences(maybe_threat.unwrap());
+
         loop {
-            let (current, selected, next1, next2) = self.select_defence(state, defences, limit);
+            let (current, selected, next1, next2) = self.select_defence(state, &defences, limit);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
@@ -232,7 +219,13 @@ impl Searcher {
         let last2_move = state.game().last2_move();
         state.play(defence);
         let hash = state.game().get_hash(limit);
-        let result = self.search_limit(state, threshold, limit - 1);
+        let limit = limit - 1;
+        let current = self.lookup(hash, limit);
+        if current.pn >= threshold.pn || current.dn >= threshold.dn {
+            state.undo(last2_move);
+            return current;
+        }
+        let result = self.search_limit(state, threshold, limit);
         self.table.insert(hash, result.clone());
         state.undo(last2_move);
         result
@@ -349,9 +342,9 @@ impl Searcher {
                 return None;
             }
             let result = if turn == attacker {
-                self.vcf_solver.solve(state, max_depth)
+                self.attacker_vcf_solver.solve(state, max_depth)
             } else {
-                self.opponent_vcf_solver.solve(state, max_depth)
+                self.defender_vcf_solver.solve(state, max_depth)
             };
             if result.is_some() {
                 return result;
