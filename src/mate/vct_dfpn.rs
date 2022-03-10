@@ -137,7 +137,7 @@ impl Searcher {
         if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
             return match lose_or_move {
                 Ok(_) => Node::inf_pn(limit),
-                Err(m) => self.loop_attacks(state, &[m], threshold, limit),
+                Err(m) => self.expand_attack(state, m, threshold, limit),
             };
         }
 
@@ -178,6 +178,11 @@ impl Searcher {
         let last2_move = state.game().last2_move();
         state.play(attack);
         let hash = state.game().get_hash(limit);
+        let current = self.lookup(hash, limit);
+        if current.pn >= threshold.pn || current.dn >= threshold.dn {
+            state.undo(last2_move);
+            return current;
+        }
         let result = self.search_defences(state, threshold, limit);
         self.table.insert(hash, result.clone());
         state.undo(last2_move);
@@ -188,7 +193,7 @@ impl Searcher {
         if let Some(win_or_move) = state.check_win_or_mandatory_move() {
             return match win_or_move {
                 Ok(_) => Node::inf_dn(limit),
-                Err(m) => self.loop_defences(state, &[m], threshold, limit),
+                Err(m) => self.expand_defence(state, m, threshold, limit),
             };
         }
 
@@ -232,7 +237,13 @@ impl Searcher {
         let last2_move = state.game().last2_move();
         state.play(defence);
         let hash = state.game().get_hash(limit);
-        let result = self.search_limit(state, threshold, limit - 1);
+        let limit = limit - 1;
+        let current = self.lookup(hash, limit);
+        if current.pn >= threshold.pn || current.dn >= threshold.dn {
+            state.undo(last2_move);
+            return current;
+        }
+        let result = self.search_limit(state, threshold, limit);
         self.table.insert(hash, result.clone());
         state.undo(last2_move);
         result
