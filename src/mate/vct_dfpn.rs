@@ -38,7 +38,7 @@ impl Solver {
         let attacks = state.sorted_attacks(maybe_opponent_threat);
         let mut game = state.game().clone();
         for attack in attacks {
-            let node = self.searcher.lookup_move(&mut game, attack, limit);
+            let node = self.searcher.lookup_next(&mut game, attack, limit);
             if node.pn == 0 {
                 return self.solve_attack(state, limit, attack);
             }
@@ -75,7 +75,7 @@ impl Solver {
         let mut min_limit = u8::MAX;
         let mut selected_defence = Point(0, 0);
         for defence in defences {
-            let node = self.searcher.lookup_move(&mut game, defence, limit);
+            let node = self.searcher.lookup_next(&mut game, defence, limit);
             if node.pn == 0 && node.limit < min_limit {
                 min_limit = node.limit;
                 selected_defence = defence;
@@ -117,18 +117,18 @@ impl Searcher {
         self.search_limit(state, Node::root(max_depth), max_depth)
     }
 
-    fn search_limit(&mut self, state: &mut State, bound: Node, limit: u8) -> Node {
+    fn search_limit(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
         if limit == 0 {
             return Node::inf_pn(limit);
         }
-        self.search_attacks(state, bound, limit)
+        self.search_attacks(state, threshold, limit)
     }
 
-    fn search_attacks(&mut self, state: &mut State, bound: Node, limit: u8) -> Node {
+    fn search_attacks(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
         if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
             return match lose_or_move {
                 Ok(_) => Node::inf_pn(limit),
-                Err(m) => self.loop_attacks(state, &[m], bound, limit),
+                Err(m) => self.loop_attacks(state, &[m], threshold, limit),
             };
         }
 
@@ -139,41 +139,47 @@ impl Searcher {
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
 
         let attacks = state.sorted_attacks(maybe_opponent_threat);
-        self.loop_attacks(state, &attacks, bound, limit)
+        self.loop_attacks(state, &attacks, threshold, limit)
     }
 
     fn loop_attacks(
         &mut self,
         state: &mut State,
         attacks: &[Point],
-        bound: Node,
+        threshold: Node,
         limit: u8,
     ) -> Node {
         loop {
-            let (current, best) = self.select_attack(state, attacks, limit);
-            if current.pn > bound.pn || current.dn > bound.dn {
+            let (current, selected) = self.select_attack(state, attacks, limit);
+            if current.pn > threshold.pn || current.dn > threshold.dn {
                 return current;
             }
-            let (next, next_bound) = best.unwrap();
-            self.expand_attack(state, next, next_bound, limit);
+            let (attack, next) = selected.unwrap();
+            self.expand_attack(state, attack, next, limit);
         }
     }
 
-    fn expand_attack(&mut self, state: &mut State, attack: Point, bound: Node, limit: u8) -> Node {
+    fn expand_attack(
+        &mut self,
+        state: &mut State,
+        attack: Point,
+        threshold: Node,
+        limit: u8,
+    ) -> Node {
         let last2_move = state.game().last2_move();
         state.play(attack);
         let hash = state.game().get_hash(limit);
-        let result = self.search_defences(state, bound, limit);
+        let result = self.search_defences(state, threshold, limit);
         self.table.insert(hash, result.clone());
         state.undo(last2_move);
         result
     }
 
-    fn search_defences(&mut self, state: &mut State, bound: Node, limit: u8) -> Node {
+    fn search_defences(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
         if let Some(win_or_move) = state.check_win_or_mandatory_move() {
             return match win_or_move {
                 Ok(_) => Node::inf_dn(limit),
-                Err(m) => self.loop_defences(state, &[m], bound, limit),
+                Err(m) => self.loop_defences(state, &[m], threshold, limit),
             };
         }
 
@@ -187,23 +193,23 @@ impl Searcher {
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
-        self.loop_defences(state, &defences, bound, limit)
+        self.loop_defences(state, &defences, threshold, limit)
     }
 
     fn loop_defences(
         &mut self,
         state: &mut State,
         defences: &[Point],
-        bound: Node,
+        threshold: Node,
         limit: u8,
     ) -> Node {
         loop {
-            let (current, best) = self.select_defence(state, defences, limit);
-            if current.dn > bound.dn || current.pn > bound.pn {
+            let (current, selected) = self.select_defence(state, defences, limit);
+            if current.dn > threshold.dn || current.pn > threshold.pn {
                 return current;
             }
-            let (next, next_bound) = best.unwrap();
-            self.expand_defence(state, next, next_bound, limit);
+            let (defence, next) = selected.unwrap();
+            self.expand_defence(state, defence, next, limit);
         }
     }
 
@@ -211,13 +217,13 @@ impl Searcher {
         &mut self,
         state: &mut State,
         defence: Point,
-        bound: Node,
+        threshold: Node,
         limit: u8,
     ) -> Node {
         let last2_move = state.game().last2_move();
         state.play(defence);
         let hash = state.game().get_hash(limit);
-        let result = self.search_limit(state, bound, limit - 1);
+        let result = self.search_limit(state, threshold, limit - 1);
         self.table.insert(hash, result.clone());
         state.undo(last2_move);
         result
@@ -230,24 +236,24 @@ impl Searcher {
         limit: u8,
     ) -> (Node, Option<(Point, Node)>) {
         let mut game = state.game().clone();
-        let mut best: Option<(Point, Node)> = None;
-        let mut pn = INF;
-        let mut dn: usize = 0;
-        let mut l = limit;
+        let mut current = Node::inf_pn(limit);
+        let mut selected: Option<(Point, Node)> = None;
         for &attack in attacks {
-            let node = self.lookup_move(&mut game, attack, limit);
-            if node.pn < pn {
-                best.replace((attack, node));
+            let next = self.lookup_next(&mut game, attack, limit);
+            if next.pn < current.pn {
+                selected.replace((attack, next));
             }
-            pn = pn.min(node.pn);
-            dn = dn.checked_add(node.dn).unwrap_or(INF);
-            l = l.min(node.limit);
-            if pn == 0 {
-                dn = INF;
+            current = Node::new(
+                current.pn.min(next.pn),
+                current.dn.checked_add(next.dn).unwrap_or(INF),
+                current.limit.min(next.limit),
+            );
+            if current.pn == 0 {
+                current = Node::inf_dn(current.limit);
                 break;
             }
         }
-        (Node::new(pn, dn, l), best)
+        (current, selected)
     }
 
     fn select_defence(
@@ -257,24 +263,24 @@ impl Searcher {
         limit: u8,
     ) -> (Node, Option<(Point, Node)>) {
         let mut game = state.game().clone();
-        let mut best: Option<(Point, Node)> = None;
-        let mut pn: usize = 0;
-        let mut dn = INF;
-        let mut l = limit;
+        let mut current = Node::inf_dn(limit);
+        let mut selected: Option<(Point, Node)> = None;
         for &defence in defences {
-            let node = self.lookup_move(&mut game, defence, limit);
-            if node.dn < dn {
-                best.replace((defence, node));
+            let next = self.lookup_next(&mut game, defence, limit);
+            if next.dn < current.dn {
+                selected.replace((defence, next));
             }
-            pn = pn.checked_add(node.pn).unwrap_or(INF);
-            dn = dn.min(node.dn);
-            l = l.min(node.limit);
-            if dn == 0 {
-                pn = INF;
+            current = Node::new(
+                current.pn.checked_add(next.pn).unwrap_or(INF),
+                current.dn.min(next.dn),
+                current.limit.min(next.limit),
+            );
+            if current.dn == 0 {
+                current = Node::inf_pn(current.limit);
                 break;
             }
         }
-        (Node::new(pn, dn, l), best)
+        (current, selected)
     }
 
     pub fn solve_vcf(&mut self, state: &mut State, turn: Player, limit: u8) -> Option<Mate> {
@@ -301,7 +307,7 @@ impl Searcher {
         None
     }
 
-    pub fn lookup_move(&self, game: &mut Game, m: Point, limit: u8) -> Node {
+    pub fn lookup_next(&self, game: &mut Game, m: Point, limit: u8) -> Node {
         let last2_move = game.last2_move();
         game.play(m);
         let result = self.lookup(game.get_hash(limit), limit);
