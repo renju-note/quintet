@@ -16,12 +16,15 @@ use std::fmt;
 
 pub struct Solver {
     searcher: Searcher,
+    vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Solver {
     pub fn init() -> Self {
+        let depths = (1..=u8::MAX).into_iter().collect::<Vec<_>>();
         Self {
             searcher: Searcher::init(),
+            vcf_solver: vcf::iddfs::Solver::init(depths),
         }
     }
 
@@ -53,17 +56,9 @@ impl Solver {
                 return self.solve_attack(state, limit, attack);
             }
         }
-        for max_depth in 0..=limit {
-            let vcf_state = &mut state.as_vcf();
-            let result = self
-                .searcher
-                .attacker_vcf_solver
-                .solve(vcf_state, max_depth);
-            if result.is_some() {
-                return result;
-            }
-        }
-        None
+
+        let vcf_state = &mut state.as_vcf();
+        self.vcf_solver.solve(vcf_state, limit)
     }
 
     fn solve_attack(&mut self, state: &mut State, limit: u8, attack: Point) -> Option<Mate> {
@@ -83,11 +78,7 @@ impl Solver {
         }
 
         let threat_state = &mut state.as_threat();
-        let maybe_threat = self
-            .searcher
-            .attacker_vcf_solver
-            .solve(threat_state, limit - 1);
-
+        let maybe_threat = self.vcf_solver.solve(threat_state, limit - 1);
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut game = state.game().clone();
         let mut min_limit = u8::MAX;
