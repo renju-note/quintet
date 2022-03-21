@@ -1,6 +1,6 @@
-use super::super::super::board::StructureKind::*;
-use super::super::super::board::*;
-use super::super::game::*;
+use crate::board::StructureKind::*;
+use crate::board::*;
+use crate::mate::game::*;
 
 pub struct State {
     game: Game,

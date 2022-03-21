@@ -1,5 +1,5 @@
-use super::super::board::StructureKind::*;
-use super::super::board::*;
+use crate::board::StructureKind::*;
+use crate::board::*;
 
 #[derive(Clone)]
 pub struct Game {

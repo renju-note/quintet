@@ -1,7 +1,7 @@
-use super::super::super::board::StructureKind::*;
-use super::super::super::board::*;
-use super::super::game::*;
 use super::field::*;
+use crate::board::StructureKind::*;
+use crate::board::*;
+use crate::mate::game::*;
 use std::collections::{HashMap, HashSet};
 
 pub struct State {

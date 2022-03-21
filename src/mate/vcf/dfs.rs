@@ -1,6 +1,6 @@
-use super::super::super::board::*;
-use super::super::game::*;
-use super::state::*;
+use super::state::State;
+use crate::board::*;
+use crate::mate::game::*;
 use std::collections::HashSet;
 
 pub struct Solver {
@@ -102,8 +102,8 @@ impl Solver {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::super::board::Player::*;
     use super::*;
+    use crate::board::Player::*;
 
     #[test]
     fn test_black() -> Result<(), String> {

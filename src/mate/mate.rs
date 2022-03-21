@@ -1,8 +1,8 @@
-use super::super::board::Player::*;
-use super::super::board::StructureKind::*;
-use super::super::board::*;
 use super::vcf;
 use super::vct;
+use crate::board::Player::*;
+use crate::board::StructureKind::*;
+use crate::board::*;
 
 pub fn solve_vcf(board: &Board, turn: Player, max_depth: u8) -> Option<Vec<Point>> {
     if let Err(e) = validate(board, turn) {
