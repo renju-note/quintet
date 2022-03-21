@@ -1,6 +1,6 @@
-use super::super::board::Direction::*;
-use super::super::board::Player::*;
-use super::super::board::*;
+use super::super::super::board::Direction::*;
+use super::super::super::board::Player::*;
+use super::super::super::board::*;
 
 #[derive(Default, Clone)]
 pub struct Potential {
