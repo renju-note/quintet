@@ -19,23 +19,13 @@ impl State {
         &mut self.game
     }
 
-    pub fn check_mandatory_move_pair(&self) -> Option<Option<(Point, Point)>> {
-        let (maybe_first, maybe_another) = self.game.check_last_four_eyes();
-        if maybe_another.is_some() {
-            return Some(None);
-        }
-        if maybe_first.is_none() {
-            return None;
-        }
-        let mandatory_move = maybe_first.unwrap();
-        let mandatory_move_pair = self
-            .game
+    pub fn mandatory_move_pair(&self, last_four_eye: Point) -> Option<(Point, Point)> {
+        self.game
             .board()
-            .structures_on(mandatory_move, self.game.turn(), Sword)
+            .structures_on(last_four_eye, self.game.turn(), Sword)
             .flat_map(Self::sword_eyes_pairs)
-            .filter(|&(e1, _)| e1 == mandatory_move)
-            .next();
-        Some(mandatory_move_pair)
+            .filter(|&(e1, _)| e1 == last_four_eye)
+            .next()
     }
 
     pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {

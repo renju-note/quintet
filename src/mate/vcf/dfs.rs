@@ -34,13 +34,16 @@ impl Solver {
         result
     }
 
-    pub fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(maybe_move_pair) = state.check_mandatory_move_pair() {
-            return if let Some((attack, defence)) = maybe_move_pair {
-                self.solve_attack(state, limit, attack, defence)
+    fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        let (maybe_four_eye, maybe_four_eye_another) = state.game().check_last_four_eyes();
+        if maybe_four_eye_another.is_some() {
+            return None;
+        } else if let Some(four_eye) = maybe_four_eye {
+            if let Some((attack, defence)) = state.mandatory_move_pair(four_eye) {
+                return self.solve_attack(state, limit, attack, defence);
             } else {
-                None
-            };
+                return None;
+            }
         }
 
         let neighbor_pairs = state.neighbor_move_pairs();
