@@ -1,6 +1,7 @@
 mod game;
-mod mate;
+mod solve;
 mod vcf;
 mod vct;
 
-pub use mate::{solve_vcf, solve_vct, solve_vct_dfpn};
+pub use solve::{solve, SolverKind};
+pub use solve::{solve_vcf, solve_vct, solve_vct_dfpn};
