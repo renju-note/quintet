@@ -19,12 +19,12 @@ impl State {
         &mut self.game
     }
 
-    pub fn mandatory_move_pair(&self, last_four_eye: Point) -> Option<(Point, Point)> {
+    pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
         self.game
             .board()
-            .structures_on(last_four_eye, self.game.turn(), Sword)
+            .structures_on(forced_move, self.game.turn(), Sword)
             .flat_map(Self::sword_eyes_pairs)
-            .filter(|&(e1, _)| e1 == last_four_eye)
+            .filter(|&(e1, _)| e1 == forced_move)
             .next()
     }
 

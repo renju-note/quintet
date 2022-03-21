@@ -39,7 +39,7 @@ impl Solver {
             return match stage {
                 Stage::End(_) => None,
                 Stage::Forced(m) => {
-                    if let Some((attack, defence)) = state.mandatory_move_pair(m) {
+                    if let Some((attack, defence)) = state.forced_move_pair(m) {
                         self.solve_attack(state, limit, attack, defence)
                     } else {
                         None

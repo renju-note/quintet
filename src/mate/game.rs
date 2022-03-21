@@ -81,8 +81,8 @@ impl Game {
             let win = Win::Forbidden(maybe_first.unwrap());
             Some(Stage::End(win))
         } else if maybe_first.is_some() {
-            let mandatory_move = maybe_first.unwrap();
-            Some(Stage::Forced(mandatory_move))
+            let forced_move = maybe_first.unwrap();
+            Some(Stage::Forced(forced_move))
         } else {
             None
         }
