@@ -35,15 +35,17 @@ impl Solver {
     }
 
     fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        let (maybe_four_eye, maybe_four_eye_another) = state.game().check_last_four_eyes();
-        if maybe_four_eye_another.is_some() {
-            return None;
-        } else if let Some(four_eye) = maybe_four_eye {
-            if let Some((attack, defence)) = state.mandatory_move_pair(four_eye) {
-                return self.solve_attack(state, limit, attack, defence);
-            } else {
-                return None;
-            }
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                Stage::End(_) => None,
+                Stage::Forced(m) => {
+                    if let Some((attack, defence)) = state.mandatory_move_pair(m) {
+                        self.solve_attack(state, limit, attack, defence)
+                    } else {
+                        None
+                    }
+                }
+            };
         }
 
         let neighbor_pairs = state.neighbor_move_pairs();
@@ -89,8 +91,11 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
-        if let Some(win) = state.game().check_win() {
-            return Some(Mate::new(win, vec![]));
+        if let Some(stage) = state.game().check_stage() {
+            match stage {
+                Stage::End(win) => return Some(Mate::new(win, vec![])),
+                _ => (),
+            };
         }
 
         let last2_move = state.game().last2_move();

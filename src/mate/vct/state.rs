@@ -52,22 +52,6 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn check_win_or_mandatory_move(&self) -> Option<Result<Win, Point>> {
-        let (maybe_first, maybe_another) = self.game.check_last_four_eyes();
-        if maybe_first.is_some() && maybe_another.is_some() {
-            let win = Win::Fours(maybe_first.unwrap(), maybe_another.unwrap());
-            Some(Ok(win))
-        } else if maybe_first.map_or(false, |e| self.game.is_forbidden_move(e)) {
-            let win = Win::Forbidden(maybe_first.unwrap());
-            Some(Ok(win))
-        } else if maybe_first.is_some() {
-            let mandatory_move = maybe_first.unwrap();
-            Some(Err(mandatory_move))
-        } else {
-            None
-        }
-    }
-
     pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
         let mut potentials = self.potentials();
         if let Some(threat) = maybe_threat {

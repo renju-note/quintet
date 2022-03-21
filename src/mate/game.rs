@@ -72,18 +72,23 @@ impl Game {
         self.turn.is_black() && self.board.forbidden(p).is_some()
     }
 
-    pub fn check_win(&self) -> Option<Win> {
+    pub fn check_stage(&self) -> Option<Stage> {
         let (maybe_first, maybe_another) = self.check_last_four_eyes();
         if maybe_first.is_some() && maybe_another.is_some() {
-            Some(Win::Fours(maybe_first.unwrap(), maybe_another.unwrap()))
+            let win = Win::Fours(maybe_first.unwrap(), maybe_another.unwrap());
+            Some(Stage::End(win))
         } else if maybe_first.map_or(false, |e| self.is_forbidden_move(e)) {
-            Some(Win::Forbidden(maybe_first.unwrap()))
+            let win = Win::Forbidden(maybe_first.unwrap());
+            Some(Stage::End(win))
+        } else if maybe_first.is_some() {
+            let mandatory_move = maybe_first.unwrap();
+            Some(Stage::Forced(mandatory_move))
         } else {
             None
         }
     }
 
-    pub fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
+    fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last_four_eyes = self
             .board
             .structures_on(self.last_move(), self.last(), Four)
@@ -111,6 +116,12 @@ impl Game {
         let default = Point(0, 0);
         (last_move.unwrap_or(default), last2_move.unwrap_or(default))
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Stage {
+    Forced(Point),
+    End(Win),
 }
 
 #[derive(Debug, PartialEq, Eq)]

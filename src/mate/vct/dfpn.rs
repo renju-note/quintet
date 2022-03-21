@@ -38,9 +38,11 @@ impl Solver {
     }
 
     fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
-            let m = lose_or_move.err().unwrap();
-            return self.solve_attack(state, limit, m);
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                Stage::Forced(m) => self.solve_attack(state, limit, m),
+                _ => None,
+            };
         }
 
         let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
@@ -70,10 +72,10 @@ impl Solver {
     }
 
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(win_or_move) = state.check_win_or_mandatory_move() {
-            return match win_or_move {
-                Ok(w) => Some(Mate::new(w, vec![])),
-                Err(m) => self.solve_defence(state, limit, m),
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                Stage::End(w) => Some(Mate::new(w, vec![])),
+                Stage::Forced(m) => self.solve_defence(state, limit, m),
             };
         }
 
@@ -134,10 +136,10 @@ impl Searcher {
     }
 
     fn search_attacks(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
-        if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
-            return match lose_or_move {
-                Ok(_) => Node::inf_pn(limit),
-                Err(m) => self.expand_attack(state, m, threshold, limit),
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                Stage::End(_) => Node::inf_pn(limit),
+                Stage::Forced(m) => self.expand_attack(state, m, threshold, limit),
             };
         }
 
@@ -181,10 +183,10 @@ impl Searcher {
     }
 
     fn search_defences(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
-        if let Some(win_or_move) = state.check_win_or_mandatory_move() {
-            return match win_or_move {
-                Ok(_) => Node::inf_dn(limit),
-                Err(m) => self.expand_defence(state, m, threshold, limit),
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                Stage::End(_) => Node::inf_dn(limit),
+                Stage::Forced(m) => self.expand_defence(state, m, threshold, limit),
             };
         }
 
