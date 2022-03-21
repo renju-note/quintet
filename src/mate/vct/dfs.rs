@@ -39,7 +39,7 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+    fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
             return match lose_or_move {
                 Ok(_) => None,
