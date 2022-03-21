@@ -86,7 +86,7 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
-        if let Some(win) = state.check_win() {
+        if let Some(win) = state.game().check_win() {
             return Some(Mate::new(win, vec![]));
         }
 

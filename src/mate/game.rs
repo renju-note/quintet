@@ -72,6 +72,17 @@ impl Game {
         self.turn.is_black() && self.board.forbidden(p).is_some()
     }
 
+    pub fn check_win(&self) -> Option<Win> {
+        let (maybe_first, maybe_another) = self.check_last_four_eyes();
+        if maybe_first.is_some() && maybe_another.is_some() {
+            Some(Win::Fours(maybe_first.unwrap(), maybe_another.unwrap()))
+        } else if maybe_first.map_or(false, |e| self.is_forbidden_move(e)) {
+            Some(Win::Forbidden(maybe_first.unwrap()))
+        } else {
+            None
+        }
+    }
+
     pub fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last_four_eyes = self
             .board
