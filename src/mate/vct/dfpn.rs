@@ -45,8 +45,7 @@ impl Solver {
             };
         }
 
-        let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
-        let attacks = state.sorted_attacks(maybe_opponent_threat);
+        let attacks = state.sorted_attacks(None);
         let mut game = state.game().clone();
         for attack in attacks {
             let node = self.searcher.lookup_child(&mut game, attack, limit);
@@ -55,7 +54,11 @@ impl Solver {
             }
         }
         for max_depth in 0..=limit {
-            let result = self.solve_vcf(state, state.turn(), max_depth);
+            let vcf_state = &mut state.as_vcf();
+            let result = self
+                .searcher
+                .attacker_vcf_solver
+                .solve(vcf_state, max_depth);
             if result.is_some() {
                 return result;
             }
@@ -79,7 +82,11 @@ impl Solver {
             };
         }
 
-        let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
+        let threat_state = &mut state.as_threat();
+        let maybe_threat = self
+            .searcher
+            .attacker_vcf_solver
+            .solve(threat_state, limit - 1);
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut game = state.game().clone();
@@ -103,24 +110,20 @@ impl Solver {
         state.undo(last2_move);
         result
     }
-
-    fn solve_vcf(&mut self, state: &mut State, turn: Player, limit: u8) -> Option<Mate> {
-        self.searcher.solve_vcf(state, turn, limit)
-    }
 }
 
 struct Searcher {
     table: HashMap<u64, Node>,
-    attacker_vcf_solver: vcf::dfs::Solver,
-    defender_vcf_solver: vcf::dfs::Solver,
+    attacker_vcf_solver: vcf::iddfs::Solver,
+    defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Searcher {
     pub fn init() -> Self {
         Self {
             table: HashMap::new(),
-            attacker_vcf_solver: vcf::dfs::Solver::init(),
-            defender_vcf_solver: vcf::dfs::Solver::init(),
+            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
+            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
@@ -143,13 +146,15 @@ impl Searcher {
             };
         }
 
-        if self.solve_vcf(state, state.turn(), limit).is_some() {
+        let vcf_state = &mut state.as_vcf();
+        if self.attacker_vcf_solver.solve(vcf_state, limit).is_some() {
             return Node::inf_dn(limit);
         }
 
-        let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
+        let threat_state = &mut state.as_threat();
+        let maybe_threat = self.defender_vcf_solver.solve(threat_state, u8::MAX);
 
-        let attacks = state.sorted_attacks(maybe_opponent_threat);
+        let attacks = state.sorted_attacks(maybe_threat);
 
         loop {
             let (current, selected, next1, next2) = self.select_attack(state, &attacks, limit);
@@ -190,12 +195,14 @@ impl Searcher {
             };
         }
 
-        let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
+        let threat_state = &mut state.as_threat();
+        let maybe_threat = self.attacker_vcf_solver.solve(threat_state, limit - 1);
         if maybe_threat.is_none() {
             return Node::inf_pn(limit);
         }
 
-        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
+        let vcf_state = &mut state.as_vcf();
+        if self.defender_vcf_solver.solve(vcf_state, u8::MAX).is_some() {
             return Node::inf_pn(limit);
         }
 
@@ -329,30 +336,6 @@ impl Searcher {
             threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF)),
             current.limit,
         )
-    }
-
-    pub fn solve_vcf(&mut self, state: &mut State, turn: Player, limit: u8) -> Option<Mate> {
-        let attacker = state.attacker();
-        let game = state.game();
-        let state = &mut vcf::State::new(if turn == game.last() {
-            game.pass()
-        } else {
-            game.clone()
-        });
-        for max_depth in [1, limit] {
-            if max_depth > limit {
-                return None;
-            }
-            let result = if turn == attacker {
-                self.attacker_vcf_solver.solve(state, max_depth)
-            } else {
-                self.defender_vcf_solver.solve(state, max_depth)
-            };
-            if result.is_some() {
-                return result;
-            }
-        }
-        None
     }
 
     pub fn lookup_child(&self, game: &mut Game, m: Point, limit: u8) -> Node {

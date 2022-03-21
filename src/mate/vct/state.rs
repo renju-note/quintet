@@ -2,6 +2,7 @@ use super::field::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::vcf;
 use std::collections::{HashMap, HashSet};
 
 pub struct State {
@@ -82,6 +83,14 @@ impl State {
             .into_iter()
             .filter(|&p| !self.game.is_forbidden_move(p))
             .collect()
+    }
+
+    pub fn as_vcf(&self) -> vcf::State {
+        vcf::State::new(self.game().clone())
+    }
+
+    pub fn as_threat(&self) -> vcf::State {
+        vcf::State::new(self.game().pass())
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
