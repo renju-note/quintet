@@ -5,10 +5,10 @@ Nagai, Ayumu, and Hiroshi Imai.
 "Proof for the equivalence between some best-first algorithms and depth-first algorithms for AND/OR trees."
 IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 */
-use super::super::board::*;
-use super::game::*;
-use super::vcf;
-use super::vct::State;
+use super::state::State;
+use crate::board::*;
+use crate::mate::game::*;
+use crate::mate::vcf;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -109,16 +109,16 @@ impl Solver {
 
 struct Searcher {
     table: HashMap<u64, Node>,
-    attacker_vcf_solver: vcf::Solver,
-    defender_vcf_solver: vcf::Solver,
+    attacker_vcf_solver: vcf::dfs::Solver,
+    defender_vcf_solver: vcf::dfs::Solver,
 }
 
 impl Searcher {
     pub fn init() -> Self {
         Self {
             table: HashMap::new(),
-            attacker_vcf_solver: vcf::Solver::init(),
-            defender_vcf_solver: vcf::Solver::init(),
+            attacker_vcf_solver: vcf::dfs::Solver::init(),
+            defender_vcf_solver: vcf::dfs::Solver::init(),
         }
     }
 
@@ -419,8 +419,8 @@ impl fmt::Display for Node {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::board::Player::*;
     use super::*;
+    use crate::board::Player::*;
 
     #[test]
     fn test_black() -> Result<(), String> {
