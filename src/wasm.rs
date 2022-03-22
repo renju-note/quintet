@@ -11,15 +11,16 @@ pub fn solve(
     whites: &[u8],
     black: bool,
 ) -> Option<Box<[u8]>> {
+    let kind = solver_kind(kind_code);
     let blacks = Points::try_from(blacks);
     let whites = Points::try_from(whites);
     if !blacks.is_ok() || !whites.is_ok() {
         return None;
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
-    let kind = solver_kind(kind_code);
-    let solution = mate::solve(kind, max_depth, &board, Player::from(black));
-    solution.map(|ps| <Vec<u8>>::from(Points(ps)).into_boxed_slice())
+    let player = Player::from(black);
+    let solution = mate::solve(kind, max_depth, &board, player);
+    solution.map(|s| <Vec<u8>>::from(Points(s.path)).into_boxed_slice())
 }
 
 #[wasm_bindgen]

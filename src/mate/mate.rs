@@ -29,4 +29,12 @@ impl Mate {
             old
         }
     }
+
+    pub fn n_moves(&self) -> u8 {
+        self.path.len() as u8
+    }
+
+    pub fn n_times(&self) -> u8 {
+        ((self.path.len() + 1) / 2) as u8
+    }
 }

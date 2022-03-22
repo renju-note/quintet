@@ -20,13 +20,14 @@ fn main() -> Result<(), &'static str> {
 fn solve_print(kind: SolverKind, max_depth: u8, board: Board, turn: Player) {
     println!("Solving...\n");
     let start = Instant::now();
-    let may_solution = solve(kind, max_depth, &board, turn);
+    let solution = solve(kind, max_depth, &board, turn);
     let elapsed = start.elapsed();
     println!("Elapsed: {:?}", elapsed);
-    match may_solution {
-        Some(solution) => {
-            println!("Depth: {}", (solution.len() + 1) / 2);
-            println!("Solution: {}", Points(solution));
+    match solution {
+        Some(m) => {
+            println!("Win: {}", m.win);
+            println!("Times (Length): {} ({})", m.n_times(), m.n_moves());
+            println!("Moves: {}", Points(m.path));
         }
         None => println!("None"),
     }

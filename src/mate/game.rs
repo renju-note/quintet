@@ -1,11 +1,23 @@
 use crate::board::StructureKind::*;
 use crate::board::*;
+use std::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Win {
     Fours(Point, Point),
     Forbidden(Point),
     Unknown,
+}
+
+impl fmt::Display for Win {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            Fours(p1, p2) => format!("Fours({}, {})", p1, p2),
+            Forbidden(p) => format!("Forbidden({})", p),
+            Unknown => format!("Unknown"),
+        };
+        write!(f, "{}", s)
+    }
 }
 
 pub use Win::*;
