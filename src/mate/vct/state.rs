@@ -7,24 +7,27 @@ use crate::mate::vcf;
 use std::collections::{HashMap, HashSet};
 
 pub struct State {
-    attacker: Player,
     game: Game,
     field: PotentialField,
+    pub attacker: Player,
+    pub limit: u8,
 }
 
 impl State {
-    pub fn new(attacker: Player, game: Game, field: PotentialField) -> Self {
+    pub fn new(game: Game, field: PotentialField, limit: u8) -> Self {
+        let attacker = game.turn();
         Self {
             attacker: attacker,
+            limit: limit,
             game: game,
             field: field,
         }
     }
 
-    pub fn init(board: Board, turn: Player) -> Self {
+    pub fn init(board: Board, turn: Player, limit: u8) -> Self {
         let field = PotentialField::init(turn, 2, &board);
         let game = Game::init(board, turn);
-        Self::new(turn, game, field)
+        Self::new(game, field, limit)
     }
 
     pub fn game(&self) -> &'_ Game {
@@ -35,12 +38,22 @@ impl State {
         self.game.turn()
     }
 
+    pub fn zobrist_hash(&self) -> u64 {
+        self.game.zobrist_hash(self.limit)
+    }
+
     pub fn play(&mut self, next_move: Point) {
         self.game.play(next_move);
         self.field.update_along(next_move, self.game.board());
+        if self.game.turn() == self.attacker {
+            self.limit -= 1
+        }
     }
 
     pub fn undo(&mut self, last2_move: Point) {
+        if self.game.turn() == self.attacker {
+            self.limit += 1
+        }
         let last_move = self.game.last_move();
         self.game.undo(last2_move);
         self.field.update_along(last_move, self.game.board());
@@ -79,11 +92,11 @@ impl State {
     }
 
     pub fn as_vcf(&self) -> vcf::State {
-        vcf::State::new(self.game().clone())
+        vcf::State::new(self.game().clone(), self.limit)
     }
 
     pub fn as_threat(&self) -> vcf::State {
-        vcf::State::new(self.game().pass())
+        vcf::State::new(self.game().pass(), self.limit - 1)
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {

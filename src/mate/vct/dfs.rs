@@ -20,46 +20,43 @@ impl Solver {
         }
     }
 
-    pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
-        self.solve_limit(state, max_depth)
-    }
-
-    fn solve_limit(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if limit == 0 {
+    pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
+        if state.limit == 0 {
             return None;
         }
 
-        let hash = state.game().zobrist_hash(limit);
+        let hash = state.zobrist_hash();
         if self.deadends.contains(&hash) {
             return None;
         }
-        let result = self.solve_attacks(state, limit);
+        let result = self.solve_attacks(state);
         if result.is_none() {
             self.deadends.insert(hash);
         }
         result
     }
 
-    fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+    fn solve_attacks(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
                 End(_) => None,
-                Forced(m) => self.solve_attack(state, limit, m),
+                Forced(m) => self.solve_attack(state, m),
             };
         }
 
         let vcf_state = &mut state.as_vcf();
-        if let Some(vcf) = self.attacker_vcf_solver.solve(vcf_state, limit) {
+        if let Some(vcf) = self.attacker_vcf_solver.solve(vcf_state) {
             return Some(vcf);
         }
 
         let threat_state = &mut state.as_threat();
-        let maybe_threat = self.defender_vcf_solver.solve(threat_state, u8::MAX);
+        threat_state.set_limit(u8::MAX);
+        let maybe_threat = self.defender_vcf_solver.solve(threat_state);
 
         let attacks = state.sorted_attacks(maybe_threat);
 
         for attack in attacks {
-            let result = self.solve_attack(state, limit, attack);
+            let result = self.solve_attack(state, attack);
             if result.is_some() {
                 return result;
             }
@@ -67,30 +64,31 @@ impl Solver {
         None
     }
 
-    fn solve_attack(&mut self, state: &mut State, limit: u8, attack: Point) -> Option<Mate> {
+    fn solve_attack(&mut self, state: &mut State, attack: Point) -> Option<Mate> {
         let last2_move = state.game().last2_move();
         state.play(attack);
-        let result = self.solve_defences(state, limit).map(|m| m.unshift(attack));
+        let result = self.solve_defences(state).map(|m| m.unshift(attack));
         state.undo(last2_move);
         result
     }
 
-    fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+    fn solve_defences(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
                 End(w) => Some(Mate::new(w, vec![])),
-                Forced(m) => self.solve_defence(state, limit, m),
+                Forced(m) => self.solve_defence(state, m),
             };
         }
 
         let threat_state = &mut state.as_threat();
-        let maybe_threat = self.attacker_vcf_solver.solve(threat_state, limit - 1);
+        let maybe_threat = self.attacker_vcf_solver.solve(threat_state);
         if maybe_threat.is_none() {
             return None;
         }
 
         let vcf_state = &mut state.as_vcf();
-        if self.defender_vcf_solver.solve(vcf_state, u8::MAX).is_some() {
+        threat_state.set_limit(u8::MAX);
+        if self.defender_vcf_solver.solve(vcf_state).is_some() {
             return None;
         }
 
@@ -98,7 +96,7 @@ impl Solver {
 
         let mut result = Some(Mate::new(Unknown, vec![]));
         for defence in defences {
-            let new_result = self.solve_defence(state, limit, defence);
+            let new_result = self.solve_defence(state, defence);
             if new_result.is_none() {
                 result = None;
                 break;
@@ -109,11 +107,10 @@ impl Solver {
         result
     }
 
-    fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
+    fn solve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
         let last2_move = state.game().last2_move();
         state.play(defence);
-        let limit = limit - 1;
-        let result = self.solve_limit(state, limit).map(|m| m.unshift(defence));
+        let result = self.solve(state).map(|m| m.unshift(defence));
         state.undo(last2_move);
         result
     }
@@ -145,15 +142,16 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 4);
+        let state = &mut State::init(board.clone(), Black, 4);
+        let result = solver.solve(state);
         let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
         assert_eq!(result, expected);
 
-        let result = solver.solve(state, 3);
+        let state = &mut State::init(board.clone(), Black, 3);
+        let result = solver.solve(state);
         assert_eq!(result, None);
 
         Ok(())
@@ -179,15 +177,16 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 4);
+        let state = &mut State::init(board.clone(), White, 4);
+        let result = solver.solve(state);
         let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("I10,I6,I11,I8,J11,J8,G8".to_string());
         assert_eq!(result, expected);
 
-        let result = solver.solve(state, 3);
+        let state = &mut State::init(board.clone(), White, 3);
+        let result = solver.solve(state);
         let result = result.map(|m| Points(m.path).to_string());
         assert_eq!(result, None);
 
@@ -215,15 +214,16 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 4);
+        let state = &mut State::init(board.clone(), White, 4);
+        let result = solver.solve(state);
         let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("F7,E8,G8,E6,G5,G7,H6".to_string());
         assert_eq!(result, expected);
 
-        let result = solver.solve(state, 3);
+        let state = &mut State::init(board.clone(), White, 3);
+        let result = solver.solve(state);
         assert_eq!(result, None);
 
         Ok(())
@@ -250,15 +250,16 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 4);
+        let state = &mut State::init(board.clone(), Black, 4);
+        let result = solver.solve(state);
         let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("J8,I7,I8,G8,L8,K8,K7".to_string());
         assert_eq!(result, expected);
 
-        let result = solver.solve(state, 3);
+        let state = &mut State::init(board.clone(), Black, 3);
+        let result = solver.solve(state);
         assert_eq!(result, None);
 
         Ok(())
@@ -285,15 +286,16 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 7);
+        let state = &mut State::init(board.clone(), Black, 7);
+        let result = solver.solve(state);
         let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("G12,E10,F12,I12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
         assert_eq!(result, expected);
 
-        let result = solver.solve(state, 6);
+        let state = &mut State::init(board.clone(), Black, 6);
+        let result = solver.solve(state);
         assert_eq!(result, None);
 
         Ok(())
@@ -319,15 +321,16 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
         let mut solver = Solver::init();
 
-        let result = solver.solve(state, 5);
+        let state = &mut State::init(board.clone(), White, 5);
+        let result = solver.solve(state);
         let result = result.map(|m| Points(m.path).to_string());
         let expected = Some("J4,K3,I4,I3,F8,G7,E6,G9,G6".to_string());
         assert_eq!(result, expected);
 
-        let result = solver.solve(state, 4);
+        let state = &mut State::init(board.clone(), White, 4);
+        let result = solver.solve(state);
         assert_eq!(result, None);
 
         Ok(())
