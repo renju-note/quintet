@@ -32,9 +32,9 @@ impl Solver {
     }
 
     fn solve_attacks(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(stage) = state.game().check_stage() {
-            return match stage {
-                End(_) => None,
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(_) => None,
                 Forced(m) => self.solve_attack(state, m),
             };
         }
@@ -65,9 +65,9 @@ impl Solver {
     }
 
     fn solve_defences(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(stage) = state.game().check_stage() {
-            return match stage {
-                End(w) => Some(Mate::new(w, vec![])),
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(end) => Some(Mate::new(end, vec![])),
                 Forced(m) => self.solve_defence(state, m),
             };
         }
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_black() -> Result<(), String> {
-        // No. 02 from 5-moves-to-win problems by Hiroshi Okabe
+        // No. 02 from 5-moves-to-end problems by Hiroshi Okabe
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_counter() -> Result<(), String> {
-        // No. 63 from 5-moves-to-win problems by Hiroshi Okabe
+        // No. 63 from 5-moves-to-end problems by Hiroshi Okabe
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_forbidden_breaker() -> Result<(), String> {
-        // No. 68 from 5-moves-to-win problems by Hiroshi Okabe
+        // No. 68 from 5-moves-to-end problems by Hiroshi Okabe
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
