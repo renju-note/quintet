@@ -7,7 +7,7 @@ mod potential;
 mod sequence;
 mod square;
 mod structure;
-pub mod zobrist;
+mod zobrist;
 
 pub use board::Board;
 pub use forbidden::ForbiddenKind;

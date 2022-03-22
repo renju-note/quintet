@@ -44,8 +44,8 @@ impl Game {
         self.turn.opponent()
     }
 
-    pub fn get_hash(&self, limit: u8) -> u64 {
-        zobrist::apply_limit(self.board.zobrist_hash(), limit)
+    pub fn zobrist_hash(&self, limit: u8) -> u64 {
+        self.board.zobrist_hash_n(limit)
     }
 
     pub fn play(&mut self, next_move: Point) {

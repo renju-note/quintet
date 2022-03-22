@@ -90,6 +90,7 @@ impl Solver {
                 selected_defence = defence;
             }
         }
+
         self.solve_defence(state, limit, selected_defence)
     }
 
@@ -166,7 +167,7 @@ impl Searcher {
     ) -> Node {
         let last2_move = state.game().last2_move();
         state.play(attack);
-        let hash = state.game().get_hash(limit);
+        let hash = state.game().zobrist_hash(limit);
         let current = self.lookup(hash, limit);
         if current.pn >= threshold.pn || current.dn >= threshold.dn {
             state.undo(last2_move);
@@ -218,7 +219,7 @@ impl Searcher {
     ) -> Node {
         let last2_move = state.game().last2_move();
         state.play(defence);
-        let hash = state.game().get_hash(limit);
+        let hash = state.game().zobrist_hash(limit);
         let limit = limit - 1;
         let current = self.lookup(hash, limit);
         if current.pn >= threshold.pn || current.dn >= threshold.dn {
@@ -332,7 +333,7 @@ impl Searcher {
     pub fn lookup_child(&self, game: &mut Game, m: Point, limit: u8) -> Node {
         let last2_move = game.last2_move();
         game.play(m);
-        let result = self.lookup(game.get_hash(limit), limit);
+        let result = self.lookup(game.zobrist_hash(limit), limit);
         game.undo(last2_move);
         result
     }

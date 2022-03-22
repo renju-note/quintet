@@ -23,7 +23,7 @@ impl Solver {
             return None;
         }
 
-        let hash = state.game().get_hash(limit);
+        let hash = state.game().zobrist_hash(limit);
         if self.deadends.contains(&hash) {
             return None;
         }
