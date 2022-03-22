@@ -1,3 +1,5 @@
+use super::game::*;
+use super::mate::*;
 use super::vcf;
 use super::vct;
 use crate::board::Player::*;
@@ -27,7 +29,7 @@ impl FromStr for SolverKind {
 
 use SolverKind::*;
 
-pub fn solve(kind: SolverKind, max_depth: u8, board: &Board, turn: Player) -> Option<Vec<Point>> {
+pub fn solve(kind: SolverKind, max_depth: u8, board: &Board, turn: Player) -> Option<Mate> {
     if let Err(e) = validate(board, turn) {
         return e;
     }
@@ -35,22 +37,22 @@ pub fn solve(kind: SolverKind, max_depth: u8, board: &Board, turn: Player) -> Op
         VCF => {
             let state = &mut vcf::State::init(board.clone(), turn);
             let mut solver = vcf::dfs::Solver::init();
-            solver.solve(state, max_depth).map(|s| s.path)
+            solver.solve(state, max_depth)
         }
         VCTDFS => {
             let state = &mut vct::State::init(board.clone(), turn);
             let mut solver = vct::dfs::Solver::init();
-            solver.solve(state, max_depth).map(|s| s.path)
+            solver.solve(state, max_depth)
         }
         VCTDFPN => {
             let state = &mut vct::State::init(board.clone(), turn);
             let mut solver = vct::dfpn::Solver::init();
-            solver.solve(state, max_depth).map(|s| s.path)
+            solver.solve(state, max_depth)
         }
     }
 }
 
-fn validate(board: &Board, turn: Player) -> Result<(), Option<Vec<Point>>> {
+fn validate(board: &Board, turn: Player) -> Result<(), Option<Mate>> {
     if board.structures(Black, Five).next().is_some() {
         return Err(None);
     }
@@ -61,7 +63,7 @@ fn validate(board: &Board, turn: Player) -> Result<(), Option<Vec<Point>>> {
         return Err(None);
     }
     if board.structures(turn, Four).next().is_some() {
-        return Err(Some(vec![]));
+        return Err(Some(Mate::new(Unknown, vec![])));
     }
     Ok(())
 }

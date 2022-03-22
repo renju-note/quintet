@@ -2,6 +2,8 @@ use super::field::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::mate::*;
+use crate::mate::vcf;
 use std::collections::{HashMap, HashSet};
 
 pub struct State {
@@ -52,22 +54,6 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
-    pub fn check_win_or_mandatory_move(&self) -> Option<Result<Win, Point>> {
-        let (maybe_first, maybe_another) = self.game.check_last_four_eyes();
-        if maybe_first.is_some() && maybe_another.is_some() {
-            let win = Win::Fours(maybe_first.unwrap(), maybe_another.unwrap());
-            Some(Ok(win))
-        } else if maybe_first.map_or(false, |e| self.game.is_forbidden_move(e)) {
-            let win = Win::Forbidden(maybe_first.unwrap());
-            Some(Ok(win))
-        } else if maybe_first.is_some() {
-            let mandatory_move = maybe_first.unwrap();
-            Some(Err(mandatory_move))
-        } else {
-            None
-        }
-    }
-
     pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
         let mut potentials = self.potentials();
         if let Some(threat) = maybe_threat {
@@ -100,6 +86,14 @@ impl State {
             .collect()
     }
 
+    pub fn as_vcf(&self) -> vcf::State {
+        vcf::State::new(self.game().clone())
+    }
+
+    pub fn as_threat(&self) -> vcf::State {
+        vcf::State::new(self.game().pass())
+    }
+
     fn potentials(&self) -> Vec<(Point, u8)> {
         let min = if self.attacker == Player::Black { 4 } else { 3 };
         self.field.collect(min)
@@ -115,10 +109,10 @@ impl State {
     fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = threat.path.clone();
         match threat.win {
-            Win::Fours(p1, p2) => {
+            Fours(p1, p2) => {
                 result.extend([p1, p2]);
             }
-            Win::Forbidden(p) => {
+            Forbidden(p) => {
                 result.push(p);
                 result.extend(self.game.board().neighbors(p, 5, true));
             }

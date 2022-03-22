@@ -1,5 +1,34 @@
 use crate::board::StructureKind::*;
 use crate::board::*;
+use std::fmt;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Win {
+    Fours(Point, Point),
+    Forbidden(Point),
+    Unknown,
+}
+
+impl fmt::Display for Win {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            Fours(p1, p2) => format!("Fours({}, {})", p1, p2),
+            Forbidden(p) => format!("Forbidden({})", p),
+            Unknown => format!("Unknown"),
+        };
+        write!(f, "{}", s)
+    }
+}
+
+pub use Win::*;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Stage {
+    Forced(Point),
+    End(Win),
+}
+
+pub use Stage::*;
 
 #[derive(Clone)]
 pub struct Game {
@@ -44,8 +73,8 @@ impl Game {
         self.turn.opponent()
     }
 
-    pub fn get_hash(&self, limit: u8) -> u64 {
-        zobrist::apply_limit(self.board.zobrist_hash(), limit)
+    pub fn zobrist_hash(&self, limit: u8) -> u64 {
+        self.board.zobrist_hash_n(limit)
     }
 
     pub fn play(&mut self, next_move: Point) {
@@ -72,7 +101,23 @@ impl Game {
         self.turn.is_black() && self.board.forbidden(p).is_some()
     }
 
-    pub fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
+    pub fn check_stage(&self) -> Option<Stage> {
+        let (maybe_first, maybe_another) = self.check_last_four_eyes();
+        if maybe_first.is_some() && maybe_another.is_some() {
+            let win = Fours(maybe_first.unwrap(), maybe_another.unwrap());
+            Some(End(win))
+        } else if maybe_first.map_or(false, |e| self.is_forbidden_move(e)) {
+            let win = Forbidden(maybe_first.unwrap());
+            Some(End(win))
+        } else if maybe_first.is_some() {
+            let forced_move = maybe_first.unwrap();
+            Some(Forced(forced_move))
+        } else {
+            None
+        }
+    }
+
+    fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last_four_eyes = self
             .board
             .structures_on(self.last_move(), self.last(), Four)
@@ -99,42 +144,5 @@ impl Game {
         let last2_move = board.stones(turn).next();
         let default = Point(0, 0);
         (last_move.unwrap_or(default), last2_move.unwrap_or(default))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Win {
-    Fours(Point, Point),
-    Forbidden(Point),
-    Unknown(),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Mate {
-    pub win: Win,
-    pub path: Vec<Point>,
-}
-
-impl Mate {
-    pub fn new(win: Win, path: Vec<Point>) -> Self {
-        Self {
-            win: win,
-            path: path,
-        }
-    }
-
-    pub fn unshift(mut self, m: Point) -> Self {
-        let win = self.win;
-        let mut path = vec![m];
-        path.append(&mut self.path);
-        Self::new(win, path)
-    }
-
-    pub fn preferred(old: Self, new: Self) -> Self {
-        if old.win == Win::Unknown() || new.path.len() > old.path.len() {
-            new
-        } else {
-            old
-        }
     }
 }

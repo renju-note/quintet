@@ -1,6 +1,7 @@
 use super::state::State;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::mate::*;
 use std::collections::HashSet;
 
 pub struct Solver {
@@ -23,7 +24,7 @@ impl Solver {
             return None;
         }
 
-        let hash = state.game().get_hash(limit);
+        let hash = state.game().zobrist_hash(limit);
         if self.deadends.contains(&hash) {
             return None;
         }
@@ -34,12 +35,17 @@ impl Solver {
         result
     }
 
-    pub fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(maybe_move_pair) = state.check_mandatory_move_pair() {
-            return if let Some((attack, defence)) = maybe_move_pair {
-                self.solve_attack(state, limit, attack, defence)
-            } else {
-                None
+    fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                End(_) => None,
+                Forced(m) => {
+                    if let Some((attack, defence)) = state.forced_move_pair(m) {
+                        self.solve_attack(state, limit, attack, defence)
+                    } else {
+                        None
+                    }
+                }
             };
         }
 
@@ -86,8 +92,11 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
-        if let Some(win) = state.check_win() {
-            return Some(Mate::new(win, vec![]));
+        if let Some(stage) = state.game().check_stage() {
+            match stage {
+                End(win) => return Some(Mate::new(win, vec![])),
+                _ => (),
+            };
         }
 
         let last2_move = state.game().last2_move();

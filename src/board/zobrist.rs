@@ -4,10 +4,10 @@ use super::point::*;
 pub fn from_stones(blacks: &Points, whites: &Points) -> u64 {
     let mut result = new();
     for p in blacks.0.iter() {
-        result = apply(result, Black, *p)
+        result = apply_move(result, Black, *p)
     }
     for p in whites.0.iter() {
-        result = apply(result, White, *p)
+        result = apply_move(result, White, *p)
     }
     result
 }
@@ -16,17 +16,14 @@ pub fn new() -> u64 {
     EMPTY_CODE
 }
 
-pub fn apply(current: u64, player: Player, p: Point) -> u64 {
-    current ^ get_code(player, p)
-}
-
-pub fn apply_limit(current: u64, limit: u8) -> u64 {
-    current ^ LIMIT_TABLE[limit as usize]
-}
-
-fn get_code(player: Player, p: Point) -> u64 {
+pub fn apply_move(current: u64, player: Player, p: Point) -> u64 {
     let idx = 2 * (u8::from(p) as usize) + if player.is_black() { 0 } else { 1 };
-    CODE_TABLE[idx as usize]
+    let code = CODE_TABLE[idx as usize];
+    current ^ code
+}
+
+pub fn apply_n(current: u64, n: u8) -> u64 {
+    current ^ N_TABLE[n as usize]
 }
 
 #[cfg(test)]
@@ -34,16 +31,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_apply() {
+    fn test_apply_move() {
         let mut code1 = new();
-        code1 = apply(code1, Black, Point(7, 7));
-        code1 = apply(code1, White, Point(8, 8));
-        code1 = apply(code1, Black, Point(9, 8));
+        code1 = apply_move(code1, Black, Point(7, 7));
+        code1 = apply_move(code1, White, Point(8, 8));
+        code1 = apply_move(code1, Black, Point(9, 8));
         // different order
         let mut code2 = new();
-        code2 = apply(code2, Black, Point(7, 7));
-        code2 = apply(code2, Black, Point(9, 8));
-        code2 = apply(code2, White, Point(8, 8));
+        code2 = apply_move(code2, Black, Point(7, 7));
+        code2 = apply_move(code2, Black, Point(9, 8));
+        code2 = apply_move(code2, White, Point(8, 8));
         assert_eq!(code1, code2)
     }
 }
@@ -505,7 +502,7 @@ const CODE_TABLE: [u64; TABLE_SIZE] = [
     0x8d34b1a9eafa6b57,
 ];
 
-const LIMIT_TABLE: [u64; 256] = [
+const N_TABLE: [u64; 256] = [
     0xd5c4d8a490fd8689,
     0xea767ba8443999f6,
     0xa2aaca5641e2f103,

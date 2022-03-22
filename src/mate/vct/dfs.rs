@@ -1,6 +1,7 @@
 use super::state::*;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::mate::*;
 use crate::mate::vcf;
 use std::collections::HashSet;
 
@@ -28,7 +29,7 @@ impl Solver {
             return None;
         }
 
-        let hash = state.game().get_hash(limit);
+        let hash = state.game().zobrist_hash(limit);
         if self.deadends.contains(&hash) {
             return None;
         }
@@ -39,11 +40,11 @@ impl Solver {
         result
     }
 
-    pub fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(lose_or_move) = state.check_win_or_mandatory_move() {
-            return match lose_or_move {
-                Ok(_) => None,
-                Err(m) => self.solve_attack(state, limit, m),
+    fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                End(_) => None,
+                Forced(m) => self.solve_attack(state, limit, m),
             };
         }
 
@@ -73,10 +74,10 @@ impl Solver {
     }
 
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
-        if let Some(win_or_move) = state.check_win_or_mandatory_move() {
-            return match win_or_move {
-                Ok(w) => Some(Mate::new(w, vec![])),
-                Err(m) => self.solve_defence(state, limit, m),
+        if let Some(stage) = state.game().check_stage() {
+            return match stage {
+                End(w) => Some(Mate::new(w, vec![])),
+                Forced(m) => self.solve_defence(state, limit, m),
             };
         }
 
@@ -91,7 +92,7 @@ impl Solver {
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
 
-        let mut result = Some(Mate::new(Win::Unknown(), vec![]));
+        let mut result = Some(Mate::new(Unknown, vec![]));
         for defence in defences {
             let new_result = self.solve_defence(state, limit, defence);
             if new_result.is_none() {

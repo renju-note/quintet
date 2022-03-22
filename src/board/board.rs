@@ -122,8 +122,12 @@ impl Board {
         self.z_hash
     }
 
+    pub fn zobrist_hash_n(&self, n: u8) -> u64 {
+        zobrist::apply_n(self.z_hash, n)
+    }
+
     fn update_z_hash(&mut self, r: Player, p: Point) {
-        self.z_hash = zobrist::apply(self.z_hash, r, p);
+        self.z_hash = zobrist::apply_move(self.z_hash, r, p);
     }
 }
 
