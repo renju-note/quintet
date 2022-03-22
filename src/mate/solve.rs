@@ -11,6 +11,7 @@ use std::str::FromStr;
 pub enum SolverKind {
     VCF,
     VCTDFS,
+    VCTPNS,
     VCTDFPNS,
 }
 
@@ -21,6 +22,7 @@ impl FromStr for SolverKind {
         match s {
             "vcf" => Ok(VCF),
             "vct_dfs" => Ok(VCTDFS),
+            "vct_pns" => Ok(VCTPNS),
             "vct_dfpns" => Ok(VCTDFPNS),
             _ => Err("Unknown SolverKind"),
         }
@@ -43,6 +45,15 @@ pub fn solve(kind: SolverKind, limit: u8, board: &Board, turn: Player) -> Option
             let state = &mut vct::State::init(board.clone(), turn, limit);
             let mut solver = vct::dfs::Solver::init();
             solver.solve(state)
+        }
+        VCTPNS => {
+            let state = &mut vct::State::init(board.clone(), turn, limit);
+            let searcher = vct::pns::Searcher::init();
+            let may_table = searcher.search(state);
+            may_table.and_then(|table| {
+                let mut resolver = vct::resolver::Resolver::init(table);
+                resolver.resolve(state)
+            })
         }
         VCTDFPNS => {
             let state = &mut vct::State::init(board.clone(), turn, limit);
