@@ -47,7 +47,7 @@ pub fn solve(kind: SolverKind, limit: u8, board: &Board, turn: Player) -> Option
         VCTDFPN => {
             let state = &mut vct::State::init(board.clone(), turn, limit);
             let searcher = vct::dfpn::Searcher::init();
-            let may_table = searcher.search(state, limit);
+            let may_table = searcher.search(state);
             may_table.and_then(|table| {
                 let mut resolver = vct::resolver::Resolver::init(table);
                 resolver.resolve(state)
