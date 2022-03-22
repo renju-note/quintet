@@ -143,7 +143,7 @@ impl State {
 
     fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = threat.path.clone();
-        match threat.win {
+        match threat.end {
             Fours(p1, p2) => {
                 result.extend([p1, p2]);
             }

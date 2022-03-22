@@ -18,8 +18,8 @@ impl Resolver {
     }
 
     fn resolve_attacks(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(stage) = state.game().check_stage() {
-            return match stage {
+        if let Some(event) = state.game().check_event() {
+            return match event {
                 Forced(m) => self.resolve_attack(state, m),
                 _ => None,
             };
@@ -45,9 +45,9 @@ impl Resolver {
     }
 
     fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(stage) = state.game().check_stage() {
-            return match stage {
-                End(w) => Some(Mate::new(w, vec![])),
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(end) => Some(Mate::new(end, vec![])),
                 Forced(m) => self.resolve_defence(state, m),
             };
         }

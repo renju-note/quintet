@@ -32,9 +32,9 @@ impl Solver {
     }
 
     fn solve_move_pairs(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(stage) = state.game().check_stage() {
-            return match stage {
-                End(_) => None,
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(_) => None,
                 Forced(m) => {
                     if let Some((attack, defence)) = state.forced_move_pair(m) {
                         self.solve_attack(state, attack, defence)
@@ -82,9 +82,9 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
-        if let Some(stage) = state.game().check_stage() {
-            match stage {
-                End(win) => return Some(Mate::new(win, vec![])),
+        if let Some(event) = state.game().check_event() {
+            match event {
+                Defeated(end) => return Some(Mate::new(end, vec![])),
                 _ => (),
             };
         }

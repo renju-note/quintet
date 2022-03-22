@@ -3,13 +3,13 @@ use crate::board::*;
 use std::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Win {
+pub enum End {
     Fours(Point, Point),
     Forbidden(Point),
     Unknown,
 }
 
-impl fmt::Display for Win {
+impl fmt::Display for End {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
             Fours(p1, p2) => format!("Fours({}, {})", p1, p2),
@@ -20,15 +20,15 @@ impl fmt::Display for Win {
     }
 }
 
-pub use Win::*;
+pub use End::*;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Stage {
+pub enum Event {
     Forced(Point),
-    End(Win),
+    Defeated(End),
 }
 
-pub use Stage::*;
+pub use Event::*;
 
 #[derive(Clone)]
 pub struct Game {
@@ -101,14 +101,14 @@ impl Game {
         self.turn.is_black() && self.board.forbidden(p).is_some()
     }
 
-    pub fn check_stage(&self) -> Option<Stage> {
+    pub fn check_event(&self) -> Option<Event> {
         let (maybe_first, maybe_another) = self.check_last_four_eyes();
         if maybe_first.is_some() && maybe_another.is_some() {
-            let win = Fours(maybe_first.unwrap(), maybe_another.unwrap());
-            Some(End(win))
+            let end = Fours(maybe_first.unwrap(), maybe_another.unwrap());
+            Some(Defeated(end))
         } else if maybe_first.map_or(false, |e| self.is_forbidden_move(e)) {
-            let win = Forbidden(maybe_first.unwrap());
-            Some(End(win))
+            let end = Forbidden(maybe_first.unwrap());
+            Some(Defeated(end))
         } else if maybe_first.is_some() {
             let forced_move = maybe_first.unwrap();
             Some(Forced(forced_move))

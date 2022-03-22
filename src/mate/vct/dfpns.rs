@@ -39,9 +39,9 @@ impl Searcher {
     }
 
     fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(stage) = state.game().check_stage() {
-            return match stage {
-                End(_) => Node::inf_pn(state.limit),
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(_) => Node::inf_pn(state.limit),
                 Forced(m) => self.expand_attack(state, m, threshold),
             };
         }
@@ -74,9 +74,9 @@ impl Searcher {
     }
 
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(stage) = state.game().check_stage() {
-            return match stage {
-                End(_) => Node::inf_dn(state.limit),
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(_) => Node::inf_dn(state.limit),
                 Forced(m) => self.expand_defence(state, m, threshold),
             };
         }
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_black() -> Result<(), String> {
-        // No. 02 from 5-moves-to-win problems by Hiroshi Okabe
+        // No. 02 from 5-moves-to-end problems by Hiroshi Okabe
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_counter() -> Result<(), String> {
-        // No. 63 from 5-moves-to-win problems by Hiroshi Okabe
+        // No. 63 from 5-moves-to-end problems by Hiroshi Okabe
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_forbidden_breaker() -> Result<(), String> {
-        // No. 68 from 5-moves-to-win problems by Hiroshi Okabe
+        // No. 68 from 5-moves-to-end problems by Hiroshi Okabe
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .

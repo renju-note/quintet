@@ -25,7 +25,7 @@ fn solve_print(kind: SolverKind, max_depth: u8, board: Board, turn: Player) {
     println!("Elapsed: {:?}", elapsed);
     match solution {
         Some(m) => {
-            println!("Win: {}", m.win);
+            println!("End: {}", m.end);
             println!("Times (Length): {} ({})", m.n_times(), m.n_moves());
             println!("Moves: {}", Points(m.path));
         }
