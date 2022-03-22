@@ -29,28 +29,28 @@ impl FromStr for SolverKind {
 
 use SolverKind::*;
 
-pub fn solve(kind: SolverKind, max_depth: u8, board: &Board, turn: Player) -> Option<Mate> {
+pub fn solve(kind: SolverKind, limit: u8, board: &Board, turn: Player) -> Option<Mate> {
     if let Err(e) = validate(board, turn) {
         return e;
     }
     match kind {
         VCF => {
-            let state = &mut vcf::State::init(board.clone(), turn);
+            let state = &mut vcf::State::init(board.clone(), turn, limit);
             let mut solver = vcf::dfs::Solver::init();
-            solver.solve(state, max_depth)
+            solver.solve(state)
         }
         VCTDFS => {
-            let state = &mut vct::State::init(board.clone(), turn);
+            let state = &mut vct::State::init(board.clone(), turn, limit);
             let mut solver = vct::dfs::Solver::init();
-            solver.solve(state, max_depth)
+            solver.solve(state)
         }
         VCTDFPN => {
-            let state = &mut vct::State::init(board.clone(), turn);
+            let state = &mut vct::State::init(board.clone(), turn, limit);
             let searcher = vct::dfpn::Searcher::init();
-            let may_table = searcher.search(state, max_depth);
+            let may_table = searcher.search(state, limit);
             may_table.and_then(|table| {
                 let mut resolver = vct::resolver::Resolver::init(table);
-                resolver.resolve(state, max_depth)
+                resolver.resolve(state, limit)
             })
         }
     }

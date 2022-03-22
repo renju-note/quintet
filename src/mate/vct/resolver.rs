@@ -41,7 +41,8 @@ impl Resolver {
         }
 
         let vcf_state = &mut state.as_vcf();
-        self.vcf_solver.solve(vcf_state, limit)
+        vcf_state.set_limit(limit);
+        self.vcf_solver.solve(vcf_state)
     }
 
     fn resolve_attack(&mut self, state: &mut State, limit: u8, attack: Point) -> Option<Mate> {
@@ -63,7 +64,8 @@ impl Resolver {
         }
 
         let threat_state = &mut state.as_threat();
-        let maybe_threat = self.vcf_solver.solve(threat_state, limit - 1);
+        threat_state.set_limit(limit - 1);
+        let maybe_threat = self.vcf_solver.solve(threat_state);
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut game = state.game().clone();
         let mut min_limit = u8::MAX;

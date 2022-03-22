@@ -52,12 +52,14 @@ impl Searcher {
         }
 
         let vcf_state = &mut state.as_vcf();
-        if self.attacker_vcf_solver.solve(vcf_state, limit).is_some() {
+        vcf_state.set_limit(limit);
+        if self.attacker_vcf_solver.solve(vcf_state).is_some() {
             return Node::inf_dn(limit);
         }
 
         let threat_state = &mut state.as_threat();
-        let maybe_threat = self.defender_vcf_solver.solve(threat_state, u8::MAX);
+        threat_state.set_limit(u8::MAX);
+        let maybe_threat = self.defender_vcf_solver.solve(threat_state);
 
         let attacks = state.sorted_attacks(maybe_threat);
 
@@ -101,13 +103,15 @@ impl Searcher {
         }
 
         let threat_state = &mut state.as_threat();
-        let maybe_threat = self.attacker_vcf_solver.solve(threat_state, limit - 1);
+        threat_state.set_limit(limit - 1);
+        let maybe_threat = self.attacker_vcf_solver.solve(threat_state);
         if maybe_threat.is_none() {
             return Node::inf_pn(limit);
         }
 
         let vcf_state = &mut state.as_vcf();
-        if self.defender_vcf_solver.solve(vcf_state, u8::MAX).is_some() {
+        vcf_state.set_limit(u8::MAX);
+        if self.defender_vcf_solver.solve(vcf_state).is_some() {
             return Node::inf_pn(limit);
         }
 
@@ -271,7 +275,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
+        let state = &mut State::init(board.clone(), Black, 4);
 
         let result = solve(state, 4);
         let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
@@ -303,7 +307,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
+        let state = &mut State::init(board.clone(), White, 4);
 
         let result = solve(state, 4);
         let expected = Some("I10,I6,I11,I8,J11,J8,G8".to_string());
@@ -336,7 +340,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
+        let state = &mut State::init(board.clone(), White, 4);
 
         let result = solve(state, 4);
         let expected = Some("F7,E8,G8,E6,G5,G7,H6".to_string());
@@ -369,7 +373,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
+        let state = &mut State::init(board.clone(), Black, 4);
 
         let result = solve(state, 4);
         let expected = Some("J8,I7,I8,G8,L8,K8,K7".to_string());
@@ -402,7 +406,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
+        let state = &mut State::init(board.clone(), Black, 4);
 
         let result = solve(state, 7);
         let expected = Some("G12,E10,F12,I12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
@@ -434,7 +438,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
+        let state = &mut State::init(board.clone(), White, 4);
 
         let result = solve(state, 5);
         let expected = Some("J4,G7,I4,I3,E6,G4,G6".to_string());
@@ -467,7 +471,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
+        let state = &mut State::init(board.clone(), Black, 4);
 
         let result = solve(state, 4);
         let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
@@ -499,7 +503,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
+        let state = &mut State::init(board.clone(), White, 4);
 
         let result = solve(state, 4);
         let expected = Some("I10,I6,I11,I8,J11,J8,G8".to_string());
