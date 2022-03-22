@@ -46,8 +46,12 @@ pub fn solve(kind: SolverKind, max_depth: u8, board: &Board, turn: Player) -> Op
         }
         VCTDFPN => {
             let state = &mut vct::State::init(board.clone(), turn);
-            let mut solver = vct::dfpn::Solver::init();
-            solver.solve(state, max_depth)
+            let searcher = vct::dfpn::Searcher::init();
+            let may_table = searcher.search(state, max_depth);
+            may_table.and_then(|table| {
+                let mut resolver = vct::resolver::Resolver::init(table);
+                resolver.resolve(state, max_depth)
+            })
         }
     }
 }
