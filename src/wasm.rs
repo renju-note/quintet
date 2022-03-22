@@ -62,7 +62,7 @@ fn solver_kind(code: u8) -> mate::SolverKind {
     match code {
         0 => mate::SolverKind::VCF,
         1 => mate::SolverKind::VCTDFS,
-        2 => mate::SolverKind::VCTDFPN,
+        2 => mate::SolverKind::VCTDFPNS,
         _ => mate::SolverKind::VCF,
     }
 }
