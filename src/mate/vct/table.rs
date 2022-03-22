@@ -18,18 +18,11 @@ impl Table {
         self.table.insert(key, node.clone());
     }
 
-    pub fn lookup(&self, state: &State) -> Node {
-        self.lookup_hash_limit(state.zobrist_hash(), state.limit)
-    }
-
     pub fn lookup_next(&self, state: &mut State, next_move: Point) -> Node {
-        // Extract game in order not to cause updating state.field (which costs high)
         let (next_zobrist_hash, next_limit) = state.next_zobrist_hash_limit(next_move);
-        self.lookup_hash_limit(next_zobrist_hash, next_limit)
-    }
-
-    fn lookup_hash_limit(&self, hash: u64, limit: u8) -> Node {
-        self.table.get(&hash).map_or(Node::init(limit), |c| *c)
+        self.table
+            .get(&next_zobrist_hash)
+            .map_or(Node::init(next_limit), |c| *c)
     }
 }
 
