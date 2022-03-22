@@ -4,27 +4,31 @@ use crate::mate::mate::*;
 
 pub struct Solver {
     solver: dfs::Solver,
-    depths: Vec<u8>,
+    limits: Vec<u8>,
 }
 
 impl Solver {
-    pub fn init(max_depths: Vec<u8>) -> Self {
+    pub fn init(limits: Vec<u8>) -> Self {
         Self {
             solver: dfs::Solver::init(),
-            depths: max_depths,
+            limits: limits,
         }
     }
 
-    pub fn solve(&mut self, state: &mut State, max_depth: u8) -> Option<Mate> {
-        for &depth in &self.depths {
-            if depth >= max_depth {
+    pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
+        let max_limit = state.limit;
+        for &limit in &self.limits {
+            if limit >= max_limit {
                 break;
             }
-            let result = self.solver.solve(state, depth);
+            state.set_limit(limit);
+            let result = self.solver.solve(state);
             if result.is_some() {
+                state.set_limit(max_limit);
                 return result;
             }
         }
-        self.solver.solve(state, max_depth)
+        state.set_limit(max_limit);
+        self.solver.solve(state)
     }
 }

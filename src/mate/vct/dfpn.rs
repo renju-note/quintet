@@ -9,155 +9,130 @@ use super::state::State;
 use super::table::*;
 use crate::board::*;
 use crate::mate::game::*;
-use crate::mate::vcf;
 
 // MEMO: Debug printing example is 6e2bace
 
 pub struct Searcher {
     table: Table,
-    attacker_vcf_solver: vcf::iddfs::Solver,
-    defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Searcher {
     pub fn init() -> Self {
         Self {
             table: Table::new(),
-            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
-            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
-    pub fn search(mut self, state: &mut State, max_depth: u8) -> Option<Table> {
-        let node = self.search_limit(state, Node::root(max_depth), max_depth);
+    pub fn search(mut self, state: &mut State) -> Option<Table> {
+        let node = self.search_limit(state, Node::root(state.limit));
         if node.pn != 0 {
             return None;
         }
         Some(self.table)
     }
 
-    fn search_limit(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
-        if limit == 0 {
-            return Node::inf_pn(limit);
+    fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
+        if state.limit == 0 {
+            return Node::inf_pn(state.limit);
         }
-        self.search_attacks(state, threshold, limit)
+        self.search_attacks(state, threshold)
     }
 
-    fn search_attacks(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
+    fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                End(_) => Node::inf_pn(limit),
-                Forced(m) => self.expand_attack(state, m, threshold, limit),
+                End(_) => Node::inf_pn(state.limit),
+                Forced(m) => self.expand_attack(state, m, threshold),
             };
         }
 
-        let vcf_state = &mut state.as_vcf();
-        if self.attacker_vcf_solver.solve(vcf_state, limit).is_some() {
-            return Node::inf_dn(limit);
+        if state.solve_attacker_vcf().is_some() {
+            return Node::inf_dn(state.limit);
         }
 
-        let threat_state = &mut state.as_threat();
-        let maybe_threat = self.defender_vcf_solver.solve(threat_state, u8::MAX);
+        let maybe_threat = state.solve_defender_vcf();
 
         let attacks = state.sorted_attacks(maybe_threat);
 
         loop {
-            let (current, selected, next1, next2) = self.select_attack(state, &attacks, limit);
+            let (current, selected, next1, next2) = self.select_attack(state, &attacks);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
             let next_threshold = self.next_threshold_attack(threshold, current, next1, next2);
-            self.expand_attack(state, selected.unwrap(), next_threshold, limit);
+            self.expand_attack(state, selected.unwrap(), next_threshold);
         }
     }
 
-    fn expand_attack(
-        &mut self,
-        state: &mut State,
-        attack: Point,
-        threshold: Node,
-        limit: u8,
-    ) -> Node {
+    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
         let last2_move = state.game().last2_move();
         state.play(attack);
-        let hash = state.game().zobrist_hash(limit);
-        let current = self.table.lookup(hash, limit);
+        let current = self.table.lookup(state);
         if current.pn >= threshold.pn || current.dn >= threshold.dn {
             state.undo(last2_move);
             return current;
         }
-        let result = self.search_defences(state, threshold, limit);
-        self.table.insert(hash, result.clone());
+        let result = self.search_defences(state, threshold);
+        self.table.insert(state, result.clone());
         state.undo(last2_move);
         result
     }
 
-    fn search_defences(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
+    fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                End(_) => Node::inf_dn(limit),
-                Forced(m) => self.expand_defence(state, m, threshold, limit),
+                End(_) => Node::inf_dn(state.limit),
+                Forced(m) => self.expand_defence(state, m, threshold),
             };
         }
 
-        let threat_state = &mut state.as_threat();
-        let maybe_threat = self.attacker_vcf_solver.solve(threat_state, limit - 1);
+        let maybe_threat = state.solve_attacker_vcf();
         if maybe_threat.is_none() {
-            return Node::inf_pn(limit);
+            return Node::inf_pn(state.limit);
         }
 
-        let vcf_state = &mut state.as_vcf();
-        if self.defender_vcf_solver.solve(vcf_state, u8::MAX).is_some() {
-            return Node::inf_pn(limit);
+        if state.solve_defender_vcf().is_some() {
+            return Node::inf_pn(state.limit);
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
 
         loop {
-            let (current, selected, next1, next2) = self.select_defence(state, &defences, limit);
+            let (current, selected, next1, next2) = self.select_defence(state, &defences);
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
             let next_threshold = self.next_threshold_defence(threshold, current, next1, next2);
-            self.expand_defence(state, selected.unwrap(), next_threshold, limit);
+            self.expand_defence(state, selected.unwrap(), next_threshold);
         }
     }
 
-    fn expand_defence(
-        &mut self,
-        state: &mut State,
-        defence: Point,
-        threshold: Node,
-        limit: u8,
-    ) -> Node {
+    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
         let last2_move = state.game().last2_move();
         state.play(defence);
-        let hash = state.game().zobrist_hash(limit);
-        let limit = limit - 1;
-        let current = self.table.lookup(hash, limit);
+        let current = self.table.lookup(state);
         if current.pn >= threshold.pn || current.dn >= threshold.dn {
             state.undo(last2_move);
             return current;
         }
-        let result = self.search_limit(state, threshold, limit);
-        self.table.insert(hash, result.clone());
+        let result = self.search_limit(state, threshold);
+        self.table.insert(state, result.clone());
         state.undo(last2_move);
         result
     }
 
     fn select_attack(
         &self,
-        state: &State,
+        state: &mut State,
         attacks: &[Point],
-        limit: u8,
     ) -> (Node, Option<Point>, Node, Node) {
-        let mut game = state.game().clone();
+        let limit = state.limit;
         let mut current = Node::inf_pn(limit);
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_pn(limit);
         let mut next2 = Node::inf_pn(limit);
         for &attack in attacks {
-            let child = self.table.lookup_child(&mut game, attack, limit);
+            let child = self.table.lookup_next(state, attack);
             current = Node::new(
                 current.pn.min(child.pn),
                 current.dn.checked_add(child.dn).unwrap_or(INF),
@@ -196,17 +171,16 @@ impl Searcher {
 
     fn select_defence(
         &self,
-        state: &State,
+        state: &mut State,
         defences: &[Point],
-        limit: u8,
     ) -> (Node, Option<Point>, Node, Node) {
-        let mut game = state.game().clone();
+        let limit = state.limit;
         let mut current = Node::inf_dn(limit);
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_dn(limit);
         let mut next2 = Node::inf_dn(limit);
         for &defence in defences {
-            let child = self.table.lookup_child(&mut game, defence, limit);
+            let child = self.table.lookup_next(state, defence);
             current = Node::new(
                 current.pn.checked_add(child.pn).unwrap_or(INF),
                 current.dn.min(child.dn),
@@ -271,13 +245,12 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
 
-        let result = solve(state, 4);
+        let result = solve(&board, Black, 4);
         let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
         assert_eq!(result, expected);
 
-        let result = solve(state, 3);
+        let result = solve(&board, Black, 3);
         assert!(result.is_none());
 
         Ok(())
@@ -303,13 +276,12 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
 
-        let result = solve(state, 4);
+        let result = solve(&board, White, 4);
         let expected = Some("I10,I6,I11,I8,J11,J8,G8".to_string());
         assert_eq!(result, expected);
 
-        let result = solve(state, 3);
+        let result = solve(&board, White, 3);
         assert_eq!(result, None);
 
         Ok(())
@@ -336,13 +308,12 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
 
-        let result = solve(state, 4);
+        let result = solve(&board, White, 4);
         let expected = Some("F7,E8,G8,E6,G5,G7,H6".to_string());
         assert_eq!(result, expected);
 
-        let result = solve(state, 3);
+        let result = solve(&board, White, 3);
         assert_eq!(result, None);
 
         Ok(())
@@ -369,13 +340,12 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
 
-        let result = solve(state, 4);
+        let result = solve(&board, Black, 4);
         let expected = Some("J8,I7,I8,G8,L8,K8,K7".to_string());
         assert_eq!(result, expected);
 
-        let result = solve(state, 3);
+        let result = solve(&board, Black, 3);
         assert_eq!(result, None);
 
         Ok(())
@@ -402,13 +372,12 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
 
-        let result = solve(state, 7);
+        let result = solve(&board, Black, 7);
         let expected = Some("G12,E10,F12,I12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
         assert_eq!(result, expected);
 
-        let result = solve(state, 6);
+        let result = solve(&board, Black, 6);
         assert_eq!(result, None);
 
         Ok(())
@@ -434,90 +403,25 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
 
-        let result = solve(state, 5);
+        let result = solve(&board, White, 5);
         let expected = Some("J4,G7,I4,I3,E6,G4,G6".to_string());
         assert_eq!(result, expected);
 
-        let result = solve(state, 4);
+        let result = solve(&board, White, 4);
         assert_eq!(result, None);
 
         Ok(())
     }
 
-    #[test]
-    fn test_search_black() -> Result<(), String> {
-        // No. 02 from 5-moves-to-win problems by Hiroshi Okabe
-        let board = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . x . . . . . .
-         . . . . . . . o . . . . . . .
-         . . . . . . . o x o . . . . .
-         . . . . . . x o . x . . . . .
-         . . . . . . . x o . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black);
-
-        let result = solve(state, 4);
-        let expected = Some("F10,G9,I10,G10,H11,H12,G12".to_string());
-        assert_eq!(result, expected);
-
-        let result = solve(state, 3);
-        assert_eq!(result, None);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_search_white() -> Result<(), String> {
-        let board = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . o . . o . . . . .
-         . . . . . . o x x . . . . . .
-         . . . . . . . o . . . . . . .
-         . . . . . . . . x . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White);
-
-        let result = solve(state, 4);
-        let expected = Some("I10,I6,I11,I8,J11,J8,G8".to_string());
-        assert_eq!(result, expected);
-
-        let result = solve(state, 3);
-        assert_eq!(result, None);
-
-        Ok(())
-    }
-
-    fn solve(state: &mut State, max_depth: u8) -> Option<String> {
+    fn solve(board: &Board, player: Player, limit: u8) -> Option<String> {
+        let state = &mut State::init(board.clone(), player, limit);
         let searcher = Searcher::init();
-        let may_table = searcher.search(state, max_depth);
+        let may_table = searcher.search(state);
         may_table
             .and_then(|table| {
                 let mut resolver = Resolver::init(table);
-                resolver.resolve(state, max_depth)
+                resolver.resolve(state)
             })
             .map(|m| Points(m.path).to_string())
     }

@@ -7,24 +7,48 @@ use crate::mate::vcf;
 use std::collections::{HashMap, HashSet};
 
 pub struct State {
-    attacker: Player,
     game: Game,
     field: PotentialField,
+    pub attacker: Player,
+    pub limit: u8,
+    attacker_vcf_solver: vcf::iddfs::Solver,
+    defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl State {
-    pub fn new(attacker: Player, game: Game, field: PotentialField) -> Self {
+    pub fn new(game: Game, field: PotentialField, limit: u8) -> Self {
+        let attacker = game.turn();
         Self {
             attacker: attacker,
+            limit: limit,
             game: game,
             field: field,
+            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
+            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
-    pub fn init(board: Board, turn: Player) -> Self {
+    pub fn init(board: Board, turn: Player, limit: u8) -> Self {
         let field = PotentialField::init(turn, 2, &board);
         let game = Game::init(board, turn);
-        Self::new(turn, game, field)
+        Self::new(game, field, limit)
+    }
+
+    pub fn play(&mut self, next_move: Point) {
+        self.game.play(next_move);
+        self.field.update_along(next_move, self.game.board());
+        if self.game.turn() == self.attacker {
+            self.limit -= 1
+        }
+    }
+
+    pub fn undo(&mut self, last2_move: Point) {
+        if self.game.turn() == self.attacker {
+            self.limit += 1
+        }
+        let last_move = self.game.last_move();
+        self.game.undo(last2_move);
+        self.field.update_along(last_move, self.game.board());
     }
 
     pub fn game(&self) -> &'_ Game {
@@ -35,22 +59,49 @@ impl State {
         self.game.turn()
     }
 
-    pub fn play(&mut self, next_move: Point) {
-        self.game.play(next_move);
-        self.field.update_along(next_move, self.game.board());
+    pub fn attacking(&self) -> bool {
+        self.game.turn() == self.attacker
     }
 
-    pub fn undo(&mut self, last2_move: Point) {
-        let last_move = self.game.last_move();
+    pub fn zobrist_hash(&self) -> u64 {
+        self.game.zobrist_hash(self.limit)
+    }
+
+    pub fn next_zobrist_hash_limit(&mut self, next_move: Point) -> (u64, u8) {
+        // Extract game in order not to cause updating state.field (which costs high)
+        let last2_move = self.game.last2_move();
+        self.game.play(next_move);
+        let next_limit = self.limit - if self.attacking() { 1 } else { 0 };
+        let next_zobrist_hash = self.game.zobrist_hash(next_limit);
         self.game.undo(last2_move);
-        self.field.update_along(last_move, self.game.board());
+        (next_zobrist_hash, next_limit)
+    }
+
+    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
+        let state = &mut if self.attacking() {
+            vcf::State::new(self.game().clone(), self.limit)
+        } else {
+            vcf::State::new(self.game().pass(), self.limit - 1)
+        };
+        self.attacker_vcf_solver.solve(state)
+    }
+
+    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
+        let state = &mut if !self.attacking() {
+            vcf::State::new(self.game().clone(), u8::MAX)
+        } else {
+            vcf::State::new(self.game().pass(), u8::MAX)
+        };
+        self.defender_vcf_solver.solve(state)
     }
 
     pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
         let mut potentials = self.potentials();
         if let Some(threat) = maybe_threat {
-            let threat_defences = self.threat_defences(&threat);
-            let threat_defences = threat_defences.into_iter().collect::<HashSet<_>>();
+            let threat_defences = self
+                .threat_defences(&threat)
+                .into_iter()
+                .collect::<HashSet<_>>();
             potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
@@ -76,14 +127,6 @@ impl State {
             .into_iter()
             .filter(|&p| !self.game.is_forbidden_move(p))
             .collect()
-    }
-
-    pub fn as_vcf(&self) -> vcf::State {
-        vcf::State::new(self.game().clone())
-    }
-
-    pub fn as_threat(&self) -> vcf::State {
-        vcf::State::new(self.game().pass())
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
