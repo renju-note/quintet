@@ -123,11 +123,7 @@ impl Searcher {
         let mut next2 = Node::inf_pn(limit);
         for &attack in attacks {
             let child = self.table.lookup_next(state, attack);
-            current = Node::new(
-                current.pn.min(child.pn),
-                current.dn.checked_add(child.dn).unwrap_or(INF),
-                current.limit.min(child.limit),
-            );
+            current = current.agg_or(child);
             if child.pn < next1.pn {
                 selected.replace(attack);
                 next2 = next1;
@@ -150,13 +146,11 @@ impl Searcher {
         next1: Node,
         next2: Node,
     ) -> Node {
-        Node::new(
-            threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF)),
-            (threshold.dn - current.dn)
-                .checked_add(next1.dn)
-                .unwrap_or(INF),
-            current.limit,
-        )
+        let pn = threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF));
+        let dn = (threshold.dn - current.dn)
+            .checked_add(next1.dn)
+            .unwrap_or(INF);
+        Node::new(pn, dn, current.limit)
     }
 
     fn select_defence(
@@ -171,11 +165,7 @@ impl Searcher {
         let mut next2 = Node::inf_dn(limit - 1);
         for &defence in defences {
             let child = self.table.lookup_next(state, defence);
-            current = Node::new(
-                current.pn.checked_add(child.pn).unwrap_or(INF),
-                current.dn.min(child.dn),
-                current.limit.min(child.limit),
-            );
+            current = current.agg_and(child);
             if child.dn < next1.dn {
                 selected.replace(defence);
                 next2 = next1;
@@ -198,13 +188,11 @@ impl Searcher {
         next1: Node,
         next2: Node,
     ) -> Node {
-        Node::new(
-            (threshold.pn - current.pn)
-                .checked_add(next1.pn)
-                .unwrap_or(INF),
-            threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF)),
-            current.limit,
-        )
+        let pn = (threshold.pn - current.pn)
+            .checked_add(next1.pn)
+            .unwrap_or(INF);
+        let dn = threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF));
+        Node::new(pn, dn, current.limit)
     }
 }
 

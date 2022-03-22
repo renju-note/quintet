@@ -107,11 +107,7 @@ impl Searcher {
         let mut next = Node::inf_pn(limit);
         for &attack in attacks {
             let child = self.table.lookup_next(state, attack);
-            current = Node::new(
-                current.pn.min(child.pn),
-                current.dn.checked_add(child.dn).unwrap_or(INF),
-                current.limit.min(child.limit),
-            );
+            current = current.agg_or(child);
             if child.pn < next.pn {
                 selected.replace(attack);
                 next = child;
@@ -131,11 +127,7 @@ impl Searcher {
         let mut next = Node::inf_dn(limit - 1);
         for &defence in defences {
             let child = self.table.lookup_next(state, defence);
-            current = Node::new(
-                current.pn.checked_add(child.pn).unwrap_or(INF),
-                current.dn.min(child.dn),
-                current.limit.min(child.limit),
-            );
+            current = current.agg_and(child);
             if child.dn < next.dn {
                 selected.replace(defence);
                 next = child;

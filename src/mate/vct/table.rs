@@ -61,6 +61,22 @@ impl Node {
     pub fn inf_dn(limit: u8) -> Self {
         Self::new(0, INF, limit)
     }
+
+    pub fn agg_or(&self, another: Self) -> Self {
+        Self::new(
+            self.pn.min(another.pn),
+            self.dn.checked_add(another.dn).unwrap_or(INF),
+            self.limit.min(another.limit),
+        )
+    }
+
+    pub fn agg_and(&self, another: Self) -> Self {
+        Self::new(
+            self.pn.checked_add(another.pn).unwrap_or(INF),
+            self.dn.min(another.dn),
+            self.limit.min(another.limit),
+        )
+    }
 }
 
 impl fmt::Display for Node {
