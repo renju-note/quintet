@@ -32,9 +32,8 @@ impl Resolver {
         }
 
         let attacks = state.sorted_attacks(None);
-        let mut game = state.game().clone();
         for attack in attacks {
-            let node = self.table.lookup_child(&mut game, attack, state.limit);
+            let node = self.table.lookup_child(state, attack);
             if node.pn == 0 {
                 return self.resolve_attack(state, attack);
             }
@@ -63,11 +62,10 @@ impl Resolver {
         let threat_state = &mut state.as_threat();
         let maybe_threat = self.vcf_solver.solve(threat_state);
         let defences = state.sorted_defences(maybe_threat.unwrap());
-        let mut game = state.game().clone();
         let mut min_limit = u8::MAX;
         let mut selected_defence = Point(0, 0);
         for defence in defences {
-            let node = self.table.lookup_child(&mut game, defence, state.limit);
+            let node = self.table.lookup_child(state, defence);
             if node.pn == 0 && node.limit < min_limit {
                 min_limit = node.limit;
                 selected_defence = defence;

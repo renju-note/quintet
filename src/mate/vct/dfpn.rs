@@ -75,14 +75,13 @@ impl Searcher {
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
         let last2_move = state.game().last2_move();
         state.play(attack);
-        let hash = state.zobrist_hash();
-        let current = self.table.lookup(hash, state.limit);
+        let current = self.table.lookup(state);
         if current.pn >= threshold.pn || current.dn >= threshold.dn {
             state.undo(last2_move);
             return current;
         }
         let result = self.search_defences(state, threshold);
-        self.table.insert(hash, result.clone());
+        self.table.insert(state, result.clone());
         state.undo(last2_move);
         result
     }
@@ -122,27 +121,29 @@ impl Searcher {
     fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
         let last2_move = state.game().last2_move();
         state.play(defence);
-        let hash = state.game().zobrist_hash(state.limit + 1);
-        let current = self.table.lookup(hash, state.limit);
+        let current = self.table.lookup(state);
         if current.pn >= threshold.pn || current.dn >= threshold.dn {
             state.undo(last2_move);
             return current;
         }
         let result = self.search_limit(state, threshold);
-        self.table.insert(hash, result.clone());
+        self.table.insert(state, result.clone());
         state.undo(last2_move);
         result
     }
 
-    fn select_attack(&self, state: &State, attacks: &[Point]) -> (Node, Option<Point>, Node, Node) {
+    fn select_attack(
+        &self,
+        state: &mut State,
+        attacks: &[Point],
+    ) -> (Node, Option<Point>, Node, Node) {
         let limit = state.limit;
-        let mut game = state.game().clone();
         let mut current = Node::inf_pn(limit);
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_pn(limit);
         let mut next2 = Node::inf_pn(limit);
         for &attack in attacks {
-            let child = self.table.lookup_child(&mut game, attack, limit);
+            let child = self.table.lookup_child(state, attack);
             current = Node::new(
                 current.pn.min(child.pn),
                 current.dn.checked_add(child.dn).unwrap_or(INF),
@@ -181,17 +182,16 @@ impl Searcher {
 
     fn select_defence(
         &self,
-        state: &State,
+        state: &mut State,
         defences: &[Point],
     ) -> (Node, Option<Point>, Node, Node) {
         let limit = state.limit;
-        let mut game = state.game().clone();
         let mut current = Node::inf_dn(limit);
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_dn(limit);
         let mut next2 = Node::inf_dn(limit);
         for &defence in defences {
-            let child = self.table.lookup_child(&mut game, defence, limit);
+            let child = self.table.lookup_child(state, defence);
             current = Node::new(
                 current.pn.checked_add(child.pn).unwrap_or(INF),
                 current.dn.min(child.dn),

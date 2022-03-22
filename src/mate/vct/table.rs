@@ -1,5 +1,5 @@
+use super::state::*;
 use crate::board::*;
-use crate::mate::game::*;
 use std::collections::HashMap;
 
 pub struct Table {
@@ -13,19 +13,21 @@ impl Table {
         }
     }
 
-    pub fn insert(&mut self, hash: u64, node: Node) {
-        self.table.insert(hash, node.clone());
+    pub fn insert(&mut self, state: &State, node: Node) {
+        let key = state.zobrist_hash();
+        self.table.insert(key, node.clone());
     }
 
-    pub fn lookup(&self, hash: u64, limit: u8) -> Node {
-        self.table.get(&hash).map_or(Node::init(limit), |c| *c)
+    pub fn lookup(&self, state: &State) -> Node {
+        let key = state.zobrist_hash();
+        self.table.get(&key).map_or(Node::init(state.limit), |c| *c)
     }
 
-    pub fn lookup_child(&self, game: &mut Game, m: Point, limit: u8) -> Node {
-        let last2_move = game.last2_move();
-        game.play(m);
-        let result = self.lookup(game.zobrist_hash(limit), limit);
-        game.undo(last2_move);
+    pub fn lookup_child(&self, state: &mut State, m: Point) -> Node {
+        let last2_move = state.game().last2_move();
+        state.play(m);
+        let result = self.lookup(state);
+        state.undo(last2_move);
         result
     }
 }
