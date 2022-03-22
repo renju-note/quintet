@@ -50,7 +50,7 @@ pub fn solve(kind: SolverKind, limit: u8, board: &Board, turn: Player) -> Option
             let may_table = searcher.search(state, limit);
             may_table.and_then(|table| {
                 let mut resolver = vct::resolver::Resolver::init(table);
-                resolver.resolve(state, limit)
+                resolver.resolve(state)
             })
         }
     }

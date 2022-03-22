@@ -406,7 +406,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), Black, 4);
+        let state = &mut State::init(board.clone(), Black, 7);
 
         let result = solve(state, 7);
         let expected = Some("G12,E10,F12,I12,H14,H13,F14,G13,F13,F11,E14,D15,G14".to_string());
@@ -438,7 +438,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let state = &mut State::init(board.clone(), White, 4);
+        let state = &mut State::init(board.clone(), White, 5);
 
         let result = solve(state, 5);
         let expected = Some("J4,G7,I4,I3,E6,G4,G6".to_string());
@@ -521,7 +521,7 @@ mod tests {
         may_table
             .and_then(|table| {
                 let mut resolver = Resolver::init(table);
-                resolver.resolve(state, max_depth)
+                resolver.resolve(state)
             })
             .map(|m| Points(m.path).to_string())
     }
