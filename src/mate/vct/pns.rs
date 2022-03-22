@@ -128,7 +128,7 @@ impl Searcher {
         let limit = state.limit;
         let mut current = Node::inf_dn(limit);
         let mut selected: Option<Point> = None;
-        let mut next = Node::inf_dn(limit);
+        let mut next = Node::inf_dn(limit - 1);
         for &defence in defences {
             let child = self.table.lookup_next(state, defence);
             current = Node::new(
