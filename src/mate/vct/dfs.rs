@@ -1,6 +1,7 @@
 use super::state::*;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::mate::*;
 use crate::mate::vcf;
 use std::collections::HashSet;
 
@@ -42,8 +43,8 @@ impl Solver {
     fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                Stage::End(_) => None,
-                Stage::Forced(m) => self.solve_attack(state, limit, m),
+                End(_) => None,
+                Forced(m) => self.solve_attack(state, limit, m),
             };
         }
 
@@ -75,8 +76,8 @@ impl Solver {
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                Stage::End(w) => Some(Mate::new(w, vec![])),
-                Stage::Forced(m) => self.solve_defence(state, limit, m),
+                End(w) => Some(Mate::new(w, vec![])),
+                Forced(m) => self.solve_defence(state, limit, m),
             };
         }
 
@@ -91,7 +92,7 @@ impl Solver {
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
 
-        let mut result = Some(Mate::new(Win::Unknown(), vec![]));
+        let mut result = Some(Mate::new(Unknown, vec![]));
         for defence in defences {
             let new_result = self.solve_defence(state, limit, defence);
             if new_result.is_none() {

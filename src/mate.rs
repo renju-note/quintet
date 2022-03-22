@@ -1,4 +1,5 @@
 mod game;
+mod mate;
 mod solve;
 mod vcf;
 mod vct;

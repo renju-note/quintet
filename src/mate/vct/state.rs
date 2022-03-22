@@ -2,6 +2,7 @@ use super::field::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::mate::*;
 use crate::mate::vcf;
 use std::collections::{HashMap, HashSet};
 
@@ -108,10 +109,10 @@ impl State {
     fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = threat.path.clone();
         match threat.win {
-            Win::Fours(p1, p2) => {
+            Fours(p1, p2) => {
                 result.extend([p1, p2]);
             }
-            Win::Forbidden(p) => {
+            Forbidden(p) => {
                 result.push(p);
                 result.extend(self.game.board().neighbors(p, 5, true));
             }

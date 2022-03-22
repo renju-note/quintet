@@ -1,6 +1,23 @@
 use crate::board::StructureKind::*;
 use crate::board::*;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum Win {
+    Fours(Point, Point),
+    Forbidden(Point),
+    Unknown,
+}
+
+pub use Win::*;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Stage {
+    Forced(Point),
+    End(Win),
+}
+
+pub use Stage::*;
+
 #[derive(Clone)]
 pub struct Game {
     board: Board,
@@ -75,14 +92,14 @@ impl Game {
     pub fn check_stage(&self) -> Option<Stage> {
         let (maybe_first, maybe_another) = self.check_last_four_eyes();
         if maybe_first.is_some() && maybe_another.is_some() {
-            let win = Win::Fours(maybe_first.unwrap(), maybe_another.unwrap());
-            Some(Stage::End(win))
+            let win = Fours(maybe_first.unwrap(), maybe_another.unwrap());
+            Some(End(win))
         } else if maybe_first.map_or(false, |e| self.is_forbidden_move(e)) {
-            let win = Win::Forbidden(maybe_first.unwrap());
-            Some(Stage::End(win))
+            let win = Forbidden(maybe_first.unwrap());
+            Some(End(win))
         } else if maybe_first.is_some() {
             let forced_move = maybe_first.unwrap();
-            Some(Stage::Forced(forced_move))
+            Some(Forced(forced_move))
         } else {
             None
         }
@@ -115,48 +132,5 @@ impl Game {
         let last2_move = board.stones(turn).next();
         let default = Point(0, 0);
         (last_move.unwrap_or(default), last2_move.unwrap_or(default))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Stage {
-    Forced(Point),
-    End(Win),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Win {
-    Fours(Point, Point),
-    Forbidden(Point),
-    Unknown(),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Mate {
-    pub win: Win,
-    pub path: Vec<Point>,
-}
-
-impl Mate {
-    pub fn new(win: Win, path: Vec<Point>) -> Self {
-        Self {
-            win: win,
-            path: path,
-        }
-    }
-
-    pub fn unshift(mut self, m: Point) -> Self {
-        let win = self.win;
-        let mut path = vec![m];
-        path.append(&mut self.path);
-        Self::new(win, path)
-    }
-
-    pub fn preferred(old: Self, new: Self) -> Self {
-        if old.win == Win::Unknown() || new.path.len() > old.path.len() {
-            new
-        } else {
-            old
-        }
     }
 }

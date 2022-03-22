@@ -1,6 +1,7 @@
 use super::state::State;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::mate::*;
 use std::collections::HashSet;
 
 pub struct Solver {
@@ -37,8 +38,8 @@ impl Solver {
     fn solve_move_pairs(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                Stage::End(_) => None,
-                Stage::Forced(m) => {
+                End(_) => None,
+                Forced(m) => {
                     if let Some((attack, defence)) = state.forced_move_pair(m) {
                         self.solve_attack(state, limit, attack, defence)
                     } else {
@@ -93,7 +94,7 @@ impl Solver {
     fn solve_defence(&mut self, state: &mut State, limit: u8, defence: Point) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             match stage {
-                Stage::End(win) => return Some(Mate::new(win, vec![])),
+                End(win) => return Some(Mate::new(win, vec![])),
                 _ => (),
             };
         }

@@ -1,6 +1,6 @@
 use super::dfs;
 use super::state::State;
-use crate::mate::game::Mate;
+use crate::mate::mate::*;
 
 pub struct Solver {
     solver: dfs::Solver,

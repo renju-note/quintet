@@ -8,6 +8,7 @@ IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 use super::state::State;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::mate::*;
 use crate::mate::vcf;
 use std::collections::HashMap;
 use std::fmt;
@@ -43,7 +44,7 @@ impl Solver {
     fn solve_attacks(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                Stage::Forced(m) => self.solve_attack(state, limit, m),
+                Forced(m) => self.solve_attack(state, limit, m),
                 _ => None,
             };
         }
@@ -72,8 +73,8 @@ impl Solver {
     fn solve_defences(&mut self, state: &mut State, limit: u8) -> Option<Mate> {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                Stage::End(w) => Some(Mate::new(w, vec![])),
-                Stage::Forced(m) => self.solve_defence(state, limit, m),
+                End(w) => Some(Mate::new(w, vec![])),
+                Forced(m) => self.solve_defence(state, limit, m),
             };
         }
 
@@ -133,8 +134,8 @@ impl Searcher {
     fn search_attacks(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                Stage::End(_) => Node::inf_pn(limit),
-                Stage::Forced(m) => self.expand_attack(state, m, threshold, limit),
+                End(_) => Node::inf_pn(limit),
+                Forced(m) => self.expand_attack(state, m, threshold, limit),
             };
         }
 
@@ -182,8 +183,8 @@ impl Searcher {
     fn search_defences(&mut self, state: &mut State, threshold: Node, limit: u8) -> Node {
         if let Some(stage) = state.game().check_stage() {
             return match stage {
-                Stage::End(_) => Node::inf_dn(limit),
-                Stage::Forced(m) => self.expand_defence(state, m, threshold, limit),
+                End(_) => Node::inf_dn(limit),
+                Forced(m) => self.expand_defence(state, m, threshold, limit),
             };
         }
 
