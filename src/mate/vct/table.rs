@@ -19,16 +19,17 @@ impl Table {
     }
 
     pub fn lookup(&self, state: &State) -> Node {
-        let key = state.zobrist_hash();
-        self.table.get(&key).map_or(Node::init(state.limit), |c| *c)
+        self.lookup_hash_limit(state.zobrist_hash(), state.limit)
     }
 
-    pub fn lookup_child(&self, state: &mut State, m: Point) -> Node {
-        let last2_move = state.game().last2_move();
-        state.play(m);
-        let result = self.lookup(state);
-        state.undo(last2_move);
-        result
+    pub fn lookup_next(&self, state: &mut State, next_move: Point) -> Node {
+        // Extract game in order not to cause updating state.field (which costs high)
+        let (next_zobrist_hash, next_limit) = state.next_zobrist_hash_limit(next_move);
+        self.lookup_hash_limit(next_zobrist_hash, next_limit)
+    }
+
+    fn lookup_hash_limit(&self, hash: u64, limit: u8) -> Node {
+        self.table.get(&hash).map_or(Node::init(limit), |c| *c)
     }
 }
 

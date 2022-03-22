@@ -38,10 +38,6 @@ impl State {
         self.game.turn()
     }
 
-    pub fn zobrist_hash(&self) -> u64 {
-        self.game.zobrist_hash(self.limit)
-    }
-
     pub fn play(&mut self, next_move: Point) {
         self.game.play(next_move);
         self.field.update_along(next_move, self.game.board());
@@ -57,6 +53,25 @@ impl State {
         let last_move = self.game.last_move();
         self.game.undo(last2_move);
         self.field.update_along(last_move, self.game.board());
+    }
+
+    pub fn zobrist_hash(&self) -> u64 {
+        self.game.zobrist_hash(self.limit)
+    }
+
+    pub fn next_zobrist_hash_limit(&mut self, next_move: Point) -> (u64, u8) {
+        // Extract game in order not to cause updating state.field (which costs high)
+        let last2_move = self.game.last2_move();
+        self.game.play(next_move);
+        let next_limit = self.limit
+            - if self.game.turn() == self.attacker {
+                1
+            } else {
+                0
+            };
+        let next_zobrist_hash = self.game.zobrist_hash(next_limit);
+        self.game.undo(last2_move);
+        (next_zobrist_hash, next_limit)
     }
 
     pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {

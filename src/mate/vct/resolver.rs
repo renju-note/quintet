@@ -33,7 +33,7 @@ impl Resolver {
 
         let attacks = state.sorted_attacks(None);
         for attack in attacks {
-            let node = self.table.lookup_child(state, attack);
+            let node = self.table.lookup_next(state, attack);
             if node.pn == 0 {
                 return self.resolve_attack(state, attack);
             }
@@ -65,7 +65,7 @@ impl Resolver {
         let mut min_limit = u8::MAX;
         let mut selected_defence = Point(0, 0);
         for defence in defences {
-            let node = self.table.lookup_child(state, defence);
+            let node = self.table.lookup_next(state, defence);
             if node.pn == 0 && node.limit < min_limit {
                 min_limit = node.limit;
                 selected_defence = defence;
