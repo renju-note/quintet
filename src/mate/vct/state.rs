@@ -11,6 +11,8 @@ pub struct State {
     field: PotentialField,
     pub attacker: Player,
     pub limit: u8,
+    attacker_vcf_solver: vcf::iddfs::Solver,
+    defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl State {
@@ -21,6 +23,8 @@ impl State {
             limit: limit,
             game: game,
             field: field,
+            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
+            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
@@ -36,6 +40,10 @@ impl State {
 
     pub fn turn(&self) -> Player {
         self.game.turn()
+    }
+
+    pub fn attacking(&self) -> bool {
+        self.game.turn() == self.attacker
     }
 
     pub fn play(&mut self, next_move: Point) {
@@ -63,12 +71,7 @@ impl State {
         // Extract game in order not to cause updating state.field (which costs high)
         let last2_move = self.game.last2_move();
         self.game.play(next_move);
-        let next_limit = self.limit
-            - if self.game.turn() == self.attacker {
-                1
-            } else {
-                0
-            };
+        let next_limit = self.limit - if self.attacking() { 1 } else { 0 };
         let next_zobrist_hash = self.game.zobrist_hash(next_limit);
         self.game.undo(last2_move);
         (next_zobrist_hash, next_limit)
@@ -106,12 +109,22 @@ impl State {
             .collect()
     }
 
-    pub fn as_vcf(&self) -> vcf::State {
-        vcf::State::new(self.game().clone(), self.limit)
+    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
+        let state = &mut if self.attacking() {
+            vcf::State::new(self.game().clone(), self.limit)
+        } else {
+            vcf::State::new(self.game().pass(), self.limit - 1)
+        };
+        self.attacker_vcf_solver.solve(state)
     }
 
-    pub fn as_threat(&self) -> vcf::State {
-        vcf::State::new(self.game().pass(), self.limit - 1)
+    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
+        let state = &mut if !self.attacking() {
+            vcf::State::new(self.game().clone(), u8::MAX)
+        } else {
+            vcf::State::new(self.game().pass(), u8::MAX)
+        };
+        self.defender_vcf_solver.solve(state)
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {

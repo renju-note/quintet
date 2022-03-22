@@ -3,20 +3,14 @@ use super::table::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
-use crate::mate::vcf;
 
 pub struct Resolver {
     table: Table,
-    vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Resolver {
     pub fn init(table: Table) -> Self {
-        let depths = (1..=u8::MAX).into_iter().collect::<Vec<_>>();
-        Self {
-            table: table,
-            vcf_solver: vcf::iddfs::Solver::init(depths),
-        }
+        Self { table: table }
     }
 
     pub fn resolve(&mut self, state: &mut State) -> Option<Mate> {
@@ -39,8 +33,7 @@ impl Resolver {
             }
         }
 
-        let vcf_state = &mut state.as_vcf();
-        self.vcf_solver.solve(vcf_state)
+        state.solve_attacker_vcf()
     }
 
     fn resolve_attack(&mut self, state: &mut State, attack: Point) -> Option<Mate> {
@@ -59,8 +52,7 @@ impl Resolver {
             };
         }
 
-        let threat_state = &mut state.as_threat();
-        let maybe_threat = self.vcf_solver.solve(threat_state);
+        let maybe_threat = state.solve_attacker_vcf();
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
         let mut selected_defence = Point(0, 0);

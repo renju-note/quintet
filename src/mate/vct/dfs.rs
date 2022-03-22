@@ -2,21 +2,16 @@ use super::state::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
-use crate::mate::vcf;
 use std::collections::HashSet;
 
 pub struct Solver {
     deadends: HashSet<u64>,
-    attacker_vcf_solver: vcf::dfs::Solver,
-    defender_vcf_solver: vcf::dfs::Solver,
 }
 
 impl Solver {
     pub fn init() -> Self {
         Self {
             deadends: HashSet::new(),
-            attacker_vcf_solver: vcf::dfs::Solver::init(),
-            defender_vcf_solver: vcf::dfs::Solver::init(),
         }
     }
 
@@ -44,14 +39,11 @@ impl Solver {
             };
         }
 
-        let vcf_state = &mut state.as_vcf();
-        if let Some(vcf) = self.attacker_vcf_solver.solve(vcf_state) {
+        if let Some(vcf) = state.solve_attacker_vcf() {
             return Some(vcf);
         }
 
-        let threat_state = &mut state.as_threat();
-        threat_state.set_limit(u8::MAX);
-        let maybe_threat = self.defender_vcf_solver.solve(threat_state);
+        let maybe_threat = state.solve_defender_vcf();
 
         let attacks = state.sorted_attacks(maybe_threat);
 
@@ -80,15 +72,12 @@ impl Solver {
             };
         }
 
-        let threat_state = &mut state.as_threat();
-        let maybe_threat = self.attacker_vcf_solver.solve(threat_state);
+        let maybe_threat = state.solve_attacker_vcf();
         if maybe_threat.is_none() {
             return None;
         }
 
-        let vcf_state = &mut state.as_vcf();
-        threat_state.set_limit(u8::MAX);
-        if self.defender_vcf_solver.solve(vcf_state).is_some() {
+        if state.solve_defender_vcf().is_some() {
             return None;
         }
 

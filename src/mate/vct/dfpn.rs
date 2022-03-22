@@ -9,22 +9,17 @@ use super::state::State;
 use super::table::*;
 use crate::board::*;
 use crate::mate::game::*;
-use crate::mate::vcf;
 
 // MEMO: Debug printing example is 6e2bace
 
 pub struct Searcher {
     table: Table,
-    attacker_vcf_solver: vcf::iddfs::Solver,
-    defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Searcher {
     pub fn init() -> Self {
         Self {
             table: Table::new(),
-            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
-            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
@@ -51,14 +46,11 @@ impl Searcher {
             };
         }
 
-        let vcf_state = &mut state.as_vcf();
-        if self.attacker_vcf_solver.solve(vcf_state).is_some() {
+        if state.solve_attacker_vcf().is_some() {
             return Node::inf_dn(state.limit);
         }
 
-        let threat_state = &mut state.as_threat();
-        threat_state.set_limit(u8::MAX);
-        let maybe_threat = self.defender_vcf_solver.solve(threat_state);
+        let maybe_threat = state.solve_defender_vcf();
 
         let attacks = state.sorted_attacks(maybe_threat);
 
@@ -94,15 +86,12 @@ impl Searcher {
             };
         }
 
-        let threat_state = &mut state.as_threat();
-        let maybe_threat = self.attacker_vcf_solver.solve(threat_state);
+        let maybe_threat = state.solve_attacker_vcf();
         if maybe_threat.is_none() {
             return Node::inf_pn(state.limit);
         }
 
-        let vcf_state = &mut state.as_vcf();
-        vcf_state.set_limit(u8::MAX);
-        if self.defender_vcf_solver.solve(vcf_state).is_some() {
+        if state.solve_defender_vcf().is_some() {
             return Node::inf_pn(state.limit);
         }
 
