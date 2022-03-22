@@ -27,20 +27,12 @@ impl State {
         Self::new(turn, game, field)
     }
 
-    pub fn attacker(&self) -> Player {
-        self.attacker
-    }
-
     pub fn game(&self) -> &'_ Game {
         &self.game
     }
 
     pub fn turn(&self) -> Player {
         self.game.turn()
-    }
-
-    pub fn last(&self) -> Player {
-        self.game.last()
     }
 
     pub fn play(&mut self, next_move: Point) {

@@ -7,16 +7,16 @@ use std::collections::HashSet;
 
 pub struct Solver {
     deadends: HashSet<u64>,
-    vcf_solver: vcf::dfs::Solver,
-    opponent_vcf_solver: vcf::dfs::Solver,
+    attacker_vcf_solver: vcf::dfs::Solver,
+    defender_vcf_solver: vcf::dfs::Solver,
 }
 
 impl Solver {
     pub fn init() -> Self {
         Self {
             deadends: HashSet::new(),
-            vcf_solver: vcf::dfs::Solver::init(),
-            opponent_vcf_solver: vcf::dfs::Solver::init(),
+            attacker_vcf_solver: vcf::dfs::Solver::init(),
+            defender_vcf_solver: vcf::dfs::Solver::init(),
         }
     }
 
@@ -48,13 +48,15 @@ impl Solver {
             };
         }
 
-        if let Some(vcf) = self.solve_vcf(state, state.turn(), limit) {
+        let vcf_state = &mut state.as_vcf();
+        if let Some(vcf) = self.attacker_vcf_solver.solve(vcf_state, limit) {
             return Some(vcf);
         }
 
-        let maybe_opponent_threat = self.solve_vcf(state, state.last(), u8::MAX);
+        let threat_state = &mut state.as_threat();
+        let maybe_threat = self.defender_vcf_solver.solve(threat_state, u8::MAX);
 
-        let attacks = state.sorted_attacks(maybe_opponent_threat);
+        let attacks = state.sorted_attacks(maybe_threat);
 
         for attack in attacks {
             let result = self.solve_attack(state, limit, attack);
@@ -81,12 +83,14 @@ impl Solver {
             };
         }
 
-        if self.solve_vcf(state, state.turn(), u8::MAX).is_some() {
+        let threat_state = &mut state.as_threat();
+        let maybe_threat = self.attacker_vcf_solver.solve(threat_state, limit - 1);
+        if maybe_threat.is_none() {
             return None;
         }
 
-        let maybe_threat = self.solve_vcf(state, state.last(), limit - 1);
-        if maybe_threat.is_none() {
+        let vcf_state = &mut state.as_vcf();
+        if self.defender_vcf_solver.solve(vcf_state, u8::MAX).is_some() {
             return None;
         }
 
@@ -112,21 +116,6 @@ impl Solver {
         let result = self.solve_limit(state, limit).map(|m| m.unshift(defence));
         state.undo(last2_move);
         result
-    }
-
-    fn solve_vcf(&mut self, state: &mut State, turn: Player, max_depth: u8) -> Option<Mate> {
-        let attacker = state.attacker();
-        let game = state.game();
-        let state = &mut vcf::State::new(if turn == game.last() {
-            game.pass()
-        } else {
-            game.clone()
-        });
-        if turn == attacker {
-            self.vcf_solver.solve(state, max_depth)
-        } else {
-            self.opponent_vcf_solver.solve(state, max_depth)
-        }
     }
 }
 
