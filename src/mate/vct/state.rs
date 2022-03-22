@@ -34,18 +34,6 @@ impl State {
         Self::new(game, field, limit)
     }
 
-    pub fn game(&self) -> &'_ Game {
-        &self.game
-    }
-
-    pub fn turn(&self) -> Player {
-        self.game.turn()
-    }
-
-    pub fn attacking(&self) -> bool {
-        self.game.turn() == self.attacker
-    }
-
     pub fn play(&mut self, next_move: Point) {
         self.game.play(next_move);
         self.field.update_along(next_move, self.game.board());
@@ -63,6 +51,18 @@ impl State {
         self.field.update_along(last_move, self.game.board());
     }
 
+    pub fn game(&self) -> &'_ Game {
+        &self.game
+    }
+
+    pub fn turn(&self) -> Player {
+        self.game.turn()
+    }
+
+    pub fn attacking(&self) -> bool {
+        self.game.turn() == self.attacker
+    }
+
     pub fn zobrist_hash(&self) -> u64 {
         self.game.zobrist_hash(self.limit)
     }
@@ -77,11 +77,31 @@ impl State {
         (next_zobrist_hash, next_limit)
     }
 
+    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
+        let state = &mut if self.attacking() {
+            vcf::State::new(self.game().clone(), self.limit)
+        } else {
+            vcf::State::new(self.game().pass(), self.limit - 1)
+        };
+        self.attacker_vcf_solver.solve(state)
+    }
+
+    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
+        let state = &mut if !self.attacking() {
+            vcf::State::new(self.game().clone(), u8::MAX)
+        } else {
+            vcf::State::new(self.game().pass(), u8::MAX)
+        };
+        self.defender_vcf_solver.solve(state)
+    }
+
     pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
         let mut potentials = self.potentials();
         if let Some(threat) = maybe_threat {
-            let threat_defences = self.threat_defences(&threat);
-            let threat_defences = threat_defences.into_iter().collect::<HashSet<_>>();
+            let threat_defences = self
+                .threat_defences(&threat)
+                .into_iter()
+                .collect::<HashSet<_>>();
             potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
@@ -107,24 +127,6 @@ impl State {
             .into_iter()
             .filter(|&p| !self.game.is_forbidden_move(p))
             .collect()
-    }
-
-    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
-        let state = &mut if self.attacking() {
-            vcf::State::new(self.game().clone(), self.limit)
-        } else {
-            vcf::State::new(self.game().pass(), self.limit - 1)
-        };
-        self.attacker_vcf_solver.solve(state)
-    }
-
-    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
-        let state = &mut if !self.attacking() {
-            vcf::State::new(self.game().clone(), u8::MAX)
-        } else {
-            vcf::State::new(self.game().pass(), u8::MAX)
-        };
-        self.defender_vcf_solver.solve(state)
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
