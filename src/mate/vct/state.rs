@@ -105,6 +105,7 @@ impl State {
             potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
+        potentials.dedup();
         potentials
             .into_iter()
             .map(|t| t.0)
@@ -123,6 +124,7 @@ impl State {
             let ob = potential_map.get(b).unwrap_or(&0);
             ob.cmp(oa)
         });
+        result.dedup();
         result
             .into_iter()
             .filter(|&p| !self.game.is_forbidden_move(p))
