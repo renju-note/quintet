@@ -13,6 +13,8 @@ pub struct State {
     pub limit: u8,
     attacker_vcf_solver: vcf::iddfs::Solver,
     defender_vcf_solver: vcf::iddfs::Solver,
+    attacks_cache: HashMap<u64, Vec<Point>>,
+    defences_cache: HashMap<u64, Vec<Point>>,
 }
 
 impl State {
@@ -25,6 +27,8 @@ impl State {
             field: field,
             attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
             defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
+            attacks_cache: HashMap::new(),
+            defences_cache: HashMap::new(),
         }
     }
 
@@ -95,7 +99,11 @@ impl State {
         self.defender_vcf_solver.solve(state)
     }
 
-    pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
+    pub fn sorted_attacks(&mut self, maybe_threat: Option<Mate>) -> Vec<Point> {
+        let key = self.zobrist_hash();
+        if let Some(result) = self.attacks_cache.get(&key) {
+            return result.clone();
+        }
         let mut potentials = self.potentials();
         if let Some(threat) = maybe_threat {
             let threat_defences = self
@@ -106,14 +114,20 @@ impl State {
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
         potentials.dedup();
-        potentials
+        let result = potentials
             .into_iter()
             .map(|t| t.0)
             .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect()
+            .collect::<Vec<_>>();
+        self.attacks_cache.insert(key, result.clone());
+        result
     }
 
-    pub fn sorted_defences(&self, threat: Mate) -> Vec<Point> {
+    pub fn sorted_defences(&mut self, threat: Mate) -> Vec<Point> {
+        let key = self.zobrist_hash();
+        if let Some(result) = self.defences_cache.get(&key) {
+            return result.clone();
+        }
         let mut result = self.threat_defences(&threat);
         let mut potential_map = HashMap::new();
         for (p, o) in self.potentials() {
@@ -125,10 +139,12 @@ impl State {
             ob.cmp(oa)
         });
         result.dedup();
-        result
+        let result = result
             .into_iter()
             .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect()
+            .collect::<Vec<_>>();
+        self.defences_cache.insert(key, result.clone());
+        result
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
