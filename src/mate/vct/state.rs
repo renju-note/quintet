@@ -141,10 +141,10 @@ impl State {
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut game = self.state.game().pass();
-        let threater = game.turn();
+        let threater = game.turn;
         let mut result = vec![];
         for &p in &threat.path {
-            let turn = game.turn();
+            let turn = game.turn;
             game.play(p);
             if turn == threater {
                 continue;
@@ -161,7 +161,7 @@ impl State {
         self.state
             .game()
             .board()
-            .structures(self.state.game().turn(), Sword)
+            .structures(self.state.game().turn, Sword)
             .flat_map(|s| s.eyes())
             .collect()
     }

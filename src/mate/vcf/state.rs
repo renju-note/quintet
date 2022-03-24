@@ -11,7 +11,7 @@ pub struct State {
 
 impl State {
     pub fn new(game: Game, limit: u8) -> Self {
-        let attacker = game.turn();
+        let attacker = game.turn;
         Self {
             game: game,
             attacker: attacker,
@@ -25,13 +25,13 @@ impl State {
 
     pub fn play(&mut self, next_move: Point) {
         self.game.play(next_move);
-        if self.game.turn() == self.attacker {
+        if self.attacking() {
             self.limit -= 1
         }
     }
 
     pub fn undo(&mut self) {
-        if self.game.turn() == self.attacker {
+        if self.attacking() {
             self.limit += 1
         }
         self.game.undo();
@@ -61,7 +61,7 @@ impl State {
     }
 
     pub fn attacking(&self) -> bool {
-        self.game.turn() == self.attacker
+        self.game.turn == self.attacker
     }
 
     pub fn set_limit(&mut self, limit: u8) {
@@ -75,7 +75,7 @@ impl State {
     pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
         self.game
             .board()
-            .structures_on(forced_move, self.game.turn(), Sword)
+            .structures_on(forced_move, self.game.turn, Sword)
             .flat_map(Self::sword_eyes_pairs)
             .filter(|&(e1, _)| e1 == forced_move)
             .next()
@@ -84,7 +84,7 @@ impl State {
     pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
         self.game
             .board()
-            .structures_on(self.game.last2_move(), self.game.turn(), Sword)
+            .structures_on(self.game.last2_move(), self.game.turn, Sword)
             .flat_map(Self::sword_eyes_pairs)
             .collect()
     }
@@ -92,7 +92,7 @@ impl State {
     pub fn move_pairs(&self) -> Vec<(Point, Point)> {
         self.game
             .board()
-            .structures(self.game.turn(), Sword)
+            .structures(self.game.turn, Sword)
             .flat_map(Self::sword_eyes_pairs)
             .collect()
     }

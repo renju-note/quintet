@@ -32,16 +32,16 @@ pub use Event::*;
 
 #[derive(Clone)]
 pub struct Game {
+    pub turn: Player,
     board: Board,
-    turn: Player,
     moves: Vec<Point>,
 }
 
 impl Game {
     pub fn new(board: Board, turn: Player, moves: Vec<Point>) -> Self {
         Self {
-            board: board,
             turn: turn,
+            board: board,
             moves: moves,
         }
     }
@@ -53,10 +53,6 @@ impl Game {
 
     pub fn board(&self) -> &Board {
         &self.board
-    }
-
-    pub fn turn(&self) -> Player {
-        self.turn
     }
 
     pub fn last_move(&self) -> Point {
@@ -79,13 +75,13 @@ impl Game {
 
     pub fn undo(&mut self) {
         self.board.remove_mut(self.last_move());
-        self.turn = self.turn().opponent();
+        self.turn = self.turn.opponent();
         self.moves.pop();
     }
 
     pub fn pass(&self) -> Self {
         let moves = vec![self.last_move(), self.last2_move()];
-        Self::new(self.board.clone(), self.turn().opponent(), moves)
+        Self::new(self.board.clone(), self.turn.opponent(), moves)
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -111,7 +107,7 @@ impl Game {
     fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last_four_eyes = self
             .board
-            .structures_on(self.last_move(), self.turn().opponent(), Four)
+            .structures_on(self.last_move(), self.turn.opponent(), Four)
             .flat_map(|r| r.eyes());
         let mut ret = None;
         for eye in last_four_eyes {
