@@ -46,10 +46,12 @@ impl Searcher {
         let attacks = state.sorted_attacks(maybe_threat);
 
         loop {
-            let (current, selected, next) = self.select_attack(state, &attacks);
-            if current.pn > threshold.pn || current.dn > threshold.dn {
+            let (current, selected, mut next) = self.select_attack(state, &attacks);
+            if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
+            next.pn = next.pn.checked_add(1).unwrap_or(INF);
+            next.dn = next.dn.checked_add(1).unwrap_or(INF);
             self.expand_attack(state, selected.unwrap(), next);
         }
     }
@@ -82,10 +84,12 @@ impl Searcher {
         let defences = state.sorted_defences(maybe_threat.unwrap());
 
         loop {
-            let (current, selected, next) = self.select_defence(state, &defences);
-            if current.pn > threshold.pn || current.dn > threshold.dn {
+            let (current, selected, mut next) = self.select_defence(state, &defences);
+            if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
+            next.dn = next.dn.checked_add(1).unwrap_or(INF);
+            next.pn = next.pn.checked_add(1).unwrap_or(INF);
             self.expand_defence(state, selected.unwrap(), next);
         }
     }
