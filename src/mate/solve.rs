@@ -48,21 +48,13 @@ pub fn solve(kind: SolverKind, limit: u8, board: &Board, turn: Player) -> Option
         }
         VCTPNS => {
             let state = &mut vct::State::init(board.clone(), turn, limit);
-            let searcher = vct::pns::Searcher::init();
-            let may_table = searcher.search(state);
-            may_table.and_then(|table| {
-                let mut resolver = vct::resolver::Resolver::init(table);
-                resolver.resolve(state)
-            })
+            let mut solver = vct::pns::Solver::init();
+            solver.solve(state)
         }
         VCTDFPNS => {
             let state = &mut vct::State::init(board.clone(), turn, limit);
-            let searcher = vct::dfpns::Searcher::init();
-            let may_table = searcher.search(state);
-            may_table.and_then(|table| {
-                let mut resolver = vct::resolver::Resolver::init(table);
-                resolver.resolve(state)
-            })
+            let mut solver = vct::dfpns::Solver::init();
+            solver.solve(state)
         }
     }
 }
