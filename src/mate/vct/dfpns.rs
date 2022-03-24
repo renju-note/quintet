@@ -24,7 +24,7 @@ impl Searcher {
     }
 
     pub fn search(mut self, state: &mut State) -> Option<Table> {
-        let node = self.search_limit(state, Node::root(state.limit));
+        let node = self.search_limit(state, Node::root(state.limit()));
         if node.pn != 0 {
             return None;
         }
@@ -32,8 +32,8 @@ impl Searcher {
     }
 
     fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
-        if state.limit == 0 {
-            return Node::inf_pn(state.limit);
+        if state.limit() == 0 {
+            return Node::inf_pn(state.limit());
         }
         self.search_attacks(state, threshold)
     }
@@ -41,13 +41,13 @@ impl Searcher {
     fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::inf_pn(state.limit),
+                Defeated(_) => Node::inf_pn(state.limit()),
                 Forced(m) => self.expand_attack(state, m, threshold),
             };
         }
 
         if state.solve_vcf().is_some() {
-            return Node::inf_dn(state.limit);
+            return Node::inf_dn(state.limit());
         }
 
         let maybe_threat = state.solve_threat();
@@ -76,18 +76,18 @@ impl Searcher {
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::inf_dn(state.limit),
+                Defeated(_) => Node::inf_dn(state.limit()),
                 Forced(m) => self.expand_defence(state, m, threshold),
             };
         }
 
         let maybe_threat = state.solve_threat();
         if maybe_threat.is_none() {
-            return Node::inf_pn(state.limit);
+            return Node::inf_pn(state.limit());
         }
 
         if state.solve_vcf().is_some() {
-            return Node::inf_pn(state.limit);
+            return Node::inf_pn(state.limit());
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
@@ -120,7 +120,7 @@ impl Searcher {
         state: &mut State,
         attacks: &[Point],
     ) -> (Node, Option<Point>, Node, Node) {
-        let limit = state.limit;
+        let limit = state.limit();
         let mut current = Node::inf_pn(limit);
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_pn(limit);
@@ -164,7 +164,7 @@ impl Searcher {
         state: &mut State,
         defences: &[Point],
     ) -> (Node, Option<Point>, Node, Node) {
-        let limit = state.limit;
+        let limit = state.limit();
         let mut current = Node::inf_dn(limit);
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_dn(limit - 1);
