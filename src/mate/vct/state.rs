@@ -4,7 +4,7 @@ use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub struct State {
     game: Game,
@@ -104,21 +104,16 @@ impl State {
         if let Some(result) = self.attacks_cache.get(&key) {
             return result.clone();
         }
+
         let mut potentials = self.potentials();
         if let Some(threat) = maybe_threat {
-            let threat_defences = self
-                .threat_defences(&threat)
-                .into_iter()
-                .collect::<HashSet<_>>();
+            let threat_defences = self.threat_defences(&threat);
             potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
-        potentials.dedup();
-        let result = potentials
-            .into_iter()
-            .map(|t| t.0)
-            .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect::<Vec<_>>();
+        potentials.retain(|&(p, _)| !self.game.is_forbidden_move(p));
+        let result: Vec<_> = potentials.into_iter().map(|t| t.0).collect();
+
         self.attacks_cache.insert(key, result.clone());
         result
     }
@@ -128,21 +123,13 @@ impl State {
         if let Some(result) = self.defences_cache.get(&key) {
             return result.clone();
         }
+
         let mut result = self.threat_defences(&threat);
-        let mut potential_map = HashMap::new();
-        for (p, o) in self.potentials() {
-            potential_map.insert(p, o);
-        }
-        result.sort_by(|a, b| {
-            let oa = potential_map.get(a).unwrap_or(&0);
-            let ob = potential_map.get(b).unwrap_or(&0);
-            ob.cmp(oa)
-        });
+        let field = &self.field;
+        result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
         result.dedup();
-        let result = result
-            .into_iter()
-            .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect::<Vec<_>>();
+        result.retain(|&p| !self.game.is_forbidden_move(p));
+
         self.defences_cache.insert(key, result.clone());
         result
     }
