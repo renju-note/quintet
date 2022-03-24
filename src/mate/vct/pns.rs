@@ -37,11 +37,11 @@ impl Searcher {
             };
         }
 
-        if state.solve_attacker_vcf().is_some() {
+        if state.solve_vcf().is_some() {
             return Node::inf_dn(state.limit);
         }
 
-        let maybe_threat = state.solve_defender_vcf();
+        let maybe_threat = state.solve_threat();
 
         let attacks = state.sorted_attacks(maybe_threat);
 
@@ -71,12 +71,12 @@ impl Searcher {
             };
         }
 
-        let maybe_threat = state.solve_attacker_vcf();
+        let maybe_threat = state.solve_threat();
         if maybe_threat.is_none() {
             return Node::inf_pn(state.limit);
         }
 
-        if state.solve_defender_vcf().is_some() {
+        if state.solve_vcf().is_some() {
             return Node::inf_pn(state.limit);
         }
 
@@ -100,14 +100,20 @@ impl Searcher {
         result
     }
 
+    // MEMO: select_attack|select_defence does trick;
+    // approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
+    // since we don't know the number of *next* defences|attacks
+
     fn select_attack(&self, state: &mut State, attacks: &[Point]) -> (Node, Option<Point>, Node) {
         let limit = state.limit;
         let mut current = Node::inf_pn(limit);
         let mut selected: Option<Point> = None;
         let mut next = Node::inf_pn(limit);
+        // trick
+        let init = Node::init_dn(attacks.len(), limit);
         for &attack in attacks {
-            let child = self.table.lookup_next(state, attack);
-            current = current.agg_or(child);
+            let child = self.table.lookup_next(state, attack).unwrap_or(init);
+            current = current.min_pn_sum_dn(child);
             if child.pn < next.pn {
                 selected.replace(attack);
                 next = child;
@@ -125,9 +131,11 @@ impl Searcher {
         let mut current = Node::inf_dn(limit);
         let mut selected: Option<Point> = None;
         let mut next = Node::inf_dn(limit - 1);
+        // trick
+        let init = Node::init_pn(defences.len(), limit - 1);
         for &defence in defences {
-            let child = self.table.lookup_next(state, defence);
-            current = current.agg_and(child);
+            let child = self.table.lookup_next(state, defence).unwrap_or(init);
+            current = current.min_dn_sum_pn(child);
             if child.dn < next.dn {
                 selected.replace(defence);
                 next = child;
@@ -328,7 +336,7 @@ mod tests {
         .parse::<Board>()?;
 
         let result = solve(&board, White, 5);
-        let expected = Some("J4,G7,I4,I3,E6,G4,G6".to_string());
+        let expected = Some("J4,K3,I4,I3,F8,G7,E6,G9,G6".to_string());
         assert_eq!(result, expected);
 
         let result = solve(&board, White, 4);

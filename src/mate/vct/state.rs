@@ -4,7 +4,6 @@ use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
-use std::collections::{HashMap, HashSet};
 
 pub struct State {
     game: Game,
@@ -67,66 +66,56 @@ impl State {
         self.game.zobrist_hash(self.limit)
     }
 
-    pub fn next_zobrist_hash_limit(&mut self, next_move: Point) -> (u64, u8) {
+    pub fn next_zobrist_hash(&mut self, next_move: Point) -> u64 {
         // Extract game in order not to cause updating state.field (which costs high)
         let last2_move = self.game.last2_move();
         self.game.play(next_move);
         let next_limit = self.limit - if self.attacking() { 1 } else { 0 };
-        let next_zobrist_hash = self.game.zobrist_hash(next_limit);
+        let result = self.game.zobrist_hash(next_limit);
         self.game.undo(last2_move);
-        (next_zobrist_hash, next_limit)
+        result
     }
 
-    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
-        let state = &mut if self.attacking() {
-            vcf::State::new(self.game().clone(), self.limit)
+    pub fn solve_vcf(&mut self) -> Option<Mate> {
+        let game = self.game().clone();
+        if self.attacking() {
+            let state = &mut vcf::State::new(game, self.limit);
+            self.attacker_vcf_solver.solve(state)
         } else {
-            vcf::State::new(self.game().pass(), self.limit - 1)
-        };
-        self.attacker_vcf_solver.solve(state)
+            let state = &mut vcf::State::new(game, u8::MAX);
+            self.defender_vcf_solver.solve(state)
+        }
     }
 
-    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
-        let state = &mut if !self.attacking() {
-            vcf::State::new(self.game().clone(), u8::MAX)
+    pub fn solve_threat(&mut self) -> Option<Mate> {
+        let game = self.game().pass();
+        if self.attacking() {
+            let state = &mut vcf::State::new(game, u8::MAX);
+            self.defender_vcf_solver.solve(state)
         } else {
-            vcf::State::new(self.game().pass(), u8::MAX)
-        };
-        self.defender_vcf_solver.solve(state)
+            let state = &mut vcf::State::new(game, self.limit - 1);
+            self.attacker_vcf_solver.solve(state)
+        }
     }
 
-    pub fn sorted_attacks(&self, maybe_threat: Option<Mate>) -> Vec<Point> {
+    pub fn sorted_attacks(&mut self, maybe_threat: Option<Mate>) -> Vec<Point> {
         let mut potentials = self.potentials();
         if let Some(threat) = maybe_threat {
-            let threat_defences = self
-                .threat_defences(&threat)
-                .into_iter()
-                .collect::<HashSet<_>>();
+            let threat_defences = self.threat_defences(&threat);
             potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
-        potentials
-            .into_iter()
-            .map(|t| t.0)
-            .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect()
+        potentials.retain(|&(p, _)| !self.game.is_forbidden_move(p));
+        potentials.into_iter().map(|t| t.0).collect()
     }
 
-    pub fn sorted_defences(&self, threat: Mate) -> Vec<Point> {
+    pub fn sorted_defences(&mut self, threat: Mate) -> Vec<Point> {
         let mut result = self.threat_defences(&threat);
-        let mut potential_map = HashMap::new();
-        for (p, o) in self.potentials() {
-            potential_map.insert(p, o);
-        }
-        result.sort_by(|a, b| {
-            let oa = potential_map.get(a).unwrap_or(&0);
-            let ob = potential_map.get(b).unwrap_or(&0);
-            ob.cmp(oa)
-        });
+        let field = &self.field;
+        result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
+        result.dedup();
+        result.retain(|&p| !self.game.is_forbidden_move(p));
         result
-            .into_iter()
-            .filter(|&p| !self.game.is_forbidden_move(p))
-            .collect()
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {

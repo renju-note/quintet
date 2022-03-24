@@ -61,6 +61,10 @@ impl PotentialField {
         }
     }
 
+    pub fn get(&self, p: Point) -> u8 {
+        self.sum(p)
+    }
+
     pub fn collect(&self, min: u8) -> Vec<(Point, u8)> {
         (0..RANGE)
             .flat_map(|x| {
