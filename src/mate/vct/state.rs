@@ -76,22 +76,26 @@ impl State {
         (next_zobrist_hash, next_limit)
     }
 
-    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
-        let state = &mut if self.attacking() {
-            vcf::State::new(self.game().clone(), self.limit)
+    pub fn solve_vcf(&mut self) -> Option<Mate> {
+        let game = self.game().clone();
+        if self.attacking() {
+            let state = &mut vcf::State::new(game, self.limit);
+            self.attacker_vcf_solver.solve(state)
         } else {
-            vcf::State::new(self.game().pass(), self.limit - 1)
-        };
-        self.attacker_vcf_solver.solve(state)
+            let state = &mut vcf::State::new(game, u8::MAX);
+            self.defender_vcf_solver.solve(state)
+        }
     }
 
-    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
-        let state = &mut if !self.attacking() {
-            vcf::State::new(self.game().clone(), u8::MAX)
+    pub fn solve_threat(&mut self) -> Option<Mate> {
+        let game = self.game().pass();
+        if self.attacking() {
+            let state = &mut vcf::State::new(game, u8::MAX);
+            self.defender_vcf_solver.solve(state)
         } else {
-            vcf::State::new(self.game().pass(), u8::MAX)
-        };
-        self.defender_vcf_solver.solve(state)
+            let state = &mut vcf::State::new(game, self.limit - 1);
+            self.attacker_vcf_solver.solve(state)
+        }
     }
 
     pub fn sorted_attacks(&mut self, maybe_threat: Option<Mate>) -> Vec<Point> {

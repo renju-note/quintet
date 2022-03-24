@@ -33,7 +33,7 @@ impl Resolver {
             }
         }
 
-        state.solve_attacker_vcf()
+        state.solve_vcf()
     }
 
     fn resolve_attack(&mut self, state: &mut State, attack: Point) -> Option<Mate> {
@@ -52,7 +52,7 @@ impl Resolver {
             };
         }
 
-        let maybe_threat = state.solve_attacker_vcf();
+        let maybe_threat = state.solve_threat();
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
         let mut selected_defence = Point(0, 0);
