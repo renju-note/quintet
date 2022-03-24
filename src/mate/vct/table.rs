@@ -18,11 +18,9 @@ impl Table {
         self.table.insert(key, node.clone());
     }
 
-    pub fn lookup_next(&self, state: &mut State, next_move: Point) -> Node {
-        let (next_zobrist_hash, next_limit) = state.next_zobrist_hash_limit(next_move);
-        self.table
-            .get(&next_zobrist_hash)
-            .map_or(Node::init(next_limit), |c| *c)
+    pub fn lookup_next(&self, state: &mut State, next_move: Point) -> Option<Node> {
+        let key = state.next_zobrist_hash(next_move);
+        self.table.get(&key).map(|&c| c)
     }
 }
 
@@ -46,10 +44,6 @@ impl Node {
         }
     }
 
-    pub fn init(limit: u8) -> Self {
-        Self::new(1, 1, limit)
-    }
-
     pub fn root(limit: u8) -> Self {
         Self::new(INF - 1, INF - 1, limit)
     }
@@ -62,7 +56,15 @@ impl Node {
         Self::new(0, INF, limit)
     }
 
-    pub fn agg_or(&self, another: Self) -> Self {
+    pub fn init_pn(approx_dn: usize, limit: u8) -> Self {
+        Self::new(1, approx_dn, limit)
+    }
+
+    pub fn init_dn(approx_pn: usize, limit: u8) -> Self {
+        Self::new(approx_pn, 1, limit)
+    }
+
+    pub fn min_pn_sum_dn(&self, another: Self) -> Self {
         Self::new(
             self.pn.min(another.pn),
             self.dn.checked_add(another.dn).unwrap_or(INF),
@@ -70,12 +72,16 @@ impl Node {
         )
     }
 
-    pub fn agg_and(&self, another: Self) -> Self {
+    pub fn min_dn_sum_pn(&self, another: Self) -> Self {
         Self::new(
             self.pn.checked_add(another.pn).unwrap_or(INF),
             self.dn.min(another.dn),
             self.limit.min(another.limit),
         )
+    }
+
+    pub fn dummy() -> Self {
+        Self::new(INF, INF, 0)
     }
 }
 

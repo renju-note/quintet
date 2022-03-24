@@ -111,6 +111,10 @@ impl Searcher {
         result
     }
 
+    // MEMO: select_attack|select_defence does trick;
+    // approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
+    // since we don't know the number of *next* defences|attacks
+
     fn select_attack(
         &self,
         state: &mut State,
@@ -121,9 +125,11 @@ impl Searcher {
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_pn(limit);
         let mut next2 = Node::inf_pn(limit);
+        // trick
+        let init = Node::init_dn(attacks.len(), limit);
         for &attack in attacks {
-            let child = self.table.lookup_next(state, attack);
-            current = current.agg_or(child);
+            let child = self.table.lookup_next(state, attack).unwrap_or(init);
+            current = current.min_pn_sum_dn(child);
             if child.pn < next1.pn {
                 selected.replace(attack);
                 next2 = next1;
@@ -163,9 +169,11 @@ impl Searcher {
         let mut selected: Option<Point> = None;
         let mut next1 = Node::inf_dn(limit - 1);
         let mut next2 = Node::inf_dn(limit - 1);
+        // trick
+        let init = Node::init_pn(defences.len(), limit - 1);
         for &defence in defences {
-            let child = self.table.lookup_next(state, defence);
-            current = current.agg_and(child);
+            let child = self.table.lookup_next(state, defence).unwrap_or(init);
+            current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
                 selected.replace(defence);
                 next2 = next1;

@@ -66,14 +66,14 @@ impl State {
         self.game.zobrist_hash(self.limit)
     }
 
-    pub fn next_zobrist_hash_limit(&mut self, next_move: Point) -> (u64, u8) {
+    pub fn next_zobrist_hash(&mut self, next_move: Point) -> u64 {
         // Extract game in order not to cause updating state.field (which costs high)
         let last2_move = self.game.last2_move();
         self.game.play(next_move);
         let next_limit = self.limit - if self.attacking() { 1 } else { 0 };
-        let next_zobrist_hash = self.game.zobrist_hash(next_limit);
+        let result = self.game.zobrist_hash(next_limit);
         self.game.undo(last2_move);
-        (next_zobrist_hash, next_limit)
+        result
     }
 
     pub fn solve_vcf(&mut self) -> Option<Mate> {
