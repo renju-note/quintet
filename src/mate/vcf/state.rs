@@ -2,6 +2,7 @@ use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
 
+#[derive(Clone)]
 pub struct State {
     game: Game,
     pub attacker: Player,
@@ -36,8 +37,21 @@ impl State {
         self.game.undo(last2_move);
     }
 
-    pub fn game(&mut self) -> &'_ mut Game {
-        &mut self.game
+    pub fn pass(&self) -> Self {
+        let game = self.game.pass();
+        Self::new(game, self.limit - 1)
+    }
+
+    pub fn game(&self) -> &Game {
+        &self.game
+    }
+
+    pub fn board(&self) -> &Board {
+        self.game.board()
+    }
+
+    pub fn attacking(&self) -> bool {
+        self.game.turn() == self.attacker
     }
 
     pub fn set_limit(&mut self, limit: u8) {

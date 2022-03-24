@@ -41,7 +41,7 @@ impl Resolver {
             }
         }
 
-        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit);
+        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit());
         self.vcf_solver.solve(vcf_state)
     }
 
