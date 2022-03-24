@@ -3,14 +3,19 @@ use super::table::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
+use crate::mate::vcf;
 
 pub struct Resolver {
     table: Table,
+    vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Resolver {
     pub fn init(table: Table) -> Self {
-        Self { table: table }
+        Self {
+            table: table,
+            vcf_solver: vcf::iddfs::Solver::init((1..u8::MAX).collect()),
+        }
     }
 
     pub fn resolve(&mut self, state: &mut State) -> Option<Mate> {
@@ -33,7 +38,8 @@ impl Resolver {
             }
         }
 
-        state.solve_vcf()
+        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit);
+        self.vcf_solver.solve(vcf_state)
     }
 
     fn resolve_attack(&mut self, state: &mut State, attack: Point) -> Option<Mate> {
