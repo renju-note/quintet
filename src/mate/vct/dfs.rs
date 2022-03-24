@@ -57,10 +57,9 @@ impl Solver {
     }
 
     fn solve_attack(&mut self, state: &mut State, attack: Point) -> Option<Mate> {
-        let last2_move = state.game().last2_move();
         state.play(attack);
         let result = self.solve_defences(state).map(|m| m.unshift(attack));
-        state.undo(last2_move);
+        state.undo();
         result
     }
 
@@ -97,10 +96,9 @@ impl Solver {
     }
 
     fn solve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
-        let last2_move = state.game().last2_move();
         state.play(defence);
         let result = self.solve(state).map(|m| m.unshift(defence));
-        state.undo(last2_move);
+        state.undo();
         result
     }
 }

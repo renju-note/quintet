@@ -30,11 +30,11 @@ impl State {
         }
     }
 
-    pub fn undo(&mut self, last2_move: Point) {
+    pub fn undo(&mut self) {
         if self.game.turn() == self.attacker {
             self.limit += 1
         }
-        self.game.undo(last2_move);
+        self.game.undo();
     }
 
     pub fn pass(&self) -> Self {

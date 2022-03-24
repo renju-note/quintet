@@ -34,26 +34,24 @@ pub use Event::*;
 pub struct Game {
     board: Board,
     turn: Player,
-    last_move: Point,
-    last2_move: Point,
+    moves: Vec<Point>,
 }
 
 impl Game {
-    pub fn new(board: Board, turn: Player, last_move: Point, last2_move: Point) -> Self {
+    pub fn new(board: Board, turn: Player, moves: Vec<Point>) -> Self {
         Self {
             board: board,
             turn: turn,
-            last_move: last_move,
-            last2_move: last2_move,
+            moves: moves,
         }
     }
 
     pub fn init(board: Board, turn: Player) -> Self {
         let (last_move, last2_move) = Self::choose_last_moves(&board, turn);
-        Self::new(board, turn, last_move, last2_move)
+        Self::new(board, turn, vec![last2_move, last_move])
     }
 
-    pub fn board(&self) -> &'_ Board {
+    pub fn board(&self) -> &Board {
         &self.board
     }
 
@@ -62,15 +60,11 @@ impl Game {
     }
 
     pub fn last_move(&self) -> Point {
-        self.last_move
+        self.moves[self.moves.len() - 1]
     }
 
     pub fn last2_move(&self) -> Point {
-        self.last2_move
-    }
-
-    pub fn last(&self) -> Player {
-        self.turn.opponent()
+        self.moves[self.moves.len() - 2]
     }
 
     pub fn zobrist_hash(&self, limit: u8) -> u64 {
@@ -79,22 +73,19 @@ impl Game {
 
     pub fn play(&mut self, next_move: Point) {
         self.board.put_mut(self.turn, next_move);
-        self.turn = self.last();
-        self.last2_move = self.last_move;
-        self.last_move = next_move;
+        self.turn = self.turn.opponent();
+        self.moves.push(next_move);
     }
 
-    pub fn undo(&mut self, last2_move: Point) {
-        self.board.remove_mut(self.last_move);
-        self.turn = self.last();
-        self.last_move = self.last2_move;
-        self.last2_move = last2_move;
+    pub fn undo(&mut self) {
+        self.board.remove_mut(self.last_move());
+        self.turn = self.turn().opponent();
+        self.moves.pop();
     }
 
     pub fn pass(&self) -> Self {
-        let last2_move = self.last_move;
-        let last_move = self.last2_move;
-        Self::new(self.board.clone(), self.last(), last_move, last2_move)
+        let moves = vec![self.last_move(), self.last2_move()];
+        Self::new(self.board.clone(), self.turn().opponent(), moves)
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -120,7 +111,7 @@ impl Game {
     fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let last_four_eyes = self
             .board
-            .structures_on(self.last_move(), self.last(), Four)
+            .structures_on(self.last_move(), self.turn().opponent(), Four)
             .flat_map(|r| r.eyes());
         let mut ret = None;
         for eye in last_four_eyes {

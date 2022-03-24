@@ -33,9 +33,9 @@ impl State {
         self.field.update_along(next_move, self.state.board());
     }
 
-    pub fn undo(&mut self, last2_move: Point) {
+    pub fn undo(&mut self) {
         let last_move = self.state.game().last_move();
-        self.state.undo(last2_move);
+        self.state.undo();
         self.field.update_along(last_move, self.state.board());
     }
 
@@ -53,10 +53,9 @@ impl State {
 
     pub fn next_zobrist_hash(&mut self, next_move: Point) -> u64 {
         // Update only state in order not to cause updating state.field (which costs high)
-        let last2_move = self.state.game().last2_move();
         self.state.play(next_move);
         let result = self.state.zobrist_hash();
-        self.state.undo(last2_move);
+        self.state.undo();
         result
     }
 

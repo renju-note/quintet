@@ -55,11 +55,10 @@ impl Searcher {
     }
 
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
-        let last2_move = state.game().last2_move();
         state.play(attack);
         let result = self.search_defences(state, threshold);
         self.table.insert(state, result.clone());
-        state.undo(last2_move);
+        state.undo();
         result
     }
 
@@ -92,11 +91,10 @@ impl Searcher {
     }
 
     fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
-        let last2_move = state.game().last2_move();
         state.play(defence);
         let result = self.search_limit(state, threshold);
         self.table.insert(state, result.clone());
-        state.undo(last2_move);
+        state.undo();
         result
     }
 

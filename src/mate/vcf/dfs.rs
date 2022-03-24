@@ -72,12 +72,11 @@ impl Solver {
             return None;
         }
 
-        let last2_move = state.game().last2_move();
         state.play(attack);
         let result = self
             .solve_defence(state, defence)
             .map(|m| m.unshift(attack));
-        state.undo(last2_move);
+        state.undo();
         result
     }
 
@@ -89,10 +88,9 @@ impl Solver {
             };
         }
 
-        let last2_move = state.game().last2_move();
         state.play(defence);
         let result = self.solve(state).map(|m| m.unshift(defence));
-        state.undo(last2_move);
+        state.undo();
         result
     }
 }
