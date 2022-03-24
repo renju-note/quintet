@@ -391,7 +391,7 @@ mod tests {
         .parse::<Board>()?;
 
         let result = solve(&board, White, 5);
-        let expected = Some("J4,G7,I4,I3,E6,G4,G6".to_string());
+        let expected = Some("J4,K3,I4,I3,F8,G7,E6,G9,G6".to_string());
         assert_eq!(result, expected);
 
         let result = solve(&board, White, 4);
