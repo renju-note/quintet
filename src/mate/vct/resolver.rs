@@ -5,20 +5,11 @@ use crate::mate::game::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
 
-pub struct Resolver {
-    table: Table,
-    vcf_solver: vcf::iddfs::Solver,
-}
+pub trait Resolver {
+    fn table(&self) -> &Table;
+    fn solve_vcf(&mut self, state: &mut vcf::State) -> Option<Mate>;
 
-impl Resolver {
-    pub fn init(table: Table) -> Self {
-        Self {
-            table: table,
-            vcf_solver: vcf::iddfs::Solver::init((1..u8::MAX).collect()),
-        }
-    }
-
-    pub fn resolve(&mut self, state: &mut State) -> Option<Mate> {
+    fn resolve(&mut self, state: &mut State) -> Option<Mate> {
         self.resolve_attacks(state)
     }
 
@@ -35,7 +26,7 @@ impl Resolver {
         let attacks = state.sorted_attacks(None);
         for attack in attacks {
             let node = self
-                .table
+                .table()
                 .lookup_next(state, attack)
                 .unwrap_or(Node::dummy());
             if node.pn == 0 {
@@ -46,7 +37,7 @@ impl Resolver {
         }
 
         let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit());
-        self.vcf_solver.solve(vcf_state)
+        self.solve_vcf(vcf_state)
     }
 
     fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
@@ -65,7 +56,7 @@ impl Resolver {
         let mut selected_defence = Point(0, 0);
         for defence in defences {
             let node = self
-                .table
+                .table()
                 .lookup_next(state, defence)
                 .unwrap_or(Node::dummy());
             if node.pn == 0 && node.limit < min_limit {

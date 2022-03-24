@@ -1,3 +1,35 @@
+use super::resolver::*;
+use super::searcher::*;
+use super::state::State;
+use super::table::*;
+use crate::board::*;
+use crate::mate::mate::*;
+use crate::mate::vcf;
+
+// MEMO: Debug printing example is 6e2bace
+
+pub struct Solver {
+    table: Table,
+    vcf_solver: vcf::iddfs::Solver,
+}
+
+impl Solver {
+    pub fn init() -> Self {
+        Self {
+            table: Table::new(),
+            vcf_solver: vcf::iddfs::Solver::init((1..u8::MAX).collect()),
+        }
+    }
+
+    pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
+        if self.search(state) {
+            self.resolve(state)
+        } else {
+            None
+        }
+    }
+}
+
 /*
 Df-pn algorithm is proposed in the following paper:
 
@@ -5,122 +37,19 @@ Nagai, Ayumu, and Hiroshi Imai.
 "Proof for the equivalence between some best-first algorithms and depth-first algorithms for AND/OR trees."
 IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 */
-use super::state::State;
-use super::table::*;
-use crate::board::*;
-use crate::mate::game::*;
-
-// MEMO: Debug printing example is 6e2bace
-
-pub struct Searcher {
-    table: Table,
-}
-
-impl Searcher {
-    pub fn init() -> Self {
-        Self {
-            table: Table::new(),
-        }
+impl Searcher for Solver {
+    fn table(&mut self) -> &mut Table {
+        &mut self.table
     }
 
-    pub fn search(mut self, state: &mut State) -> Option<Table> {
-        let node = self.search_limit(state, Node::root(state.limit()));
-        if node.pn != 0 {
-            return None;
-        }
-        Some(self.table)
-    }
-
-    fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
-        if state.limit() == 0 {
-            return Node::inf_pn(state.limit());
-        }
-        self.search_attacks(state, threshold)
-    }
-
-    fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
-            return match event {
-                Defeated(_) => Node::inf_pn(state.limit()),
-                Forced(m) => self.expand_attack(state, m, threshold),
-            };
-        }
-
-        if state.solve_vcf().is_some() {
-            return Node::inf_dn(state.limit());
-        }
-
-        let maybe_threat = state.solve_threat();
-
-        let attacks = state.sorted_attacks(maybe_threat);
-
-        loop {
-            let (current, selected, next1, next2) = self.select_attack(state, &attacks);
-            if current.pn >= threshold.pn || current.dn >= threshold.dn {
-                return current;
-            }
-            let next_threshold = self.next_threshold_attack(threshold, current, next1, next2);
-            self.expand_attack(state, selected.unwrap(), next_threshold);
-        }
-    }
-
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
-        state.into_play(attack, |s| {
-            let result = self.search_defences(s, threshold);
-            self.table.insert(s, result.clone());
-            result
-        })
-    }
-
-    fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
-            return match event {
-                Defeated(_) => Node::inf_dn(state.limit()),
-                Forced(m) => self.expand_defence(state, m, threshold),
-            };
-        }
-
-        let maybe_threat = state.solve_threat();
-        if maybe_threat.is_none() {
-            return Node::inf_pn(state.limit());
-        }
-
-        if state.solve_vcf().is_some() {
-            return Node::inf_pn(state.limit());
-        }
-
-        let defences = state.sorted_defences(maybe_threat.unwrap());
-
-        loop {
-            let (current, selected, next1, next2) = self.select_defence(state, &defences);
-            if current.pn >= threshold.pn || current.dn >= threshold.dn {
-                return current;
-            }
-            let next_threshold = self.next_threshold_defence(threshold, current, next1, next2);
-            self.expand_defence(state, selected.unwrap(), next_threshold);
-        }
-    }
-
-    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
-        state.into_play(defence, |s| {
-            let result = self.search_limit(s, threshold);
-            self.table.insert(s, result.clone());
-            result
-        })
-    }
-
-    // MEMO: select_attack|select_defence does trick;
+    // MEMO: choose_attack|choose_defence does trick;
     // approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
     // since we don't know the number of *next* defences|attacks
 
-    fn select_attack(
-        &self,
-        state: &mut State,
-        attacks: &[Point],
-    ) -> (Node, Option<Point>, Node, Node) {
+    fn choose_attack(&self, state: &mut State, attacks: &[Point], threshold: Node) -> Choice {
         let limit = state.limit();
         let mut current = Node::inf_pn(limit);
-        let mut selected: Option<Point> = None;
+        let mut next_move: Option<Point> = None;
         let mut next1 = Node::inf_pn(limit);
         let mut next2 = Node::inf_pn(limit);
         // trick
@@ -129,7 +58,7 @@ impl Searcher {
             let child = self.table.lookup_next(state, attack).unwrap_or(init);
             current = current.min_pn_sum_dn(child);
             if child.pn < next1.pn {
-                selected.replace(attack);
+                next_move.replace(attack);
                 next2 = next1;
                 next1 = child;
             } else if child.pn < next2.pn {
@@ -140,31 +69,24 @@ impl Searcher {
                 break;
             }
         }
-        (current, selected, next1, next2)
-    }
 
-    fn next_threshold_attack(
-        &self,
-        threshold: Node,
-        current: Node,
-        next1: Node,
-        next2: Node,
-    ) -> Node {
         let pn = threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF));
         let dn = (threshold.dn - current.dn)
             .checked_add(next1.dn)
             .unwrap_or(INF);
-        Node::new(pn, dn, current.limit)
+        let next_threshold = Node::new(pn, dn, current.limit);
+
+        Choice {
+            current: current,
+            next_move: next_move,
+            next_threshold: next_threshold,
+        }
     }
 
-    fn select_defence(
-        &self,
-        state: &mut State,
-        defences: &[Point],
-    ) -> (Node, Option<Point>, Node, Node) {
+    fn choose_defence(&self, state: &mut State, defences: &[Point], threshold: Node) -> Choice {
         let limit = state.limit();
         let mut current = Node::inf_dn(limit);
-        let mut selected: Option<Point> = None;
+        let mut next_move: Option<Point> = None;
         let mut next1 = Node::inf_dn(limit - 1);
         let mut next2 = Node::inf_dn(limit - 1);
         // trick
@@ -173,7 +95,7 @@ impl Searcher {
             let child = self.table.lookup_next(state, defence).unwrap_or(init);
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
-                selected.replace(defence);
+                next_move.replace(defence);
                 next2 = next1;
                 next1 = child;
             } else if child.dn < next2.dn {
@@ -184,21 +106,27 @@ impl Searcher {
                 break;
             }
         }
-        (current, selected, next1, next2)
-    }
-
-    fn next_threshold_defence(
-        &self,
-        threshold: Node,
-        current: Node,
-        next1: Node,
-        next2: Node,
-    ) -> Node {
         let pn = (threshold.pn - current.pn)
             .checked_add(next1.pn)
             .unwrap_or(INF);
         let dn = threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF));
-        Node::new(pn, dn, current.limit)
+        let next_threshold = Node::new(pn, dn, current.limit);
+
+        Choice {
+            current: current,
+            next_move: next_move,
+            next_threshold: next_threshold,
+        }
+    }
+}
+
+impl Resolver for Solver {
+    fn table(&self) -> &Table {
+        &self.table
+    }
+
+    fn solve_vcf(&mut self, state: &mut vcf::State) -> Option<Mate> {
+        self.vcf_solver.solve(state)
     }
 }
 
@@ -206,7 +134,6 @@ impl Searcher {
 mod tests {
     use super::*;
     use crate::board::Player::*;
-    use crate::mate::vct::resolver::Resolver;
 
     #[test]
     fn test_black() -> Result<(), String> {
@@ -400,13 +327,7 @@ mod tests {
 
     fn solve(board: &Board, player: Player, limit: u8) -> Option<String> {
         let state = &mut State::init(board.clone(), player, limit);
-        let searcher = Searcher::init();
-        let may_table = searcher.search(state);
-        may_table
-            .and_then(|table| {
-                let mut resolver = Resolver::init(table);
-                resolver.resolve(state)
-            })
-            .map(|m| Points(m.path).to_string())
+        let mut solver = Solver::init();
+        solver.solve(state).map(|m| Points(m.path).to_string())
     }
 }
