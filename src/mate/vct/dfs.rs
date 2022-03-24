@@ -1,5 +1,4 @@
 use super::state::*;
-use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
 use std::collections::HashSet;
@@ -35,7 +34,9 @@ impl Solver {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => None,
-                Forced(m) => self.solve_attack(state, m),
+                Forced(attack) => state.into_play(attack, |s| {
+                    self.solve_defences(s).map(|m| m.unshift(attack))
+                }),
             };
         }
 
@@ -48,7 +49,9 @@ impl Solver {
         let attacks = state.sorted_attacks(maybe_threat);
 
         for attack in attacks {
-            let result = self.solve_attack(state, attack);
+            let result = state.into_play(attack, |s| {
+                self.solve_defences(s).map(|m| m.unshift(attack))
+            });
             if result.is_some() {
                 return result;
             }
@@ -56,19 +59,13 @@ impl Solver {
         None
     }
 
-    fn solve_attack(&mut self, state: &mut State, attack: Point) -> Option<Mate> {
-        let last2_move = state.game().last2_move();
-        state.play(attack);
-        let result = self.solve_defences(state).map(|m| m.unshift(attack));
-        state.undo(last2_move);
-        result
-    }
-
     fn solve_defences(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(end) => Some(Mate::new(end, vec![])),
-                Forced(m) => self.solve_defence(state, m),
+                Forced(defence) => {
+                    state.into_play(defence, |s| self.solve(s).map(|m| m.unshift(defence)))
+                }
             };
         }
 
@@ -85,7 +82,8 @@ impl Solver {
 
         let mut result = Some(Mate::new(Unknown, vec![]));
         for defence in defences {
-            let new_result = self.solve_defence(state, defence);
+            let new_result =
+                state.into_play(defence, |s| self.solve(s).map(|m| m.unshift(defence)));
             if new_result.is_none() {
                 result = None;
                 break;
@@ -95,20 +93,13 @@ impl Solver {
         }
         result
     }
-
-    fn solve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
-        let last2_move = state.game().last2_move();
-        state.play(defence);
-        let result = self.solve(state).map(|m| m.unshift(defence));
-        state.undo(last2_move);
-        result
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::board::Player::*;
+    use crate::board::*;
 
     #[test]
     fn test_black() -> Result<(), String> {

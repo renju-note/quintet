@@ -33,10 +33,20 @@ impl State {
         self.field.update_along(next_move, self.state.board());
     }
 
-    pub fn undo(&mut self, last2_move: Point) {
+    pub fn undo(&mut self) {
         let last_move = self.state.game().last_move();
-        self.state.undo(last2_move);
+        self.state.undo();
         self.field.update_along(last_move, self.state.board());
+    }
+
+    pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
+    where
+        F: FnMut(&mut Self) -> T,
+    {
+        self.play(next_move);
+        let result = f(self);
+        self.undo();
+        result
     }
 
     pub fn game(&self) -> &Game {
@@ -53,11 +63,7 @@ impl State {
 
     pub fn next_zobrist_hash(&mut self, next_move: Point) -> u64 {
         // Update only state in order not to cause updating state.field (which costs high)
-        let last2_move = self.state.game().last2_move();
-        self.state.play(next_move);
-        let result = self.state.zobrist_hash();
-        self.state.undo(last2_move);
-        result
+        self.state.into_play(next_move, |s| s.zobrist_hash())
     }
 
     pub fn solve_vcf(&mut self) -> Option<Mate> {
@@ -135,10 +141,10 @@ impl State {
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut game = self.state.game().pass();
-        let threater = game.turn();
+        let threater = game.turn;
         let mut result = vec![];
         for &p in &threat.path {
-            let turn = game.turn();
+            let turn = game.turn;
             game.play(p);
             if turn == threater {
                 continue;
@@ -155,7 +161,7 @@ impl State {
         self.state
             .game()
             .board()
-            .structures(self.state.game().turn(), Sword)
+            .structures(self.state.game().turn, Sword)
             .flat_map(|s| s.eyes())
             .collect()
     }

@@ -35,13 +35,9 @@ impl Solver {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => None,
-                Forced(m) => {
-                    if let Some((attack, defence)) = state.forced_move_pair(m) {
-                        self.solve_attack(state, attack, defence)
-                    } else {
-                        None
-                    }
-                }
+                Forced(p) => state
+                    .forced_move_pair(p)
+                    .and_then(|(a, d)| self.solve_attack(state, a, d)),
             };
         }
 
@@ -72,13 +68,9 @@ impl Solver {
             return None;
         }
 
-        let last2_move = state.game().last2_move();
-        state.play(attack);
-        let result = self
-            .solve_defence(state, defence)
-            .map(|m| m.unshift(attack));
-        state.undo(last2_move);
-        result
+        state.into_play(attack, |s| {
+            self.solve_defence(s, defence).map(|m| m.unshift(attack))
+        })
     }
 
     fn solve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
@@ -89,11 +81,7 @@ impl Solver {
             };
         }
 
-        let last2_move = state.game().last2_move();
-        state.play(defence);
-        let result = self.solve(state).map(|m| m.unshift(defence));
-        state.undo(last2_move);
-        result
+        state.into_play(defence, |s| self.solve(s).map(|m| m.unshift(defence)))
     }
 }
 
