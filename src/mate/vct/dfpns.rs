@@ -65,11 +65,11 @@ impl Searcher {
     }
 
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
-        state.play(attack);
-        let result = self.search_defences(state, threshold);
-        self.table.insert(state, result.clone());
-        state.undo();
-        result
+        state.into_play(attack, |s| {
+            let result = self.search_defences(s, threshold);
+            self.table.insert(s, result.clone());
+            result
+        })
     }
 
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
@@ -102,11 +102,11 @@ impl Searcher {
     }
 
     fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
-        state.play(defence);
-        let result = self.search_limit(state, threshold);
-        self.table.insert(state, result.clone());
-        state.undo();
-        result
+        state.into_play(defence, |s| {
+            let result = self.search_limit(s, threshold);
+            self.table.insert(s, result.clone());
+            result
+        })
     }
 
     // MEMO: select_attack|select_defence does trick;

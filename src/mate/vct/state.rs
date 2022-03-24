@@ -39,6 +39,16 @@ impl State {
         self.field.update_along(last_move, self.state.board());
     }
 
+    pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
+    where
+        F: FnMut(&mut Self) -> T,
+    {
+        self.play(next_move);
+        let result = f(self);
+        self.undo();
+        result
+    }
+
     pub fn game(&self) -> &Game {
         self.state.game()
     }
@@ -53,10 +63,7 @@ impl State {
 
     pub fn next_zobrist_hash(&mut self, next_move: Point) -> u64 {
         // Update only state in order not to cause updating state.field (which costs high)
-        self.state.play(next_move);
-        let result = self.state.zobrist_hash();
-        self.state.undo();
-        result
+        self.state.into_play(next_move, |s| s.zobrist_hash())
     }
 
     pub fn solve_vcf(&mut self) -> Option<Mate> {

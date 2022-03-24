@@ -37,6 +37,16 @@ impl State {
         self.game.undo();
     }
 
+    pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
+    where
+        F: FnMut(&mut Self) -> T,
+    {
+        self.play(next_move);
+        let result = f(self);
+        self.undo();
+        result
+    }
+
     pub fn pass(&self) -> Self {
         let game = self.game.pass();
         Self::new(game, self.limit - 1)

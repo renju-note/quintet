@@ -25,7 +25,9 @@ impl Resolver {
     fn resolve_attacks(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Forced(m) => self.resolve_attack(state, m),
+                Forced(attack) => state.into_play(attack, |s| {
+                    self.resolve_defences(s).map(|m| m.unshift(attack))
+                }),
                 _ => None,
             };
         }
@@ -37,7 +39,9 @@ impl Resolver {
                 .lookup_next(state, attack)
                 .unwrap_or(Node::dummy());
             if node.pn == 0 {
-                return self.resolve_attack(state, attack);
+                return state.into_play(attack, |s| {
+                    self.resolve_defences(s).map(|m| m.unshift(attack))
+                });
             }
         }
 
@@ -45,18 +49,13 @@ impl Resolver {
         self.vcf_solver.solve(vcf_state)
     }
 
-    fn resolve_attack(&mut self, state: &mut State, attack: Point) -> Option<Mate> {
-        state.play(attack);
-        let result = self.resolve_defences(state).map(|m| m.unshift(attack));
-        state.undo();
-        result
-    }
-
     fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(end) => Some(Mate::new(end, vec![])),
-                Forced(m) => self.resolve_defence(state, m),
+                Forced(defence) => state.into_play(defence, |s| {
+                    self.resolve_attacks(s).map(|m| m.unshift(defence))
+                }),
             };
         }
 
@@ -74,13 +73,8 @@ impl Resolver {
                 selected_defence = defence;
             }
         }
-        self.resolve_defence(state, selected_defence)
-    }
-
-    fn resolve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
-        state.play(defence);
-        let result = self.resolve_attacks(state).map(|m| m.unshift(defence));
-        state.undo();
-        result
+        state.into_play(selected_defence, |s| {
+            self.resolve_attacks(s).map(|m| m.unshift(selected_defence))
+        })
     }
 }
