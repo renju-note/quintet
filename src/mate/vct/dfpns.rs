@@ -69,13 +69,13 @@ impl Searcher for Solver {
                 break;
             }
         }
-
-        let pn = threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF));
-        let dn = (threshold.dn - current.dn)
-            .checked_add(next1.dn)
-            .unwrap_or(INF);
-        let next_threshold = Node::new(pn, dn, current.limit);
-
+        let next_threshold = Node::new(
+            threshold.pn.min(next2.pn.checked_add(1).unwrap_or(INF)),
+            (threshold.dn - current.dn)
+                .checked_add(next1.dn)
+                .unwrap_or(INF),
+            next1.limit,
+        );
         Choice {
             current: current,
             next_move: next_move,
@@ -106,12 +106,13 @@ impl Searcher for Solver {
                 break;
             }
         }
-        let pn = (threshold.pn - current.pn)
-            .checked_add(next1.pn)
-            .unwrap_or(INF);
-        let dn = threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF));
-        let next_threshold = Node::new(pn, dn, current.limit);
-
+        let next_threshold = Node::new(
+            (threshold.pn - current.pn)
+                .checked_add(next1.pn)
+                .unwrap_or(INF),
+            threshold.dn.min(next2.dn.checked_add(1).unwrap_or(INF)),
+            next1.limit,
+        );
         Choice {
             current: current,
             next_move: next_move,
