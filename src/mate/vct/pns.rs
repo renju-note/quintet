@@ -2,7 +2,6 @@ use super::resolver::*;
 use super::searcher::*;
 use super::state::State;
 use super::table::*;
-use crate::board::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
 
@@ -33,70 +32,22 @@ impl Searcher for Solver {
         &mut self.table
     }
 
-    // MEMO: choose_attack|choose_defence does trick;
-    // approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
-    // since we don't know the number of *next* defences|attacks
-
-    fn choose_attack(&self, state: &mut State, attacks: &[Point], _threshold: Node) -> Choice {
-        let limit = state.limit();
-        let mut current = Node::inf_pn(limit);
-        let mut next_move: Option<Point> = None;
-        let mut next = Node::inf_pn(limit);
-        // trick
-        let init = Node::init_dn(attacks.len(), limit);
-        for &attack in attacks {
-            let child = self.table.lookup_next(state, attack).unwrap_or(init);
-            current = current.min_pn_sum_dn(child);
-            if child.pn < next.pn {
-                next_move.replace(attack);
-                next = child;
-            }
-            if current.pn == 0 {
-                current = Node::inf_dn(current.limit);
-                break;
-            }
-        }
-        let next_threshold = Node::new(
+    fn calc_next_threshold_attack(&self, selection: &Selection, _current_threshold: Node) -> Node {
+        let next = selection.next1;
+        Node::new(
             next.pn.checked_add(1).unwrap_or(INF),
             next.dn.checked_add(1).unwrap_or(INF),
             next.limit,
-        );
-        Choice {
-            current: current,
-            next_move: next_move,
-            next_threshold: next_threshold,
-        }
+        )
     }
 
-    fn choose_defence(&self, state: &mut State, defences: &[Point], _threshold: Node) -> Choice {
-        let limit = state.limit();
-        let mut current = Node::inf_dn(limit);
-        let mut next_move: Option<Point> = None;
-        let mut next = Node::inf_dn(limit - 1);
-        // trick
-        let init = Node::init_pn(defences.len(), limit - 1);
-        for &defence in defences {
-            let child = self.table.lookup_next(state, defence).unwrap_or(init);
-            current = current.min_dn_sum_pn(child);
-            if child.dn < next.dn {
-                next_move.replace(defence);
-                next = child;
-            }
-            if current.dn == 0 {
-                current = Node::inf_pn(current.limit);
-                break;
-            }
-        }
-        let next_threshold = Node::new(
+    fn calc_next_threshold_defence(&self, selection: &Selection, _current_threshold: Node) -> Node {
+        let next = selection.next1;
+        Node::new(
             next.pn.checked_add(1).unwrap_or(INF),
             next.dn.checked_add(1).unwrap_or(INF),
             next.limit,
-        );
-        Choice {
-            current: current,
-            next_move: next_move,
-            next_threshold: next_threshold,
-        }
+        )
     }
 }
 
@@ -114,6 +65,7 @@ impl Resolver for Solver {
 mod tests {
     use super::*;
     use crate::board::Player::*;
+    use crate::board::*;
 
     #[test]
     fn test_black() -> Result<(), String> {
