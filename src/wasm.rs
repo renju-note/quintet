@@ -5,21 +5,21 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn solve(
-    kind_code: u8,
+    mode: u8,
     max_depth: u8,
     blacks: &[u8],
     whites: &[u8],
     black: bool,
 ) -> Option<Box<[u8]>> {
-    let kind = solver_kind(kind_code);
+    let mode = mate::SolveMode::try_from(mode);
     let blacks = Points::try_from(blacks);
     let whites = Points::try_from(whites);
-    if !blacks.is_ok() || !whites.is_ok() {
+    if mode.is_err() || blacks.is_err() || !whites.is_err() {
         return None;
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
     let player = Player::from(black);
-    let solution = mate::solve(kind, max_depth, &board, player);
+    let solution = mate::solve(mode.unwrap(), max_depth, &board, player);
     solution.map(|s| <Vec<u8>>::from(Points(s.path)).into_boxed_slice())
 }
 
@@ -56,15 +56,6 @@ pub fn decode_x(code: u8) -> u8 {
 #[wasm_bindgen]
 pub fn decode_y(code: u8) -> u8 {
     Point::try_from(code).unwrap().1
-}
-
-fn solver_kind(code: u8) -> mate::SolverKind {
-    match code {
-        0 => mate::SolverKind::VCF,
-        1 => mate::SolverKind::VCTDFS,
-        2 => mate::SolverKind::VCTDFPNS,
-        _ => mate::SolverKind::VCF,
-    }
 }
 
 #[cfg(test)]

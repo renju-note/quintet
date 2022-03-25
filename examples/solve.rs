@@ -5,7 +5,7 @@ use std::time::Instant;
 
 fn main() -> Result<(), &'static str> {
     let args = env::args().collect::<Vec<String>>();
-    let kind = args[1].parse::<SolverKind>()?;
+    let kind = args[1].parse::<SolveMode>()?;
     println!("Kind: {:?}", kind);
     let max_depth = args[2].parse::<u8>().map_err(|_| "ParseIntError")?;
     println!("MaxDepth: {:?}", max_depth);
@@ -17,7 +17,7 @@ fn main() -> Result<(), &'static str> {
     Ok(())
 }
 
-fn solve_print(kind: SolverKind, max_depth: u8, board: Board, turn: Player) {
+fn solve_print(kind: SolveMode, max_depth: u8, board: Board, turn: Player) {
     println!("Solving...\n");
     let start = Instant::now();
     let solution = solve(kind, max_depth, &board, turn);

@@ -84,6 +84,7 @@ impl State {
             self.defender_vcf_solver.solve(state)
         } else {
             let state = &mut self.state.pass();
+            state.set_limit(state.limit - 1);
             self.attacker_vcf_solver.solve(state)
         }
     }

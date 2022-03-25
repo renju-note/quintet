@@ -3,18 +3,22 @@ use super::table::*;
 use crate::board::*;
 use crate::mate::game::*;
 
-pub struct Choice {
+pub struct Selection {
+    pub best: Option<Point>,
     pub current: Node,
-    pub next_move: Option<Point>,
-    pub next_threshold: Node,
+    pub next1: Node,
+    pub next2: Node,
 }
 
+// MEMO: select_attack|select_defence does trick;
+// approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
+// since we don't know the number of *next* defences|attacks
 pub trait Searcher {
     fn table(&mut self) -> &mut Table;
 
-    fn choose_attack(&self, state: &mut State, attacks: &[Point], threshold: Node) -> Choice;
+    fn calc_next_threshold_attack(&self, selection: &Selection, current_threshold: Node) -> Node;
 
-    fn choose_defence(&self, state: &mut State, defences: &[Point], threshold: Node) -> Choice;
+    fn calc_next_threshold_defence(&self, selection: &Selection, current_threshold: Node) -> Node;
 
     // default implementations
 
@@ -48,12 +52,44 @@ pub trait Searcher {
         let attacks = state.sorted_attacks(maybe_threat);
 
         loop {
-            let choice = self.choose_attack(state, &attacks, threshold);
-            let current = choice.current;
+            let selection = self.select_attack(state, &attacks);
+            let current = selection.current;
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
-            self.expand_attack(state, choice.next_move.unwrap(), choice.next_threshold);
+            let next_threshold = self.calc_next_threshold_attack(&selection, threshold);
+            self.expand_attack(state, selection.best.unwrap(), next_threshold);
+        }
+    }
+
+    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
+        let limit = state.limit();
+        let mut current = Node::inf_pn(limit);
+        let mut best: Option<Point> = None;
+        let mut next1 = Node::inf_pn(limit);
+        let mut next2 = Node::inf_pn(limit);
+        // trick
+        let init = Node::init_dn(attacks.len(), limit);
+        for &attack in attacks {
+            let child = self.table().lookup_next(state, attack).unwrap_or(init);
+            current = current.min_pn_sum_dn(child);
+            if child.pn < next1.pn {
+                best.replace(attack);
+                next2 = next1;
+                next1 = child;
+            } else if child.pn < next2.pn {
+                next2 = child;
+            }
+            if current.pn == 0 {
+                current = Node::inf_dn(current.limit);
+                break;
+            }
+        }
+        Selection {
+            best: best,
+            current: current,
+            next1: next1,
+            next2: next2,
         }
     }
 
@@ -85,12 +121,44 @@ pub trait Searcher {
         let defences = state.sorted_defences(maybe_threat.unwrap());
 
         loop {
-            let choice = self.choose_defence(state, &defences, threshold);
-            let current = choice.current;
+            let selection = self.select_defence(state, &defences);
+            let current = selection.current;
             if current.pn >= threshold.pn || current.dn >= threshold.dn {
                 return current;
             }
-            self.expand_defence(state, choice.next_move.unwrap(), choice.next_threshold);
+            let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
+            self.expand_defence(state, selection.best.unwrap(), next_threshold);
+        }
+    }
+
+    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
+        let limit = state.limit();
+        let mut current = Node::inf_dn(limit);
+        let mut best: Option<Point> = None;
+        let mut next1 = Node::inf_dn(limit - 1);
+        let mut next2 = Node::inf_dn(limit - 1);
+        // trick
+        let init = Node::init_pn(defences.len(), limit - 1);
+        for &defence in defences {
+            let child = self.table().lookup_next(state, defence).unwrap_or(init);
+            current = current.min_dn_sum_pn(child);
+            if child.dn < next1.dn {
+                best.replace(defence);
+                next2 = next1;
+                next1 = child;
+            } else if child.dn < next2.dn {
+                next2 = child;
+            }
+            if current.dn == 0 {
+                current = Node::inf_pn(current.limit);
+                break;
+            }
+        }
+        Selection {
+            best: best,
+            current: current,
+            next1: next1,
+            next2: next2,
         }
     }
 

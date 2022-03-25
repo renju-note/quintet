@@ -49,7 +49,7 @@ impl State {
 
     pub fn pass(&self) -> Self {
         let game = self.game.pass();
-        Self::new(game, self.limit - 1)
+        Self::new(game, self.limit)
     }
 
     pub fn game(&self) -> &Game {
