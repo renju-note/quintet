@@ -85,7 +85,6 @@ pub trait Searcher {
                 break;
             }
         }
-
         Selection {
             best: best,
             current: current,
@@ -155,7 +154,6 @@ pub trait Searcher {
                 break;
             }
         }
-
         Selection {
             best: best,
             current: current,
