@@ -110,22 +110,14 @@ impl Game {
     }
 
     fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
-        if self.moves.len() > 1 {
-            if let Some(last_move) = self.last_move() {
-                let last_four_eyes = self
-                    .board
-                    .structures_on(last_move, self.turn.opponent(), Four)
-                    .flat_map(|r| r.eyes());
-                Self::take_distinct_two(last_four_eyes)
-            } else {
-                (None, None)
-            }
-        } else {
-            let four_eyes = self
+        if let Some(last_move) = self.last_move() {
+            let last_four_eyes = self
                 .board
-                .structures(self.turn.opponent(), Four)
+                .structures_on(last_move, self.turn.opponent(), Four)
                 .flat_map(|r| r.eyes());
-            Self::take_distinct_two(four_eyes)
+            Self::take_distinct_two(last_four_eyes)
+        } else {
+            (None, None)
         }
     }
 

@@ -97,6 +97,9 @@ fn validate(board: &Board, turn: Player) -> Result<(), Option<Mate>> {
     if board.structures(Black, OverFive).next().is_some() {
         return Err(None);
     }
+    if board.structures(turn.opponent(), Four).next().is_some() {
+        return Err(None);
+    }
     if board.structures(turn, Four).next().is_some() {
         return Err(Some(Mate::new(Unknown, vec![])));
     }
@@ -226,11 +229,11 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . o . . . .
          . . . . . . . . . . x . . . .
-         . . . . . . . . . . x . . . .
+         . . . . . . . . . . x . o . .
+         . . . . . . . . o . x o . . .
+         . . . . . . . . x o . . . . .
+         . . . . . . x o o . . . . . .
          . . . . . . . . o . x . . . .
-         . . . . . . . . . o x . . . .
-         . . . . . . x o o o . . . . .
-         . . . . . . . . . . x . . . .
          . . . . . . . . . . x . . . .
          . . . . . . . . . . x . . . .
          . . . . . . . . . . o . . . .
@@ -240,7 +243,7 @@ mod tests {
         "
         .parse::<Board>()?;
 
-        let solution = "K8,L8,H11";
+        let solution = "J8,K9,K8,L8,H11";
 
         let result = solve(VCFDFS, 3, &board, Black, 0);
         assert_eq!(path_string(result), solution);
