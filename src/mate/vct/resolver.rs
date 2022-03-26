@@ -1,6 +1,5 @@
 use super::state::State;
 use super::table::*;
-use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
@@ -22,8 +21,13 @@ pub trait Resolver {
                 Forced(attack) => state.into_play(attack, |s| {
                     self.resolve_defences(s).map(|m| m.unshift(attack))
                 }),
-                _ => None,
+                _ => unreachable!(),
             };
+        }
+
+        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit());
+        if let Some(vcf) = self.solve_vcf(vcf_state) {
+            return Some(vcf);
         }
 
         let attacks = state.sorted_attacks(None);
@@ -39,17 +43,16 @@ pub trait Resolver {
             }
         }
 
-        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit());
-        self.solve_vcf(vcf_state)
+        unreachable!()
     }
 
     fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(end) => Some(Mate::new(end, vec![])),
                 Forced(defence) => state.into_play(defence, |s| {
                     self.resolve_attacks(s).map(|m| m.unshift(defence))
                 }),
+                _ => unreachable!(),
             };
         }
 
@@ -57,17 +60,18 @@ pub trait Resolver {
         let maybe_threat = self.solve_vcf(threat_state);
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
-        let mut best = Point(0, 0);
+        let mut best = None;
         for defence in defences {
             let node = self
                 .table()
                 .lookup_next(state, defence)
-                .unwrap_or(Node::inf());
-            if node.proven() && node.limit < min_limit {
+                .unwrap_or_else(|| unreachable!());
+            if node.limit < min_limit {
                 min_limit = node.limit;
-                best = defence;
+                best.replace(defence);
             }
         }
+        let best = best.unwrap();
         state.into_play(best, |s| self.resolve_attacks(s).map(|m| m.unshift(best)))
     }
 }
