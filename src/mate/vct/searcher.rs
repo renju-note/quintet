@@ -174,9 +174,6 @@ pub trait Searcher {
     }
 
     fn backoff(&self, current: Node, threshold: Node) -> bool {
-        current.proven()
-            || current.dn == 0
-            || current.pn >= threshold.pn
-            || current.dn >= threshold.dn
+        current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 }
