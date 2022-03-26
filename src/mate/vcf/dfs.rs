@@ -68,7 +68,7 @@ impl Solver {
             return None;
         }
 
-        state.into_play(attack, |s| {
+        state.into_play(Some(attack), |s| {
             self.solve_defence(s, defence).map(|m| m.unshift(attack))
         })
     }
@@ -81,6 +81,6 @@ impl Solver {
             };
         }
 
-        state.into_play(defence, |s| self.solve(s).map(|m| m.unshift(defence)))
+        state.into_play(Some(defence), |s| self.solve(s).map(|m| m.unshift(defence)))
     }
 }

@@ -23,15 +23,8 @@ impl State {
         Self::new(Game::new(board, turn), limit)
     }
 
-    pub fn play(&mut self, next_move: Point) {
+    pub fn play(&mut self, next_move: Option<Point>) {
         self.game.play(next_move);
-        if self.attacking() {
-            self.limit -= 1
-        }
-    }
-
-    pub fn pass(&mut self) {
-        self.game.pass();
         if self.attacking() {
             self.limit -= 1
         }
@@ -44,7 +37,7 @@ impl State {
         self.game.undo();
     }
 
-    pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
+    pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,
     {

@@ -72,7 +72,10 @@ pub trait Searcher {
         // trick
         let init = Node::init_dn(attacks.len() as u32, limit);
         for &attack in attacks {
-            let child = self.table().lookup_next(state, attack).unwrap_or(init);
+            let child = self
+                .table()
+                .lookup_next(state, Some(attack))
+                .unwrap_or(init);
             current = current.min_pn_sum_dn(child);
             if child.pn < next1.pn {
                 best.replace(attack);
@@ -95,7 +98,7 @@ pub trait Searcher {
     }
 
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
-        state.into_play(attack, |s| {
+        state.into_play(Some(attack), |s| {
             let result = self.search_defences(s, threshold);
             self.table().insert(s, result.clone());
             result
@@ -143,7 +146,10 @@ pub trait Searcher {
         // trick
         let init = Node::init_pn(defences.len() as u32, limit - 1);
         for &defence in defences {
-            let child = self.table().lookup_next(state, defence).unwrap_or(init);
+            let child = self
+                .table()
+                .lookup_next(state, Some(defence))
+                .unwrap_or(init);
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
                 best.replace(defence);
@@ -166,7 +172,7 @@ pub trait Searcher {
     }
 
     fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
-        state.into_play(defence, |s| {
+        state.into_play(Some(defence), |s| {
             let result = self.search_limit(s, threshold);
             self.table().insert(s, result.clone());
             result

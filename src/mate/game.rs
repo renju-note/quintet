@@ -70,14 +70,11 @@ impl Game {
         self.board.zobrist_hash_n(limit)
     }
 
-    pub fn play(&mut self, next_move: Point) {
-        self.moves.push(Some(next_move));
-        self.board.put_mut(self.turn, next_move);
-        self.turn = self.turn.opponent();
-    }
-
-    pub fn pass(&mut self) {
-        self.moves.push(None);
+    pub fn play(&mut self, next_move: Option<Point>) {
+        if let Some(next_move) = next_move {
+            self.board.put_mut(self.turn, next_move);
+        }
+        self.moves.push(next_move);
         self.turn = self.turn.opponent();
     }
 

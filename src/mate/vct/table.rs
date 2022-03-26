@@ -18,7 +18,7 @@ impl Table {
         self.table.insert(key, node.clone());
     }
 
-    pub fn lookup_next(&self, state: &mut State, next_move: Point) -> Option<Node> {
+    pub fn lookup_next(&self, state: &mut State, next_move: Option<Point>) -> Option<Node> {
         let key = state.next_zobrist_hash(next_move);
         self.table.get(&key).map(|&c| c)
     }

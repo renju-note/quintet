@@ -30,9 +30,11 @@ impl State {
         Self::new(state, field, threat_limit)
     }
 
-    pub fn play(&mut self, next_move: Point) {
+    pub fn play(&mut self, next_move: Option<Point>) {
         self.state.play(next_move);
-        self.field.update_along(next_move, self.state.board());
+        if let Some(next_move) = next_move {
+            self.field.update_along(next_move, self.state.board());
+        }
     }
 
     pub fn undo(&mut self) {
@@ -43,7 +45,7 @@ impl State {
         }
     }
 
-    pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
+    pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,
     {
@@ -69,7 +71,7 @@ impl State {
         self.state.zobrist_hash()
     }
 
-    pub fn next_zobrist_hash(&mut self, next_move: Point) -> u64 {
+    pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
         // Update only state in order not to cause updating state.field (which costs high)
         self.state.into_play(next_move, |s| s.zobrist_hash())
     }
@@ -97,7 +99,7 @@ impl State {
             panic!()
         }
         let state = &mut self.state.clone();
-        state.pass();
+        state.play(None);
         let limit = state.limit.min(self.threat_limit);
         state.set_limit(limit);
         self.attacker_vcf_solver.solve(state)
@@ -108,7 +110,7 @@ impl State {
             panic!()
         }
         let state = &mut self.state.clone();
-        state.pass();
+        state.play(None);
         // this limit can be changed dynamically
         state.set_limit(u8::MAX);
         self.defender_vcf_solver.solve(state)
@@ -167,12 +169,12 @@ impl State {
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut game = self.state.game().clone();
-        game.pass();
+        game.play(None);
         let threater = game.turn;
         let mut result = vec![];
         for &p in &threat.path {
             let turn = game.turn;
-            game.play(p);
+            game.play(Some(p));
             if turn == threater {
                 continue;
             }
