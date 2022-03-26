@@ -39,7 +39,7 @@ pub trait Searcher {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::inf_pn(state.limit()),
-                Forced(m) => self.expand_attack(state, m, threshold),
+                Forced(m) => self.loop_attacks(state, &[m], threshold),
             };
         }
 
@@ -50,7 +50,10 @@ pub trait Searcher {
         let maybe_threat = state.solve_defender_threat();
 
         let attacks = state.sorted_attacks(maybe_threat);
+        self.loop_attacks(state, &attacks, threshold)
+    }
 
+    fn loop_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
         loop {
             let selection = self.select_attack(state, &attacks);
             let current = selection.current;
@@ -105,7 +108,7 @@ pub trait Searcher {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::inf_dn(state.limit()),
-                Forced(m) => self.expand_defence(state, m, threshold),
+                Forced(m) => self.loop_defences(state, &[m], threshold),
             };
         }
 
@@ -119,7 +122,10 @@ pub trait Searcher {
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
+        self.loop_defences(state, &defences, threshold)
+    }
 
+    fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
         loop {
             let selection = self.select_defence(state, &defences);
             let current = selection.current;
