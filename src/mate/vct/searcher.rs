@@ -24,7 +24,7 @@ pub trait Searcher {
 
     fn search(&mut self, state: &mut State) -> bool {
         let result = self.search_limit(state, Node::inf());
-        result.pn == 0
+        result.proven()
     }
 
     fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
@@ -81,7 +81,7 @@ pub trait Searcher {
             } else if child.pn < next2.pn {
                 next2 = child;
             }
-            if current.pn == 0 {
+            if current.proven() {
                 current = Node::zero_pn(current.limit);
                 break;
             }
@@ -174,7 +174,7 @@ pub trait Searcher {
     }
 
     fn backoff(&self, current: Node, threshold: Node) -> bool {
-        current.pn == 0
+        current.proven()
             || current.dn == 0
             || current.pn >= threshold.pn
             || current.dn >= threshold.dn

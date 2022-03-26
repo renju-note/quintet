@@ -64,6 +64,10 @@ impl Node {
         Self::new(approx_pn, 1, limit)
     }
 
+    pub fn proven(&self) -> bool {
+        self.pn == 0
+    }
+
     pub fn min_pn_sum_dn(&self, another: Self) -> Self {
         Self::new(
             self.pn.min(another.pn),
