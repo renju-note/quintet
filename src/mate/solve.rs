@@ -52,7 +52,13 @@ impl FromStr for SolveMode {
     }
 }
 
-pub fn solve(mode: SolveMode, limit: u8, board: &Board, turn: Player) -> Option<Mate> {
+pub fn solve(
+    mode: SolveMode,
+    limit: u8,
+    board: &Board,
+    turn: Player,
+    threat_limit: u8,
+) -> Option<Mate> {
     if let Err(e) = validate(board, turn) {
         return e;
     }
@@ -63,17 +69,17 @@ pub fn solve(mode: SolveMode, limit: u8, board: &Board, turn: Player) -> Option<
             solver.solve(state)
         }
         VCTDFS => {
-            let state = &mut vct::State::init(board.clone(), turn, limit);
+            let state = &mut vct::State::init(board.clone(), turn, limit, threat_limit);
             let mut solver = vct::dfs::Solver::init();
             solver.solve(state)
         }
         VCTPNS => {
-            let state = &mut vct::State::init(board.clone(), turn, limit);
+            let state = &mut vct::State::init(board.clone(), turn, limit, threat_limit);
             let mut solver = vct::pns::Solver::init();
             solver.solve(state)
         }
         VCTDFPNS => {
-            let state = &mut vct::State::init(board.clone(), turn, limit);
+            let state = &mut vct::State::init(board.clone(), turn, limit, threat_limit);
             let mut solver = vct::dfpns::Solver::init();
             solver.solve(state)
         }
@@ -130,10 +136,10 @@ mod tests {
         .split_whitespace()
         .collect();
 
-        let result = solve(VCFDFS, 12, &board, Black);
+        let result = solve(VCFDFS, 12, &board, Black, 12);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCFDFS, 11, &board, Black);
+        let result = solve(VCFDFS, 11, &board, Black, 11);
         assert!(result.is_none());
 
         Ok(())
@@ -163,10 +169,10 @@ mod tests {
 
         let solution = "L13,L11,K12,J11,I12,H12,I13,I14,H14";
 
-        let result = solve(VCFDFS, 5, &board, White);
+        let result = solve(VCFDFS, 5, &board, White, 5);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCFDFS, 4, &board, White);
+        let result = solve(VCFDFS, 4, &board, White, 4);
         assert!(result.is_none());
 
         Ok(())
@@ -207,7 +213,7 @@ mod tests {
         .split_whitespace()
         .collect();
 
-        let result = solve(VCFDFS, u8::MAX, &board, Black);
+        let result = solve(VCFDFS, u8::MAX, &board, Black, u8::MAX);
         assert_eq!(path_string(result), solution);
 
         Ok(())
@@ -236,7 +242,7 @@ mod tests {
 
         let solution = "K8,L8,H11";
 
-        let result = solve(VCFDFS, 3, &board, Black);
+        let result = solve(VCFDFS, 3, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 
         Ok(())
@@ -266,22 +272,22 @@ mod tests {
 
         let solution = "F10,G9,I10,G10,H11,H12,G12";
 
-        let result = solve(VCTDFS, 4, &board, Black);
+        let result = solve(VCTDFS, 4, &board, Black, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFS, 3, &board, Black);
+        let result = solve(VCTDFS, 3, &board, Black, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTPNS, 4, &board, Black);
+        let result = solve(VCTPNS, 4, &board, Black, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTPNS, 3, &board, Black);
+        let result = solve(VCTPNS, 3, &board, Black, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTDFPNS, 4, &board, Black);
+        let result = solve(VCTDFPNS, 4, &board, Black, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFPNS, 3, &board, Black);
+        let result = solve(VCTDFPNS, 3, &board, Black, 3);
         assert!(result.is_none());
 
         Ok(())
@@ -310,22 +316,22 @@ mod tests {
 
         let solution = "I10,I6,I11,I8,J11,J8,G8";
 
-        let result = solve(VCTDFS, 4, &board, White);
+        let result = solve(VCTDFS, 4, &board, White, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFS, 3, &board, White);
+        let result = solve(VCTDFS, 3, &board, White, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTPNS, 4, &board, White);
+        let result = solve(VCTPNS, 4, &board, White, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTPNS, 3, &board, White);
+        let result = solve(VCTPNS, 3, &board, White, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTDFPNS, 4, &board, White);
+        let result = solve(VCTDFPNS, 4, &board, White, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFPNS, 3, &board, White);
+        let result = solve(VCTDFPNS, 3, &board, White, 3);
         assert!(result.is_none());
 
         Ok(())
@@ -355,22 +361,22 @@ mod tests {
 
         let solution = "F7,E8,G8,E6,G5,G7,H6";
 
-        let result = solve(VCTDFS, 4, &board, White);
+        let result = solve(VCTDFS, 4, &board, White, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFS, 3, &board, White);
+        let result = solve(VCTDFS, 3, &board, White, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTPNS, 4, &board, White);
+        let result = solve(VCTPNS, 4, &board, White, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTPNS, 3, &board, White);
+        let result = solve(VCTPNS, 3, &board, White, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTDFPNS, 4, &board, White);
+        let result = solve(VCTDFPNS, 4, &board, White, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFPNS, 3, &board, White);
+        let result = solve(VCTDFPNS, 3, &board, White, 3);
         assert!(result.is_none());
 
         Ok(())
@@ -400,22 +406,22 @@ mod tests {
 
         let solution = "J8,I7,I8,G8,L8,K8,K7";
 
-        let result = solve(VCTDFS, 4, &board, Black);
+        let result = solve(VCTDFS, 4, &board, Black, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFS, 3, &board, Black);
+        let result = solve(VCTDFS, 3, &board, Black, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTPNS, 4, &board, Black);
+        let result = solve(VCTPNS, 4, &board, Black, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTPNS, 3, &board, Black);
+        let result = solve(VCTPNS, 3, &board, Black, 3);
         assert!(result.is_none());
 
-        let result = solve(VCTDFPNS, 4, &board, Black);
+        let result = solve(VCTDFPNS, 4, &board, Black, 4);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFPNS, 3, &board, Black);
+        let result = solve(VCTDFPNS, 3, &board, Black, 3);
         assert!(result.is_none());
 
         Ok(())
@@ -445,22 +451,22 @@ mod tests {
 
         let solution = "G12,E10,F12,I12,H14,H13,F14,G13,F13,F11,E14,D15,G14";
 
-        let result = solve(VCTDFS, 7, &board, Black);
+        let result = solve(VCTDFS, 7, &board, Black, 7);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFS, 6, &board, Black);
+        let result = solve(VCTDFS, 6, &board, Black, 6);
         assert!(result.is_none());
 
-        let result = solve(VCTPNS, 7, &board, Black);
+        let result = solve(VCTPNS, 7, &board, Black, 7);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTPNS, 6, &board, Black);
+        let result = solve(VCTPNS, 6, &board, Black, 6);
         assert!(result.is_none());
 
-        let result = solve(VCTDFPNS, 7, &board, Black);
+        let result = solve(VCTDFPNS, 7, &board, Black, 7);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFPNS, 6, &board, Black);
+        let result = solve(VCTDFPNS, 6, &board, Black, 6);
         assert!(result.is_none());
 
         Ok(())
@@ -489,22 +495,22 @@ mod tests {
 
         let solution = "J4,K3,I4,I3,F8,G7,E6,G9,G6";
 
-        let result = solve(VCTDFS, 5, &board, White);
+        let result = solve(VCTDFS, 5, &board, White, 5);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFS, 4, &board, White);
+        let result = solve(VCTDFS, 4, &board, White, 4);
         assert!(result.is_none());
 
-        let result = solve(VCTDFPNS, 5, &board, White);
+        let result = solve(VCTDFPNS, 5, &board, White, 5);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTDFPNS, 4, &board, White);
+        let result = solve(VCTDFPNS, 4, &board, White, 4);
         assert!(result.is_none());
 
-        let result = solve(VCTPNS, 5, &board, White);
+        let result = solve(VCTPNS, 5, &board, White, 5);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTPNS, 4, &board, White);
+        let result = solve(VCTPNS, 4, &board, White, 4);
         assert!(result.is_none());
 
         Ok(())
