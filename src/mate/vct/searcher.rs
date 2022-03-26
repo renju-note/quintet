@@ -29,7 +29,7 @@ pub trait Searcher {
 
     fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
         if state.limit() == 0 {
-            return Node::inf_pn(state.limit());
+            return Node::zero_dn(state.limit());
         }
         self.search_attacks(state, threshold)
     }
@@ -37,13 +37,13 @@ pub trait Searcher {
     fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::inf_pn(state.limit()),
+                Defeated(_) => Node::zero_dn(state.limit()),
                 Forced(m) => self.loop_attacks(state, &[m], threshold),
             };
         }
 
         if state.solve_attacker_vcf().is_some() {
-            return Node::inf_dn(state.limit());
+            return Node::zero_pn(state.limit());
         }
 
         let maybe_threat = state.solve_defender_threat();
@@ -65,10 +65,10 @@ pub trait Searcher {
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
         let limit = state.limit();
-        let mut current = Node::inf_pn(limit);
+        let mut current = Node::zero_dn(limit);
         let mut best: Option<Point> = None;
-        let mut next1 = Node::inf_pn(limit);
-        let mut next2 = Node::inf_pn(limit);
+        let mut next1 = Node::zero_dn(limit);
+        let mut next2 = Node::zero_dn(limit);
         // trick
         let init = Node::init_dn(attacks.len() as u32, limit);
         for &attack in attacks {
@@ -82,7 +82,7 @@ pub trait Searcher {
                 next2 = child;
             }
             if current.pn == 0 {
-                current = Node::inf_dn(current.limit);
+                current = Node::zero_pn(current.limit);
                 break;
             }
         }
@@ -105,18 +105,18 @@ pub trait Searcher {
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::inf_dn(state.limit()),
+                Defeated(_) => Node::zero_pn(state.limit()),
                 Forced(m) => self.loop_defences(state, &[m], threshold),
             };
         }
 
         let maybe_threat = state.solve_attacker_threat();
         if maybe_threat.is_none() {
-            return Node::inf_pn(state.limit());
+            return Node::zero_dn(state.limit());
         }
 
         if state.solve_defender_vcf().is_some() {
-            return Node::inf_pn(state.limit());
+            return Node::zero_dn(state.limit());
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
@@ -136,10 +136,10 @@ pub trait Searcher {
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.limit();
-        let mut current = Node::inf_dn(limit);
+        let mut current = Node::zero_pn(limit);
         let mut best: Option<Point> = None;
-        let mut next1 = Node::inf_dn(limit - 1);
-        let mut next2 = Node::inf_dn(limit - 1);
+        let mut next1 = Node::zero_pn(limit - 1);
+        let mut next2 = Node::zero_pn(limit - 1);
         // trick
         let init = Node::init_pn(defences.len() as u32, limit - 1);
         for &defence in defences {
@@ -153,7 +153,7 @@ pub trait Searcher {
                 next2 = child;
             }
             if current.dn == 0 {
-                current = Node::inf_pn(current.limit);
+                current = Node::zero_dn(current.limit);
                 break;
             }
         }

@@ -48,12 +48,12 @@ impl Node {
         Self::new(INF, INF, 0)
     }
 
-    pub fn inf_pn(limit: u8) -> Self {
-        Self::new(INF, 0, limit)
+    pub fn zero_pn(limit: u8) -> Self {
+        Self::new(0, INF, limit)
     }
 
-    pub fn inf_dn(limit: u8) -> Self {
-        Self::new(0, INF, limit)
+    pub fn zero_dn(limit: u8) -> Self {
+        Self::new(INF, 0, limit)
     }
 
     pub fn init_pn(approx_dn: u32, limit: u8) -> Self {
