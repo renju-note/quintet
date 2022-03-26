@@ -53,6 +53,10 @@ impl State {
         result
     }
 
+    pub fn vcf_state(&self) -> &vcf::State {
+        &self.state
+    }
+
     pub fn game(&self) -> &Game {
         self.state.game()
     }
