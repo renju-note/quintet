@@ -220,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn test_vcf_opponent_overline_not_double_four() -> Result<(), String> {
+    fn test_vcf_not_opponent_double_four() -> Result<(), String> {
         let board = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
