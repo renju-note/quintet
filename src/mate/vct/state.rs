@@ -73,6 +73,7 @@ impl State {
             panic!()
         }
         let state = &mut self.state.clone();
+        // TODO: limit to 2
         self.attacker_vcf_solver.solve(state)
     }
 
@@ -100,6 +101,7 @@ impl State {
             panic!()
         }
         let state = &mut self.state.pass();
+        // TODO: limit to 1
         state.set_limit(u8::MAX);
         self.defender_vcf_solver.solve(state)
     }

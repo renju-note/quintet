@@ -56,9 +56,8 @@ pub trait Searcher {
     fn loop_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
         loop {
             let selection = self.select_attack(state, &attacks);
-            let current = selection.current;
-            if current.pn >= threshold.pn || current.dn >= threshold.dn {
-                return current;
+            if self.backoff(selection.current, threshold) {
+                return selection.current;
             }
             let next_threshold = self.calc_next_threshold_attack(&selection, threshold);
             self.expand_attack(state, selection.best.unwrap(), next_threshold);
@@ -128,9 +127,8 @@ pub trait Searcher {
     fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
         loop {
             let selection = self.select_defence(state, &defences);
-            let current = selection.current;
-            if current.pn >= threshold.pn || current.dn >= threshold.dn {
-                return current;
+            if self.backoff(selection.current, threshold) {
+                return selection.current;
             }
             let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
             self.expand_defence(state, selection.best.unwrap(), next_threshold);
@@ -174,5 +172,12 @@ pub trait Searcher {
             self.table().insert(s, result.clone());
             result
         })
+    }
+
+    fn backoff(&self, current: Node, threshold: Node) -> bool {
+        current.pn == 0
+            || current.dn == 0
+            || current.pn >= threshold.pn
+            || current.dn >= threshold.dn
     }
 }
