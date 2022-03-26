@@ -44,8 +44,8 @@ impl Node {
         }
     }
 
-    pub fn root(limit: u8) -> Self {
-        Self::new(INF - 1, INF - 1, limit)
+    pub fn inf() -> Self {
+        Self::new(INF, INF, 0)
     }
 
     pub fn inf_pn(limit: u8) -> Self {
@@ -78,10 +78,6 @@ impl Node {
             self.dn.min(another.dn),
             self.limit.min(another.limit),
         )
-    }
-
-    pub fn dummy() -> Self {
-        Self::new(INF, INF, 0)
     }
 }
 

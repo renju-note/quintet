@@ -31,7 +31,7 @@ pub trait Resolver {
             let node = self
                 .table()
                 .lookup_next(state, attack)
-                .unwrap_or(Node::dummy());
+                .unwrap_or(Node::inf());
             if node.pn == 0 {
                 return state.into_play(attack, |s| {
                     self.resolve_defences(s).map(|m| m.unshift(attack))
@@ -62,7 +62,7 @@ pub trait Resolver {
             let node = self
                 .table()
                 .lookup_next(state, defence)
-                .unwrap_or(Node::dummy());
+                .unwrap_or(Node::inf());
             if node.pn == 0 && node.limit < min_limit {
                 min_limit = node.limit;
                 best = defence;

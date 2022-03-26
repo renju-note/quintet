@@ -23,8 +23,7 @@ pub trait Searcher {
     // default implementations
 
     fn search(&mut self, state: &mut State) -> bool {
-        let root = Node::root(state.limit());
-        let result = self.search_limit(state, root);
+        let result = self.search_limit(state, Node::inf());
         result.pn == 0
     }
 
