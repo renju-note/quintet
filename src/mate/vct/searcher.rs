@@ -71,7 +71,7 @@ pub trait Searcher {
         let mut next1 = Node::inf_pn(limit);
         let mut next2 = Node::inf_pn(limit);
         // trick
-        let init = Node::init_dn(attacks.len(), limit);
+        let init = Node::init_dn(attacks.len() as u32, limit);
         for &attack in attacks {
             let child = self.table().lookup_next(state, attack).unwrap_or(init);
             current = current.min_pn_sum_dn(child);
@@ -142,7 +142,7 @@ pub trait Searcher {
         let mut next1 = Node::inf_dn(limit - 1);
         let mut next2 = Node::inf_dn(limit - 1);
         // trick
-        let init = Node::init_pn(defences.len(), limit - 1);
+        let init = Node::init_pn(defences.len() as u32, limit - 1);
         for &defence in defences {
             let child = self.table().lookup_next(state, defence).unwrap_or(init);
             current = current.min_dn_sum_pn(child);

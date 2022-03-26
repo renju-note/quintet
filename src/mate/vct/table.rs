@@ -26,17 +26,17 @@ impl Table {
 
 use std::fmt;
 
-pub const INF: usize = usize::MAX;
+pub const INF: u32 = u32::MAX;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct Node {
-    pub pn: usize,
-    pub dn: usize,
+    pub pn: u32,
+    pub dn: u32,
     pub limit: u8,
 }
 
 impl Node {
-    pub fn new(pn: usize, dn: usize, limit: u8) -> Self {
+    pub fn new(pn: u32, dn: u32, limit: u8) -> Self {
         Self {
             pn: pn,
             dn: dn,
@@ -56,11 +56,11 @@ impl Node {
         Self::new(0, INF, limit)
     }
 
-    pub fn init_pn(approx_dn: usize, limit: u8) -> Self {
+    pub fn init_pn(approx_dn: u32, limit: u8) -> Self {
         Self::new(1, approx_dn, limit)
     }
 
-    pub fn init_dn(approx_pn: usize, limit: u8) -> Self {
+    pub fn init_dn(approx_pn: u32, limit: u8) -> Self {
         Self::new(approx_pn, 1, limit)
     }
 
