@@ -41,21 +41,21 @@ impl Searcher for Solver {
         &mut self.table
     }
 
-    fn calc_next_threshold_attack(&self, selection: &Selection, current_threshold: Node) -> Node {
-        let pn = current_threshold
+    fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
+        let pn = threshold
             .pn
             .min(selection.next2.pn.checked_add(1).unwrap_or(INF));
-        let dn = (current_threshold.dn - selection.current.dn)
+        let dn = (threshold.dn - selection.current.dn)
             .checked_add(selection.next1.dn)
             .unwrap_or(INF);
         Node::new(pn, dn, selection.next1.limit)
     }
 
-    fn calc_next_threshold_defence(&self, selection: &Selection, current_threshold: Node) -> Node {
-        let pn = (current_threshold.pn - selection.current.pn)
+    fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
+        let pn = (threshold.pn - selection.current.pn)
             .checked_add(selection.next1.pn)
             .unwrap_or(INF);
-        let dn = current_threshold
+        let dn = threshold
             .dn
             .min(selection.next2.dn.checked_add(1).unwrap_or(INF));
         Node::new(pn, dn, selection.next1.limit)

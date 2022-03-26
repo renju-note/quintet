@@ -16,9 +16,9 @@ pub struct Selection {
 pub trait Searcher {
     fn table(&mut self) -> &mut Table;
 
-    fn calc_next_threshold_attack(&self, selection: &Selection, current_threshold: Node) -> Node;
+    fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node;
 
-    fn calc_next_threshold_defence(&self, selection: &Selection, current_threshold: Node) -> Node;
+    fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node;
 
     // default implementations
 

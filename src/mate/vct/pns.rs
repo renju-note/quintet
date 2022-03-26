@@ -32,7 +32,7 @@ impl Searcher for Solver {
         &mut self.table
     }
 
-    fn calc_next_threshold_attack(&self, selection: &Selection, _current_threshold: Node) -> Node {
+    fn calc_next_threshold_attack(&self, selection: &Selection, _threshold: Node) -> Node {
         let next = selection.next1;
         Node::new(
             next.pn.checked_add(1).unwrap_or(INF),
@@ -41,7 +41,7 @@ impl Searcher for Solver {
         )
     }
 
-    fn calc_next_threshold_defence(&self, selection: &Selection, _current_threshold: Node) -> Node {
+    fn calc_next_threshold_defence(&self, selection: &Selection, _threshold: Node) -> Node {
         let next = selection.next1;
         Node::new(
             next.pn.checked_add(1).unwrap_or(INF),
