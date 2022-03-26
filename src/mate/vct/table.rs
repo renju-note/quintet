@@ -26,17 +26,17 @@ impl Table {
 
 use std::fmt;
 
-pub const INF: usize = usize::MAX;
+pub const INF: u32 = u32::MAX;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct Node {
-    pub pn: usize,
-    pub dn: usize,
+    pub pn: u32,
+    pub dn: u32,
     pub limit: u8,
 }
 
 impl Node {
-    pub fn new(pn: usize, dn: usize, limit: u8) -> Self {
+    pub fn new(pn: u32, dn: u32, limit: u8) -> Self {
         Self {
             pn: pn,
             dn: dn,
@@ -44,24 +44,28 @@ impl Node {
         }
     }
 
-    pub fn root(limit: u8) -> Self {
-        Self::new(INF - 1, INF - 1, limit)
+    pub fn inf() -> Self {
+        Self::new(INF, INF, 0)
     }
 
-    pub fn inf_pn(limit: u8) -> Self {
-        Self::new(INF, 0, limit)
-    }
-
-    pub fn inf_dn(limit: u8) -> Self {
+    pub fn zero_pn(limit: u8) -> Self {
         Self::new(0, INF, limit)
     }
 
-    pub fn init_pn(approx_dn: usize, limit: u8) -> Self {
+    pub fn zero_dn(limit: u8) -> Self {
+        Self::new(INF, 0, limit)
+    }
+
+    pub fn init_pn(approx_dn: u32, limit: u8) -> Self {
         Self::new(1, approx_dn, limit)
     }
 
-    pub fn init_dn(approx_pn: usize, limit: u8) -> Self {
+    pub fn init_dn(approx_pn: u32, limit: u8) -> Self {
         Self::new(approx_pn, 1, limit)
+    }
+
+    pub fn proven(&self) -> bool {
+        self.pn == 0
     }
 
     pub fn min_pn_sum_dn(&self, another: Self) -> Self {
@@ -78,10 +82,6 @@ impl Node {
             self.dn.min(another.dn),
             self.limit.min(another.limit),
         )
-    }
-
-    pub fn dummy() -> Self {
-        Self::new(INF, INF, 0)
     }
 }
 

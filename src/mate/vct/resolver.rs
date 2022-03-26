@@ -1,6 +1,5 @@
 use super::state::State;
 use super::table::*;
-use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
@@ -22,8 +21,13 @@ pub trait Resolver {
                 Forced(attack) => state.into_play(attack, |s| {
                     self.resolve_defences(s).map(|m| m.unshift(attack))
                 }),
-                _ => None,
+                _ => unreachable!(),
             };
+        }
+
+        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit());
+        if let Some(vcf) = self.solve_vcf(vcf_state) {
+            return Some(vcf);
         }
 
         let attacks = state.sorted_attacks(None);
@@ -31,44 +35,43 @@ pub trait Resolver {
             let node = self
                 .table()
                 .lookup_next(state, attack)
-                .unwrap_or(Node::dummy());
-            if node.pn == 0 {
+                .unwrap_or(Node::inf());
+            if node.proven() {
                 return state.into_play(attack, |s| {
                     self.resolve_defences(s).map(|m| m.unshift(attack))
                 });
             }
         }
 
-        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit());
-        self.solve_vcf(vcf_state)
+        unreachable!()
     }
 
     fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(end) => Some(Mate::new(end, vec![])),
                 Forced(defence) => state.into_play(defence, |s| {
                     self.resolve_attacks(s).map(|m| m.unshift(defence))
                 }),
+                _ => unreachable!(),
             };
         }
 
-        let maybe_threat = state.solve_threat();
+        let threat_state = &mut vcf::State::new(state.game().pass(), state.limit() - 1);
+        let maybe_threat = self.solve_vcf(threat_state);
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
-        let mut selected_defence = Point(0, 0);
+        let mut best = None;
         for defence in defences {
             let node = self
                 .table()
                 .lookup_next(state, defence)
-                .unwrap_or(Node::dummy());
-            if node.pn == 0 && node.limit < min_limit {
+                .unwrap_or_else(|| unreachable!());
+            if node.limit < min_limit {
                 min_limit = node.limit;
-                selected_defence = defence;
+                best.replace(defence);
             }
         }
-        state.into_play(selected_defence, |s| {
-            self.resolve_attacks(s).map(|m| m.unshift(selected_defence))
-        })
+        let best = best.unwrap();
+        state.into_play(best, |s| self.resolve_attacks(s).map(|m| m.unshift(best)))
     }
 }
