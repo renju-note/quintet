@@ -25,7 +25,7 @@ pub trait Resolver {
             };
         }
 
-        let vcf_state = &mut vcf::State::new(state.game().clone(), state.limit());
+        let vcf_state = &mut state.vcf_state();
         if let Some(vcf) = self.solve_vcf(vcf_state) {
             return Some(vcf);
         }

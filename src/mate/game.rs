@@ -86,6 +86,16 @@ impl Game {
         self.turn = self.turn.opponent();
     }
 
+    pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
+    where
+        F: FnMut(&mut Self) -> T,
+    {
+        self.play(next_move);
+        let result = f(self);
+        self.undo();
+        result
+    }
+
     pub fn is_forbidden_move(&self, p: Point) -> bool {
         self.turn.is_black() && self.board.forbidden(p).is_some()
     }

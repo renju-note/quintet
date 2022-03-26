@@ -51,10 +51,6 @@ impl State {
         &self.game
     }
 
-    pub fn board(&self) -> &Board {
-        self.game.board()
-    }
-
     pub fn attacking(&self) -> bool {
         self.game.turn == self.attacker
     }

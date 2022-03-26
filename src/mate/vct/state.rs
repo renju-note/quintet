@@ -6,18 +6,23 @@ use crate::mate::mate::*;
 use crate::mate::vcf;
 
 pub struct State {
-    state: vcf::State,
+    game: Game,
     field: PotentialField,
+    pub attacker: Player,
+    pub limit: u8,
     threat_limit: u8,
     attacker_vcf_solver: vcf::iddfs::Solver,
     defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl State {
-    pub fn new(state: vcf::State, field: PotentialField, threat_limit: u8) -> Self {
+    pub fn new(game: Game, field: PotentialField, limit: u8, threat_limit: u8) -> Self {
+        let attacker = game.turn;
         Self {
-            state: state,
+            game: game,
             field: field,
+            attacker: attacker,
+            limit: limit,
             threat_limit: threat_limit,
             attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
             defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
@@ -26,22 +31,28 @@ impl State {
 
     pub fn init(board: Board, turn: Player, limit: u8, threat_limit: u8) -> Self {
         let field = PotentialField::init(turn, 2, &board);
-        let state = vcf::State::init(board, turn, limit);
-        Self::new(state, field, threat_limit)
+        let game = Game::new(board, turn);
+        Self::new(game, field, limit, threat_limit)
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
-        self.state.play(next_move);
+        self.game.play(next_move);
+        if self.attacking() {
+            self.limit -= 1
+        }
         if let Some(next_move) = next_move {
-            self.field.update_along(next_move, self.state.board());
+            self.field.update_along(next_move, self.game.board());
         }
     }
 
     pub fn undo(&mut self) {
-        let maybe_last_move = self.state.game().last_move();
-        self.state.undo();
+        let maybe_last_move = self.game().last_move();
+        if self.attacking() {
+            self.limit += 1
+        }
+        self.game.undo();
         if let Some(last_move) = maybe_last_move {
-            self.field.update_along(last_move, self.state.board());
+            self.field.update_along(last_move, self.game.board());
         }
     }
 
@@ -55,61 +66,66 @@ impl State {
         result
     }
 
-    pub fn vcf_state(&self) -> &vcf::State {
-        &self.state
+    pub fn vcf_state(&self) -> vcf::State {
+        vcf::State::new(self.game.clone(), self.limit)
     }
 
     pub fn game(&self) -> &Game {
-        self.state.game()
+        &self.game
     }
 
-    pub fn limit(&self) -> u8 {
-        self.state.limit
+    pub fn attacking(&self) -> bool {
+        self.game.turn == self.attacker
     }
 
     pub fn zobrist_hash(&self) -> u64 {
-        self.state.zobrist_hash()
+        self.game.zobrist_hash(self.limit)
     }
 
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
         // Update only state in order not to cause updating state.field (which costs high)
-        self.state.into_play(next_move, |s| s.zobrist_hash())
+        let next_limit = if self.attacking() {
+            self.limit
+        } else {
+            self.limit - 1
+        };
+        self.game
+            .into_play(next_move, |g| g.zobrist_hash(next_limit))
     }
 
     pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
-        if !self.state.attacking() {
+        if !self.attacking() {
             panic!()
         }
-        let state = &mut self.state.clone();
+        let state = &mut self.vcf_state();
         // this limit can be changed dynamically
         self.attacker_vcf_solver.solve(state)
     }
 
     pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
-        if self.state.attacking() {
+        if self.attacking() {
             panic!()
         }
-        let state = &mut self.state.clone();
+        let state = &mut self.vcf_state();
         state.set_limit(u8::MAX);
         self.defender_vcf_solver.solve(state)
     }
 
     pub fn solve_attacker_threat(&mut self) -> Option<Mate> {
-        if self.state.attacking() {
+        if self.attacking() {
             panic!()
         }
-        let state = &mut self.state.clone();
+        let state = &mut self.vcf_state();
         state.play(None);
-        let limit = state.limit.min(self.threat_limit);
-        state.set_limit(limit);
+        state.set_limit((state.limit - 1).min(self.threat_limit));
         self.attacker_vcf_solver.solve(state)
     }
 
     pub fn solve_defender_threat(&mut self) -> Option<Mate> {
-        if !self.state.attacking() {
+        if !self.attacking() {
             panic!()
         }
-        let state = &mut self.state.clone();
+        let state = &mut self.vcf_state();
         state.play(None);
         // this limit can be changed dynamically
         state.set_limit(u8::MAX);
@@ -123,7 +139,7 @@ impl State {
             potentials.retain(|(p, _)| threat_defences.contains(p));
         }
         potentials.sort_by(|a, b| b.1.cmp(&a.1));
-        potentials.retain(|&(p, _)| !self.state.game().is_forbidden_move(p));
+        potentials.retain(|&(p, _)| !self.game().is_forbidden_move(p));
         potentials.into_iter().map(|t| t.0).collect()
     }
 
@@ -132,16 +148,12 @@ impl State {
         let field = &self.field;
         result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
         result.dedup();
-        result.retain(|&p| !self.state.game().is_forbidden_move(p));
+        result.retain(|&p| !self.game().is_forbidden_move(p));
         result
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
-        let min = if self.state.attacker == Player::Black {
-            4
-        } else {
-            3
-        };
+        let min = if self.attacker == Player::Black { 4 } else { 3 };
         self.field.collect(min)
     }
 
@@ -160,7 +172,7 @@ impl State {
             }
             Forbidden(p) => {
                 result.push(p);
-                result.extend(self.state.board().neighbors(p, 5, true));
+                result.extend(self.game.board().neighbors(p, 5, true));
             }
             _ => (),
         }
@@ -168,7 +180,7 @@ impl State {
     }
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut game = self.state.game().clone();
+        let mut game = self.game().clone();
         game.play(None);
         let threater = game.turn;
         let mut result = vec![];
@@ -187,10 +199,9 @@ impl State {
     }
 
     fn four_moves(&self) -> Vec<Point> {
-        self.state
-            .game()
+        self.game()
             .board()
-            .structures(self.state.game().turn, Sword)
+            .structures(self.game().turn, Sword)
             .flat_map(|s| s.eyes())
             .collect()
     }
