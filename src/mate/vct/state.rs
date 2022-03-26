@@ -8,24 +8,26 @@ use crate::mate::vcf;
 pub struct State {
     state: vcf::State,
     field: PotentialField,
+    threat_limit: u8,
     attacker_vcf_solver: vcf::iddfs::Solver,
     defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl State {
-    pub fn new(state: vcf::State, field: PotentialField) -> Self {
+    pub fn new(state: vcf::State, field: PotentialField, threat_limit: u8) -> Self {
         Self {
             state: state,
             field: field,
+            threat_limit: threat_limit,
             attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
             defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
-    pub fn init(board: Board, turn: Player, limit: u8) -> Self {
+    pub fn init(board: Board, turn: Player, limit: u8, threat_limit: u8) -> Self {
         let field = PotentialField::init(turn, 2, &board);
         let state = vcf::State::init(board, turn, limit);
-        Self::new(state, field)
+        Self::new(state, field, threat_limit)
     }
 
     pub fn play(&mut self, next_move: Point) {
@@ -84,7 +86,8 @@ impl State {
             self.defender_vcf_solver.solve(state)
         } else {
             let state = &mut self.state.pass();
-            state.set_limit(state.limit - 1);
+            let limit = (state.limit - 1).min(self.threat_limit);
+            state.set_limit(limit);
             self.attacker_vcf_solver.solve(state)
         }
     }

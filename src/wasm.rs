@@ -6,10 +6,11 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub fn solve(
     mode: u8,
-    max_depth: u8,
+    limit: u8,
     blacks: &[u8],
     whites: &[u8],
     black: bool,
+    threat_limit: u8,
 ) -> Option<Box<[u8]>> {
     let mode = mate::SolveMode::try_from(mode);
     let blacks = Points::try_from(blacks);
@@ -19,28 +20,23 @@ pub fn solve(
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
     let player = Player::from(black);
-    let solution = mate::solve(mode.unwrap(), max_depth, &board, player);
+    let solution = mate::solve(mode.unwrap(), limit, &board, player, threat_limit);
     solution.map(|s| <Vec<u8>>::from(Points(s.path)).into_boxed_slice())
 }
 
 #[wasm_bindgen]
-pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, max_depth: u8) -> Option<Box<[u8]>> {
-    solve(0, max_depth, blacks, whites, black)
+pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> Option<Box<[u8]>> {
+    solve(0, limit, blacks, whites, black, limit)
 }
 
 #[wasm_bindgen]
-pub fn solve_vct(blacks: &[u8], whites: &[u8], black: bool, max_depth: u8) -> Option<Box<[u8]>> {
-    solve(1, max_depth, blacks, whites, black)
+pub fn solve_vct(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> Option<Box<[u8]>> {
+    solve(10, limit, blacks, whites, black, limit)
 }
 
 #[wasm_bindgen]
-pub fn solve_vct_dfpn(
-    blacks: &[u8],
-    whites: &[u8],
-    black: bool,
-    max_depth: u8,
-) -> Option<Box<[u8]>> {
-    solve(2, max_depth, blacks, whites, black)
+pub fn solve_vct_dfpn(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> Option<Box<[u8]>> {
+    solve(16, limit, blacks, whites, black, limit)
 }
 
 #[wasm_bindgen]
