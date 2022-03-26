@@ -53,10 +53,11 @@ pub trait Resolver {
             };
         }
 
-        let maybe_threat = state.solve_attacker_threat();
+        let threat_state = &mut vcf::State::new(state.game().pass(), state.limit() - 1);
+        let maybe_threat = self.solve_vcf(threat_state);
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
-        let mut selected_defence = Point(0, 0);
+        let mut best = Point(0, 0);
         for defence in defences {
             let node = self
                 .table()
@@ -64,11 +65,9 @@ pub trait Resolver {
                 .unwrap_or(Node::dummy());
             if node.pn == 0 && node.limit < min_limit {
                 min_limit = node.limit;
-                selected_defence = defence;
+                best = defence;
             }
         }
-        state.into_play(selected_defence, |s| {
-            self.resolve_attacks(s).map(|m| m.unshift(selected_defence))
-        })
+        state.into_play(best, |s| self.resolve_attacks(s).map(|m| m.unshift(best)))
     }
 }
