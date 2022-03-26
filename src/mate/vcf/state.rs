@@ -12,16 +12,8 @@ impl State {
         Self { game: game }
     }
 
-    pub fn init(board: Board, attacker: Player, limit: u8) -> Self {
-        Self::new(Game::new(board, attacker, limit))
-    }
-
-    pub fn game(&self) -> &Game {
-        &self.game
-    }
-
-    pub fn set_limit(&mut self, limit: u8) {
-        self.game.set_limit(limit)
+    pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
+        Self::new(Game::init(&board, attacker, limit))
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
@@ -40,6 +32,14 @@ impl State {
         let result = f(self);
         self.undo();
         result
+    }
+
+    pub fn game(&self) -> &Game {
+        &self.game
+    }
+
+    pub fn set_limit(&mut self, limit: u8) {
+        self.game.set_limit(limit)
     }
 
     pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {

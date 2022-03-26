@@ -32,54 +32,22 @@ pub use Event::*;
 
 #[derive(Clone)]
 pub struct Game {
-    pub attacker: Player,
-    pub limit: u8,
     board: Board,
     moves: Vec<Option<Point>>,
+    pub attacker: Player,
+    pub limit: u8,
     pub turn: Player,
 }
 
 impl Game {
-    pub fn new(board: Board, attacker: Player, limit: u8) -> Self {
+    pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
         Self {
+            board: board.clone(),
+            moves: vec![],
             attacker: attacker,
             limit: limit,
-            board: board,
-            moves: vec![],
             turn: attacker,
         }
-    }
-
-    pub fn board(&self) -> &Board {
-        &self.board
-    }
-
-    pub fn last_move(&self) -> Option<Point> {
-        if self.moves.len() >= 1 {
-            self.moves[self.moves.len() - 1]
-        } else {
-            None
-        }
-    }
-
-    pub fn last2_move(&self) -> Option<Point> {
-        if self.moves.len() >= 2 {
-            self.moves[self.moves.len() - 2]
-        } else {
-            None
-        }
-    }
-
-    pub fn attacking(&self) -> bool {
-        self.turn == self.attacker
-    }
-
-    pub fn zobrist_hash(&self) -> u64 {
-        self.board.zobrist_hash_n(self.limit)
-    }
-
-    pub fn set_limit(&mut self, limit: u8) {
-        self.limit = limit
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
@@ -112,6 +80,38 @@ impl Game {
         let result = f(self);
         self.undo();
         result
+    }
+
+    pub fn set_limit(&mut self, limit: u8) {
+        self.limit = limit
+    }
+
+    pub fn attacking(&self) -> bool {
+        self.turn == self.attacker
+    }
+
+    pub fn board(&self) -> &Board {
+        &self.board
+    }
+
+    pub fn zobrist_hash(&self) -> u64 {
+        self.board.zobrist_hash_n(self.limit)
+    }
+
+    pub fn last_move(&self) -> Option<Point> {
+        if self.moves.len() >= 1 {
+            self.moves[self.moves.len() - 1]
+        } else {
+            None
+        }
+    }
+
+    pub fn last2_move(&self) -> Option<Point> {
+        if self.moves.len() >= 2 {
+            self.moves[self.moves.len() - 2]
+        } else {
+            None
+        }
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {

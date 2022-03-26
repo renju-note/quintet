@@ -56,30 +56,30 @@ pub fn solve(
     mode: SolveMode,
     limit: u8,
     board: &Board,
-    turn: Player,
+    attacker: Player,
     threat_limit: u8,
 ) -> Option<Mate> {
-    if let Err(e) = validate(board, turn) {
+    if let Err(e) = validate(board, attacker) {
         return e;
     }
     match mode {
         VCFDFS => {
-            let state = &mut vcf::State::init(board.clone(), turn, limit);
+            let state = &mut vcf::State::init(board, attacker, limit);
             let mut solver = vcf::dfs::Solver::init();
             solver.solve(state)
         }
         VCTDFS => {
-            let state = &mut vct::State::init(board.clone(), turn, limit, threat_limit);
+            let state = &mut vct::State::init(board, attacker, limit, threat_limit);
             let mut solver = vct::dfs::Solver::init();
             solver.solve(state)
         }
         VCTPNS => {
-            let state = &mut vct::State::init(board.clone(), turn, limit, threat_limit);
+            let state = &mut vct::State::init(board, attacker, limit, threat_limit);
             let mut solver = vct::pns::Solver::init();
             solver.solve(state)
         }
         VCTDFPNS => {
-            let state = &mut vct::State::init(board.clone(), turn, limit, threat_limit);
+            let state = &mut vct::State::init(board, attacker, limit, threat_limit);
             let mut solver = vct::dfpns::Solver::init();
             solver.solve(state)
         }
@@ -87,7 +87,7 @@ pub fn solve(
     }
 }
 
-fn validate(board: &Board, turn: Player) -> Result<(), Option<Mate>> {
+fn validate(board: &Board, attacker: Player) -> Result<(), Option<Mate>> {
     if board.structures(Black, Five).next().is_some() {
         return Err(None);
     }
@@ -97,10 +97,10 @@ fn validate(board: &Board, turn: Player) -> Result<(), Option<Mate>> {
     if board.structures(Black, OverFive).next().is_some() {
         return Err(None);
     }
-    if board.structures(turn.opponent(), Four).next().is_some() {
+    if board.structures(attacker.opponent(), Four).next().is_some() {
         return Err(None);
     }
-    if board.structures(turn, Four).next().is_some() {
+    if board.structures(attacker, Four).next().is_some() {
         return Err(Some(Mate::new(Unknown, vec![])));
     }
     Ok(())

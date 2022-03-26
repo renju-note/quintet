@@ -24,9 +24,9 @@ impl State {
         }
     }
 
-    pub fn init(board: Board, attacker: Player, limit: u8, threat_limit: u8) -> Self {
-        let field = PotentialField::init(attacker, 2, &board);
-        let game = Game::new(board, attacker, limit);
+    pub fn init(board: &Board, attacker: Player, limit: u8, threat_limit: u8) -> Self {
+        let game = Game::init(board, attacker, limit);
+        let field = PotentialField::init(attacker, 2, board);
         Self::new(game, field, threat_limit)
     }
 
@@ -55,12 +55,12 @@ impl State {
         result
     }
 
-    pub fn vcf_state(&self) -> vcf::State {
-        vcf::State::new(self.game.clone())
-    }
-
     pub fn game(&self) -> &Game {
         &self.game
+    }
+
+    pub fn vcf_state(&self) -> vcf::State {
+        vcf::State::new(self.game.clone())
     }
 
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {

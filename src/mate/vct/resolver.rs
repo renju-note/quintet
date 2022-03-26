@@ -6,10 +6,7 @@ use crate::mate::vcf;
 
 pub trait Resolver {
     fn table(&self) -> &Table;
-
     fn solve_vcf(&mut self, state: &mut vcf::State) -> Option<Mate>;
-
-    // default implementations
 
     fn resolve(&mut self, state: &mut State) -> Option<Mate> {
         self.resolve_attacks(state)

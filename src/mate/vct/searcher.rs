@@ -15,12 +15,8 @@ pub struct Selection {
 // since we don't know the number of *next* defences|attacks
 pub trait Searcher {
     fn table(&mut self) -> &mut Table;
-
     fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node;
-
     fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node;
-
-    // default implementations
 
     fn search(&mut self, state: &mut State) -> bool {
         let result = self.search_limit(state, Node::inf());
