@@ -81,8 +81,8 @@ pub trait Searcher {
             } else if child.pn < next2.pn {
                 next2 = child;
             }
-            if current.proven() {
-                current = Node::zero_pn(current.limit);
+            if current.pn == 0 {
+                current.dn = INF;
                 break;
             }
         }
@@ -153,7 +153,7 @@ pub trait Searcher {
                 next2 = child;
             }
             if current.dn == 0 {
-                current = Node::zero_dn(current.limit);
+                current.pn = INF;
                 break;
             }
         }
