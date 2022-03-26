@@ -56,7 +56,7 @@ pub trait Resolver {
             };
         }
 
-        let mut threat_state = state.vcf_state().clone();
+        let mut threat_state = state.vcf_state();
         threat_state.play(None);
         let maybe_threat = self.solve_vcf(&mut threat_state);
         let defences = state.sorted_defences(maybe_threat.unwrap());

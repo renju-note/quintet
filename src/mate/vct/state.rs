@@ -8,38 +8,30 @@ use crate::mate::vcf;
 pub struct State {
     game: Game,
     field: PotentialField,
-    pub attacker: Player,
-    pub limit: u8,
     threat_limit: u8,
     attacker_vcf_solver: vcf::iddfs::Solver,
     defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl State {
-    pub fn new(game: Game, field: PotentialField, limit: u8, threat_limit: u8) -> Self {
-        let attacker = game.turn;
+    pub fn new(game: Game, field: PotentialField, threat_limit: u8) -> Self {
         Self {
             game: game,
             field: field,
-            attacker: attacker,
-            limit: limit,
             threat_limit: threat_limit,
             attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
             defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
-    pub fn init(board: Board, turn: Player, limit: u8, threat_limit: u8) -> Self {
-        let field = PotentialField::init(turn, 2, &board);
-        let game = Game::new(board, turn);
-        Self::new(game, field, limit, threat_limit)
+    pub fn init(board: Board, attacker: Player, limit: u8, threat_limit: u8) -> Self {
+        let field = PotentialField::init(attacker, 2, &board);
+        let game = Game::new(board, attacker, limit);
+        Self::new(game, field, threat_limit)
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
         self.game.play(next_move);
-        if self.attacking() {
-            self.limit -= 1
-        }
         if let Some(next_move) = next_move {
             self.field.update_along(next_move, self.game.board());
         }
@@ -47,9 +39,6 @@ impl State {
 
     pub fn undo(&mut self) {
         let maybe_last_move = self.game().last_move();
-        if self.attacking() {
-            self.limit += 1
-        }
         self.game.undo();
         if let Some(last_move) = maybe_last_move {
             self.field.update_along(last_move, self.game.board());
@@ -67,34 +56,20 @@ impl State {
     }
 
     pub fn vcf_state(&self) -> vcf::State {
-        vcf::State::new(self.game.clone(), self.limit)
+        vcf::State::new(self.game.clone())
     }
 
     pub fn game(&self) -> &Game {
         &self.game
     }
 
-    pub fn attacking(&self) -> bool {
-        self.game.turn == self.attacker
-    }
-
-    pub fn zobrist_hash(&self) -> u64 {
-        self.game.zobrist_hash(self.limit)
-    }
-
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
         // Update only state in order not to cause updating state.field (which costs high)
-        let next_limit = if self.attacking() {
-            self.limit
-        } else {
-            self.limit - 1
-        };
-        self.game
-            .into_play(next_move, |g| g.zobrist_hash(next_limit))
+        self.game.into_play(next_move, |g| g.zobrist_hash())
     }
 
     pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
-        if !self.attacking() {
+        if !self.game.attacking() {
             panic!()
         }
         let state = &mut self.vcf_state();
@@ -103,7 +78,7 @@ impl State {
     }
 
     pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
-        if self.attacking() {
+        if self.game.attacking() {
             panic!()
         }
         let state = &mut self.vcf_state();
@@ -112,17 +87,17 @@ impl State {
     }
 
     pub fn solve_attacker_threat(&mut self) -> Option<Mate> {
-        if self.attacking() {
+        if self.game.attacking() {
             panic!()
         }
         let state = &mut self.vcf_state();
         state.play(None);
-        state.set_limit((state.limit - 1).min(self.threat_limit));
+        state.set_limit(state.game().limit.min(self.threat_limit));
         self.attacker_vcf_solver.solve(state)
     }
 
     pub fn solve_defender_threat(&mut self) -> Option<Mate> {
-        if !self.attacking() {
+        if !self.game.attacking() {
             panic!()
         }
         let state = &mut self.vcf_state();
@@ -153,7 +128,11 @@ impl State {
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
-        let min = if self.attacker == Player::Black { 4 } else { 3 };
+        let min = if self.game.attacker == Player::Black {
+            4
+        } else {
+            3
+        };
         self.field.collect(min)
     }
 

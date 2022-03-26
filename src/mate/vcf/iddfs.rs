@@ -16,7 +16,7 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
-        let max_limit = state.limit;
+        let max_limit = state.game().limit;
         for &limit in &self.limits {
             if limit >= max_limit {
                 break;

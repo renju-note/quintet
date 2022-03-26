@@ -32,17 +32,21 @@ pub use Event::*;
 
 #[derive(Clone)]
 pub struct Game {
-    pub turn: Player,
+    pub attacker: Player,
+    pub limit: u8,
     board: Board,
     moves: Vec<Option<Point>>,
+    pub turn: Player,
 }
 
 impl Game {
-    pub fn new(board: Board, turn: Player) -> Self {
+    pub fn new(board: Board, attacker: Player, limit: u8) -> Self {
         Self {
-            turn: turn,
+            attacker: attacker,
+            limit: limit,
             board: board,
             moves: vec![],
+            turn: attacker,
         }
     }
 
@@ -66,8 +70,16 @@ impl Game {
         }
     }
 
-    pub fn zobrist_hash(&self, limit: u8) -> u64 {
-        self.board.zobrist_hash_n(limit)
+    pub fn attacking(&self) -> bool {
+        self.turn == self.attacker
+    }
+
+    pub fn zobrist_hash(&self) -> u64 {
+        self.board.zobrist_hash_n(self.limit)
+    }
+
+    pub fn set_limit(&mut self, limit: u8) {
+        self.limit = limit
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
@@ -76,9 +88,15 @@ impl Game {
         }
         self.moves.push(next_move);
         self.turn = self.turn.opponent();
+        if self.attacking() {
+            self.limit -= 1
+        }
     }
 
     pub fn undo(&mut self) {
+        if self.attacking() {
+            self.limit += 1
+        }
         if let Some(last_move) = self.last_move() {
             self.board.remove_mut(last_move);
         }
