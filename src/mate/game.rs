@@ -34,33 +34,36 @@ pub use Event::*;
 pub struct Game {
     pub turn: Player,
     board: Board,
-    moves: Vec<Point>,
+    moves: Vec<Option<Point>>,
 }
 
 impl Game {
-    pub fn new(board: Board, turn: Player, moves: Vec<Point>) -> Self {
+    pub fn new(board: Board, turn: Player) -> Self {
         Self {
             turn: turn,
             board: board,
-            moves: moves,
+            moves: vec![],
         }
-    }
-
-    pub fn init(board: Board, turn: Player) -> Self {
-        let (last_move, last2_move) = Self::choose_last_moves(&board, turn);
-        Self::new(board, turn, vec![last2_move, last_move])
     }
 
     pub fn board(&self) -> &Board {
         &self.board
     }
 
-    pub fn last_move(&self) -> Point {
-        self.moves[self.moves.len() - 1]
+    pub fn last_move(&self) -> Option<Point> {
+        if self.moves.len() >= 1 {
+            self.moves[self.moves.len() - 1]
+        } else {
+            None
+        }
     }
 
-    pub fn last2_move(&self) -> Point {
-        self.moves[self.moves.len() - 2]
+    pub fn last2_move(&self) -> Option<Point> {
+        if self.moves.len() >= 2 {
+            self.moves[self.moves.len() - 2]
+        } else {
+            None
+        }
     }
 
     pub fn zobrist_hash(&self, limit: u8) -> u64 {
@@ -68,20 +71,22 @@ impl Game {
     }
 
     pub fn play(&mut self, next_move: Point) {
+        self.moves.push(Some(next_move));
         self.board.put_mut(self.turn, next_move);
         self.turn = self.turn.opponent();
-        self.moves.push(next_move);
+    }
+
+    pub fn pass(&mut self) {
+        self.moves.push(None);
+        self.turn = self.turn.opponent();
     }
 
     pub fn undo(&mut self) {
-        self.board.remove_mut(self.last_move());
-        self.turn = self.turn.opponent();
+        if let Some(last_move) = self.last_move() {
+            self.board.remove_mut(last_move);
+        }
         self.moves.pop();
-    }
-
-    pub fn pass(&self) -> Self {
-        let moves = vec![self.last_move(), self.last2_move()];
-        Self::new(self.board.clone(), self.turn.opponent(), moves)
+        self.turn = self.turn.opponent();
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -105,31 +110,33 @@ impl Game {
     }
 
     fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
-        let last_four_eyes = self
-            .board
-            .structures_on(self.last_move(), self.turn.opponent(), Four)
-            .flat_map(|r| r.eyes());
-        let mut ret = None;
-        for eye in last_four_eyes {
-            if ret.map_or(false, |e| e != eye) {
-                return (ret, Some(eye));
+        if self.moves.len() > 1 {
+            if let Some(last_move) = self.last_move() {
+                let last_four_eyes = self
+                    .board
+                    .structures_on(last_move, self.turn.opponent(), Four)
+                    .flat_map(|r| r.eyes());
+                Self::take_distinct_two(last_four_eyes)
+            } else {
+                (None, None)
             }
-            ret = Some(eye);
+        } else {
+            let four_eyes = self
+                .board
+                .structures(self.turn.opponent(), Four)
+                .flat_map(|r| r.eyes());
+            Self::take_distinct_two(four_eyes)
         }
-        (ret, None)
     }
 
-    fn choose_last_moves(board: &Board, turn: Player) -> (Point, Point) {
-        let last = turn.opponent();
-        let mut last_fours = board.structures(last, Four);
-        let last_move = if let Some(four) = last_fours.next() {
-            let stone = four.stones().next().unwrap();
-            board.stones(last).find(|&s| s == stone)
-        } else {
-            board.stones(last).next()
-        };
-        let last2_move = board.stones(turn).next();
-        let default = Point(0, 0);
-        (last_move.unwrap_or(default), last2_move.unwrap_or(default))
+    fn take_distinct_two(points: impl Iterator<Item = Point>) -> (Option<Point>, Option<Point>) {
+        let mut ret = None;
+        for p in points {
+            if ret.map_or(false, |e| e != p) {
+                return (ret, Some(p));
+            }
+            ret = Some(p);
+        }
+        (ret, None)
     }
 }

@@ -56,7 +56,9 @@ pub trait Resolver {
             };
         }
 
-        let threat_state = &mut vcf::State::new(state.game().pass(), state.limit() - 1);
+        let mut game = state.game().clone();
+        game.pass();
+        let threat_state = &mut vcf::State::new(game, state.limit() - 1);
         let maybe_threat = self.solve_vcf(threat_state);
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;

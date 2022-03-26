@@ -20,11 +20,18 @@ impl State {
     }
 
     pub fn init(board: Board, turn: Player, limit: u8) -> Self {
-        Self::new(Game::init(board, turn), limit)
+        Self::new(Game::new(board, turn), limit)
     }
 
     pub fn play(&mut self, next_move: Point) {
         self.game.play(next_move);
+        if self.attacking() {
+            self.limit -= 1
+        }
+    }
+
+    pub fn pass(&mut self) {
+        self.game.pass();
         if self.attacking() {
             self.limit -= 1
         }
@@ -45,11 +52,6 @@ impl State {
         let result = f(self);
         self.undo();
         result
-    }
-
-    pub fn pass(&self) -> Self {
-        let game = self.game.pass();
-        Self::new(game, self.limit)
     }
 
     pub fn game(&self) -> &Game {
@@ -82,11 +84,15 @@ impl State {
     }
 
     pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
-        self.game
-            .board()
-            .structures_on(self.game.last2_move(), self.game.turn, Sword)
-            .flat_map(Self::sword_eyes_pairs)
-            .collect()
+        if let Some(last2_move) = self.game.last2_move() {
+            self.game
+                .board()
+                .structures_on(last2_move, self.game.turn, Sword)
+                .flat_map(Self::sword_eyes_pairs)
+                .collect()
+        } else {
+            vec![]
+        }
     }
 
     pub fn move_pairs(&self) -> Vec<(Point, Point)> {

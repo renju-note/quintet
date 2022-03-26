@@ -36,9 +36,11 @@ impl State {
     }
 
     pub fn undo(&mut self) {
-        let last_move = self.state.game().last_move();
+        let maybe_last_move = self.state.game().last_move();
         self.state.undo();
-        self.field.update_along(last_move, self.state.board());
+        if let Some(last_move) = maybe_last_move {
+            self.field.update_along(last_move, self.state.board());
+        }
     }
 
     pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
@@ -90,8 +92,9 @@ impl State {
         if self.state.attacking() {
             panic!()
         }
-        let state = &mut self.state.pass();
-        let limit = (state.limit - 1).min(self.threat_limit);
+        let state = &mut self.state.clone();
+        state.pass();
+        let limit = state.limit.min(self.threat_limit);
         state.set_limit(limit);
         self.attacker_vcf_solver.solve(state)
     }
@@ -100,7 +103,8 @@ impl State {
         if !self.state.attacking() {
             panic!()
         }
-        let state = &mut self.state.pass();
+        let state = &mut self.state.clone();
+        state.pass();
         // this limit can be changed dynamically
         state.set_limit(u8::MAX);
         self.defender_vcf_solver.solve(state)
@@ -158,7 +162,8 @@ impl State {
     }
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut game = self.state.game().pass();
+        let mut game = self.state.game().clone();
+        game.pass();
         let threater = game.turn;
         let mut result = vec![];
         for &p in &threat.path {
