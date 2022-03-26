@@ -53,7 +53,7 @@ pub trait Resolver {
             };
         }
 
-        let maybe_threat = state.solve_threat();
+        let maybe_threat = state.solve_attacker_threat();
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
         let mut selected_defence = Point(0, 0);

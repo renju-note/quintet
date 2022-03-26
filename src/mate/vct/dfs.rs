@@ -40,11 +40,11 @@ impl Solver {
             };
         }
 
-        if let Some(vcf) = state.solve_vcf() {
+        if let Some(vcf) = state.solve_attacker_vcf() {
             return Some(vcf);
         }
 
-        let maybe_threat = state.solve_threat();
+        let maybe_threat = state.solve_defender_threat();
 
         let attacks = state.sorted_attacks(maybe_threat);
 
@@ -69,12 +69,12 @@ impl Solver {
             };
         }
 
-        let maybe_threat = state.solve_threat();
+        let maybe_threat = state.solve_attacker_threat();
         if maybe_threat.is_none() {
             return None;
         }
 
-        if state.solve_vcf().is_some() {
+        if state.solve_defender_vcf().is_some() {
             return None;
         }
 

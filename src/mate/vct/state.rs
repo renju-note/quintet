@@ -68,28 +68,40 @@ impl State {
         self.state.into_play(next_move, |s| s.zobrist_hash())
     }
 
-    pub fn solve_vcf(&mut self) -> Option<Mate> {
-        if self.state.attacking() {
-            let state = &mut self.state.clone();
-            self.attacker_vcf_solver.solve(state)
-        } else {
-            let state = &mut self.state.clone();
-            state.set_limit(u8::MAX);
-            self.defender_vcf_solver.solve(state)
+    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
+        if !self.state.attacking() {
+            panic!()
         }
+        let state = &mut self.state.clone();
+        self.attacker_vcf_solver.solve(state)
     }
 
-    pub fn solve_threat(&mut self) -> Option<Mate> {
+    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
         if self.state.attacking() {
-            let state = &mut self.state.pass();
-            state.set_limit(u8::MAX);
-            self.defender_vcf_solver.solve(state)
-        } else {
-            let state = &mut self.state.pass();
-            let limit = (state.limit - 1).min(self.threat_limit);
-            state.set_limit(limit);
-            self.attacker_vcf_solver.solve(state)
+            panic!()
         }
+        let state = &mut self.state.clone();
+        state.set_limit(u8::MAX);
+        self.defender_vcf_solver.solve(state)
+    }
+
+    pub fn solve_attacker_threat(&mut self) -> Option<Mate> {
+        if self.state.attacking() {
+            panic!()
+        }
+        let state = &mut self.state.pass();
+        let limit = (state.limit - 1).min(self.threat_limit);
+        state.set_limit(limit);
+        self.attacker_vcf_solver.solve(state)
+    }
+
+    pub fn solve_defender_threat(&mut self) -> Option<Mate> {
+        if !self.state.attacking() {
+            panic!()
+        }
+        let state = &mut self.state.pass();
+        state.set_limit(u8::MAX);
+        self.defender_vcf_solver.solve(state)
     }
 
     pub fn sorted_attacks(&mut self, maybe_threat: Option<Mate>) -> Vec<Point> {

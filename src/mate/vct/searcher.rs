@@ -43,11 +43,11 @@ pub trait Searcher {
             };
         }
 
-        if state.solve_vcf().is_some() {
+        if state.solve_attacker_vcf().is_some() {
             return Node::inf_dn(state.limit());
         }
 
-        let maybe_threat = state.solve_threat();
+        let maybe_threat = state.solve_defender_threat();
 
         let attacks = state.sorted_attacks(maybe_threat);
 
@@ -109,12 +109,12 @@ pub trait Searcher {
             };
         }
 
-        let maybe_threat = state.solve_threat();
+        let maybe_threat = state.solve_attacker_threat();
         if maybe_threat.is_none() {
             return Node::inf_pn(state.limit());
         }
 
-        if state.solve_vcf().is_some() {
+        if state.solve_defender_vcf().is_some() {
             return Node::inf_pn(state.limit());
         }
 
