@@ -60,7 +60,14 @@ impl State {
     }
 
     pub fn vcf_state(&self) -> vcf::State {
-        vcf::State::new(self.game.clone())
+        let game = self.game.clone();
+        vcf::State::new(game)
+    }
+
+    pub fn threat_state(&self) -> vcf::State {
+        let mut game = self.game.clone();
+        game.play(None);
+        vcf::State::new(game)
     }
 
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
@@ -90,8 +97,7 @@ impl State {
         if self.game.attacking() {
             panic!()
         }
-        let state = &mut self.vcf_state();
-        state.play(None);
+        let state = &mut self.threat_state();
         state.set_limit(state.game().limit.min(self.threat_limit));
         self.attacker_vcf_solver.solve(state)
     }
@@ -100,8 +106,7 @@ impl State {
         if !self.game.attacking() {
             panic!()
         }
-        let state = &mut self.vcf_state();
-        state.play(None);
+        let state = &mut self.threat_state();
         // this limit can be changed dynamically
         state.set_limit(u8::MAX);
         self.defender_vcf_solver.solve(state)

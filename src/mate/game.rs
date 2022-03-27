@@ -65,11 +65,10 @@ impl Game {
         if self.attacking() {
             self.limit += 1
         }
-        if let Some(last_move) = self.last_move() {
+        self.turn = self.turn.opponent();
+        if let Some(last_move) = self.moves.pop().unwrap() {
             self.board.remove_mut(last_move);
         }
-        self.moves.pop();
-        self.turn = self.turn.opponent();
     }
 
     pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T

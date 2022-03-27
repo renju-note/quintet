@@ -13,18 +13,19 @@ impl State {
     }
 
     pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
-        Self::new(Game::init(&board, attacker, limit))
+        let game = Game::init(board, attacker, limit);
+        Self::new(game)
     }
 
-    pub fn play(&mut self, next_move: Option<Point>) {
-        self.game.play(next_move);
+    pub fn play(&mut self, next_move: Point) {
+        self.game.play(Some(next_move));
     }
 
     pub fn undo(&mut self) {
         self.game.undo();
     }
 
-    pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
+    pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,
     {
