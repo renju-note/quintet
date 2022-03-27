@@ -1,11 +1,10 @@
+use super::solver::Solver;
 use super::state::State;
 use super::table::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
 
-pub trait Resolver {
-    fn table(&self) -> &Table;
-
+pub trait Resolver: Solver {
     fn resolve(&mut self, state: &mut State) -> Option<Mate> {
         self.resolve_attacks(state)
     }
@@ -20,15 +19,15 @@ pub trait Resolver {
             };
         }
 
-        if let Some(vcf) = state.solve_attacker_vcf() {
+        if let Some(vcf) = self.solve_attacker_vcf(state) {
             return Some(vcf);
         }
 
-        let maybe_threat = state.solve_defender_threat();
+        let maybe_threat = self.solve_defender_threat(state);
         let attacks = state.sorted_attacks(maybe_threat);
         for attack in attacks {
             let node = self
-                .table()
+                .attacker_table()
                 .lookup_next(state, Some(attack))
                 .unwrap_or(Node::inf());
             if node.proven() {
@@ -51,13 +50,13 @@ pub trait Resolver {
             };
         }
 
-        let maybe_threat = state.solve_attacker_threat();
+        let maybe_threat = self.solve_attacker_threat(state);
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
         let mut best = None;
         for defence in defences {
             let node = self
-                .table()
+                .defender_table()
                 .lookup_next(state, Some(defence))
                 .unwrap_or_else(|| unreachable!());
             if node.limit < min_limit {
