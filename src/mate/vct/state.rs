@@ -8,26 +8,20 @@ use crate::mate::vcf;
 pub struct State {
     game: Game,
     field: PotentialField,
-    threat_limit: u8,
-    attacker_vcf_solver: vcf::iddfs::Solver,
-    defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl State {
-    pub fn new(game: Game, field: PotentialField, threat_limit: u8) -> Self {
+    pub fn new(game: Game, field: PotentialField) -> Self {
         Self {
             game: game,
             field: field,
-            threat_limit: threat_limit,
-            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
-            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
     }
 
-    pub fn init(board: &Board, attacker: Player, limit: u8, threat_limit: u8) -> Self {
+    pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
         let game = Game::init(board, attacker, limit);
         let field = PotentialField::init(attacker, 2, board);
-        Self::new(game, field, threat_limit)
+        Self::new(game, field)
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
@@ -77,45 +71,6 @@ impl State {
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
         // Update only state in order not to cause updating state.field (which costs high)
         self.game.into_play(next_move, |g| g.zobrist_hash())
-    }
-
-    pub fn solve_attacker_vcf(&mut self) -> Option<Mate> {
-        if !self.game.attacking() {
-            panic!()
-        }
-        let state = &mut self.vcf_state();
-        // this limit can be changed dynamically
-        state.set_limit(state.limit().min(self.threat_limit));
-        self.attacker_vcf_solver.solve(state)
-    }
-
-    pub fn solve_defender_vcf(&mut self) -> Option<Mate> {
-        if self.game.attacking() {
-            panic!()
-        }
-        let state = &mut self.vcf_state();
-        // this limit can be changed dynamically
-        state.set_limit(2);
-        self.defender_vcf_solver.solve(state)
-    }
-
-    pub fn solve_attacker_threat(&mut self) -> Option<Mate> {
-        if self.game.attacking() {
-            panic!()
-        }
-        let state = &mut self.threat_state();
-        state.set_limit(state.limit().min(self.threat_limit));
-        self.attacker_vcf_solver.solve(state)
-    }
-
-    pub fn solve_defender_threat(&mut self) -> Option<Mate> {
-        if !self.game.attacking() {
-            panic!()
-        }
-        let state = &mut self.threat_state();
-        // this limit can be changed dynamically
-        state.set_limit(2);
-        self.defender_vcf_solver.solve(state)
     }
 
     pub fn sorted_attacks(&mut self, maybe_threat: Option<Mate>) -> Vec<Point> {

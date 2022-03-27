@@ -1,3 +1,4 @@
+use super::solver::Solver;
 use super::state::State;
 use super::table::*;
 use crate::board::*;
@@ -13,9 +14,7 @@ pub struct Selection {
 // MEMO: select_attack|select_defence does trick;
 // approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
 // since we don't know the number of *next* defences|attacks
-pub trait Searcher {
-    fn attacker_table(&mut self) -> &mut Table;
-    fn defender_table(&mut self) -> &mut Table;
+pub trait Searcher: Solver {
     fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node;
     fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node;
 
@@ -40,12 +39,12 @@ pub trait Searcher {
         }
 
         // This is not necessary but improves speed
-        if state.solve_attacker_vcf().is_some() {
+        if self.solve_attacker_vcf(state).is_some() {
             return Node::zero_pn(state.limit());
         }
 
         // This is not necessary but narrows candidates
-        let maybe_threat = state.solve_defender_threat();
+        let maybe_threat = self.solve_defender_threat(state);
         let attacks = state.sorted_attacks(maybe_threat);
 
         self.loop_attacks(state, &attacks, threshold)
@@ -110,13 +109,13 @@ pub trait Searcher {
             };
         }
 
-        let maybe_threat = state.solve_attacker_threat();
+        let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
             return Node::zero_dn(state.limit());
         }
 
         // This is not necessary but improves speed
-        if state.solve_defender_vcf().is_some() {
+        if self.solve_defender_vcf(state).is_some() {
             return Node::zero_dn(state.limit());
         }
 

@@ -4,6 +4,7 @@ mod field;
 pub mod pns;
 pub mod resolver;
 pub mod searcher;
+pub mod solver;
 mod state;
 mod table;
 
