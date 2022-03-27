@@ -81,6 +81,7 @@ impl State {
         }
         let state = &mut self.vcf_state();
         // this limit can be changed dynamically
+        state.set_limit(state.limit().min(2));
         self.attacker_vcf_solver.solve(state)
     }
 
@@ -90,7 +91,7 @@ impl State {
         }
         let state = &mut self.vcf_state();
         // this limit can be changed dynamically
-        state.set_limit(u8::MAX);
+        state.set_limit(2);
         self.defender_vcf_solver.solve(state)
     }
 
@@ -99,7 +100,7 @@ impl State {
             panic!()
         }
         let state = &mut self.threat_state();
-        state.set_limit(state.game().limit.min(self.threat_limit));
+        state.set_limit(state.limit().min(self.threat_limit));
         self.attacker_vcf_solver.solve(state)
     }
 
@@ -109,7 +110,7 @@ impl State {
         }
         let state = &mut self.threat_state();
         // this limit can be changed dynamically
-        state.set_limit(u8::MAX);
+        state.set_limit(2);
         self.defender_vcf_solver.solve(state)
     }
 

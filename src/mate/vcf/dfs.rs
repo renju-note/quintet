@@ -16,7 +16,7 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
-        if state.game().limit == 0 {
+        if state.limit() == 0 {
             return None;
         }
 

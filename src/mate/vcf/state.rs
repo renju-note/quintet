@@ -35,12 +35,16 @@ impl State {
         result
     }
 
-    pub fn set_limit(&mut self, limit: u8) {
-        self.game.set_limit(limit)
-    }
-
     pub fn game(&self) -> &Game {
         &self.game
+    }
+
+    pub fn limit(&self) -> u8 {
+        self.game.limit
+    }
+
+    pub fn set_limit(&mut self, limit: u8) {
+        self.game.set_limit(limit)
     }
 
     pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
