@@ -14,7 +14,8 @@ pub struct Selection {
 // approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
 // since we don't know the number of *next* defences|attacks
 pub trait Searcher {
-    fn table(&mut self) -> &mut Table;
+    fn attacker_table(&mut self) -> &mut Table;
+    fn defender_table(&mut self) -> &mut Table;
     fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node;
     fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node;
 
@@ -69,7 +70,7 @@ pub trait Searcher {
         let mut next2 = Node::zero_dn(limit);
         for &attack in attacks {
             let child = self
-                .table()
+                .attacker_table()
                 .lookup_next(state, Some(attack))
                 .unwrap_or(Node::init_dn(attacks.len() as u32, limit)); // trick
             current = current.min_pn_sum_dn(child);
@@ -96,7 +97,7 @@ pub trait Searcher {
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
         state.into_play(Some(attack), |s| {
             let result = self.search_defences(s, threshold);
-            self.table().insert(s, result.clone());
+            self.attacker_table().insert(s, result.clone());
             result
         })
     }
@@ -143,7 +144,7 @@ pub trait Searcher {
         let mut next2 = Node::zero_pn(limit - 1);
         for &defence in defences {
             let child = self
-                .table()
+                .defender_table()
                 .lookup_next(state, Some(defence))
                 .unwrap_or(Node::init_pn(defences.len() as u32, limit)); // trick
             current = current.min_dn_sum_pn(child);
@@ -170,7 +171,7 @@ pub trait Searcher {
     fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
         state.into_play(Some(defence), |s| {
             let result = self.search_limit(s, threshold);
-            self.table().insert(s, result.clone());
+            self.defender_table().insert(s, result.clone());
             result
         })
     }

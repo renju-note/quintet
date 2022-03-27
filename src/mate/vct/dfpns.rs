@@ -7,13 +7,15 @@ use crate::mate::mate::*;
 // MEMO: Debug printing example is 6e2bace
 
 pub struct Solver {
-    table: Table,
+    attacker_table: Table,
+    defender_table: Table,
 }
 
 impl Solver {
     pub fn init() -> Self {
         Self {
-            table: Table::new(),
+            attacker_table: Table::new(),
+            defender_table: Table::new(),
         }
     }
 
@@ -34,8 +36,12 @@ Nagai, Ayumu, and Hiroshi Imai.
 IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 */
 impl Searcher for Solver {
-    fn table(&mut self) -> &mut Table {
-        &mut self.table
+    fn attacker_table(&mut self) -> &mut Table {
+        &mut self.attacker_table
+    }
+
+    fn defender_table(&mut self) -> &mut Table {
+        &mut self.defender_table
     }
 
     fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
@@ -60,7 +66,11 @@ impl Searcher for Solver {
 }
 
 impl Resolver for Solver {
-    fn table(&self) -> &Table {
-        &self.table
+    fn attacker_table(&self) -> &Table {
+        &self.attacker_table
+    }
+
+    fn defender_table(&self) -> &Table {
+        &self.defender_table
     }
 }

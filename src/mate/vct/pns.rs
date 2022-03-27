@@ -5,13 +5,15 @@ use super::table::*;
 use crate::mate::mate::*;
 
 pub struct Solver {
-    table: Table,
+    attacker_table: Table,
+    defender_table: Table,
 }
 
 impl Solver {
     pub fn init() -> Self {
         Self {
-            table: Table::new(),
+            attacker_table: Table::new(),
+            defender_table: Table::new(),
         }
     }
 
@@ -25,8 +27,12 @@ impl Solver {
 }
 
 impl Searcher for Solver {
-    fn table(&mut self) -> &mut Table {
-        &mut self.table
+    fn attacker_table(&mut self) -> &mut Table {
+        &mut self.attacker_table
+    }
+
+    fn defender_table(&mut self) -> &mut Table {
+        &mut self.defender_table
     }
 
     fn calc_next_threshold_attack(&self, selection: &Selection, _threshold: Node) -> Node {
@@ -49,7 +55,11 @@ impl Searcher for Solver {
 }
 
 impl Resolver for Solver {
-    fn table(&self) -> &Table {
-        &self.table
+    fn attacker_table(&self) -> &Table {
+        &self.attacker_table
+    }
+
+    fn defender_table(&self) -> &Table {
+        &self.defender_table
     }
 }
