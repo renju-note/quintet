@@ -59,6 +59,10 @@ impl State {
         &self.game
     }
 
+    pub fn limit(&self) -> u8 {
+        self.game.limit
+    }
+
     pub fn vcf_state(&self) -> vcf::State {
         let game = self.game.clone();
         vcf::State::new(game)
@@ -81,6 +85,7 @@ impl State {
         }
         let state = &mut self.vcf_state();
         // this limit can be changed dynamically
+        state.set_limit(state.limit().min(self.threat_limit));
         self.attacker_vcf_solver.solve(state)
     }
 
@@ -90,7 +95,7 @@ impl State {
         }
         let state = &mut self.vcf_state();
         // this limit can be changed dynamically
-        state.set_limit(u8::MAX);
+        state.set_limit(2);
         self.defender_vcf_solver.solve(state)
     }
 
@@ -99,7 +104,7 @@ impl State {
             panic!()
         }
         let state = &mut self.threat_state();
-        state.set_limit(state.game().limit.min(self.threat_limit));
+        state.set_limit(state.limit().min(self.threat_limit));
         self.attacker_vcf_solver.solve(state)
     }
 
@@ -109,7 +114,7 @@ impl State {
         }
         let state = &mut self.threat_state();
         // this limit can be changed dynamically
-        state.set_limit(u8::MAX);
+        state.set_limit(2);
         self.defender_vcf_solver.solve(state)
     }
 
@@ -134,12 +139,7 @@ impl State {
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
-        let min = if self.game.attacker == Player::Black {
-            4
-        } else {
-            3
-        };
-        self.field.collect(min)
+        self.field.collect(3)
     }
 
     fn threat_defences(&self, threat: &Mate) -> Vec<Point> {

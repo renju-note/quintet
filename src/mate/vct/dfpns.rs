@@ -3,20 +3,17 @@ use super::searcher::*;
 use super::state::State;
 use super::table::*;
 use crate::mate::mate::*;
-use crate::mate::vcf;
 
 // MEMO: Debug printing example is 6e2bace
 
 pub struct Solver {
     table: Table,
-    vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Solver {
     pub fn init() -> Self {
         Self {
             table: Table::new(),
-            vcf_solver: vcf::iddfs::Solver::init((1..u8::MAX).collect()),
         }
     }
 
@@ -65,9 +62,5 @@ impl Searcher for Solver {
 impl Resolver for Solver {
     fn table(&self) -> &Table {
         &self.table
-    }
-
-    fn solve_vcf(&mut self, state: &mut vcf::State) -> Option<Mate> {
-        self.vcf_solver.solve(state)
     }
 }

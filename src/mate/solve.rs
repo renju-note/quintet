@@ -442,6 +442,8 @@ mod tests {
         let result = solve(VCTPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 
+        let solution = "G12,E10,F12,I12,H14,H13,F14,E11,F13,F11,E14,D15,G14";
+
         let result = solve(VCTDFPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 

@@ -2,11 +2,9 @@ use super::state::State;
 use super::table::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
-use crate::mate::vcf;
 
 pub trait Resolver {
     fn table(&self) -> &Table;
-    fn solve_vcf(&mut self, state: &mut vcf::State) -> Option<Mate>;
 
     fn resolve(&mut self, state: &mut State) -> Option<Mate> {
         self.resolve_attacks(state)
@@ -22,12 +20,12 @@ pub trait Resolver {
             };
         }
 
-        let vcf_state = &mut state.vcf_state();
-        if let Some(vcf) = self.solve_vcf(vcf_state) {
+        if let Some(vcf) = state.solve_attacker_vcf() {
             return Some(vcf);
         }
 
-        let attacks = state.sorted_attacks(None);
+        let maybe_threat = state.solve_defender_threat();
+        let attacks = state.sorted_attacks(maybe_threat);
         for attack in attacks {
             let node = self
                 .table()
@@ -53,8 +51,7 @@ pub trait Resolver {
             };
         }
 
-        let threat_state = &mut state.threat_state();
-        let maybe_threat = self.solve_vcf(threat_state);
+        let maybe_threat = state.solve_attacker_threat();
         let defences = state.sorted_defences(maybe_threat.unwrap());
         let mut min_limit = u8::MAX;
         let mut best = None;
