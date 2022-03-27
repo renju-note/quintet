@@ -70,17 +70,17 @@ pub fn solve(
         }
         VCTDFS => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::dfs::Solver::init(threat_limit);
+            let mut solver = vct::dfs::Solver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTPNS => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::pns::Solver::init(threat_limit);
+            let mut solver = vct::pns::Solver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTDFPNS => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::dfpns::Solver::init(threat_limit);
+            let mut solver = vct::dfpns::Solver::init(threat_limit, 2);
             solver.solve(state)
         }
         _ => None,

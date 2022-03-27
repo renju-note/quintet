@@ -4,10 +4,11 @@ use crate::mate::mate::*;
 use crate::mate::vcf;
 
 pub trait Solver {
-    fn threat_limit(&self) -> u8;
-
     fn attacker_table(&mut self) -> &mut Table;
     fn defender_table(&mut self) -> &mut Table;
+
+    fn attacker_vcf_depth(&self) -> u8;
+    fn defender_vcf_depth(&self) -> u8;
 
     fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver;
     fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver;
@@ -17,8 +18,7 @@ pub trait Solver {
             panic!()
         }
         let state = &mut state.vcf_state();
-        // this limit can be changed dynamically
-        state.set_limit(state.limit().min(self.threat_limit()));
+        state.set_limit(state.limit().min(self.attacker_vcf_depth()));
         self.attacker_vcf_solver().solve(state)
     }
 
@@ -27,7 +27,7 @@ pub trait Solver {
             panic!()
         }
         let state = &mut state.threat_state();
-        state.set_limit(state.limit().min(self.threat_limit()));
+        state.set_limit(state.limit().min(self.attacker_vcf_depth()));
         self.attacker_vcf_solver().solve(state)
     }
 
@@ -36,8 +36,7 @@ pub trait Solver {
             panic!()
         }
         let state = &mut state.vcf_state();
-        // this limit can be changed dynamically
-        state.set_limit(2);
+        state.set_limit(self.defender_vcf_depth());
         self.defender_vcf_solver().solve(state)
     }
 
@@ -46,8 +45,7 @@ pub trait Solver {
             panic!()
         }
         let state = &mut state.threat_state();
-        // this limit can be changed dynamically
-        state.set_limit(2);
+        state.set_limit(self.defender_vcf_depth());
         self.defender_vcf_solver().solve(state)
     }
 }

@@ -7,19 +7,21 @@ use crate::mate::mate::*;
 use crate::mate::vcf;
 
 pub struct Solver {
-    threat_limit: u8,
     attacker_table: Table,
     defender_table: Table,
+    attacker_vcf_depth: u8,
+    defender_vcf_depth: u8,
     attacker_vcf_solver: vcf::iddfs::Solver,
     defender_vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Solver {
-    pub fn init(threat_limit: u8) -> Self {
+    pub fn init(attacker_vcf_depth: u8, defender_vcf_depth: u8) -> Self {
         Self {
-            threat_limit: threat_limit,
             attacker_table: Table::new(),
             defender_table: Table::new(),
+            attacker_vcf_depth: attacker_vcf_depth,
+            defender_vcf_depth: defender_vcf_depth,
             attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
             defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
         }
@@ -35,8 +37,12 @@ impl Solver {
 }
 
 impl solver::Solver for Solver {
-    fn threat_limit(&self) -> u8 {
-        self.threat_limit
+    fn attacker_vcf_depth(&self) -> u8 {
+        self.attacker_vcf_depth
+    }
+
+    fn defender_vcf_depth(&self) -> u8 {
+        self.defender_vcf_depth
     }
 
     fn attacker_table(&mut self) -> &mut Table {
