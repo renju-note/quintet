@@ -24,8 +24,8 @@ pub trait Searcher {
     }
 
     fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
-        if state.game().limit == 0 {
-            return Node::zero_dn(state.game().limit);
+        if state.limit() == 0 {
+            return Node::zero_dn(state.limit());
         }
         self.search_attacks(state, threshold)
     }
@@ -33,18 +33,19 @@ pub trait Searcher {
     fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::zero_dn(state.game().limit),
+                Defeated(_) => Node::zero_dn(state.limit()),
                 Forced(m) => self.loop_attacks(state, &[m], threshold),
             };
         }
 
         if state.solve_attacker_vcf().is_some() {
-            return Node::zero_pn(state.game().limit);
+            return Node::zero_pn(state.limit());
         }
 
         let maybe_threat = state.solve_defender_threat();
 
         let attacks = state.sorted_attacks(maybe_threat);
+
         self.loop_attacks(state, &attacks, threshold)
     }
 
@@ -60,18 +61,16 @@ pub trait Searcher {
     }
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        let limit = state.game().limit;
+        let limit = state.limit();
         let mut best: Option<Point> = None;
         let mut current = Node::zero_dn(limit);
         let mut next1 = Node::zero_dn(limit);
         let mut next2 = Node::zero_dn(limit);
-        // trick
-        let init = Node::init_dn(attacks.len() as u32, limit);
         for &attack in attacks {
             let child = self
                 .table()
                 .lookup_next(state, Some(attack))
-                .unwrap_or(init);
+                .unwrap_or(Node::init_dn(attacks.len() as u32, limit));
             current = current.min_pn_sum_dn(child);
             if child.pn < next1.pn {
                 best.replace(attack);
@@ -104,21 +103,22 @@ pub trait Searcher {
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::zero_pn(state.game().limit),
+                Defeated(_) => Node::zero_pn(state.limit()),
                 Forced(m) => self.loop_defences(state, &[m], threshold),
             };
         }
 
         let maybe_threat = state.solve_attacker_threat();
         if maybe_threat.is_none() {
-            return Node::zero_dn(state.game().limit);
+            return Node::zero_dn(state.limit());
         }
 
         if state.solve_defender_vcf().is_some() {
-            return Node::zero_dn(state.game().limit);
+            return Node::zero_dn(state.limit());
         }
 
         let defences = state.sorted_defences(maybe_threat.unwrap());
+
         self.loop_defences(state, &defences, threshold)
     }
 
@@ -134,18 +134,17 @@ pub trait Searcher {
     }
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        let limit = state.game().limit;
+        let limit = state.limit();
         let mut best: Option<Point> = None;
         let mut current = Node::zero_pn(limit);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);
         // trick
-        let init = Node::init_pn(defences.len() as u32, limit - 1);
         for &defence in defences {
             let child = self
                 .table()
                 .lookup_next(state, Some(defence))
-                .unwrap_or(init);
+                .unwrap_or(Node::init_pn(defences.len() as u32, limit));
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
                 best.replace(defence);

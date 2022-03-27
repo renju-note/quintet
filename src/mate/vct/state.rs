@@ -59,6 +59,10 @@ impl State {
         &self.game
     }
 
+    pub fn limit(&self) -> u8 {
+        self.game.limit
+    }
+
     pub fn vcf_state(&self) -> vcf::State {
         let game = self.game.clone();
         vcf::State::new(game)
