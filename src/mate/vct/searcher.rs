@@ -38,12 +38,13 @@ pub trait Searcher {
             };
         }
 
+        // This is not necessary but improves speed
         if state.solve_attacker_vcf().is_some() {
             return Node::zero_pn(state.limit());
         }
 
+        // This is not necessary but narrows candidates
         let maybe_threat = state.solve_defender_threat();
-
         let attacks = state.sorted_attacks(maybe_threat);
 
         self.loop_attacks(state, &attacks, threshold)
@@ -113,6 +114,7 @@ pub trait Searcher {
             return Node::zero_dn(state.limit());
         }
 
+        // This is not necessary but improves speed
         if state.solve_defender_vcf().is_some() {
             return Node::zero_dn(state.limit());
         }
