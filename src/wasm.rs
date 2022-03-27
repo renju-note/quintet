@@ -15,7 +15,7 @@ pub fn solve(
     let mode = mate::SolveMode::try_from(mode);
     let blacks = Points::try_from(blacks);
     let whites = Points::try_from(whites);
-    if mode.is_err() || blacks.is_err() || !whites.is_err() {
+    if mode.is_err() || blacks.is_err() || whites.is_err() {
         return None;
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
