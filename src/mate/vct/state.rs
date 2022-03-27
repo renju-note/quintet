@@ -85,7 +85,7 @@ impl State {
         }
         let state = &mut self.vcf_state();
         // this limit can be changed dynamically
-        state.set_limit(state.limit().min(2));
+        state.set_limit(state.limit().min(self.threat_limit));
         self.attacker_vcf_solver.solve(state)
     }
 
