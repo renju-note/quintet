@@ -134,12 +134,7 @@ impl State {
     }
 
     fn potentials(&self) -> Vec<(Point, u8)> {
-        let min = if self.game.attacker == Player::Black {
-            4
-        } else {
-            3
-        };
-        self.field.collect(min)
+        self.field.collect(3)
     }
 
     fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
