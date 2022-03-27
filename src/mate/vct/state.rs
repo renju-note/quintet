@@ -89,6 +89,7 @@ impl State {
             panic!()
         }
         let state = &mut self.vcf_state();
+        // this limit can be changed dynamically
         state.set_limit(u8::MAX);
         self.defender_vcf_solver.solve(state)
     }
