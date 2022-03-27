@@ -319,6 +319,8 @@ mod tests {
         let result = solve(VCTDFS, 3, &board, White, 1);
         assert!(result.is_none());
 
+        let solution = "I10,I11,I6,I8,F7,J8,G8";
+
         let result = solve(VCTPNS, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
@@ -389,13 +391,15 @@ mod tests {
         "
         .parse::<Board>()?;
 
-        let solution = "J8,I7,I8,G8,L8,K8,K7";
+        let solution = "J8,I7,I8,K8,F8,G8,G7";
 
         let result = solve(VCTDFS, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTDFS, 3, &board, Black, 1);
         assert!(result.is_none());
+
+        let solution = "J8,I7,I8,G8,L8,K8,K7";
 
         let result = solve(VCTPNS, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
@@ -441,8 +445,6 @@ mod tests {
 
         let result = solve(VCTPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
-
-        let solution = "G12,E10,F12,I12,H14,H13,F14,E11,F13,F11,E14,D15,G14";
 
         let result = solve(VCTDFPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
