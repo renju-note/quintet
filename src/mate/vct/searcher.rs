@@ -70,7 +70,7 @@ pub trait Searcher {
             let child = self
                 .table()
                 .lookup_next(state, Some(attack))
-                .unwrap_or(Node::init_dn(attacks.len() as u32, limit));
+                .unwrap_or(Node::init_dn(attacks.len() as u32, limit)); // trick
             current = current.min_pn_sum_dn(child);
             if child.pn < next1.pn {
                 best.replace(attack);
@@ -136,15 +136,14 @@ pub trait Searcher {
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = None;
-        let mut current = Node::zero_pn(limit);
+        let mut current = Node::zero_pn(limit - 1);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);
-        // trick
         for &defence in defences {
             let child = self
                 .table()
                 .lookup_next(state, Some(defence))
-                .unwrap_or(Node::init_pn(defences.len() as u32, limit));
+                .unwrap_or(Node::init_pn(defences.len() as u32, limit)); // trick
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
                 best.replace(defence);
