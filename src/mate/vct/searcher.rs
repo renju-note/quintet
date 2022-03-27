@@ -61,8 +61,8 @@ pub trait Searcher {
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
         let limit = state.game().limit;
-        let mut current = Node::zero_dn(limit);
         let mut best: Option<Point> = None;
+        let mut current = Node::zero_dn(limit);
         let mut next1 = Node::zero_dn(limit);
         let mut next2 = Node::zero_dn(limit);
         // trick
@@ -135,8 +135,8 @@ pub trait Searcher {
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.game().limit;
-        let mut current = Node::zero_pn(limit);
         let mut best: Option<Point> = None;
+        let mut current = Node::zero_pn(limit);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);
         // trick
