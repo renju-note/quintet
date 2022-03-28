@@ -16,6 +16,7 @@ pub enum SolveMode {
     VCTIDDFS,
     VCTPNS,
     VCTDFPNS,
+    VCTLAZY,
 }
 
 pub use SolveMode::*;
@@ -31,6 +32,7 @@ impl TryFrom<u8> for SolveMode {
             11 => Ok(VCTIDDFS),
             15 => Ok(VCTPNS),
             16 => Ok(VCTDFPNS),
+            20 => Ok(VCTLAZY),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -47,6 +49,7 @@ impl FromStr for SolveMode {
             "vct_iddfs" => Ok(VCTIDDFS),
             "vct_pns" => Ok(VCTPNS),
             "vct_dfpns" => Ok(VCTDFPNS),
+            "vct_lazy" => Ok(VCTLAZY),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -81,6 +84,11 @@ pub fn solve(
         VCTDFPNS => {
             let state = &mut vct::State::init(board, attacker, limit);
             let mut solver = vct::dfpns::Solver::init(threat_limit, 2);
+            solver.solve(state)
+        }
+        VCTLAZY => {
+            let state = &mut vct::State::init(board, attacker, limit);
+            let mut solver = vct::lazy::Solver::init(threat_limit, 2);
             solver.solve(state)
         }
         _ => None,
@@ -287,6 +295,9 @@ mod tests {
         let result = solve(VCTDFPNS, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
+        let result = solve(VCTLAZY, 4, &board, Black, 1);
+        assert_eq!(path_string(result), solution);
+
         Ok(())
     }
 
@@ -325,6 +336,11 @@ mod tests {
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTDFPNS, 4, &board, White, 1);
+        assert_eq!(path_string(result), solution);
+
+        let solution = "I10,I6,I11,I8,J11,J8,G8";
+
+        let result = solve(VCTLAZY, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
         Ok(())
