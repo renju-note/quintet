@@ -145,7 +145,7 @@ pub trait Searcher: Solver {
             let child = self
                 .defender_table()
                 .lookup_next(state, Some(defence))
-                .unwrap_or(Node::init_pn(defences.len() as u32, limit)); // trick
+                .unwrap_or(Node::init_pn(defences.len() as u32, limit - 1)); // trick
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
                 best.replace(defence);
