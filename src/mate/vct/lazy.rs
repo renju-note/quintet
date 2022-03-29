@@ -7,6 +7,7 @@ use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
+use std::collections::HashMap;
 
 pub struct Solver {
     attacker_table: Table,
@@ -15,6 +16,7 @@ pub struct Solver {
     defender_vcf_depth: u8,
     attacker_vcf_solver: vcf::iddfs::Solver,
     defender_vcf_solver: vcf::iddfs::Solver,
+    defences_memory: HashMap<u64, Vec<Point>>,
 }
 
 impl Solver {
@@ -26,6 +28,7 @@ impl Solver {
             defender_vcf_depth: defender_vcf_depth,
             attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
             defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
+            defences_memory: HashMap::new(),
         }
     }
 
@@ -73,11 +76,21 @@ impl Solver {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit()),
-                Forced(m) => self.loop_attacks(state, &[m], threshold),
+                Forced(m) => {
+                    if !state.game().passed || state.is_four_move(m) {
+                        self.loop_attacks(state, &[m], threshold)
+                    } else {
+                        Node::zero_dn(state.limit())
+                    }
+                }
             };
         }
 
-        let attacks = state.sorted_attacks(None);
+        let attacks = if state.game().passed {
+            state.sorted_four_moves()
+        } else {
+            state.sorted_attacks(None)
+        };
 
         self.loop_attacks(state, &attacks, threshold)
     }
@@ -137,32 +150,37 @@ impl Solver {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit()),
-                Forced(m) => self.loop_defences(state, &[m], threshold),
+                Forced(m) => self.loop_defences(state, &[Some(m)], threshold),
             };
         }
 
-        let maybe_threat = self.attacker_vcf_solver.solve(&mut state.threat_state());
-        if maybe_threat.is_none() {
-            return Node::zero_dn(state.limit());
+        let result = self.loop_defences(state, &[None], threshold);
+        if result.pn != 0 {
+            return result;
         }
 
-        let defences = state.sorted_defences(maybe_threat.unwrap());
-
+        let defences = state.into_play(None, |s| self.lookup_defences(s).unwrap());
+        let defences: Vec<_> = defences.into_iter().map(|d| Some(d)).collect();
         self.loop_defences(state, &defences, threshold)
     }
 
-    fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
+    fn loop_defences(
+        &mut self,
+        state: &mut State,
+        defences: &[Option<Point>],
+        threshold: Node,
+    ) -> Node {
         loop {
             let selection = self.select_defence(state, &defences);
             if self.backoff(selection.current, threshold) {
                 return selection.current;
             }
             let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
-            self.expand_defence(state, selection.best.unwrap(), next_threshold);
+            self.expand_defence(state, selection.best, next_threshold);
         }
     }
 
-    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
+    fn select_defence(&mut self, state: &mut State, defences: &[Option<Point>]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = None;
         let mut current = Node::zero_pn(limit - 1);
@@ -171,11 +189,11 @@ impl Solver {
         for &defence in defences {
             let child = self
                 .defender_table
-                .lookup_next(state, Some(defence))
+                .lookup_next(state, defence)
                 .unwrap_or(Node::init_pn(defences.len() as u32, limit - 1)); // trick
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
-                best.replace(defence);
+                best = defence;
                 next2 = next1;
                 next1 = child;
             } else if child.dn < next2.dn {
@@ -194,9 +212,19 @@ impl Solver {
         }
     }
 
-    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
-        state.into_play(Some(defence), |s| {
+    fn expand_defence(
+        &mut self,
+        state: &mut State,
+        defence: Option<Point>,
+        threshold: Node,
+    ) -> Node {
+        state.into_play(defence, |s| {
             let result = self.search_limit(s, threshold);
+            if s.game().passed && result.pn == 0 {
+                let vcf = self.attacker_vcf_solver.solve(&mut s.vcf_state());
+                let defences = s.threat_defences(&vcf.unwrap()); // TODO: fix not threat but vct
+                self.insert_defences(s, &defences);
+            }
             self.defender_table.insert(s, result.clone());
             result
         })
@@ -204,6 +232,16 @@ impl Solver {
 
     fn backoff(&self, current: Node, threshold: Node) -> bool {
         current.pn >= threshold.pn || current.dn >= threshold.dn
+    }
+
+    fn insert_defences(&mut self, state: &State, points: &[Point]) {
+        let key = state.game().zobrist_hash();
+        self.defences_memory.insert(key, points.to_vec());
+    }
+
+    fn lookup_defences(&self, state: &State) -> Option<Vec<Point>> {
+        let key = state.game().zobrist_hash();
+        self.defences_memory.get(&key).map(|r| r.to_vec())
     }
 }
 

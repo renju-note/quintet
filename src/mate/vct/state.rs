@@ -93,11 +93,27 @@ impl State {
         result
     }
 
+    pub fn is_four_move(&self, forced_move: Point) -> bool {
+        self.game
+            .board()
+            .structures_on(forced_move, self.game.turn, Sword)
+            .flat_map(|s| s.eyes())
+            .any(|e| e == forced_move)
+    }
+
+    pub fn sorted_four_moves(&self) -> Vec<Point> {
+        let mut result = self.four_moves();
+        let field = &self.field;
+        result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
+        result.retain(|&p| !self.game().is_forbidden_move(p));
+        result
+    }
+
     fn potentials(&self) -> Vec<(Point, u8)> {
         self.field.collect(3)
     }
 
-    fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
+    pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = self.direct_defences(threat);
         result.extend(self.counter_defences(threat));
         result.extend(self.four_moves());
