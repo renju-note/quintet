@@ -159,7 +159,9 @@ impl Solver {
             return result;
         }
 
-        let defences = state.into_play(None, |s| self.lookup_defences(s).unwrap());
+        let threat_state = &mut state.threat_state();
+        let threat = self.attacker_vcf_solver.solve(threat_state).unwrap();
+        let defences = state.sorted_defences(threat);
         let defences: Vec<_> = defences.into_iter().map(|d| Some(d)).collect();
         self.loop_defences(state, &defences, threshold)
     }
@@ -220,11 +222,6 @@ impl Solver {
     ) -> Node {
         state.into_play(defence, |s| {
             let result = self.search_limit(s, threshold);
-            if s.game().passed && result.pn == 0 {
-                let vcf = self.attacker_vcf_solver.solve(&mut s.vcf_state());
-                let defences = s.threat_defences(&vcf.unwrap()); // TODO: fix not threat but vct
-                self.insert_defences(s, &defences);
-            }
             self.defender_table.insert(s, result.clone());
             result
         })
