@@ -136,7 +136,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() -> Result<(), String> {
+    fn test_overlay() -> Result<(), String> {
         let board = "
              . . . . . . . . . . . . . . .
              . . . . . . . . . . . . . . .
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn test_() -> Result<(), String> {
+    fn test_collect() -> Result<(), String> {
         let mut board = "
              . . . . . . . . . . . . . . .
              . . . . . . . . . . . . . . .
