@@ -2,7 +2,7 @@ use crate::board::StructureKind::*;
 use crate::board::*;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum End {
     Fours(Point, Point),
     Forbidden(Point),

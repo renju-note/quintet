@@ -109,9 +109,8 @@ impl Solver {
             self.expand_attack(state, selection.best.unwrap(), next_threshold);
         };
         if selection.current.pn == 0 && state.game().passed {
-            let mut defences = self
-                .lookup_defences(state.next_zobrist_hash(selection.best))
-                .unwrap();
+            let key = state.next_zobrist_hash(selection.best);
+            let mut defences = self.lookup_defences(key);
             defences.extend(selection.best);
             self.extend_defences(state.game().zobrist_hash(), &defences);
         };
@@ -163,18 +162,9 @@ impl Solver {
             return match event {
                 Defeated(e) => {
                     if state.game().passed {
-                        let defences = match e {
-                            Fours(p1, p2) => {
-                                vec![p1, p2]
-                            }
-                            Forbidden(p) => {
-                                let mut ds = vec![p];
-                                ds.extend(state.game().board().neighbors(p, 5, true));
-                                ds
-                            }
-                            _ => vec![],
-                        };
-                        self.extend_defences(state.game().zobrist_hash(), &defences);
+                        let key = state.game().zobrist_hash();
+                        let defences = state.end_breakers(e);
+                        self.extend_defences(key, &defences);
                     }
                     Node::zero_pn(state.limit())
                 }
@@ -187,7 +177,7 @@ impl Solver {
             return result;
         }
 
-        let mut defences = self.lookup_defences(state.next_zobrist_hash(None)).unwrap();
+        let mut defences = self.lookup_defences(state.next_zobrist_hash(None));
         defences.extend(state.four_moves());
         defences.retain(|&d| !state.game().is_forbidden_move(d));
         let defences: Vec<_> = defences.into_iter().map(|d| Some(d)).collect();
@@ -212,9 +202,8 @@ impl Solver {
             self.expand_defence(state, selection.best, next_threshold);
         };
         if selection.current.pn == 0 && state.game().passed {
-            let mut defences = self
-                .lookup_defences(state.next_zobrist_hash(selection.best))
-                .unwrap();
+            let key = state.next_zobrist_hash(selection.best);
+            let mut defences = self.lookup_defences(key);
             defences.extend(selection.best);
             let counter_defences = state.next_sword_eyes(selection.best.unwrap());
             defences.extend(counter_defences);
@@ -277,8 +266,12 @@ impl Solver {
         current.extend(points);
     }
 
-    fn lookup_defences(&self, key: u64) -> Option<Vec<Point>> {
-        self.defences_memory.get(&key).map(|r| r.to_vec())
+    fn lookup_defences(&self, key: u64) -> Vec<Point> {
+        self.defences_memory
+            .get(&key)
+            .iter()
+            .flat_map(|&r| r.to_vec())
+            .collect()
     }
 }
 

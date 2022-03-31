@@ -114,10 +114,25 @@ impl State {
     }
 
     pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = self.direct_defences(threat);
+        let mut result = threat.path().clone();
+        result.extend(self.end_breakers(threat.end().clone()));
         result.extend(self.counter_defences(threat));
         result.extend(self.four_moves());
         result
+    }
+
+    pub fn end_breakers(&self, end: End) -> Vec<Point> {
+        match end {
+            Fours(p1, p2) => {
+                vec![p1, p2]
+            }
+            Forbidden(p) => {
+                let mut ds = vec![p];
+                ds.extend(self.game().board().neighbors(p, 5, true));
+                ds
+            }
+            _ => vec![],
+        }
     }
 
     pub fn next_sword_eyes(&mut self, p: Point) -> Vec<Point> {
@@ -130,19 +145,12 @@ impl State {
         })
     }
 
-    fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = threat.path.clone();
-        match threat.end {
-            Fours(p1, p2) => {
-                result.extend([p1, p2]);
-            }
-            Forbidden(p) => {
-                result.push(p);
-                result.extend(self.game.board().neighbors(p, 5, true));
-            }
-            _ => (),
-        }
-        result
+    pub fn four_moves(&self) -> Vec<Point> {
+        self.game()
+            .board()
+            .structures(self.game().turn, Sword)
+            .flat_map(|s| s.eyes())
+            .collect()
     }
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
@@ -162,13 +170,5 @@ impl State {
             }
         }
         result
-    }
-
-    pub fn four_moves(&self) -> Vec<Point> {
-        self.game()
-            .board()
-            .structures(self.game().turn, Sword)
-            .flat_map(|s| s.eyes())
-            .collect()
     }
 }
