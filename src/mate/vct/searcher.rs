@@ -11,13 +11,7 @@ pub struct Selection {
     pub next2: Node,
 }
 
-// MEMO: select_attack|select_defence does trick;
-// approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
-// since we don't know the number of *next* defences|attacks
 pub trait Searcher: Solver {
-    fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node;
-    fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node;
-
     fn search(&mut self, state: &mut State) -> bool {
         let result = self.search_limit(state, Node::inf());
         result.proven()
@@ -108,10 +102,6 @@ pub trait Searcher: Solver {
         })
     }
 
-    fn backoff(&self, current: Node, threshold: Node) -> bool {
-        current.pn >= threshold.pn || current.dn >= threshold.dn
-    }
-
     fn find_attacks(&mut self, state: &mut State) -> Result<Vec<Point>, &'static str> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
@@ -122,6 +112,24 @@ pub trait Searcher: Solver {
         let maybe_threat = self.solve_defender_threat(state);
         Ok(state.sorted_attacks(maybe_threat))
     }
+
+    fn find_defences(&mut self, state: &mut State) -> Result<Vec<Point>, &'static str> {
+        let maybe_threat = self.solve_attacker_threat(state);
+        if maybe_threat.is_none() {
+            return Err("Not threaten");
+        }
+
+        // This is not necessary but improves speed
+        if self.solve_defender_vcf(state).is_some() {
+            return Err("Defender has VCF");
+        }
+
+        Ok(state.sorted_defences(maybe_threat.unwrap()))
+    }
+
+    // MEMO: select_attack|select_defence does trick;
+    // approximate child node's initial pn|dn by inheriting the number of *current* attacks|defences
+    // since we don't know the number of *next* defences|attacks
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
         let limit = state.limit();
@@ -155,20 +163,6 @@ pub trait Searcher: Solver {
         }
     }
 
-    fn find_defences(&mut self, state: &mut State) -> Result<Vec<Point>, &'static str> {
-        let maybe_threat = self.solve_attacker_threat(state);
-        if maybe_threat.is_none() {
-            return Err("Not threaten");
-        }
-
-        // This is not necessary but improves speed
-        if self.solve_defender_vcf(state).is_some() {
-            return Err("Defender has VCF");
-        }
-
-        Ok(state.sorted_defences(maybe_threat.unwrap()))
-    }
-
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(defences[0]);
@@ -199,5 +193,29 @@ pub trait Searcher: Solver {
             next1: next1,
             next2: next2,
         }
+    }
+
+    // pn-search
+
+    fn calc_next_threshold_attack(&self, selection: &Selection, _threshold: Node) -> Node {
+        let next = selection.next1;
+        Node::new(
+            next.pn.checked_add(1).unwrap_or(INF),
+            next.dn.checked_add(1).unwrap_or(INF),
+            next.limit,
+        )
+    }
+
+    fn calc_next_threshold_defence(&self, selection: &Selection, _threshold: Node) -> Node {
+        let next = selection.next1;
+        Node::new(
+            next.pn.checked_add(1).unwrap_or(INF),
+            next.dn.checked_add(1).unwrap_or(INF),
+            next.limit,
+        )
+    }
+
+    fn backoff(&self, current: Node, threshold: Node) -> bool {
+        current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 }
