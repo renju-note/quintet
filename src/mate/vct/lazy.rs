@@ -76,45 +76,26 @@ impl Solver {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit()),
-                Forced(m) => {
-                    if !state.game().passed || state.is_four_move(m) {
-                        self.loop_attacks(state, &[m], threshold)
-                    } else {
-                        Node::zero_dn(state.limit())
-                    }
-                }
+                Forced(m) => self.loop_attacks(state, &[m], threshold),
             };
         }
 
-        let attacks = if state.game().passed {
-            state.sorted_four_moves()
-        } else {
-            state.sorted_attacks(None)
-        };
-
+        let attacks = state.sorted_attacks(None);
         if attacks.len() == 0 {
             return Node::zero_dn(state.limit());
         }
-
         self.loop_attacks(state, &attacks, threshold)
     }
 
     fn loop_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
-        let selection = loop {
+        loop {
             let selection = self.select_attack(state, &attacks);
             if self.backoff(selection.current, threshold) {
-                break selection;
+                return selection.current;
             }
             let next_threshold = self.calc_next_threshold_attack(&selection, threshold);
             self.expand_attack(state, selection.best.unwrap(), next_threshold);
-        };
-        if selection.current.pn == 0 && state.game().passed {
-            let key = state.next_zobrist_hash(selection.best);
-            let mut defences = self.lookup_defences(key);
-            defences.extend(selection.best);
-            self.extend_defences(state.game().zobrist_hash(), &defences);
-        };
-        selection.current
+        }
     }
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
@@ -160,14 +141,7 @@ impl Solver {
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(e) => {
-                    if state.game().passed {
-                        let key = state.game().zobrist_hash();
-                        let defences = state.end_breakers(e);
-                        self.extend_defences(key, &defences);
-                    }
-                    Node::zero_pn(state.limit())
-                }
+                Defeated(_) => Node::zero_pn(state.limit()),
                 Forced(m) => self.loop_defences(state, &[m], threshold),
             };
         }
@@ -187,23 +161,14 @@ impl Solver {
     }
 
     fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
-        let selection = loop {
+        loop {
             let selection = self.select_defence(state, &defences);
             if self.backoff(selection.current, threshold) {
-                break selection;
+                return selection.current;
             }
             let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
             self.expand_defence(state, selection.best, next_threshold);
-        };
-        if selection.current.pn == 0 && state.game().passed {
-            let key = state.next_zobrist_hash(selection.best);
-            let mut defences = self.lookup_defences(key);
-            defences.extend(selection.best);
-            let counter_defences = state.next_sword_eyes(selection.best.unwrap());
-            defences.extend(counter_defences);
-            self.extend_defences(state.game().zobrist_hash(), &defences);
-        };
-        selection.current
+        }
     }
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
@@ -271,8 +236,126 @@ impl Solver {
                 return selection.current;
             }
             let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
-            self.expand_defence(state, selection.best, next_threshold);
+            self.expand_defence_after_pass(state, selection.best, next_threshold);
         }
+    }
+
+    // after pass
+
+    fn search_limit_after_pass(&mut self, state: &mut State, threshold: Node) -> Node {
+        if state.limit() == 0 {
+            return Node::zero_dn(state.limit());
+        }
+        self.search_attacks_after_pass(state, threshold)
+    }
+
+    fn search_attacks_after_pass(&mut self, state: &mut State, threshold: Node) -> Node {
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(_) => Node::zero_dn(state.limit()),
+                Forced(m) => {
+                    if state.is_four_move(m) {
+                        self.loop_attacks_after_pass(state, &[m], threshold)
+                    } else {
+                        Node::zero_dn(state.limit())
+                    }
+                }
+            };
+        }
+
+        let attacks = state.sorted_four_moves();
+
+        if attacks.len() == 0 {
+            return Node::zero_dn(state.limit());
+        }
+
+        self.loop_attacks_after_pass(state, &attacks, threshold)
+    }
+
+    fn loop_attacks_after_pass(
+        &mut self,
+        state: &mut State,
+        attacks: &[Point],
+        threshold: Node,
+    ) -> Node {
+        let selection = loop {
+            let selection = self.select_attack(state, &attacks);
+            if self.backoff(selection.current, threshold) {
+                break selection;
+            }
+            let next_threshold = self.calc_next_threshold_attack(&selection, threshold);
+            self.expand_attack_after_pass(state, selection.best.unwrap(), next_threshold);
+        };
+        if selection.current.pn == 0 {
+            let key = state.next_zobrist_hash(selection.best);
+            let mut defences = self.lookup_defences(key);
+            defences.extend(selection.best);
+            self.extend_defences(state.game().zobrist_hash(), &defences);
+        };
+        selection.current
+    }
+
+    fn expand_attack_after_pass(
+        &mut self,
+        state: &mut State,
+        attack: Point,
+        threshold: Node,
+    ) -> Node {
+        state.into_play(Some(attack), |s| {
+            let result = self.search_defences_after_pass(s, threshold);
+            self.attacker_table.insert(s, result.clone());
+            result
+        })
+    }
+
+    fn search_defences_after_pass(&mut self, state: &mut State, threshold: Node) -> Node {
+        match state.game().check_event().unwrap() {
+            Defeated(e) => {
+                let key = state.game().zobrist_hash();
+                let defences = state.end_breakers(e);
+                self.extend_defences(key, &defences);
+                Node::zero_pn(state.limit())
+            }
+            Forced(m) => self.loop_defences_after_pass(state, &[m], threshold),
+        }
+    }
+
+    fn loop_defences_after_pass(
+        &mut self,
+        state: &mut State,
+        defences: &[Point],
+        threshold: Node,
+    ) -> Node {
+        let selection = loop {
+            let selection = self.select_defence(state, &defences);
+            if self.backoff(selection.current, threshold) {
+                break selection;
+            }
+            let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
+            self.expand_defence_after_pass(state, selection.best, next_threshold);
+        };
+        if selection.current.pn == 0 && state.game().passed {
+            let key = state.next_zobrist_hash(selection.best);
+            let mut defences = self.lookup_defences(key);
+            defences.extend(selection.best);
+            let counter_defences = state.next_sword_eyes(selection.best.unwrap());
+            defences.extend(counter_defences);
+            self.extend_defences(state.game().zobrist_hash(), &defences);
+        };
+        selection.current
+    }
+
+    fn expand_defence_after_pass(
+        &mut self,
+        state: &mut State,
+        defence: Option<Point>,
+        threshold: Node,
+    ) -> Node {
+        state.into_play(defence, |s| {
+            let result = self.search_limit_after_pass(s, threshold);
+            self.defender_table.insert(s, result.clone());
+            result
+        })
     }
 
     fn extend_defences(&mut self, key: u64, points: &[Point]) {
