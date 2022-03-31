@@ -168,11 +168,11 @@ impl Solver {
                     }
                     Node::zero_pn(state.limit())
                 }
-                Forced(m) => self.loop_defences(state, &[Some(m)], threshold),
+                Forced(m) => self.loop_defences(state, &[m], threshold),
             };
         }
 
-        let result = self.loop_defences(state, &[None], threshold);
+        let result = self.loop_defence_pass(state, threshold);
         if result.pn != 0 {
             return result;
         }
@@ -180,19 +180,13 @@ impl Solver {
         let mut defences = self.lookup_defences(state.next_zobrist_hash(None));
         defences.extend(state.four_moves());
         defences.retain(|&d| !state.game().is_forbidden_move(d));
-        let defences: Vec<_> = defences.into_iter().map(|d| Some(d)).collect();
         if defences.len() == 0 {
             return Node::zero_pn(state.limit());
         }
         self.loop_defences(state, &defences, threshold)
     }
 
-    fn loop_defences(
-        &mut self,
-        state: &mut State,
-        defences: &[Option<Point>],
-        threshold: Node,
-    ) -> Node {
+    fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
         let selection = loop {
             let selection = self.select_defence(state, &defences);
             if self.backoff(selection.current, threshold) {
@@ -212,20 +206,20 @@ impl Solver {
         selection.current
     }
 
-    fn select_defence(&mut self, state: &mut State, defences: &[Option<Point>]) -> Selection {
+    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.limit();
-        let mut best: Option<Point> = defences[0];
+        let mut best: Option<Point> = Some(defences[0]);
         let mut current = Node::zero_pn(limit - 1);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);
         for &defence in defences {
             let child = self
                 .defender_table
-                .lookup_next(state, defence)
+                .lookup_next(state, Some(defence))
                 .unwrap_or(Node::init_pn(defences.len() as u32, limit - 1)); // trick
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
-                best = defence;
+                best.replace(defence);
                 next2 = next1;
                 next1 = child;
             } else if child.dn < next2.dn {
@@ -259,6 +253,26 @@ impl Solver {
 
     fn backoff(&self, current: Node, threshold: Node) -> bool {
         current.pn >= threshold.pn || current.dn >= threshold.dn
+    }
+
+    fn loop_defence_pass(&mut self, state: &mut State, threshold: Node) -> Node {
+        loop {
+            let current = self
+                .defender_table
+                .lookup_next(state, None)
+                .unwrap_or(Node::init_pn(1, state.limit() - 1));
+            let selection = Selection {
+                best: None,
+                current: current,
+                next1: current,
+                next2: Node::zero_pn(state.limit() - 1),
+            };
+            if self.backoff(selection.current, threshold) {
+                return selection.current;
+            }
+            let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
+            self.expand_defence(state, selection.best, next_threshold);
+        }
     }
 
     fn extend_defences(&mut self, key: u64, points: &[Point]) {
