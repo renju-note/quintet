@@ -187,13 +187,10 @@ impl Solver {
             return result;
         }
 
-        let defences = self.lookup_defences(state.next_zobrist_hash(None)).unwrap();
-        let mut defences: Vec<_> = defences
-            .into_iter()
-            .filter(|&d| !state.game().is_forbidden_move(d))
-            .map(|d| Some(d))
-            .collect();
-        defences.extend(state.four_moves().into_iter().map(|p| Some(p)));
+        let mut defences = self.lookup_defences(state.next_zobrist_hash(None)).unwrap();
+        defences.extend(state.four_moves());
+        defences.retain(|&d| !state.game().is_forbidden_move(d));
+        let defences: Vec<_> = defences.into_iter().map(|d| Some(d)).collect();
         if defences.len() == 0 {
             return Node::zero_pn(state.limit());
         }

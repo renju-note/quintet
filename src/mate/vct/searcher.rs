@@ -46,6 +46,9 @@ pub trait Searcher: Solver {
         // This is not necessary but narrows candidates
         let maybe_threat = self.solve_defender_threat(state);
         let attacks = state.sorted_attacks(maybe_threat);
+        if attacks.len() == 0 {
+            return Node::zero_dn(state.limit());
+        }
 
         self.loop_attacks(state, &attacks, threshold)
     }
@@ -63,7 +66,7 @@ pub trait Searcher: Solver {
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
         let limit = state.limit();
-        let mut best: Option<Point> = None;
+        let mut best: Option<Point> = Some(attacks[0]);
         let mut current = Node::zero_dn(limit);
         let mut next1 = Node::zero_dn(limit);
         let mut next2 = Node::zero_dn(limit);
@@ -137,7 +140,7 @@ pub trait Searcher: Solver {
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.limit();
-        let mut best: Option<Point> = None;
+        let mut best: Option<Point> = Some(defences[0]);
         let mut current = Node::zero_pn(limit - 1);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);

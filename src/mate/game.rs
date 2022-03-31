@@ -162,6 +162,7 @@ impl Game {
         (ret, None)
     }
 
+    #[allow(dead_code)]
     pub fn moves_to_string(&self) -> String {
         self.moves
             .iter()
