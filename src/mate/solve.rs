@@ -338,7 +338,7 @@ mod tests {
         let result = solve(VCTDFPNS, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
-        let solution = "I10,I6,I11,I8,J11,J8,G8";
+        let solution = "I10,I8,F7,E6,J11";
 
         let result = solve(VCTLAZY, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
@@ -381,6 +381,8 @@ mod tests {
 
         let result = solve(VCTDFPNS, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
+
+        let solution = "F7,E8,G8,E6,G5";
 
         let result = solve(VCTLAZY, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
@@ -512,6 +514,8 @@ mod tests {
 
         let result = solve(VCTPNS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
+
+        let solution = "K3,G7,L2,J4,I3,I4,L3,M3,H3";
 
         let result = solve(VCTLAZY, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);

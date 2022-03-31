@@ -161,4 +161,15 @@ impl Game {
         }
         (ret, None)
     }
+
+    pub fn moves_to_string(&self) -> String {
+        self.moves
+            .iter()
+            .map(|m| match m {
+                Some(p) => p.to_string(),
+                None => "PASS".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
 }

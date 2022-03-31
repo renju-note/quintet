@@ -100,14 +100,22 @@ impl Solver {
     }
 
     fn loop_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
-        loop {
+        let selection = loop {
             let selection = self.select_attack(state, &attacks);
             if self.backoff(selection.current, threshold) {
-                return selection.current;
+                break selection;
             }
             let next_threshold = self.calc_next_threshold_attack(&selection, threshold);
             self.expand_attack(state, selection.best.unwrap(), next_threshold);
-        }
+        };
+        if selection.current.pn == 0 && state.game().passed {
+            let mut defences = self
+                .lookup_defences(state.next_zobrist_hash(selection.best))
+                .unwrap();
+            defences.extend(selection.best);
+            self.extend_defences(state.game().zobrist_hash(), &defences);
+        };
+        selection.current
     }
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
@@ -153,7 +161,23 @@ impl Solver {
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::zero_pn(state.limit()),
+                Defeated(e) => {
+                    if state.game().passed {
+                        let defences = match e {
+                            Fours(p1, p2) => {
+                                vec![p1, p2]
+                            }
+                            Forbidden(p) => {
+                                let mut ds = vec![p];
+                                ds.extend(state.game().board().neighbors(p, 5, true));
+                                ds
+                            }
+                            _ => vec![],
+                        };
+                        self.extend_defences(state.game().zobrist_hash(), &defences);
+                    }
+                    Node::zero_pn(state.limit())
+                }
                 Forced(m) => self.loop_defences(state, &[Some(m)], threshold),
             };
         }
@@ -163,10 +187,13 @@ impl Solver {
             return result;
         }
 
-        let threat_state = &mut state.threat_state();
-        let threat = self.attacker_vcf_solver.solve(threat_state).unwrap();
-        let defences = state.sorted_defences(threat);
-        let defences: Vec<_> = defences.into_iter().map(|d| Some(d)).collect();
+        let defences = self.lookup_defences(state.next_zobrist_hash(None)).unwrap();
+        let mut defences: Vec<_> = defences
+            .into_iter()
+            .filter(|&d| !state.game().is_forbidden_move(d))
+            .map(|d| Some(d))
+            .collect();
+        defences.extend(state.four_moves().into_iter().map(|p| Some(p)));
         if defences.len() == 0 {
             return Node::zero_pn(state.limit());
         }
@@ -179,14 +206,24 @@ impl Solver {
         defences: &[Option<Point>],
         threshold: Node,
     ) -> Node {
-        loop {
+        let selection = loop {
             let selection = self.select_defence(state, &defences);
             if self.backoff(selection.current, threshold) {
-                return selection.current;
+                break selection;
             }
             let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
             self.expand_defence(state, selection.best, next_threshold);
-        }
+        };
+        if selection.current.pn == 0 && state.game().passed {
+            let mut defences = self
+                .lookup_defences(state.next_zobrist_hash(selection.best))
+                .unwrap();
+            defences.extend(selection.best);
+            let counter_defences = state.next_sword_eyes(selection.best.unwrap());
+            defences.extend(counter_defences);
+            self.extend_defences(state.game().zobrist_hash(), &defences);
+        };
+        selection.current
     }
 
     fn select_defence(&mut self, state: &mut State, defences: &[Option<Point>]) -> Selection {
@@ -238,13 +275,12 @@ impl Solver {
         current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 
-    fn insert_defences(&mut self, state: &State, points: &[Point]) {
-        let key = state.game().zobrist_hash();
-        self.defences_memory.insert(key, points.to_vec());
+    fn extend_defences(&mut self, key: u64, points: &[Point]) {
+        let current = self.defences_memory.entry(key).or_insert(vec![]);
+        current.extend(points);
     }
 
-    fn lookup_defences(&self, state: &State) -> Option<Vec<Point>> {
-        let key = state.game().zobrist_hash();
+    fn lookup_defences(&self, key: u64) -> Option<Vec<Point>> {
         self.defences_memory.get(&key).map(|r| r.to_vec())
     }
 }

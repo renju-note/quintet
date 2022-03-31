@@ -58,15 +58,17 @@ pub trait Resolver: Solver {
             let node = self
                 .defender_table()
                 .lookup_next(state, Some(defence))
-                .unwrap_or_else(|| unreachable!());
-            if node.limit < min_limit {
+                .unwrap_or_else(|| Node::inf());
+            if node.proven() && node.limit < min_limit {
                 min_limit = node.limit;
                 best.replace(defence);
             }
         }
-        let best = best.unwrap();
-        state.into_play(Some(best), |s| {
-            self.resolve_attacks(s).map(|m| m.unshift(best))
+        if best.is_none() {
+            return Some(Mate::new(End::Unknown, vec![]));
+        };
+        state.into_play(best, |s| {
+            self.resolve_attacks(s).map(|m| m.unshift(best.unwrap()))
         })
     }
 }

@@ -69,7 +69,7 @@ impl State {
     }
 
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
-        // Update only state in order not to cause updating state.field (which costs high)
+        // Update only game in order not to cause updating state.field (which costs high)
         self.game.into_play(next_move, |g| g.zobrist_hash())
     }
 
@@ -120,6 +120,16 @@ impl State {
         result
     }
 
+    pub fn next_sword_eyes(&mut self, p: Point) -> Vec<Point> {
+        self.game.into_play(Some(p), |g| {
+            g.board()
+                .structures_on(g.last_move().unwrap(), g.turn.opponent(), Sword)
+                .map(|s| s.eyes())
+                .flatten()
+                .collect()
+        })
+    }
+
     fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut result = threat.path.clone();
         match threat.end {
@@ -154,7 +164,7 @@ impl State {
         result
     }
 
-    fn four_moves(&self) -> Vec<Point> {
+    pub fn four_moves(&self) -> Vec<Point> {
         self.game()
             .board()
             .structures(self.game().turn, Sword)
