@@ -92,6 +92,10 @@ impl Solver {
             state.sorted_attacks(None)
         };
 
+        if attacks.len() == 0 {
+            return Node::zero_dn(state.limit());
+        }
+
         self.loop_attacks(state, &attacks, threshold)
     }
 
@@ -108,7 +112,7 @@ impl Solver {
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
         let limit = state.limit();
-        let mut best: Option<Point> = None;
+        let mut best: Option<Point> = Some(attacks[0]);
         let mut current = Node::zero_dn(limit);
         let mut next1 = Node::zero_dn(limit);
         let mut next2 = Node::zero_dn(limit);
@@ -163,6 +167,9 @@ impl Solver {
         let threat = self.attacker_vcf_solver.solve(threat_state).unwrap();
         let defences = state.sorted_defences(threat);
         let defences: Vec<_> = defences.into_iter().map(|d| Some(d)).collect();
+        if defences.len() == 0 {
+            return Node::zero_pn(state.limit());
+        }
         self.loop_defences(state, &defences, threshold)
     }
 
@@ -184,7 +191,7 @@ impl Solver {
 
     fn select_defence(&mut self, state: &mut State, defences: &[Option<Point>]) -> Selection {
         let limit = state.limit();
-        let mut best: Option<Point> = None;
+        let mut best: Option<Point> = defences[0];
         let mut current = Node::zero_pn(limit - 1);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);
