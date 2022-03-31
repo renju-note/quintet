@@ -62,11 +62,10 @@ pub trait Searcher: Solver {
         }
     }
 
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
+    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
         state.into_play(Some(attack), |s| {
             let result = self.search_defences(s, threshold);
-            self.attacker_table().insert(s, result.clone());
-            result
+            self.attacker_table().insert(s, result);
         })
     }
 
@@ -102,11 +101,10 @@ pub trait Searcher: Solver {
         }
     }
 
-    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
+    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) {
         state.into_play(Some(defence), |s| {
             let result = self.search_limit(s, threshold);
-            self.defender_table().insert(s, result.clone());
-            result
+            self.defender_table().insert(s, result);
         })
     }
 
@@ -170,6 +168,7 @@ pub trait Searcher: Solver {
 
         Ok(state.sorted_defences(maybe_threat.unwrap()))
     }
+
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(defences[0]);
