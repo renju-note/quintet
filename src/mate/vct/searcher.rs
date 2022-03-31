@@ -38,15 +38,13 @@ pub trait Searcher: Solver {
             };
         }
 
-        // This is not necessary but improves speed
-        if self.solve_attacker_vcf(state).is_some() {
+        let either_attacks = self.find_attacks(state);
+        if either_attacks.is_err() {
             return Node::zero_pn(state.limit());
         }
 
-        // This is not necessary but narrows candidates
-        let maybe_threat = self.solve_defender_threat(state);
-        let attacks = state.sorted_attacks(maybe_threat);
-        if attacks.len() == 0 {
+        let attacks = either_attacks.unwrap();
+        if attacks.is_empty() {
             return Node::zero_dn(state.limit());
         }
 
@@ -62,6 +60,69 @@ pub trait Searcher: Solver {
             let next_threshold = self.calc_next_threshold_attack(&selection, threshold);
             self.expand_attack(state, selection.best.unwrap(), next_threshold);
         }
+    }
+
+    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
+        state.into_play(Some(attack), |s| {
+            let result = self.search_defences(s, threshold);
+            self.attacker_table().insert(s, result.clone());
+            result
+        })
+    }
+
+    fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
+        if let Some(event) = state.game().check_event() {
+            return match event {
+                Defeated(_) => Node::zero_pn(state.limit()),
+                Forced(m) => self.loop_defences(state, &[m], threshold),
+            };
+        }
+
+        let either_defences = self.find_defences(state);
+        if either_defences.is_err() {
+            return Node::zero_dn(state.limit());
+        }
+
+        let defences = either_defences.unwrap();
+        if defences.is_empty() {
+            return Node::zero_pn(state.limit());
+        }
+
+        self.loop_defences(state, &defences, threshold)
+    }
+
+    fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
+        loop {
+            let selection = self.select_defence(state, &defences);
+            if self.backoff(selection.current, threshold) {
+                return selection.current;
+            }
+            let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
+            self.expand_defence(state, selection.best.unwrap(), next_threshold);
+        }
+    }
+
+    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
+        state.into_play(Some(defence), |s| {
+            let result = self.search_limit(s, threshold);
+            self.defender_table().insert(s, result.clone());
+            result
+        })
+    }
+
+    fn backoff(&self, current: Node, threshold: Node) -> bool {
+        current.pn >= threshold.pn || current.dn >= threshold.dn
+    }
+
+    fn find_attacks(&mut self, state: &mut State) -> Result<Vec<Point>, &'static str> {
+        // This is not necessary but improves speed
+        if self.solve_attacker_vcf(state).is_some() {
+            return Err("Has VCF");
+        }
+
+        // This is not necessary but narrows candidates
+        let maybe_threat = self.solve_defender_threat(state);
+        Ok(state.sorted_attacks(maybe_threat))
     }
 
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
@@ -96,48 +157,19 @@ pub trait Searcher: Solver {
         }
     }
 
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
-        state.into_play(Some(attack), |s| {
-            let result = self.search_defences(s, threshold);
-            self.attacker_table().insert(s, result.clone());
-            result
-        })
-    }
-
-    fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
-            return match event {
-                Defeated(_) => Node::zero_pn(state.limit()),
-                Forced(m) => self.loop_defences(state, &[m], threshold),
-            };
-        }
-
+    fn find_defences(&mut self, state: &mut State) -> Result<Vec<Point>, &'static str> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
-            return Node::zero_dn(state.limit());
+            return Err("Not threaten");
         }
 
         // This is not necessary but improves speed
         if self.solve_defender_vcf(state).is_some() {
-            return Node::zero_dn(state.limit());
+            return Err("Defender has VCF");
         }
 
-        let defences = state.sorted_defences(maybe_threat.unwrap());
-
-        self.loop_defences(state, &defences, threshold)
+        Ok(state.sorted_defences(maybe_threat.unwrap()))
     }
-
-    fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
-        loop {
-            let selection = self.select_defence(state, &defences);
-            if self.backoff(selection.current, threshold) {
-                return selection.current;
-            }
-            let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
-            self.expand_defence(state, selection.best.unwrap(), next_threshold);
-        }
-    }
-
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(defences[0]);
@@ -168,17 +200,5 @@ pub trait Searcher: Solver {
             next1: next1,
             next2: next2,
         }
-    }
-
-    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) -> Node {
-        state.into_play(Some(defence), |s| {
-            let result = self.search_limit(s, threshold);
-            self.defender_table().insert(s, result.clone());
-            result
-        })
-    }
-
-    fn backoff(&self, current: Node, threshold: Node) -> bool {
-        current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 }
