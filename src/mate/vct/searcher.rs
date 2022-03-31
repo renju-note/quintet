@@ -32,9 +32,9 @@ pub trait Searcher: Solver {
             };
         }
 
-        let either_attacks = self.find_attacks(state);
+        let either_attacks = self.find_attacks(state, threshold);
         if either_attacks.is_err() {
-            return Node::zero_pn(state.limit());
+            return either_attacks.unwrap_err();
         }
 
         let attacks = either_attacks.unwrap();
@@ -71,9 +71,9 @@ pub trait Searcher: Solver {
             };
         }
 
-        let either_defences = self.find_defences(state);
+        let either_defences = self.find_defences(state, threshold);
         if either_defences.is_err() {
-            return Node::zero_dn(state.limit());
+            return either_defences.unwrap_err();
         }
 
         let defences = either_defences.unwrap();
@@ -102,10 +102,10 @@ pub trait Searcher: Solver {
         })
     }
 
-    fn find_attacks(&mut self, state: &mut State) -> Result<Vec<Point>, &'static str> {
+    fn find_attacks(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
-            return Err("Has VCF");
+            return Err(Node::zero_pn(state.limit()));
         }
 
         // This is not necessary but narrows candidates
@@ -113,15 +113,15 @@ pub trait Searcher: Solver {
         Ok(state.sorted_attacks(maybe_threat))
     }
 
-    fn find_defences(&mut self, state: &mut State) -> Result<Vec<Point>, &'static str> {
+    fn find_defences(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
-            return Err("Not threaten");
+            return Err(Node::zero_dn(state.limit()));
         }
 
         // This is not necessary but improves speed
         if self.solve_defender_vcf(state).is_some() {
-            return Err("Defender has VCF");
+            return Err(Node::zero_dn(state.limit()));
         }
 
         Ok(state.sorted_defences(maybe_threat.unwrap()))

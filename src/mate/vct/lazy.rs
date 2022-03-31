@@ -40,185 +40,7 @@ impl Solver {
         }
     }
 
-    fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
-        let pn = threshold
-            .pn
-            .min(selection.next2.pn.checked_add(1).unwrap_or(INF));
-        let dn = (threshold.dn - selection.current.dn)
-            .checked_add(selection.next1.dn)
-            .unwrap_or(INF);
-        Node::new(pn, dn, selection.next1.limit)
-    }
-
-    fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
-        let pn = (threshold.pn - selection.current.pn)
-            .checked_add(selection.next1.pn)
-            .unwrap_or(INF);
-        let dn = threshold
-            .dn
-            .min(selection.next2.dn.checked_add(1).unwrap_or(INF));
-        Node::new(pn, dn, selection.next1.limit)
-    }
-
-    fn search(&mut self, state: &mut State) -> bool {
-        let result = self.search_limit(state, Node::inf());
-        result.proven()
-    }
-
-    fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
-        if state.limit() == 0 {
-            return Node::zero_dn(state.limit());
-        }
-        self.search_attacks(state, threshold)
-    }
-
-    fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
-            return match event {
-                Defeated(_) => Node::zero_dn(state.limit()),
-                Forced(m) => self.loop_attacks(state, &[m], threshold),
-            };
-        }
-
-        let attacks = state.sorted_attacks(None);
-        if attacks.len() == 0 {
-            return Node::zero_dn(state.limit());
-        }
-        self.loop_attacks(state, &attacks, threshold)
-    }
-
-    fn loop_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
-        loop {
-            let selection = self.select_attack(state, &attacks);
-            if self.backoff(selection.current, threshold) {
-                return selection.current;
-            }
-            let next_threshold = self.calc_next_threshold_attack(&selection, threshold);
-            self.expand_attack(state, selection.best.unwrap(), next_threshold);
-        }
-    }
-
-    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        let limit = state.limit();
-        let mut best: Option<Point> = Some(attacks[0]);
-        let mut current = Node::zero_dn(limit);
-        let mut next1 = Node::zero_dn(limit);
-        let mut next2 = Node::zero_dn(limit);
-        for &attack in attacks {
-            let child = self
-                .attacker_table
-                .lookup_next(state, Some(attack))
-                .unwrap_or(Node::init_dn(attacks.len() as u32, limit)); // trick
-            current = current.min_pn_sum_dn(child);
-            if child.pn < next1.pn {
-                best.replace(attack);
-                next2 = next1;
-                next1 = child;
-            } else if child.pn < next2.pn {
-                next2 = child;
-            }
-            if current.pn == 0 {
-                current.dn = INF;
-                break;
-            }
-        }
-        Selection {
-            best: best,
-            current: current,
-            next1: next1,
-            next2: next2,
-        }
-    }
-
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) -> Node {
-        state.into_play(Some(attack), |s| {
-            let result = self.search_defences(s, threshold);
-            self.attacker_table.insert(s, result.clone());
-            result
-        })
-    }
-
-    fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
-            return match event {
-                Defeated(_) => Node::zero_pn(state.limit()),
-                Forced(m) => self.loop_defences(state, &[m], threshold),
-            };
-        }
-
-        let result = self.loop_defence_pass(state, threshold);
-        if result.pn != 0 {
-            return result;
-        }
-
-        let mut defences = self.lookup_defences(state.next_zobrist_hash(None));
-        defences.extend(state.four_moves());
-        defences.retain(|&d| !state.game().is_forbidden_move(d));
-        if defences.len() == 0 {
-            return Node::zero_pn(state.limit());
-        }
-        self.loop_defences(state, &defences, threshold)
-    }
-
-    fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
-        loop {
-            let selection = self.select_defence(state, &defences);
-            if self.backoff(selection.current, threshold) {
-                return selection.current;
-            }
-            let next_threshold = self.calc_next_threshold_defence(&selection, threshold);
-            self.expand_defence(state, selection.best, next_threshold);
-        }
-    }
-
-    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        let limit = state.limit();
-        let mut best: Option<Point> = Some(defences[0]);
-        let mut current = Node::zero_pn(limit - 1);
-        let mut next1 = Node::zero_pn(limit - 1);
-        let mut next2 = Node::zero_pn(limit - 1);
-        for &defence in defences {
-            let child = self
-                .defender_table
-                .lookup_next(state, Some(defence))
-                .unwrap_or(Node::init_pn(defences.len() as u32, limit - 1)); // trick
-            current = current.min_dn_sum_pn(child);
-            if child.dn < next1.dn {
-                best.replace(defence);
-                next2 = next1;
-                next1 = child;
-            } else if child.dn < next2.dn {
-                next2 = child;
-            }
-            if current.dn == 0 {
-                current.pn = INF;
-                break;
-            }
-        }
-        Selection {
-            best: best,
-            current: current,
-            next1: next1,
-            next2: next2,
-        }
-    }
-
-    fn expand_defence(
-        &mut self,
-        state: &mut State,
-        defence: Option<Point>,
-        threshold: Node,
-    ) -> Node {
-        state.into_play(defence, |s| {
-            let result = self.search_limit(s, threshold);
-            self.defender_table.insert(s, result.clone());
-            result
-        })
-    }
-
-    fn backoff(&self, current: Node, threshold: Node) -> bool {
-        current.pn >= threshold.pn || current.dn >= threshold.dn
-    }
+    // after pass
 
     fn loop_defence_pass(&mut self, state: &mut State, threshold: Node) -> Node {
         loop {
@@ -239,8 +61,6 @@ impl Solver {
             self.expand_defence_after_pass(state, selection.best, next_threshold);
         }
     }
-
-    // after pass
 
     fn search_limit_after_pass(&mut self, state: &mut State, threshold: Node) -> Node {
         if state.limit() == 0 {
@@ -395,6 +215,44 @@ impl solver::Solver for Solver {
 
     fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
         &mut self.defender_vcf_solver
+    }
+}
+
+impl Searcher for Solver {
+    fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
+        let pn = threshold
+            .pn
+            .min(selection.next2.pn.checked_add(1).unwrap_or(INF));
+        let dn = (threshold.dn - selection.current.dn)
+            .checked_add(selection.next1.dn)
+            .unwrap_or(INF);
+        Node::new(pn, dn, selection.next1.limit)
+    }
+
+    fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
+        let pn = (threshold.pn - selection.current.pn)
+            .checked_add(selection.next1.pn)
+            .unwrap_or(INF);
+        let dn = threshold
+            .dn
+            .min(selection.next2.dn.checked_add(1).unwrap_or(INF));
+        Node::new(pn, dn, selection.next1.limit)
+    }
+
+    fn find_attacks(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {
+        Ok(state.sorted_attacks(None))
+    }
+
+    fn find_defences(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
+        let result = self.loop_defence_pass(state, threshold);
+        if result.pn != 0 {
+            return Err(result);
+        }
+
+        let mut defences = self.lookup_defences(state.next_zobrist_hash(None));
+        defences.extend(state.four_moves());
+        defences.retain(|&d| !state.game().is_forbidden_move(d));
+        Ok(defences)
     }
 }
 
