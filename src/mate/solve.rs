@@ -16,6 +16,7 @@ pub enum SolveMode {
     VCTIDDFS,
     VCTPNS,
     VCTDFPNS,
+    VCTLAZY,
 }
 
 pub use SolveMode::*;
@@ -31,6 +32,7 @@ impl TryFrom<u8> for SolveMode {
             11 => Ok(VCTIDDFS),
             15 => Ok(VCTPNS),
             16 => Ok(VCTDFPNS),
+            20 => Ok(VCTLAZY),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -47,6 +49,7 @@ impl FromStr for SolveMode {
             "vct_iddfs" => Ok(VCTIDDFS),
             "vct_pns" => Ok(VCTPNS),
             "vct_dfpns" => Ok(VCTDFPNS),
+            "vct_lazy" => Ok(VCTLAZY),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -81,6 +84,11 @@ pub fn solve(
         VCTDFPNS => {
             let state = &mut vct::State::init(board, attacker, limit);
             let mut solver = vct::dfpns::Solver::init(threat_limit, 2);
+            solver.solve(state)
+        }
+        VCTLAZY => {
+            let state = &mut vct::State::init(board, attacker, limit);
+            let mut solver = vct::lazy::Solver::init(threat_limit, 2);
             solver.solve(state)
         }
         _ => None,
@@ -287,6 +295,9 @@ mod tests {
         let result = solve(VCTDFPNS, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
+        let result = solve(VCTLAZY, 4, &board, Black, 1);
+        assert_eq!(path_string(result), solution);
+
         Ok(())
     }
 
@@ -325,6 +336,11 @@ mod tests {
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTDFPNS, 4, &board, White, 1);
+        assert_eq!(path_string(result), solution);
+
+        let solution = "I10,I8,F7,E6,J11";
+
+        let result = solve(VCTLAZY, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
         Ok(())
@@ -366,6 +382,11 @@ mod tests {
         let result = solve(VCTDFPNS, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
+        let solution = "F7,E8,G8,E6,G5";
+
+        let result = solve(VCTLAZY, 4, &board, White, 1);
+        assert_eq!(path_string(result), solution);
+
         Ok(())
     }
 
@@ -405,6 +426,9 @@ mod tests {
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTDFPNS, 4, &board, Black, 1);
+        assert_eq!(path_string(result), solution);
+
+        let result = solve(VCTLAZY, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
         Ok(())
@@ -449,6 +473,9 @@ mod tests {
         let result = solve(VCTDFPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 
+        let result = solve(VCTLAZY, 7, &board, Black, 3);
+        assert_eq!(path_string(result), solution);
+
         Ok(())
     }
 
@@ -486,6 +513,11 @@ mod tests {
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTPNS, 5, &board, White, 1);
+        assert_eq!(path_string(result), solution);
+
+        let solution = "K3,G7,L2,J4,I3,I4,L3,M3,H3";
+
+        let result = solve(VCTLAZY, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
         Ok(())

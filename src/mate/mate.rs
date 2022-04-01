@@ -15,6 +15,14 @@ impl Mate {
         }
     }
 
+    pub fn end(&self) -> &End {
+        &self.end
+    }
+
+    pub fn path(&self) -> &Vec<Point> {
+        &self.path
+    }
+
     pub fn unshift(mut self, m: Point) -> Self {
         let end = self.end;
         let mut path = vec![m];

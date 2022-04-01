@@ -62,24 +62,6 @@ impl solver::Solver for Solver {
     }
 }
 
-impl Searcher for Solver {
-    fn calc_next_threshold_attack(&self, selection: &Selection, _threshold: Node) -> Node {
-        let next = selection.next1;
-        Node::new(
-            next.pn.checked_add(1).unwrap_or(INF),
-            next.dn.checked_add(1).unwrap_or(INF),
-            next.limit,
-        )
-    }
-
-    fn calc_next_threshold_defence(&self, selection: &Selection, _threshold: Node) -> Node {
-        let next = selection.next1;
-        Node::new(
-            next.pn.checked_add(1).unwrap_or(INF),
-            next.dn.checked_add(1).unwrap_or(INF),
-            next.limit,
-        )
-    }
-}
+impl Searcher for Solver {}
 
 impl Resolver for Solver {}

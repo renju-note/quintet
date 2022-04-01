@@ -69,7 +69,7 @@ impl State {
     }
 
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
-        // Update only state in order not to cause updating state.field (which costs high)
+        // Update only game in order not to cause updating state.field (which costs high)
         self.game.into_play(next_move, |g| g.zobrist_hash())
     }
 
@@ -93,30 +93,64 @@ impl State {
         result
     }
 
+    pub fn is_four_move(&self, forced_move: Point) -> bool {
+        self.game
+            .board()
+            .structures_on(forced_move, self.game.turn, Sword)
+            .flat_map(|s| s.eyes())
+            .any(|e| e == forced_move)
+    }
+
+    pub fn sorted_four_moves(&self) -> Vec<Point> {
+        let mut result = self.four_moves();
+        let field = &self.field;
+        result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
+        result.retain(|&p| !self.game().is_forbidden_move(p));
+        result
+    }
+
     fn potentials(&self) -> Vec<(Point, u8)> {
         self.field.collect(3)
     }
 
-    fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = self.direct_defences(threat);
+    pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
+        let mut result = threat.path().clone();
+        result.extend(self.end_breakers(threat.end().clone()));
         result.extend(self.counter_defences(threat));
         result.extend(self.four_moves());
         result
     }
 
-    fn direct_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = threat.path.clone();
-        match threat.end {
+    pub fn end_breakers(&self, end: End) -> Vec<Point> {
+        match end {
             Fours(p1, p2) => {
-                result.extend([p1, p2]);
+                vec![p1, p2]
             }
             Forbidden(p) => {
-                result.push(p);
-                result.extend(self.game.board().neighbors(p, 5, true));
+                let mut ds = vec![p];
+                ds.extend(self.game().board().neighbors(p, 5, true));
+                ds
             }
-            _ => (),
+            _ => vec![],
         }
-        result
+    }
+
+    pub fn next_sword_eyes(&mut self, p: Point) -> Vec<Point> {
+        self.game.into_play(Some(p), |g| {
+            g.board()
+                .structures_on(g.last_move().unwrap(), g.turn.opponent(), Sword)
+                .map(|s| s.eyes())
+                .flatten()
+                .collect()
+        })
+    }
+
+    pub fn four_moves(&self) -> Vec<Point> {
+        self.game()
+            .board()
+            .structures(self.game().turn, Sword)
+            .flat_map(|s| s.eyes())
+            .collect()
     }
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
@@ -136,13 +170,5 @@ impl State {
             }
         }
         result
-    }
-
-    fn four_moves(&self) -> Vec<Point> {
-        self.game()
-            .board()
-            .structures(self.game().turn, Sword)
-            .flat_map(|s| s.eyes())
-            .collect()
     }
 }

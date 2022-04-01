@@ -2,7 +2,7 @@ use crate::board::StructureKind::*;
 use crate::board::*;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum End {
     Fours(Point, Point),
     Forbidden(Point),
@@ -37,6 +37,7 @@ pub struct Game {
     pub limit: u8,
     moves: Vec<Option<Point>>,
     pub turn: Player,
+    pub passed: bool,
 }
 
 impl Game {
@@ -47,12 +48,15 @@ impl Game {
             limit: limit,
             moves: vec![],
             turn: attacker,
+            passed: false,
         }
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
             self.board.put_mut(self.turn, next_move);
+        } else {
+            self.passed = true
         }
         self.moves.push(next_move);
         self.turn = self.turn.opponent();
@@ -68,6 +72,8 @@ impl Game {
         self.turn = self.turn.opponent();
         if let Some(last_move) = self.moves.pop().unwrap() {
             self.board.remove_mut(last_move);
+        } else {
+            self.passed = false
         }
     }
 
@@ -154,5 +160,17 @@ impl Game {
             ret = Some(p);
         }
         (ret, None)
+    }
+
+    #[allow(dead_code)]
+    pub fn moves_to_string(&self) -> String {
+        self.moves
+            .iter()
+            .map(|m| match m {
+                Some(p) => p.to_string(),
+                None => "PASS".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(",")
     }
 }
