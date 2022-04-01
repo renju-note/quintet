@@ -1,15 +1,13 @@
-/*
-Df-pn algorithm is proposed in the following paper:
-
-Nagai, Ayumu, and Hiroshi Imai.
-"Proof for the equivalence between some best-first algorithms and depth-first algorithms for AND/OR trees."
-IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
-*/
+use super::generator;
 use super::resolver::*;
-use super::searcher::*;
+use super::searcher::Selection;
+use super::searcher2;
 use super::solver;
+use super::solver2;
 use super::state::State;
 use super::table::*;
+use super::traverser;
+use crate::board::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
 
@@ -37,13 +35,11 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
-        if self.search(state) {
-            self.resolve(state)
-        } else {
-            None
-        }
+        solver2::Solver::solve(self, state)
     }
 }
+
+impl solver2::Solver for Solver {}
 
 impl solver::Solver for Solver {
     fn attacker_vcf_depth(&self) -> u8 {
@@ -71,25 +67,77 @@ impl solver::Solver for Solver {
     }
 }
 
-impl Searcher for Solver {
-    fn calc_next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
-        let pn = threshold
-            .pn
-            .min(selection.next2.pn.checked_add(1).unwrap_or(INF));
-        let dn = (threshold.dn - selection.current.dn)
-            .checked_add(selection.next1.dn)
-            .unwrap_or(INF);
-        Node::new(pn, dn, selection.next1.limit)
+impl traverser::base::Traverser for Solver {
+    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
+        traverser::dfpns::Traverser::select_attack(self, state, attacks)
     }
 
-    fn calc_next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
-        let pn = (threshold.pn - selection.current.pn)
-            .checked_add(selection.next1.pn)
-            .unwrap_or(INF);
-        let dn = threshold
-            .dn
-            .min(selection.next2.dn.checked_add(1).unwrap_or(INF));
-        Node::new(pn, dn, selection.next1.limit)
+    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
+        traverser::dfpns::Traverser::select_defence(self, state, defences)
+    }
+
+    fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
+        traverser::dfpns::Traverser::next_threshold_attack(self, selection, threshold)
+    }
+
+    fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
+        traverser::dfpns::Traverser::next_threshold_defence(self, selection, threshold)
+    }
+
+    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
+        searcher2::Searcher::expand_attack(self, state, attack, threshold);
+    }
+
+    fn expand_defence(&mut self, state: &mut State, attack: Point, threshold: Node) {
+        searcher2::Searcher::expand_defence(self, state, attack, threshold);
+    }
+}
+
+impl traverser::dfpns::Traverser for Solver {
+    fn attacker_table(&mut self) -> &mut Table {
+        &mut self.attacker_table
+    }
+
+    fn defender_table(&mut self) -> &mut Table {
+        &mut self.defender_table
+    }
+}
+
+impl generator::base::Generator for Solver {
+    fn find_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
+        generator::eager::Generator::find_attacks(self, state, threshold)
+    }
+
+    fn find_defences(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
+        generator::eager::Generator::find_defences(self, state, threshold)
+    }
+}
+
+impl generator::eager::Generator for Solver {
+    fn attacker_vcf_depth(&self) -> u8 {
+        self.attacker_vcf_depth
+    }
+
+    fn defender_vcf_depth(&self) -> u8 {
+        self.defender_vcf_depth
+    }
+
+    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+        &mut self.attacker_vcf_solver
+    }
+
+    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+        &mut self.defender_vcf_solver
+    }
+}
+
+impl searcher2::Searcher for Solver {
+    fn attacker_table(&mut self) -> &mut Table {
+        &mut self.attacker_table
+    }
+
+    fn defender_table(&mut self) -> &mut Table {
+        &mut self.defender_table
     }
 }
 
