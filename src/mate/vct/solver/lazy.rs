@@ -59,14 +59,6 @@ impl LazyGenerator for LazyDFPNSolver {
 }
 
 impl Traverser for LazyDFPNSolver {
-    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        DFPNSTraverser::select_attack(self, state, attacks)
-    }
-
-    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        DFPNSTraverser::select_defence(self, state, defences)
-    }
-
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
         DFPNSTraverser::next_threshold_attack(self, selection, threshold)
     }

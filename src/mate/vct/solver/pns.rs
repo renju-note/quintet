@@ -59,14 +59,6 @@ impl Generator for EagerPNSSolver {
 impl EagerGenerator for EagerPNSSolver {}
 
 impl Traverser for EagerPNSSolver {
-    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        PNSTraverser::select_attack(self, state, attacks)
-    }
-
-    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        PNSTraverser::select_defence(self, state, defences)
-    }
-
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
         PNSTraverser::next_threshold_attack(self, selection, threshold)
     }

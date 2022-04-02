@@ -5,7 +5,7 @@ use crate::mate::vct::state::State;
 use crate::mate::vct::traverser::*;
 use std::collections::HashMap;
 
-pub trait LazyGenerator: Traverser + ProofTree {
+pub trait LazyGenerator: Traverser {
     fn defences_memory(&mut self) -> &mut HashMap<u64, Vec<Point>>;
 
     fn find_attacks(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {

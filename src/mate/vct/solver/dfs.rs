@@ -59,14 +59,6 @@ impl Generator for EagerDFSSolver {
 impl EagerGenerator for EagerDFSSolver {}
 
 impl Traverser for EagerDFSSolver {
-    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        DFSTraverser::select_attack(self, state, attacks)
-    }
-
-    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        DFSTraverser::select_defence(self, state, defences)
-    }
-
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
         DFSTraverser::next_threshold_attack(self, selection, threshold)
     }
