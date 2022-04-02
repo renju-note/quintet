@@ -112,23 +112,7 @@ impl Generator for Solver {
     }
 }
 
-impl EagerGenerator for Solver {
-    fn attacker_vcf_depth(&self) -> u8 {
-        self.attacker_vcf_depth
-    }
-
-    fn defender_vcf_depth(&self) -> u8 {
-        self.defender_vcf_depth
-    }
-
-    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
-        &mut self.attacker_vcf_solver
-    }
-
-    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
-        &mut self.defender_vcf_solver
-    }
-}
+impl EagerGenerator for Solver {}
 
 impl searcher::Searcher for Solver {}
 
