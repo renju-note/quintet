@@ -1,7 +1,6 @@
 use super::generator::Generator;
 use super::state::State;
 use super::traverser::Traverser;
-use crate::board::Point;
 use crate::mate::game::*;
 use crate::mate::vct::proof::*;
 
@@ -67,12 +66,5 @@ pub trait Searcher: ProofTree + Generator + Traverser {
 
         self.traverse_defences(state, &defences, threshold, Self::search_limit)
             .current
-    }
-
-    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) {
-        state.into_play(Some(defence), |s| {
-            let result = self.search_limit(s, threshold);
-            self.defender_table().insert(s, result);
-        })
     }
 }
