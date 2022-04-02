@@ -118,4 +118,12 @@ impl EagerGenerator for Solver {}
 
 impl searcher::Searcher for Solver {}
 
-impl Resolver for Solver {}
+impl Resolver for Solver {
+    fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
+        helper::VCFHelper::solve_attacker_vcf(self, state)
+    }
+
+    fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
+        helper::VCFHelper::solve_attacker_threat(self, state)
+    }
+}

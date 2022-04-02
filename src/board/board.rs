@@ -61,6 +61,10 @@ impl Board {
         self.square.stones(r)
     }
 
+    pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
+        self.square.empties()
+    }
+
     pub fn neighbors(
         &self,
         p: Point,
