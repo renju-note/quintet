@@ -11,11 +11,7 @@ Nagai, Ayumu, and Hiroshi Imai.
 IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 */
 
-pub trait DFPNSTraverser {
-    fn attacker_table(&mut self) -> &mut Table;
-
-    fn defender_table(&mut self) -> &mut Table;
-
+pub trait DFPNSTraverser: ProofTree {
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(attacks[0]);

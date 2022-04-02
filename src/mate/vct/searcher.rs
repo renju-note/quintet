@@ -5,6 +5,8 @@ use crate::board::Point;
 use crate::mate::game::*;
 use crate::mate::vct::proof::*;
 
+// MEMO: Debug printing example is 6e2bace
+
 pub trait Searcher: ProofTree + Generator + Traverser {
     fn search(&mut self, state: &mut State) -> bool {
         self.search_limit(state, Node::inf()).proven()

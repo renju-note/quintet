@@ -5,12 +5,10 @@ use crate::mate::vct::generator::*;
 use crate::mate::vct::helper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::*;
-use crate::mate::vct::searcher;
+use crate::mate::vct::searcher::Searcher;
 use crate::mate::vct::solver;
 use crate::mate::vct::state::State;
 use crate::mate::vct::traverser::*;
-
-// MEMO: Debug printing example is 6e2bace
 
 pub struct Solver {
     attacker_table: Table,
@@ -38,63 +36,11 @@ impl Solver {
     }
 }
 
-impl ProofTree for Solver {
-    fn attacker_table(&mut self) -> &mut Table {
-        &mut self.attacker_table
-    }
-
-    fn defender_table(&mut self) -> &mut Table {
-        &mut self.defender_table
-    }
-}
-
 impl solver::Solver for Solver {}
 
-impl helper::VCFHelper for Solver {
-    fn attacker_vcf_depth(&self) -> u8 {
-        self.attacker_vcf_depth
-    }
+impl Searcher for Solver {}
 
-    fn defender_vcf_depth(&self) -> u8 {
-        self.defender_vcf_depth
-    }
-
-    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
-        &mut self.attacker_vcf_solver
-    }
-
-    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
-        &mut self.defender_vcf_solver
-    }
-}
-
-impl Traverser for Solver {
-    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        DFPNSTraverser::select_attack(self, state, attacks)
-    }
-
-    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        DFPNSTraverser::select_defence(self, state, defences)
-    }
-
-    fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
-        DFPNSTraverser::next_threshold_attack(self, selection, threshold)
-    }
-
-    fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
-        DFPNSTraverser::next_threshold_defence(self, selection, threshold)
-    }
-
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
-        searcher::Searcher::expand_attack(self, state, attack, threshold);
-    }
-
-    fn expand_defence(&mut self, state: &mut State, attack: Point, threshold: Node) {
-        searcher::Searcher::expand_defence(self, state, attack, threshold);
-    }
-}
-
-impl DFPNSTraverser for Solver {
+impl ProofTree for Solver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }
@@ -116,7 +62,33 @@ impl Generator for Solver {
 
 impl EagerGenerator for Solver {}
 
-impl searcher::Searcher for Solver {}
+impl Traverser for Solver {
+    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
+        DFPNSTraverser::select_attack(self, state, attacks)
+    }
+
+    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
+        DFPNSTraverser::select_defence(self, state, defences)
+    }
+
+    fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
+        DFPNSTraverser::next_threshold_attack(self, selection, threshold)
+    }
+
+    fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
+        DFPNSTraverser::next_threshold_defence(self, selection, threshold)
+    }
+
+    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
+        Searcher::expand_attack(self, state, attack, threshold);
+    }
+
+    fn expand_defence(&mut self, state: &mut State, attack: Point, threshold: Node) {
+        Searcher::expand_defence(self, state, attack, threshold);
+    }
+}
+
+impl DFPNSTraverser for Solver {}
 
 impl Resolver for Solver {
     fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
@@ -125,5 +97,23 @@ impl Resolver for Solver {
 
     fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
         helper::VCFHelper::solve_attacker_threat(self, state)
+    }
+}
+
+impl helper::VCFHelper for Solver {
+    fn attacker_vcf_depth(&self) -> u8 {
+        self.attacker_vcf_depth
+    }
+
+    fn defender_vcf_depth(&self) -> u8 {
+        self.defender_vcf_depth
+    }
+
+    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+        &mut self.attacker_vcf_solver
+    }
+
+    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+        &mut self.defender_vcf_solver
     }
 }
