@@ -1,51 +1,19 @@
+pub mod eager_dfpns;
+pub mod eager_dfs;
+pub mod eager_pns;
+pub mod lazy_dfpns;
+
+use super::resolver::Resolver;
+use super::searcher::Searcher;
 use super::state::State;
-use super::table::*;
-use crate::mate::mate::*;
-use crate::mate::vcf;
+use crate::mate::mate::Mate;
 
-pub trait Solver {
-    fn attacker_table(&mut self) -> &mut Table;
-    fn defender_table(&mut self) -> &mut Table;
-
-    fn attacker_vcf_depth(&self) -> u8;
-    fn defender_vcf_depth(&self) -> u8;
-
-    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver;
-    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver;
-
-    fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
-        if !state.game().attacking() {
-            panic!()
+pub trait Solver: Searcher + Resolver {
+    fn solve(&mut self, state: &mut State) -> Option<Mate> {
+        if self.search(state) {
+            self.resolve(state)
+        } else {
+            None
         }
-        let state = &mut state.vcf_state();
-        state.set_limit(state.limit().min(self.attacker_vcf_depth()));
-        self.attacker_vcf_solver().solve(state)
-    }
-
-    fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
-        if state.game().attacking() {
-            panic!()
-        }
-        let state = &mut state.threat_state();
-        state.set_limit(state.limit().min(self.attacker_vcf_depth()));
-        self.attacker_vcf_solver().solve(state)
-    }
-
-    fn solve_defender_vcf(&mut self, state: &State) -> Option<Mate> {
-        if state.game().attacking() {
-            panic!()
-        }
-        let state = &mut state.vcf_state();
-        state.set_limit(self.defender_vcf_depth());
-        self.defender_vcf_solver().solve(state)
-    }
-
-    fn solve_defender_threat(&mut self, state: &State) -> Option<Mate> {
-        if !state.game().attacking() {
-            panic!()
-        }
-        let state = &mut state.threat_state();
-        state.set_limit(self.defender_vcf_depth());
-        self.defender_vcf_solver().solve(state)
     }
 }

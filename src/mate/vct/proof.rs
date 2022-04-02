@@ -1,6 +1,12 @@
-use super::state::*;
-use crate::board::*;
+use super::state::State;
+use crate::board::Point;
 use std::collections::HashMap;
+use std::fmt;
+
+pub trait ProofTree {
+    fn attacker_table(&mut self) -> &mut Table;
+    fn defender_table(&mut self) -> &mut Table;
+}
 
 pub struct Table {
     table: HashMap<u64, Node>,
@@ -23,8 +29,6 @@ impl Table {
         self.table.get(&key).map(|&c| c)
     }
 }
-
-use std::fmt;
 
 pub const INF: u32 = u32::MAX;
 

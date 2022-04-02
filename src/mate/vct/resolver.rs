@@ -1,10 +1,12 @@
-use super::solver::Solver;
 use super::state::State;
-use super::table::*;
 use crate::mate::game::*;
-use crate::mate::mate::*;
+use crate::mate::mate::Mate;
+use crate::mate::vct::proof::*;
 
-pub trait Resolver: Solver {
+pub trait Resolver: ProofTree {
+    fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate>;
+    fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate>;
+
     fn resolve(&mut self, state: &mut State) -> Option<Mate> {
         self.resolve_attacks(state)
     }
@@ -19,12 +21,7 @@ pub trait Resolver: Solver {
             };
         }
 
-        if let Some(vcf) = self.solve_attacker_vcf(state) {
-            return Some(vcf);
-        }
-
-        let maybe_threat = self.solve_defender_threat(state);
-        let attacks = state.sorted_attacks(maybe_threat);
+        let attacks: Vec<_> = state.game().board().empties().collect();
         for attack in attacks {
             let node = self
                 .attacker_table()
@@ -37,16 +34,16 @@ pub trait Resolver: Solver {
             }
         }
 
-        unreachable!()
+        self.solve_attacker_vcf(state)
     }
 
     fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
         if let Some(event) = state.game().check_event() {
             return match event {
+                Defeated(end) => return Some(Mate::new(end, vec![])),
                 Forced(defence) => state.into_play(Some(defence), |s| {
                     self.resolve_attacks(s).map(|m| m.unshift(defence))
                 }),
-                _ => unreachable!(),
             };
         }
 
