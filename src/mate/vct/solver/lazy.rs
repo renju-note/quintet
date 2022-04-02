@@ -2,11 +2,11 @@ use crate::board::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
 use crate::mate::vct::generator;
+use crate::mate::vct::helper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::*;
 use crate::mate::vct::searcher;
 use crate::mate::vct::solver;
-use crate::mate::vct::solver2;
 use crate::mate::vct::state::State;
 use crate::mate::vct::traverser;
 use crate::mate::vct::traverser::base::Selection;
@@ -46,13 +46,13 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
-        solver2::Solver::solve(self, state)
+        solver::Solver::solve(self, state)
     }
 }
 
-impl solver2::Solver for Solver {}
+impl solver::Solver for Solver {}
 
-impl solver::Solver for Solver {
+impl helper::VCFHelper for Solver {
     fn attacker_vcf_depth(&self) -> u8 {
         self.attacker_vcf_depth
     }
