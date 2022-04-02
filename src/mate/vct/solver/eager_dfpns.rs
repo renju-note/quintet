@@ -10,7 +10,7 @@ use crate::mate::vct::solver::Solver;
 use crate::mate::vct::state::State;
 use crate::mate::vct::traverser::*;
 
-pub struct EagerDFPNSolver {
+pub struct EagerDFPNSSolver {
     attacker_table: Table,
     defender_table: Table,
     attacker_vcf_depth: u8,
@@ -19,7 +19,7 @@ pub struct EagerDFPNSolver {
     defender_vcf_solver: vcf::iddfs::Solver,
 }
 
-impl EagerDFPNSolver {
+impl EagerDFPNSSolver {
     pub fn init(attacker_vcf_depth: u8, defender_vcf_depth: u8) -> Self {
         Self {
             attacker_table: Table::new(),
@@ -32,11 +32,11 @@ impl EagerDFPNSolver {
     }
 }
 
-impl Solver for EagerDFPNSolver {}
+impl Solver for EagerDFPNSSolver {}
 
-impl Searcher for EagerDFPNSolver {}
+impl Searcher for EagerDFPNSSolver {}
 
-impl ProofTree for EagerDFPNSolver {
+impl ProofTree for EagerDFPNSSolver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }
@@ -46,7 +46,7 @@ impl ProofTree for EagerDFPNSolver {
     }
 }
 
-impl Generator for EagerDFPNSolver {
+impl Generator for EagerDFPNSSolver {
     fn generate_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
         EagerGenerator::generate_attacks(self, state, threshold)
     }
@@ -60,9 +60,9 @@ impl Generator for EagerDFPNSolver {
     }
 }
 
-impl EagerGenerator for EagerDFPNSolver {}
+impl EagerGenerator for EagerDFPNSSolver {}
 
-impl Traverser for EagerDFPNSolver {
+impl Traverser for EagerDFPNSSolver {
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
         DFPNSTraverser::next_threshold_attack(self, selection, threshold)
     }
@@ -72,9 +72,9 @@ impl Traverser for EagerDFPNSolver {
     }
 }
 
-impl DFPNSTraverser for EagerDFPNSolver {}
+impl DFPNSTraverser for EagerDFPNSSolver {}
 
-impl Resolver for EagerDFPNSolver {
+impl Resolver for EagerDFPNSSolver {
     fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
         helper::VCFHelper::solve_attacker_vcf(self, state)
     }
@@ -84,7 +84,7 @@ impl Resolver for EagerDFPNSolver {
     }
 }
 
-impl helper::VCFHelper for EagerDFPNSolver {
+impl helper::VCFHelper for EagerDFPNSSolver {
     fn attacker_vcf_depth(&self) -> u8 {
         self.attacker_vcf_depth
     }

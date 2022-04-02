@@ -1,7 +1,7 @@
-pub mod dfpns;
-pub mod dfs;
-pub mod lazy;
-pub mod pns;
+pub mod eager_dfpns;
+pub mod eager_dfs;
+pub mod eager_pns;
+pub mod lazy_dfpns;
 
 use super::resolver::Resolver;
 use super::searcher::Searcher;

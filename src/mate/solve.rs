@@ -84,7 +84,7 @@ pub fn solve(
         }
         VCTDFPNS => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::EagerDFPNSolver::init(threat_limit, 2);
+            let mut solver = vct::EagerDFPNSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTLAZY => {
