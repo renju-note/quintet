@@ -1,8 +1,8 @@
 use super::base;
 use crate::board::*;
-use crate::mate::vct::searcher::Selection;
 use crate::mate::vct::state::State;
 use crate::mate::vct::table::*;
+use crate::mate::vct::traverser::base::Selection;
 
 /*
 Df-pn algorithm is proposed in the following paper:

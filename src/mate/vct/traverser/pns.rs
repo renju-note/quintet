@@ -1,8 +1,8 @@
 use super::base;
 use crate::board::*;
-use crate::mate::vct::searcher::Selection;
 use crate::mate::vct::state::State;
 use crate::mate::vct::table::*;
+use crate::mate::vct::traverser::base::Selection;
 
 pub trait Traverser: base::Traverser {
     fn attacker_table(&mut self) -> &mut Table;

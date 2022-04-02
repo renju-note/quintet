@@ -1,7 +1,13 @@
 use crate::board::*;
-use crate::mate::vct::searcher::Selection;
 use crate::mate::vct::state::State;
 use crate::mate::vct::table::*;
+
+pub struct Selection {
+    pub best: Option<Point>,
+    pub current: Node,
+    pub next1: Node,
+    pub next2: Node,
+}
 
 pub trait Traverser {
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection;

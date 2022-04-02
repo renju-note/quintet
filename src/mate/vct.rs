@@ -6,7 +6,6 @@ pub mod lazy;
 pub mod pns;
 pub mod resolver;
 pub mod searcher;
-pub mod searcher2;
 pub mod solver;
 pub mod solver2;
 mod state;

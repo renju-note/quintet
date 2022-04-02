@@ -1,7 +1,6 @@
 use super::generator;
 use super::resolver::*;
-use super::searcher::Selection;
-use super::searcher2;
+use super::searcher;
 use super::solver;
 use super::solver2;
 use super::state::State;
@@ -10,6 +9,7 @@ use super::traverser;
 use crate::board::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
+use crate::mate::vct::traverser::base::Selection;
 use std::collections::HashMap;
 
 pub struct Solver {
@@ -86,11 +86,11 @@ impl traverser::base::Traverser for Solver {
     }
 
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
-        searcher2::Searcher::expand_attack(self, state, attack, threshold);
+        searcher::Searcher::expand_attack(self, state, attack, threshold);
     }
 
     fn expand_defence(&mut self, state: &mut State, attack: Point, threshold: Node) {
-        searcher2::Searcher::expand_defence(self, state, attack, threshold);
+        searcher::Searcher::expand_defence(self, state, attack, threshold);
     }
 }
 
@@ -128,7 +128,7 @@ impl generator::lazy::Generator for Solver {
     }
 }
 
-impl searcher2::Searcher for Solver {
+impl searcher::Searcher for Solver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }
