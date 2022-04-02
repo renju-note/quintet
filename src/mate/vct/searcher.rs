@@ -1,6 +1,6 @@
-use super::generator::base::Generator;
+use super::generator::Generator;
 use super::state::State;
-use super::traverser::base::Traverser;
+use super::traverser::Traverser;
 use crate::board::Point;
 use crate::mate::game::*;
 use crate::mate::vct::proof::*;

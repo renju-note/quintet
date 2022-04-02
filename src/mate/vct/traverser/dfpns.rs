@@ -1,8 +1,7 @@
-use super::base;
-use crate::board::*;
+use super::Selection;
+use crate::board::Point;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
-use crate::mate::vct::traverser::base::Selection;
 
 /*
 Df-pn algorithm is proposed in the following paper:
@@ -12,7 +11,7 @@ Nagai, Ayumu, and Hiroshi Imai.
 IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 */
 
-pub trait Traverser: base::Traverser {
+pub trait DFPNSTraverser {
     fn attacker_table(&mut self) -> &mut Table;
 
     fn defender_table(&mut self) -> &mut Table;

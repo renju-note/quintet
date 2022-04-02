@@ -1,11 +1,10 @@
-use super::base;
-use crate::board::*;
+use crate::board::Point;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
-use crate::mate::vct::proof::*;
+use crate::mate::vct::proof::Node;
 use crate::mate::vct::state::State;
 
-pub trait Generator: base::Generator {
+pub trait EagerGenerator {
     fn attacker_vcf_depth(&self) -> u8;
     fn defender_vcf_depth(&self) -> u8;
 

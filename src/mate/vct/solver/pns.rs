@@ -1,15 +1,14 @@
-use crate::board::*;
-use crate::mate::mate::*;
+use crate::board::Point;
+use crate::mate::mate::Mate;
 use crate::mate::vcf;
-use crate::mate::vct::generator;
+use crate::mate::vct::generator::*;
 use crate::mate::vct::helper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::*;
 use crate::mate::vct::searcher;
 use crate::mate::vct::solver;
 use crate::mate::vct::state::State;
-use crate::mate::vct::traverser;
-use crate::mate::vct::traverser::base::Selection;
+use crate::mate::vct::traverser::*;
 
 pub struct Solver {
     attacker_table: Table,
@@ -67,21 +66,21 @@ impl helper::VCFHelper for Solver {
     }
 }
 
-impl traverser::base::Traverser for Solver {
+impl Traverser for Solver {
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        traverser::pns::Traverser::select_attack(self, state, attacks)
+        PNSTraverser::select_attack(self, state, attacks)
     }
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        traverser::pns::Traverser::select_defence(self, state, defences)
+        PNSTraverser::select_defence(self, state, defences)
     }
 
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
-        traverser::pns::Traverser::next_threshold_attack(self, selection, threshold)
+        PNSTraverser::next_threshold_attack(self, selection, threshold)
     }
 
     fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
-        traverser::pns::Traverser::next_threshold_defence(self, selection, threshold)
+        PNSTraverser::next_threshold_defence(self, selection, threshold)
     }
 
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
@@ -93,7 +92,7 @@ impl traverser::base::Traverser for Solver {
     }
 }
 
-impl traverser::pns::Traverser for Solver {
+impl PNSTraverser for Solver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }
@@ -103,17 +102,17 @@ impl traverser::pns::Traverser for Solver {
     }
 }
 
-impl generator::base::Generator for Solver {
+impl Generator for Solver {
     fn find_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
-        generator::eager::Generator::find_attacks(self, state, threshold)
+        EagerGenerator::find_attacks(self, state, threshold)
     }
 
     fn find_defences(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
-        generator::eager::Generator::find_defences(self, state, threshold)
+        EagerGenerator::find_defences(self, state, threshold)
     }
 }
 
-impl generator::eager::Generator for Solver {
+impl EagerGenerator for Solver {
     fn attacker_vcf_depth(&self) -> u8 {
         self.attacker_vcf_depth
     }

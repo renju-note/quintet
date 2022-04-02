@@ -1,16 +1,11 @@
-use super::base;
-use crate::board::*;
+use crate::board::Point;
 use crate::mate::game::*;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
-use crate::mate::vct::traverser;
-use crate::mate::vct::traverser::base::Selection;
+use crate::mate::vct::traverser::*;
 use std::collections::HashMap;
 
-pub trait Generator: base::Generator + traverser::base::Traverser {
-    fn attacker_table(&mut self) -> &mut Table;
-    fn defender_table(&mut self) -> &mut Table;
-
+pub trait LazyGenerator: Traverser + ProofTree {
     fn defences_memory(&mut self) -> &mut HashMap<u64, Vec<Point>>;
 
     fn find_attacks(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {

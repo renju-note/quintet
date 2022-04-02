@@ -1,10 +1,9 @@
-use super::base;
-use crate::board::*;
+use super::Selection;
+use crate::board::Point;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
-use crate::mate::vct::traverser::base::Selection;
 
-pub trait Traverser: base::Traverser {
+pub trait DFSTraverser {
     fn attacker_table(&mut self) -> &mut Table;
 
     fn defender_table(&mut self) -> &mut Table;

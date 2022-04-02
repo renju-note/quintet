@@ -1,15 +1,14 @@
-use crate::board::*;
-use crate::mate::mate::*;
+use crate::board::Point;
+use crate::mate::mate::Mate;
 use crate::mate::vcf;
-use crate::mate::vct::generator;
+use crate::mate::vct::generator::*;
 use crate::mate::vct::helper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::*;
 use crate::mate::vct::searcher;
 use crate::mate::vct::solver;
 use crate::mate::vct::state::State;
-use crate::mate::vct::traverser;
-use crate::mate::vct::traverser::base::Selection;
+use crate::mate::vct::traverser::*;
 use std::collections::HashMap;
 
 pub struct Solver {
@@ -70,21 +69,21 @@ impl helper::VCFHelper for Solver {
     }
 }
 
-impl traverser::base::Traverser for Solver {
+impl Traverser for Solver {
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        traverser::dfpns::Traverser::select_attack(self, state, attacks)
+        DFPNSTraverser::select_attack(self, state, attacks)
     }
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        traverser::dfpns::Traverser::select_defence(self, state, defences)
+        DFPNSTraverser::select_defence(self, state, defences)
     }
 
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
-        traverser::dfpns::Traverser::next_threshold_attack(self, selection, threshold)
+        DFPNSTraverser::next_threshold_attack(self, selection, threshold)
     }
 
     fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
-        traverser::dfpns::Traverser::next_threshold_defence(self, selection, threshold)
+        DFPNSTraverser::next_threshold_defence(self, selection, threshold)
     }
 
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
@@ -96,7 +95,7 @@ impl traverser::base::Traverser for Solver {
     }
 }
 
-impl traverser::dfpns::Traverser for Solver {
+impl DFPNSTraverser for Solver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }
@@ -106,25 +105,17 @@ impl traverser::dfpns::Traverser for Solver {
     }
 }
 
-impl generator::base::Generator for Solver {
+impl Generator for Solver {
     fn find_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
-        generator::lazy::Generator::find_attacks(self, state, threshold)
+        LazyGenerator::find_attacks(self, state, threshold)
     }
 
     fn find_defences(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
-        generator::lazy::Generator::find_defences(self, state, threshold)
+        LazyGenerator::find_defences(self, state, threshold)
     }
 }
 
-impl generator::lazy::Generator for Solver {
-    fn attacker_table(&mut self) -> &mut Table {
-        &mut self.attacker_table
-    }
-
-    fn defender_table(&mut self) -> &mut Table {
-        &mut self.defender_table
-    }
-
+impl LazyGenerator for Solver {
     fn defences_memory(&mut self) -> &mut HashMap<u64, Vec<Point>> {
         &mut self.defences_memory
     }

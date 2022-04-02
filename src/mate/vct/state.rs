@@ -2,7 +2,7 @@ use super::field::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
-use crate::mate::mate::*;
+use crate::mate::mate::Mate;
 use crate::mate::vcf;
 
 pub struct State {

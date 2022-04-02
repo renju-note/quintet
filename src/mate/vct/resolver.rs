@@ -1,7 +1,7 @@
 use super::helper::VCFHelper;
 use super::state::State;
 use crate::mate::game::*;
-use crate::mate::mate::*;
+use crate::mate::mate::Mate;
 use crate::mate::vct::proof::*;
 
 pub trait Resolver: ProofTree + VCFHelper {

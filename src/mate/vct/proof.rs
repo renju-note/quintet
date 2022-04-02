@@ -1,5 +1,5 @@
-use super::state::*;
-use crate::board::*;
+use super::state::State;
+use crate::board::Point;
 use std::collections::HashMap;
 use std::fmt;
 

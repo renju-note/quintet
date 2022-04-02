@@ -1,5 +1,5 @@
 use super::state::State;
-use crate::mate::mate::*;
+use crate::mate::mate::Mate;
 use crate::mate::vcf;
 
 pub trait VCFHelper {
