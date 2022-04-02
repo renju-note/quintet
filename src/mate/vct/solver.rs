@@ -6,12 +6,8 @@ pub mod pns;
 use super::state::State;
 use crate::mate::mate::*;
 use crate::mate::vcf;
-use crate::mate::vct::proof::Table;
 
 pub trait Solver {
-    fn attacker_table(&mut self) -> &mut Table;
-    fn defender_table(&mut self) -> &mut Table;
-
     fn attacker_vcf_depth(&self) -> u8;
     fn defender_vcf_depth(&self) -> u8;
 

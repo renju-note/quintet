@@ -39,6 +39,16 @@ impl Solver {
     }
 }
 
+impl ProofTree for Solver {
+    fn attacker_table(&mut self) -> &mut Table {
+        &mut self.attacker_table
+    }
+
+    fn defender_table(&mut self) -> &mut Table {
+        &mut self.defender_table
+    }
+}
+
 impl solver2::Solver for Solver {}
 
 impl solver::Solver for Solver {
@@ -48,14 +58,6 @@ impl solver::Solver for Solver {
 
     fn defender_vcf_depth(&self) -> u8 {
         self.defender_vcf_depth
-    }
-
-    fn attacker_table(&mut self) -> &mut Table {
-        &mut self.attacker_table
-    }
-
-    fn defender_table(&mut self) -> &mut Table {
-        &mut self.defender_table
     }
 
     fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
@@ -131,14 +133,6 @@ impl generator::eager::Generator for Solver {
     }
 }
 
-impl searcher::Searcher for Solver {
-    fn attacker_table(&mut self) -> &mut Table {
-        &mut self.attacker_table
-    }
-
-    fn defender_table(&mut self) -> &mut Table {
-        &mut self.defender_table
-    }
-}
+impl searcher::Searcher for Solver {}
 
 impl Resolver for Solver {}

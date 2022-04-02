@@ -3,13 +3,9 @@ use super::state::State;
 use super::traverser::base::Traverser;
 use crate::board::Point;
 use crate::mate::game::*;
-use crate::mate::vct::proof::{Node, Table};
+use crate::mate::vct::proof::*;
 
-pub trait Searcher: Generator + Traverser {
-    fn attacker_table(&mut self) -> &mut Table;
-
-    fn defender_table(&mut self) -> &mut Table;
-
+pub trait Searcher: ProofTree + Generator + Traverser {
     fn search(&mut self, state: &mut State) -> bool {
         self.search_limit(state, Node::inf()).proven()
     }

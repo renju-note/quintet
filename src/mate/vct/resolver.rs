@@ -2,9 +2,9 @@ use super::solver::Solver;
 use super::state::State;
 use crate::mate::game::*;
 use crate::mate::mate::*;
-use crate::mate::vct::proof::Node;
+use crate::mate::vct::proof::*;
 
-pub trait Resolver: Solver {
+pub trait Resolver: ProofTree + Solver {
     fn resolve(&mut self, state: &mut State) -> Option<Mate> {
         self.resolve_attacks(state)
     }

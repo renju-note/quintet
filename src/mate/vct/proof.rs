@@ -3,6 +3,11 @@ use crate::board::*;
 use std::collections::HashMap;
 use std::fmt;
 
+pub trait ProofTree {
+    fn attacker_table(&mut self) -> &mut Table;
+    fn defender_table(&mut self) -> &mut Table;
+}
+
 pub struct Table {
     table: HashMap<u64, Node>,
 }
