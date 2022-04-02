@@ -88,7 +88,7 @@ pub fn solve(
         }
         VCTLAZY => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::solver::lazy::Solver::init(threat_limit, 2);
+            let mut solver = vct::solver::lazy::Solver::init();
             solver.solve(state)
         }
         _ => None,

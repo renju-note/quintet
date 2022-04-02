@@ -2,7 +2,6 @@ use crate::board::Point;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
 use crate::mate::vct::generator::*;
-use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::*;
 use crate::mate::vct::searcher::Searcher;
@@ -14,23 +13,17 @@ use std::collections::HashMap;
 pub struct Solver {
     attacker_table: Table,
     defender_table: Table,
-    attacker_vcf_depth: u8,
-    defender_vcf_depth: u8,
-    attacker_vcf_solver: vcf::iddfs::Solver,
-    defender_vcf_solver: vcf::iddfs::Solver,
     defences_memory: HashMap<u64, Vec<Point>>,
+    vcf_solver: vcf::iddfs::Solver,
 }
 
 impl Solver {
-    pub fn init(attacker_vcf_depth: u8, defender_vcf_depth: u8) -> Self {
+    pub fn init() -> Self {
         Self {
             attacker_table: Table::new(),
             defender_table: Table::new(),
-            attacker_vcf_depth: attacker_vcf_depth,
-            defender_vcf_depth: defender_vcf_depth,
-            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
-            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
             defences_memory: HashMap::new(),
+            vcf_solver: vcf::iddfs::Solver::init((1..u8::MAX).collect()),
         }
     }
 
@@ -99,28 +92,10 @@ impl DFPNSTraverser for Solver {}
 
 impl Resolver for Solver {
     fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
-        VCFHelper::solve_attacker_vcf(self, state)
+        self.vcf_solver.solve(&mut state.vcf_state())
     }
 
     fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
-        VCFHelper::solve_attacker_threat(self, state)
-    }
-}
-
-impl VCFHelper for Solver {
-    fn attacker_vcf_depth(&self) -> u8 {
-        self.attacker_vcf_depth
-    }
-
-    fn defender_vcf_depth(&self) -> u8 {
-        self.defender_vcf_depth
-    }
-
-    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
-        &mut self.attacker_vcf_solver
-    }
-
-    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
-        &mut self.defender_vcf_solver
+        self.vcf_solver.solve(&mut state.threat_state())
     }
 }
