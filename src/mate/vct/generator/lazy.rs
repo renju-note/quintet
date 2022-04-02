@@ -48,24 +48,27 @@ pub trait LazyGenerator: Traverser {
                 return selection.current;
             }
             let next_threshold = self.next_threshold_defence(&selection, threshold);
-            self.expand_defence_after_pass(state, selection.best, next_threshold);
+            state.into_play(selection.best, |child| {
+                let result = self.search_limit_passed(child, next_threshold);
+                self.defender_table().insert(child, result);
+            })
         }
     }
 
-    fn search_limit_after_pass(&mut self, state: &mut State, threshold: Node) -> Node {
+    fn search_limit_passed(&mut self, state: &mut State, threshold: Node) -> Node {
         if state.limit() == 0 {
             return Node::zero_dn(state.limit());
         }
-        self.search_attacks_after_pass(state, threshold)
+        self.search_attacks_passed(state, threshold)
     }
 
-    fn search_attacks_after_pass(&mut self, state: &mut State, threshold: Node) -> Node {
+    fn search_attacks_passed(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit()),
                 Forced(m) => {
                     if state.is_four_move(m) {
-                        self.loop_attacks_after_pass(state, &[m], threshold)
+                        self.traverse_attacks_passed(state, &[m], threshold)
                     } else {
                         Node::zero_dn(state.limit())
                     }
@@ -79,23 +82,17 @@ pub trait LazyGenerator: Traverser {
             return Node::zero_dn(state.limit());
         }
 
-        self.loop_attacks_after_pass(state, &attacks, threshold)
+        self.traverse_attacks_passed(state, &attacks, threshold)
     }
 
-    fn loop_attacks_after_pass(
+    fn traverse_attacks_passed(
         &mut self,
         state: &mut State,
         attacks: &[Point],
         threshold: Node,
     ) -> Node {
-        let selection = loop {
-            let selection = self.select_attack(state, &attacks);
-            if self.backoff(selection.current, threshold) {
-                break selection;
-            }
-            let next_threshold = self.next_threshold_attack(&selection, threshold);
-            self.expand_attack_after_pass(state, selection.best.unwrap(), next_threshold);
-        };
+        let selection =
+            self.traverse_attacks(state, attacks, threshold, Self::search_defences_passed);
         if selection.current.pn == 0 {
             let key = state.next_zobrist_hash(selection.best);
             let mut defences = self.lookup_defences(key);
@@ -105,20 +102,7 @@ pub trait LazyGenerator: Traverser {
         selection.current
     }
 
-    fn expand_attack_after_pass(
-        &mut self,
-        state: &mut State,
-        attack: Point,
-        threshold: Node,
-    ) -> Node {
-        state.into_play(Some(attack), |s| {
-            let result = self.search_defences_after_pass(s, threshold);
-            self.attacker_table().insert(s, result.clone());
-            result
-        })
-    }
-
-    fn search_defences_after_pass(&mut self, state: &mut State, threshold: Node) -> Node {
+    fn search_defences_passed(&mut self, state: &mut State, threshold: Node) -> Node {
         match state.game().check_event().unwrap() {
             Defeated(e) => {
                 let key = state.game().zobrist_hash();
@@ -126,24 +110,18 @@ pub trait LazyGenerator: Traverser {
                 self.extend_defences(key, &defences);
                 Node::zero_pn(state.limit())
             }
-            Forced(m) => self.loop_defences_after_pass(state, &[m], threshold),
+            Forced(m) => self.traverse_defences_passed(state, &[m], threshold),
         }
     }
 
-    fn loop_defences_after_pass(
+    fn traverse_defences_passed(
         &mut self,
         state: &mut State,
         defences: &[Point],
         threshold: Node,
     ) -> Node {
-        let selection = loop {
-            let selection = self.select_defence(state, &defences);
-            if self.backoff(selection.current, threshold) {
-                break selection;
-            }
-            let next_threshold = self.next_threshold_defence(&selection, threshold);
-            self.expand_defence_after_pass(state, selection.best, next_threshold);
-        };
+        let selection =
+            self.traverse_defences(state, defences, threshold, Self::search_limit_passed);
         if selection.current.pn == 0 && state.game().passed {
             let key = state.next_zobrist_hash(selection.best);
             let mut defences = self.lookup_defences(key);
@@ -153,19 +131,6 @@ pub trait LazyGenerator: Traverser {
             self.extend_defences(state.game().zobrist_hash(), &defences);
         };
         selection.current
-    }
-
-    fn expand_defence_after_pass(
-        &mut self,
-        state: &mut State,
-        defence: Option<Point>,
-        threshold: Node,
-    ) -> Node {
-        state.into_play(defence, |s| {
-            let result = self.search_limit_after_pass(s, threshold);
-            self.defender_table().insert(s, result.clone());
-            result
-        })
     }
 
     fn extend_defences(&mut self, key: u64, points: &[Point]) {
