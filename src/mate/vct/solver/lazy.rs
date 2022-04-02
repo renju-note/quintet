@@ -43,12 +43,16 @@ impl ProofTree for LazyDFPNSolver {
 }
 
 impl Generator for LazyDFPNSolver {
-    fn find_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
-        LazyGenerator::find_attacks(self, state, threshold)
+    fn generate_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
+        LazyGenerator::generate_attacks(self, state, threshold)
     }
 
-    fn find_defences(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
-        LazyGenerator::find_defences(self, state, threshold)
+    fn generate_defences(
+        &mut self,
+        state: &mut State,
+        threshold: Node,
+    ) -> Result<Vec<Point>, Node> {
+        LazyGenerator::generate_defences(self, state, threshold)
     }
 }
 

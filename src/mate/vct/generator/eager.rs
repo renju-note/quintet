@@ -4,7 +4,11 @@ use crate::mate::vct::proof::Node;
 use crate::mate::vct::state::State;
 
 pub trait EagerGenerator: VCFHelper {
-    fn find_attacks(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {
+    fn generate_attacks(
+        &mut self,
+        state: &mut State,
+        _threshold: Node,
+    ) -> Result<Vec<Point>, Node> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
             return Err(Node::zero_pn(state.limit()));
@@ -15,7 +19,11 @@ pub trait EagerGenerator: VCFHelper {
         Ok(state.sorted_attacks(maybe_threat))
     }
 
-    fn find_defences(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {
+    fn generate_defences(
+        &mut self,
+        state: &mut State,
+        _threshold: Node,
+    ) -> Result<Vec<Point>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
             return Err(Node::zero_dn(state.limit()));

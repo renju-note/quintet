@@ -8,11 +8,19 @@ use std::collections::HashMap;
 pub trait LazyGenerator: Traverser {
     fn defences_memory(&mut self) -> &mut HashMap<u64, Vec<Point>>;
 
-    fn find_attacks(&mut self, state: &mut State, _threshold: Node) -> Result<Vec<Point>, Node> {
+    fn generate_attacks(
+        &mut self,
+        state: &mut State,
+        _threshold: Node,
+    ) -> Result<Vec<Point>, Node> {
         Ok(state.sorted_attacks(None))
     }
 
-    fn find_defences(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
+    fn generate_defences(
+        &mut self,
+        state: &mut State,
+        threshold: Node,
+    ) -> Result<Vec<Point>, Node> {
         let result = self.loop_defence_pass(state, threshold);
         if result.pn != 0 {
             return Err(result);

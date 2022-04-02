@@ -24,7 +24,7 @@ pub trait Traverser: ProofTree {
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node);
     fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node);
 
-    fn loop_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
+    fn traverse_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
         loop {
             let selection = self.select_attack(state, &attacks);
             if self.backoff(selection.current, threshold) {
@@ -35,7 +35,12 @@ pub trait Traverser: ProofTree {
         }
     }
 
-    fn loop_defences(&mut self, state: &mut State, defences: &[Point], threshold: Node) -> Node {
+    fn traverse_defences(
+        &mut self,
+        state: &mut State,
+        defences: &[Point],
+        threshold: Node,
+    ) -> Node {
         loop {
             let selection = self.select_defence(state, &defences);
             if self.backoff(selection.current, threshold) {
