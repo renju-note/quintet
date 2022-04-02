@@ -1,17 +1,15 @@
-use super::generator;
-use super::resolver::*;
-use super::searcher;
-use super::solver;
-use super::solver2;
-use super::state::State;
-use super::table::*;
-use super::traverser;
 use crate::board::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
+use crate::mate::vct::generator;
+use crate::mate::vct::resolver::*;
+use crate::mate::vct::searcher;
+use crate::mate::vct::solver;
+use crate::mate::vct::solver2;
+use crate::mate::vct::state::State;
+use crate::mate::vct::table::*;
+use crate::mate::vct::traverser;
 use crate::mate::vct::traverser::base::Selection;
-
-// MEMO: Debug printing example is 6e2bace
 
 pub struct Solver {
     attacker_table: Table,
@@ -69,19 +67,19 @@ impl solver::Solver for Solver {
 
 impl traverser::base::Traverser for Solver {
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
-        traverser::dfpns::Traverser::select_attack(self, state, attacks)
+        traverser::dfs::Traverser::select_attack(self, state, attacks)
     }
 
     fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
-        traverser::dfpns::Traverser::select_defence(self, state, defences)
+        traverser::dfs::Traverser::select_defence(self, state, defences)
     }
 
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
-        traverser::dfpns::Traverser::next_threshold_attack(self, selection, threshold)
+        traverser::dfs::Traverser::next_threshold_attack(self, selection, threshold)
     }
 
     fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
-        traverser::dfpns::Traverser::next_threshold_defence(self, selection, threshold)
+        traverser::dfs::Traverser::next_threshold_defence(self, selection, threshold)
     }
 
     fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
@@ -93,7 +91,7 @@ impl traverser::base::Traverser for Solver {
     }
 }
 
-impl traverser::dfpns::Traverser for Solver {
+impl traverser::dfs::Traverser for Solver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }

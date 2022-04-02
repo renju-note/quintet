@@ -1,3 +1,8 @@
+pub mod dfpns;
+pub mod dfs;
+pub mod lazy;
+pub mod pns;
+
 use super::state::State;
 use super::table::*;
 use crate::mate::mate::*;

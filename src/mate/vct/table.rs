@@ -1,6 +1,7 @@
 use super::state::*;
 use crate::board::*;
 use std::collections::HashMap;
+use std::fmt;
 
 pub struct Table {
     table: HashMap<u64, Node>,
@@ -23,8 +24,6 @@ impl Table {
         self.table.get(&key).map(|&c| c)
     }
 }
-
-use std::fmt;
 
 pub const INF: u32 = u32::MAX;
 
