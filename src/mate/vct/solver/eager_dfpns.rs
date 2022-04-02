@@ -4,7 +4,7 @@ use crate::mate::vcf;
 use crate::mate::vct::generator::*;
 use crate::mate::vct::helper;
 use crate::mate::vct::proof::*;
-use crate::mate::vct::resolver::*;
+use crate::mate::vct::resolver::Resolver;
 use crate::mate::vct::searcher::Searcher;
 use crate::mate::vct::solver::Solver;
 use crate::mate::vct::state::State;
