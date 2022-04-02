@@ -2,6 +2,7 @@ use super::game::*;
 use super::mate::*;
 use super::vcf;
 use super::vct;
+use super::vct::Solver;
 use crate::board::Player::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
@@ -73,22 +74,22 @@ pub fn solve(
         }
         VCTDFS => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::solver::dfs::Solver::init(threat_limit, 2);
+            let mut solver = vct::EagerDFSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTPNS => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::solver::pns::Solver::init(threat_limit, 2);
+            let mut solver = vct::EagerPNSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTDFPNS => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::solver::dfpns::Solver::init(threat_limit, 2);
+            let mut solver = vct::EagerDFPNSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTLAZY => {
             let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::solver::lazy::Solver::init();
+            let mut solver = vct::LazyDFPNSolver::init();
             solver.solve(state)
         }
         _ => None,

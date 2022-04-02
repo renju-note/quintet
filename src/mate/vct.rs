@@ -1,11 +1,17 @@
 mod field;
-pub mod generator;
-pub mod helper;
+mod generator;
+mod helper;
 mod proof;
-pub mod resolver;
-pub mod searcher;
-pub mod solver;
+mod resolver;
+mod searcher;
+mod solver;
 mod state;
-pub mod traverser;
+mod traverser;
+
+pub use solver::dfpns::EagerDFPNSolver;
+pub use solver::dfs::EagerDFSSolver;
+pub use solver::lazy::LazyDFPNSolver;
+pub use solver::pns::EagerPNSSolver;
+pub use solver::Solver;
 
 pub use state::State;

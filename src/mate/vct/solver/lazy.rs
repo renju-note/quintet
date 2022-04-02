@@ -5,19 +5,19 @@ use crate::mate::vct::generator::*;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::*;
 use crate::mate::vct::searcher::Searcher;
-use crate::mate::vct::solver;
+use crate::mate::vct::solver::Solver;
 use crate::mate::vct::state::State;
 use crate::mate::vct::traverser::*;
 use std::collections::HashMap;
 
-pub struct Solver {
+pub struct LazyDFPNSolver {
     attacker_table: Table,
     defender_table: Table,
     defences_memory: HashMap<u64, Vec<Point>>,
     vcf_solver: vcf::iddfs::Solver,
 }
 
-impl Solver {
+impl LazyDFPNSolver {
     pub fn init() -> Self {
         Self {
             attacker_table: Table::new(),
@@ -26,17 +26,13 @@ impl Solver {
             vcf_solver: vcf::iddfs::Solver::init((1..u8::MAX).collect()),
         }
     }
-
-    pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
-        solver::Solver::solve(self, state)
-    }
 }
 
-impl solver::Solver for Solver {}
+impl Solver for LazyDFPNSolver {}
 
-impl Searcher for Solver {}
+impl Searcher for LazyDFPNSolver {}
 
-impl ProofTree for Solver {
+impl ProofTree for LazyDFPNSolver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }
@@ -46,7 +42,7 @@ impl ProofTree for Solver {
     }
 }
 
-impl Generator for Solver {
+impl Generator for LazyDFPNSolver {
     fn find_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
         LazyGenerator::find_attacks(self, state, threshold)
     }
@@ -56,13 +52,13 @@ impl Generator for Solver {
     }
 }
 
-impl LazyGenerator for Solver {
+impl LazyGenerator for LazyDFPNSolver {
     fn defences_memory(&mut self) -> &mut HashMap<u64, Vec<Point>> {
         &mut self.defences_memory
     }
 }
 
-impl Traverser for Solver {
+impl Traverser for LazyDFPNSolver {
     fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
         DFPNSTraverser::select_attack(self, state, attacks)
     }
@@ -88,9 +84,9 @@ impl Traverser for Solver {
     }
 }
 
-impl DFPNSTraverser for Solver {}
+impl DFPNSTraverser for LazyDFPNSolver {}
 
-impl Resolver for Solver {
+impl Resolver for LazyDFPNSolver {
     fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
         self.vcf_solver.solve(&mut state.vcf_state())
     }
