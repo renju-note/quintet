@@ -2,12 +2,12 @@ use crate::board::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
 use crate::mate::vct::generator;
+use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::*;
 use crate::mate::vct::searcher;
 use crate::mate::vct::solver;
 use crate::mate::vct::solver2;
 use crate::mate::vct::state::State;
-use crate::mate::vct::table::*;
 use crate::mate::vct::traverser;
 use crate::mate::vct::traverser::base::Selection;
 

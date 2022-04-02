@@ -1,6 +1,6 @@
 use crate::board::*;
+use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
-use crate::mate::vct::table::*;
 
 pub struct Selection {
     pub best: Option<Point>,

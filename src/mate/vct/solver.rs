@@ -4,9 +4,9 @@ pub mod lazy;
 pub mod pns;
 
 use super::state::State;
-use super::table::*;
 use crate::mate::mate::*;
 use crate::mate::vcf;
+use crate::mate::vct::proof::Table;
 
 pub trait Solver {
     fn attacker_table(&mut self) -> &mut Table;

@@ -1,9 +1,9 @@
 use super::generator::base::Generator;
 use super::state::State;
-use super::table::*;
 use super::traverser::base::Traverser;
 use crate::board::Point;
 use crate::mate::game::*;
+use crate::mate::vct::proof::{Node, Table};
 
 pub trait Searcher: Generator + Traverser {
     fn attacker_table(&mut self) -> &mut Table;

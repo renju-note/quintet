@@ -1,8 +1,8 @@
 use super::solver::Solver;
 use super::state::State;
-use super::table::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
+use crate::mate::vct::proof::Node;
 
 pub trait Resolver: Solver {
     fn resolve(&mut self, state: &mut State) -> Option<Mate> {

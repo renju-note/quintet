@@ -2,8 +2,8 @@ use super::base;
 use crate::board::*;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
+use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
-use crate::mate::vct::table::*;
 
 pub trait Generator: base::Generator {
     fn attacker_vcf_depth(&self) -> u8;
