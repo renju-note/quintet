@@ -11,6 +11,7 @@ Nagai, Ayumu, and Hiroshi Imai.
 "Proof for the equivalence between some best-first algorithms and depth-first algorithms for AND/OR trees."
 IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 */
+
 pub trait Traverser: base::Traverser {
     fn attacker_table(&mut self) -> &mut Table;
 

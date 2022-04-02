@@ -82,7 +82,7 @@ pub trait Traverser: base::Traverser {
         )
     }
 
-    fn calc_next_threshold_defence(&self, selection: &Selection, _threshold: Node) -> Node {
+    fn next_threshold_defence(&self, selection: &Selection, _threshold: Node) -> Node {
         let next = selection.next1;
         Node::new(
             next.pn.checked_add(1).unwrap_or(INF),

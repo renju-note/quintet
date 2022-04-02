@@ -1,18 +1,17 @@
-use super::generator;
+use super::generator::base::Generator;
 use super::state::State;
 use super::table::*;
-use super::traverser;
-use crate::board::*;
+use super::traverser::base::Traverser;
+use crate::board::Point;
 use crate::mate::game::*;
 
-pub trait Searcher: generator::base::Generator + traverser::base::Traverser {
+pub trait Searcher: Generator + Traverser {
     fn attacker_table(&mut self) -> &mut Table;
 
     fn defender_table(&mut self) -> &mut Table;
 
     fn search(&mut self, state: &mut State) -> bool {
-        let result = self.search_limit(state, Node::inf());
-        result.proven()
+        self.search_limit(state, Node::inf()).proven()
     }
 
     fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
