@@ -70,14 +70,6 @@ impl Traverser for EagerPNSSolver {
     fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
         PNSTraverser::next_threshold_defence(self, selection, threshold)
     }
-
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
-        Searcher::expand_attack(self, state, attack, threshold);
-    }
-
-    fn expand_defence(&mut self, state: &mut State, attack: Point, threshold: Node) {
-        Searcher::expand_defence(self, state, attack, threshold);
-    }
 }
 
 impl PNSTraverser for EagerPNSSolver {}

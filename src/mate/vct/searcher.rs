@@ -23,7 +23,10 @@ pub trait Searcher: ProofTree + Generator + Traverser {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit()),
-                Forced(m) => self.traverse_attacks(state, &[m], threshold),
+                Forced(m) => {
+                    self.traverse_attacks(state, &[m], threshold, Self::search_defences)
+                        .current
+                }
             };
         }
 
@@ -37,21 +40,18 @@ pub trait Searcher: ProofTree + Generator + Traverser {
             return Node::zero_dn(state.limit());
         }
 
-        self.traverse_attacks(state, &attacks, threshold)
-    }
-
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node) {
-        state.into_play(Some(attack), |s| {
-            let result = self.search_defences(s, threshold);
-            self.attacker_table().insert(s, result);
-        })
+        self.traverse_attacks(state, &attacks, threshold, Self::search_defences)
+            .current
     }
 
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit()),
-                Forced(m) => self.traverse_defences(state, &[m], threshold),
+                Forced(m) => {
+                    self.traverse_defences(state, &[m], threshold, Self::search_limit)
+                        .current
+                }
             };
         }
 
@@ -65,7 +65,8 @@ pub trait Searcher: ProofTree + Generator + Traverser {
             return Node::zero_pn(state.limit());
         }
 
-        self.traverse_defences(state, &defences, threshold)
+        self.traverse_defences(state, &defences, threshold, Self::search_limit)
+            .current
     }
 
     fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) {

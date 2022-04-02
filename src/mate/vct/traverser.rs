@@ -21,33 +21,49 @@ pub trait Traverser: ProofTree {
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node;
     fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node;
 
-    fn expand_attack(&mut self, state: &mut State, attack: Point, threshold: Node);
-    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node);
-
-    fn traverse_attacks(&mut self, state: &mut State, attacks: &[Point], threshold: Node) -> Node {
+    fn traverse_attacks<F>(
+        &mut self,
+        state: &mut State,
+        attacks: &[Point],
+        threshold: Node,
+        search_defences: F,
+    ) -> Selection
+    where
+        F: Fn(&mut Self, &mut State, Node) -> Node,
+    {
         loop {
             let selection = self.select_attack(state, &attacks);
             if self.backoff(selection.current, threshold) {
-                return selection.current;
+                return selection;
             }
             let next_threshold = self.next_threshold_attack(&selection, threshold);
-            self.expand_attack(state, selection.best.unwrap(), next_threshold);
+            state.into_play(selection.best, |child| {
+                let result = search_defences(self, child, next_threshold);
+                self.attacker_table().insert(child, result);
+            });
         }
     }
 
-    fn traverse_defences(
+    fn traverse_defences<F>(
         &mut self,
         state: &mut State,
         defences: &[Point],
         threshold: Node,
-    ) -> Node {
+        search_limit: F,
+    ) -> Selection
+    where
+        F: Fn(&mut Self, &mut State, Node) -> Node,
+    {
         loop {
             let selection = self.select_defence(state, &defences);
             if self.backoff(selection.current, threshold) {
-                return selection.current;
+                return selection;
             }
             let next_threshold = self.next_threshold_defence(&selection, threshold);
-            self.expand_defence(state, selection.best.unwrap(), next_threshold);
+            state.into_play(selection.best, |child| {
+                let result = search_limit(self, child, next_threshold);
+                self.defender_table().insert(child, result);
+            })
         }
     }
 
