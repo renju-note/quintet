@@ -24,11 +24,7 @@ pub trait EagerGenerator: ProofTree + VCFHelper {
         let limit = state.limit();
         let result = result
             .into_iter()
-            .map(|(p, o)| {
-                let dn = len.pow(2);
-                let pn = dn.checked_div(o as u32).unwrap_or(len).max(1);
-                (p, Node::new(pn, dn, limit))
-            })
+            .map(|(p, _)| (p, Node::init_dn(len, limit)))
             .collect();
         Ok(result)
     }
@@ -56,11 +52,7 @@ pub trait EagerGenerator: ProofTree + VCFHelper {
         let limit = state.limit() - 1;
         let result = result
             .into_iter()
-            .map(|(p, o)| {
-                let pn = len.pow(2) as u32;
-                let dn = pn.checked_div(o as u32).unwrap_or(len).max(1);
-                (p, Node::new(pn, dn, limit))
-            })
+            .map(|(p, _)| (p, Node::init_pn(len, limit)))
             .collect();
         Ok(result)
     }
