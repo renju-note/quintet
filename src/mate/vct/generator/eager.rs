@@ -8,7 +8,7 @@ pub trait EagerGenerator: ProofTree + VCFHelper {
         &mut self,
         state: &mut State,
         _threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
             return Err(Node::zero_pn(state.limit()));
@@ -20,8 +20,16 @@ pub trait EagerGenerator: ProofTree + VCFHelper {
         let mut result = state.sorted_potentials(3, maybe_threat_defences);
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
-        let init_pn = result.len() as u32;
-        let result = result.into_iter().map(|(p, _)| (p, init_pn)).collect();
+        let len = result.len() as u32;
+        let limit = state.limit();
+        let result = result
+            .into_iter()
+            .map(|(p, o)| {
+                let dn = len.pow(2);
+                let pn = dn.checked_div(o as u32).unwrap_or(len).max(1);
+                (p, Node::new(pn, dn, limit))
+            })
+            .collect();
         Ok(result)
     }
 
@@ -29,7 +37,7 @@ pub trait EagerGenerator: ProofTree + VCFHelper {
         &mut self,
         state: &mut State,
         _threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
             return Err(Node::zero_dn(state.limit()));
@@ -44,8 +52,16 @@ pub trait EagerGenerator: ProofTree + VCFHelper {
         let mut result = state.sort_by_potential(state.threat_defences(&threat));
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
-        let init_dn = result.len() as u32;
-        let result: Vec<_> = result.into_iter().map(|(p, _)| (p, init_dn)).collect();
+        let len = result.len() as u32;
+        let limit = state.limit() - 1;
+        let result = result
+            .into_iter()
+            .map(|(p, o)| {
+                let pn = len.pow(2) as u32;
+                let dn = pn.checked_div(o as u32).unwrap_or(len).max(1);
+                (p, Node::new(pn, dn, limit))
+            })
+            .collect();
         Ok(result)
     }
 }

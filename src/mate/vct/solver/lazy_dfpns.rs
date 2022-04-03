@@ -47,7 +47,7 @@ impl Generator for LazyDFPNSolver {
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         LazyGenerator::generate_attacks(self, state, threshold)
     }
 
@@ -55,7 +55,7 @@ impl Generator for LazyDFPNSolver {
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         LazyGenerator::generate_defences(self, state, threshold)
     }
 }

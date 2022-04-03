@@ -23,7 +23,7 @@ pub trait Searcher: ProofTree + Generator + Traverser {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit()),
                 Forced(next_move) => {
-                    let attacks = &[(next_move, 1)];
+                    let attacks = &[(next_move, Node::new(1, 1, state.limit()))];
                     self.traverse_attacks(state, attacks, threshold, Self::search_defences)
                         .current
                 }
@@ -49,7 +49,7 @@ pub trait Searcher: ProofTree + Generator + Traverser {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit()),
                 Forced(next_move) => {
-                    let defences = &[(next_move, 1)];
+                    let defences = &[(next_move, Node::new(1, 1, state.limit() - 1))];
                     self.traverse_defences(state, defences, threshold, Self::search_limit)
                         .current
                 }

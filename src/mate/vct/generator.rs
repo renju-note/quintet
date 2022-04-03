@@ -13,11 +13,11 @@ pub trait Generator {
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node>;
+    ) -> Result<Vec<(Point, Node)>, Node>;
 
     fn generate_defences(
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node>;
+    ) -> Result<Vec<(Point, Node)>, Node>;
 }

@@ -12,12 +12,15 @@ pub trait LazyGenerator: Traverser {
         &mut self,
         state: &mut State,
         _threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         let mut result = state.sorted_potentials(3, None);
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
-        let pseudo_pn = result.len() as u32;
-        let result = result.into_iter().map(|(p, _)| (p, pseudo_pn)).collect();
+        let len = result.len() as u32;
+        let result = result
+            .into_iter()
+            .map(|(p, _)| (p, Node::new(len, len, state.limit())))
+            .collect();
         Ok(result)
     }
 
@@ -25,7 +28,7 @@ pub trait LazyGenerator: Traverser {
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         let result = self.loop_defence_pass(state, threshold);
         if result.pn != 0 {
             return Err(result);
@@ -36,8 +39,11 @@ pub trait LazyGenerator: Traverser {
         let mut result = state.sort_by_potential(defences);
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
-        let pseudo_dn = result.len() as u32;
-        let result = result.into_iter().map(|(p, _)| (p, pseudo_dn)).collect();
+        let len = result.len() as u32;
+        let result = result
+            .into_iter()
+            .map(|(p, _)| (p, Node::new(len, len, state.limit() - 1)))
+            .collect();
         Ok(result)
     }
 
@@ -46,7 +52,7 @@ pub trait LazyGenerator: Traverser {
             let current = self
                 .defender_table()
                 .lookup_next(state, None)
-                .unwrap_or(Node::init_pn(1, state.limit() - 1));
+                .unwrap_or(Node::new(1, 1, state.limit() - 1));
             let selection = Selection {
                 best: None,
                 current: current,
@@ -100,7 +106,10 @@ pub trait LazyGenerator: Traverser {
         attacks: &[Point],
         threshold: Node,
     ) -> Node {
-        let attacks: Vec<_> = attacks.into_iter().map(|&p| (p, 1)).collect();
+        let attacks: Vec<_> = attacks
+            .into_iter()
+            .map(|&p| (p, Node::new(1, 1, state.limit())))
+            .collect();
         let selection =
             self.traverse_attacks(state, &attacks, threshold, Self::search_defences_passed);
         if selection.current.pn == 0 {
@@ -130,7 +139,10 @@ pub trait LazyGenerator: Traverser {
         defences: &[Point],
         threshold: Node,
     ) -> Node {
-        let defences: Vec<_> = defences.into_iter().map(|&p| (p, 1)).collect();
+        let defences: Vec<_> = defences
+            .into_iter()
+            .map(|&p| (p, Node::new(1, 1, state.limit())))
+            .collect();
         let selection =
             self.traverse_defences(state, &defences, threshold, Self::search_limit_passed);
         if selection.current.pn == 0 && state.game().passed {

@@ -24,7 +24,7 @@ pub trait Traverser: ProofTree {
     fn traverse_attacks<F>(
         &mut self,
         state: &mut State,
-        attacks: &[(Point, u32)],
+        attacks: &[(Point, Node)],
         threshold: Node,
         search_defences: F,
     ) -> Selection
@@ -47,7 +47,7 @@ pub trait Traverser: ProofTree {
     fn traverse_defences<F>(
         &mut self,
         state: &mut State,
-        defences: &[(Point, u32)],
+        defences: &[(Point, Node)],
         threshold: Node,
         search_limit: F,
     ) -> Selection
@@ -71,17 +71,17 @@ pub trait Traverser: ProofTree {
         current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 
-    fn select_attack(&mut self, state: &mut State, attacks: &[(Point, u32)]) -> Selection {
+    fn select_attack(&mut self, state: &mut State, attacks: &[(Point, Node)]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(attacks[0].0);
         let mut current = Node::zero_dn(limit);
         let mut next1 = Node::zero_dn(limit);
         let mut next2 = Node::zero_dn(limit);
-        for &(attack, pseudo_pn) in attacks {
+        for &(attack, init) in attacks {
             let child = self
                 .attacker_table()
                 .lookup_next(state, Some(attack))
-                .unwrap_or(Node::init_dn(pseudo_pn, limit));
+                .unwrap_or(init);
             current = current.min_pn_sum_dn(child);
             if child.pn < next1.pn {
                 best.replace(attack);
@@ -103,17 +103,17 @@ pub trait Traverser: ProofTree {
         }
     }
 
-    fn select_defence(&mut self, state: &mut State, defences: &[(Point, u32)]) -> Selection {
+    fn select_defence(&mut self, state: &mut State, defences: &[(Point, Node)]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(defences[0].0);
         let mut current = Node::zero_pn(limit - 1);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);
-        for &(defence, pseudo_dn) in defences {
+        for &(defence, init) in defences {
             let child = self
                 .defender_table()
                 .lookup_next(state, Some(defence))
-                .unwrap_or(Node::init_pn(pseudo_dn, limit - 1));
+                .unwrap_or(init);
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
                 best.replace(defence);

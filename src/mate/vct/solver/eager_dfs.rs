@@ -51,7 +51,7 @@ impl Generator for EagerDFSSolver {
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_attacks(self, state, threshold)
     }
 
@@ -59,7 +59,7 @@ impl Generator for EagerDFSSolver {
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<(Point, u32)>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_defences(self, state, threshold)
     }
 }

@@ -60,14 +60,6 @@ impl Node {
         Self::new(INF, 0, limit)
     }
 
-    pub fn init_pn(approx_dn: u32, limit: u8) -> Self {
-        Self::new(1, approx_dn, limit)
-    }
-
-    pub fn init_dn(approx_pn: u32, limit: u8) -> Self {
-        Self::new(approx_pn, 1, limit)
-    }
-
     pub fn proven(&self) -> bool {
         self.pn == 0
     }
