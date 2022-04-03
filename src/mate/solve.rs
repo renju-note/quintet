@@ -528,6 +528,134 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    #[ignore]
+    fn bench_vct_black() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . o x o o . . . . .
+         . . . . . . . x x . . . . . .
+         . . . . . . x o x o . . . . .
+         . . . . . . . o x . . . . . .
+         . . . . . . . x . x . . . . .
+         . . . . . . x o o o . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let solution = "J10,J12,L8,K9,K7,I5,L9,L7,M8,K10,M9,N10,M7,M6,N8,E4,F5,K8,L6,K6,K5";
+
+        let result = solve(VCTDFPNS, 14, &board, Black, 2);
+        assert_eq!(path_string(result), solution);
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_vct_white() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . o . . . . . . . .
+         . . . . o x x x o o . x . . .
+         . . . . . . o x x x x o o . .
+         . . . . . o x o o x x . . . .
+         . . . . . x . o o . x . . . .
+         . . . . x . o . . x o o . . .
+         . . . o . x . . x . . . . . .
+         . . . . . . o o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let solution =
+            "K11,K10,N12,M11,N8,H5,H6,L8,J5,J7,M5,L4,M6,N5,L5,K5,J3,F3,I6,E2,D1,K4,J4,J2,K3";
+
+        let result = solve(VCTDFPNS, 15, &board, White, 2);
+        assert_eq!(path_string(result), solution);
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_vct_unstable() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . x o . o o . . . . .
+         . . . . . o x x x o . . . . .
+         . . . . . . . o x o x . . . .
+         . . . . . . . x o x . x . . .
+         . . . . . . . x o o o . . . .
+         . . . . . . . . o . x . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let solution =
+            "J12,J11,K10,H10,L10,M10,K7,L8,K11,M9,I12,F8,E7,L9,N11,L6,L5,E8,H11,J13,G12,F13,H12";
+
+        // fast
+        let result = solve(VCTDFPNS, 12, &board, Black, 3);
+        assert_eq!(path_string(result), solution);
+
+        // slow
+        // let result = solve(VCTDFPNS, 10, &board, Black, 3);
+        // assert_eq!(path_string(result), solution);
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_vct_small_but_long() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . o x o . . . . . . .
+         . . . . . x o x . . . . . . .
+         . . . . . . . x . . . . . . .
+         . . . . . . o . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let solution =
+            "F6,E5,E7,D8,G9,H10,F10,E11,H4,I3,J6,I7,I5,G3,J5,H5,I9,J10,J8,J7,K7,L8,K6,L6,H9,J9,E9,F9,D6,C5,D10,C11,E10,G10,E6,E8,C6";
+
+        let result = solve(VCTDFPNS, 20, &board, Black, 3);
+        assert_eq!(path_string(result), solution);
+
+        Ok(())
+    }
+
     fn path_string(maybe_mate: Option<Mate>) -> String {
         maybe_mate
             .map(|m| Points(m.path).to_string())
