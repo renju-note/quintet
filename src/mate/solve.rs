@@ -516,7 +516,7 @@ mod tests {
         let result = solve(VCTPNS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
-        let solution = "K3,G7,L2,J4,I3,I4,L3,M3,H3";
+        let solution = "I3,I4,K3,G7,L2,J4,L3,M3,H3";
 
         let result = solve(VCTLAZY, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);

@@ -47,11 +47,11 @@ pub trait Resolver: ProofTree {
             };
         }
 
-        let maybe_threat = self.solve_attacker_threat(state);
-        let defences = state.sorted_defences(maybe_threat.unwrap());
+        let threat = self.solve_attacker_threat(state).unwrap();
+        let defences = state.sort_by_potential(state.threat_defences(&threat));
         let mut min_limit = u8::MAX;
         let mut best = None;
-        for defence in defences {
+        for (defence, _) in defences {
             let node = self
                 .defender_table()
                 .lookup_next(state, Some(defence))

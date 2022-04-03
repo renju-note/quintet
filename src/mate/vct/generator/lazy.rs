@@ -12,15 +12,20 @@ pub trait LazyGenerator: Traverser {
         &mut self,
         state: &mut State,
         _threshold: Node,
-    ) -> Result<Vec<Point>, Node> {
-        Ok(state.sorted_attacks(None))
+    ) -> Result<Vec<(Point, u32)>, Node> {
+        let mut result = state.sorted_potentials(3, None);
+        result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
+
+        let pseudo_pn = result.len() as u32;
+        let result = result.into_iter().map(|(p, _)| (p, pseudo_pn)).collect();
+        Ok(result)
     }
 
     fn generate_defences(
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<Point>, Node> {
+    ) -> Result<Vec<(Point, u32)>, Node> {
         let result = self.loop_defence_pass(state, threshold);
         if result.pn != 0 {
             return Err(result);
@@ -28,8 +33,12 @@ pub trait LazyGenerator: Traverser {
 
         let mut defences = self.lookup_defences(state.next_zobrist_hash(None));
         defences.extend(state.four_moves());
-        defences.retain(|&d| !state.game().is_forbidden_move(d));
-        Ok(defences)
+        let mut result = state.sort_by_potential(defences);
+        result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
+
+        let pseudo_dn = result.len() as u32;
+        let result = result.into_iter().map(|(p, _)| (p, pseudo_dn)).collect();
+        Ok(result)
     }
 
     fn loop_defence_pass(&mut self, state: &mut State, threshold: Node) -> Node {
@@ -91,8 +100,9 @@ pub trait LazyGenerator: Traverser {
         attacks: &[Point],
         threshold: Node,
     ) -> Node {
+        let attacks: Vec<_> = attacks.into_iter().map(|&p| (p, 1)).collect();
         let selection =
-            self.traverse_attacks(state, attacks, threshold, Self::search_defences_passed);
+            self.traverse_attacks(state, &attacks, threshold, Self::search_defences_passed);
         if selection.current.pn == 0 {
             let key = state.next_zobrist_hash(selection.best);
             let mut defences = self.lookup_defences(key);
@@ -120,8 +130,9 @@ pub trait LazyGenerator: Traverser {
         defences: &[Point],
         threshold: Node,
     ) -> Node {
+        let defences: Vec<_> = defences.into_iter().map(|&p| (p, 1)).collect();
         let selection =
-            self.traverse_defences(state, defences, threshold, Self::search_limit_passed);
+            self.traverse_defences(state, &defences, threshold, Self::search_limit_passed);
         if selection.current.pn == 0 && state.game().passed {
             let key = state.next_zobrist_hash(selection.best);
             let mut defences = self.lookup_defences(key);

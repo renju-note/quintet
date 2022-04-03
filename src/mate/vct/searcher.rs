@@ -22,8 +22,9 @@ pub trait Searcher: ProofTree + Generator + Traverser {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit()),
-                Forced(m) => {
-                    self.traverse_attacks(state, &[m], threshold, Self::search_defences)
+                Forced(next_move) => {
+                    let attacks = &[(next_move, 1)];
+                    self.traverse_attacks(state, attacks, threshold, Self::search_defences)
                         .current
                 }
             };
@@ -47,8 +48,9 @@ pub trait Searcher: ProofTree + Generator + Traverser {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit()),
-                Forced(m) => {
-                    self.traverse_defences(state, &[m], threshold, Self::search_limit)
+                Forced(next_move) => {
+                    let defences = &[(next_move, 1)];
+                    self.traverse_defences(state, defences, threshold, Self::search_limit)
                         .current
                 }
             };
