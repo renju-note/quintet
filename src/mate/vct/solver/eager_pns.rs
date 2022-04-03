@@ -47,7 +47,11 @@ impl ProofTree for EagerPNSSolver {
 }
 
 impl Generator for EagerPNSSolver {
-    fn generate_attacks(&mut self, state: &mut State, threshold: Node) -> Result<Vec<Point>, Node> {
+    fn generate_attacks(
+        &mut self,
+        state: &mut State,
+        threshold: Node,
+    ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_attacks(self, state, threshold)
     }
 
@@ -55,7 +59,7 @@ impl Generator for EagerPNSSolver {
         &mut self,
         state: &mut State,
         threshold: Node,
-    ) -> Result<Vec<Point>, Node> {
+    ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_defences(self, state, threshold)
     }
 }

@@ -73,26 +73,6 @@ impl State {
         self.game.into_play(next_move, |g| g.zobrist_hash())
     }
 
-    pub fn sorted_attacks(&mut self, maybe_threat: Option<Mate>) -> Vec<Point> {
-        let mut potentials = self.potentials();
-        if let Some(threat) = maybe_threat {
-            let threat_defences = self.threat_defences(&threat);
-            potentials.retain(|(p, _)| threat_defences.contains(p));
-        }
-        potentials.sort_by(|a, b| b.1.cmp(&a.1));
-        potentials.retain(|&(p, _)| !self.game().is_forbidden_move(p));
-        potentials.into_iter().map(|t| t.0).collect()
-    }
-
-    pub fn sorted_defences(&mut self, threat: Mate) -> Vec<Point> {
-        let mut result = self.threat_defences(&threat);
-        let field = &self.field;
-        result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
-        result.dedup();
-        result.retain(|&p| !self.game().is_forbidden_move(p));
-        result
-    }
-
     pub fn is_four_move(&self, forced_move: Point) -> bool {
         self.game
             .board()
@@ -101,16 +81,23 @@ impl State {
             .any(|e| e == forced_move)
     }
 
-    pub fn sorted_four_moves(&self) -> Vec<Point> {
-        let mut result = self.four_moves();
-        let field = &self.field;
-        result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
-        result.retain(|&p| !self.game().is_forbidden_move(p));
+    pub fn sorted_potentials(&self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
+        let mut result = if let Some(only) = only {
+            let potentials = only.into_iter().map(|p| (p, self.field.get(p)));
+            potentials.filter(|&(_, o)| o >= min).collect()
+        } else {
+            self.field.collect(min)
+        };
+        result.sort_by(|&a, &b| b.1.cmp(&a.1));
+        result.dedup();
         result
     }
 
-    fn potentials(&self) -> Vec<(Point, u8)> {
-        self.field.collect(3)
+    pub fn sort_by_potential(&self, points: Vec<Point>) -> Vec<(Point, u8)> {
+        let mut result: Vec<_> = points.into_iter().map(|p| (p, self.field.get(p))).collect();
+        result.sort_by(|&a, &b| b.1.cmp(&a.1));
+        result.dedup();
+        result
     }
 
     pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {

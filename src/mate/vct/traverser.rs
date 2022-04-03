@@ -24,18 +24,20 @@ pub trait Traverser: ProofTree {
     fn traverse_attacks<F>(
         &mut self,
         state: &mut State,
-        attacks: &[Point],
+        attacks: &[(Point, Node)],
         threshold: Node,
         search_defences: F,
     ) -> Selection
     where
         F: Fn(&mut Self, &mut State, Node) -> Node,
     {
+        let mut first = true;
         loop {
             let selection = self.select_attack(state, &attacks);
-            if self.backoff(selection.current, threshold) {
+            if !first && self.backoff(selection.current, threshold) {
                 return selection;
             }
+            first = false;
             let next_threshold = self.next_threshold_attack(&selection, threshold);
             state.into_play(selection.best, |child| {
                 let result = search_defences(self, child, next_threshold);
@@ -47,7 +49,7 @@ pub trait Traverser: ProofTree {
     fn traverse_defences<F>(
         &mut self,
         state: &mut State,
-        defences: &[Point],
+        defences: &[(Point, Node)],
         threshold: Node,
         search_limit: F,
     ) -> Selection
@@ -63,7 +65,7 @@ pub trait Traverser: ProofTree {
             state.into_play(selection.best, |child| {
                 let result = search_limit(self, child, next_threshold);
                 self.defender_table().insert(child, result);
-            })
+            });
         }
     }
 
@@ -71,17 +73,17 @@ pub trait Traverser: ProofTree {
         current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 
-    fn select_attack(&mut self, state: &mut State, attacks: &[Point]) -> Selection {
+    fn select_attack(&mut self, state: &mut State, attacks: &[(Point, Node)]) -> Selection {
         let limit = state.limit();
-        let mut best: Option<Point> = Some(attacks[0]);
+        let mut best: Option<Point> = Some(attacks[0].0);
         let mut current = Node::zero_dn(limit);
         let mut next1 = Node::zero_dn(limit);
         let mut next2 = Node::zero_dn(limit);
-        for &attack in attacks {
+        for &(attack, init) in attacks {
             let child = self
                 .attacker_table()
                 .lookup_next(state, Some(attack))
-                .unwrap_or(Node::init_dn(attacks.len() as u32, limit)); // trick
+                .unwrap_or(init);
             current = current.min_pn_sum_dn(child);
             if child.pn < next1.pn {
                 best.replace(attack);
@@ -103,17 +105,17 @@ pub trait Traverser: ProofTree {
         }
     }
 
-    fn select_defence(&mut self, state: &mut State, defences: &[Point]) -> Selection {
+    fn select_defence(&mut self, state: &mut State, defences: &[(Point, Node)]) -> Selection {
         let limit = state.limit();
-        let mut best: Option<Point> = Some(defences[0]);
+        let mut best: Option<Point> = Some(defences[0].0);
         let mut current = Node::zero_pn(limit - 1);
         let mut next1 = Node::zero_pn(limit - 1);
         let mut next2 = Node::zero_pn(limit - 1);
-        for &defence in defences {
+        for &(defence, init) in defences {
             let child = self
                 .defender_table()
                 .lookup_next(state, Some(defence))
-                .unwrap_or(Node::init_pn(defences.len() as u32, limit - 1)); // trick
+                .unwrap_or(init);
             current = current.min_dn_sum_pn(child);
             if child.dn < next1.dn {
                 best.replace(defence);

@@ -1,7 +1,6 @@
 use super::generator::Generator;
 use super::state::State;
 use super::traverser::Traverser;
-use crate::board::Point;
 use crate::mate::game::*;
 use crate::mate::vct::proof::*;
 
@@ -23,8 +22,9 @@ pub trait Searcher: ProofTree + Generator + Traverser {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit()),
-                Forced(m) => {
-                    self.traverse_attacks(state, &[m], threshold, Self::search_defences)
+                Forced(next_move) => {
+                    let attacks = &[(next_move, Node::init_dn(1, state.limit()))];
+                    self.traverse_attacks(state, attacks, threshold, Self::search_defences)
                         .current
                 }
             };
@@ -48,8 +48,9 @@ pub trait Searcher: ProofTree + Generator + Traverser {
         if let Some(event) = state.game().check_event() {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit()),
-                Forced(m) => {
-                    self.traverse_defences(state, &[m], threshold, Self::search_limit)
+                Forced(next_move) => {
+                    let defences = &[(next_move, Node::init_pn(1, state.limit() - 1))];
+                    self.traverse_defences(state, defences, threshold, Self::search_limit)
                         .current
                 }
             };
@@ -67,12 +68,5 @@ pub trait Searcher: ProofTree + Generator + Traverser {
 
         self.traverse_defences(state, &defences, threshold, Self::search_limit)
             .current
-    }
-
-    fn expand_defence(&mut self, state: &mut State, defence: Point, threshold: Node) {
-        state.into_play(Some(defence), |s| {
-            let result = self.search_limit(s, threshold);
-            self.defender_table().insert(s, result);
-        })
     }
 }
