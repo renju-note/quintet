@@ -3,7 +3,7 @@ use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
 
-pub trait EagerGenerator: ProofTree + VCFHelper {
+pub trait EagerGenerator: VCFHelper {
     fn generate_attacks(
         &mut self,
         state: &mut State,

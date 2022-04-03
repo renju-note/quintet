@@ -54,7 +54,7 @@ pub trait LazyGenerator: Traverser {
             let current = self
                 .defender_table()
                 .lookup_next(state, None)
-                .unwrap_or(Node::new(1, 1, state.limit() - 1));
+                .unwrap_or(Node::init_pn(1, state.limit() - 1));
             let selection = Selection {
                 best: None,
                 current: current,
@@ -111,7 +111,7 @@ pub trait LazyGenerator: Traverser {
     ) -> Node {
         let attacks: Vec<_> = attacks
             .into_iter()
-            .map(|&p| (p, Node::new(1, 1, state.limit())))
+            .map(|&p| (p, Node::init_dn(1, state.limit())))
             .collect();
         let selection =
             self.traverse_attacks(state, &attacks, threshold, Self::search_defences_passed);
@@ -144,7 +144,7 @@ pub trait LazyGenerator: Traverser {
     ) -> Node {
         let defences: Vec<_> = defences
             .into_iter()
-            .map(|&p| (p, Node::new(1, 1, state.limit())))
+            .map(|&p| (p, Node::init_pn(1, state.limit())))
             .collect();
         let selection =
             self.traverse_defences(state, &defences, threshold, Self::search_limit_passed);
