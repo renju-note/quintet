@@ -93,7 +93,8 @@ pub trait LazyGenerator: Traverser {
             };
         }
 
-        let attacks = state.four_moves();
+        let mut attacks = state.four_moves();
+        attacks.retain(|&p| !state.game().is_forbidden_move(p));
 
         if attacks.len() == 0 {
             return Node::zero_dn(state.limit());

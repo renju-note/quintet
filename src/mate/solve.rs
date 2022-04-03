@@ -296,6 +296,8 @@ mod tests {
         let result = solve(VCTDFPNS, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
+        let solution = "F10,G9,I10";
+
         let result = solve(VCTLAZY, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
@@ -331,7 +333,7 @@ mod tests {
         let result = solve(VCTDFS, 3, &board, White, 1);
         assert!(result.is_none());
 
-        let solution = "I10,I11,I6,I8,F7,J8,G8";
+        let solution = "I10,I6,I11,I8,J11,J8,G8";
 
         let result = solve(VCTPNS, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
@@ -421,13 +423,13 @@ mod tests {
         let result = solve(VCTDFS, 3, &board, Black, 1);
         assert!(result.is_none());
 
-        let solution = "J8,I7,I8,G8,L8,K8,K7";
-
         let result = solve(VCTPNS, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTDFPNS, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
+
+        let solution = "J8,I7,I8,G8,L8,K8,K7";
 
         let result = solve(VCTLAZY, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
@@ -468,11 +470,15 @@ mod tests {
         let result = solve(VCTDFS, 7, &board, Black, 2);
         assert!(result.is_none());
 
+        let solution = "G12,F11,E10,D10,I12,F12,L11,J12,K10,I8,J11,K11,L9";
+
         let result = solve(VCTPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTDFPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
+
+        let solution = "G12,E10,H14,H13,F12,I12,F14,G13,F13,F11,E14,D15,G14";
 
         let result = solve(VCTLAZY, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
@@ -508,15 +514,11 @@ mod tests {
         let result = solve(VCTDFS, 4, &board, White, 1);
         assert!(result.is_none());
 
-        let solution = "J4,K3,I4,I3,F8,G7,E6,G9,G6";
-
         let result = solve(VCTDFPNS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
         let result = solve(VCTPNS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
-
-        let solution = "I3,I4,K3,G7,L2,J4,L3,M3,H3";
 
         let result = solve(VCTLAZY, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
