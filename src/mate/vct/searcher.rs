@@ -6,16 +6,12 @@ use crate::mate::vct::proof::*;
 
 // MEMO: Debug printing example is 6e2bace
 
-pub trait Searcher: ProofTree + Generator + Traverser {
+pub trait Searcher: Generator + Traverser {
     fn search(&mut self, state: &mut State) -> bool {
-        self.search_limit(state, Node::inf()).proven()
-    }
-
-    fn search_limit(&mut self, state: &mut State, threshold: Node) -> Node {
         if state.limit() == 0 {
-            return Node::zero_dn(state.limit());
+            return false;
         }
-        self.search_attacks(state, threshold)
+        self.search_attacks(state, Node::inf()).proven()
     }
 
     fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
@@ -49,11 +45,19 @@ pub trait Searcher: ProofTree + Generator + Traverser {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit()),
                 Forced(next_move) => {
-                    let defences = &[(next_move, Node::init_pn(1, state.limit() - 1))];
-                    self.traverse_defences(state, defences, threshold, Self::search_limit)
-                        .current
+                    if state.limit() <= 1 {
+                        Node::zero_dn(state.limit())
+                    } else {
+                        let defences = &[(next_move, Node::init_pn(1, state.limit() - 1))];
+                        self.traverse_defences(state, defences, threshold, Self::search_attacks)
+                            .current
+                    }
                 }
             };
+        }
+
+        if state.limit() <= 1 {
+            return Node::zero_dn(state.limit());
         }
 
         let either_defences = self.generate_defences(state, threshold);
@@ -66,7 +70,7 @@ pub trait Searcher: ProofTree + Generator + Traverser {
             return Node::zero_pn(state.limit());
         }
 
-        self.traverse_defences(state, &defences, threshold, Self::search_limit)
+        self.traverse_defences(state, &defences, threshold, Self::search_attacks)
             .current
     }
 }
