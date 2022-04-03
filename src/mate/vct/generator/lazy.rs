@@ -17,9 +17,10 @@ pub trait LazyGenerator: Traverser {
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
         let len = result.len() as u32;
+        let limit = state.limit();
         let result = result
             .into_iter()
-            .map(|(p, _)| (p, Node::new(len, len, state.limit())))
+            .map(|(p, _)| (p, Node::init_pn(len, limit)))
             .collect();
         Ok(result)
     }
@@ -40,9 +41,10 @@ pub trait LazyGenerator: Traverser {
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
         let len = result.len() as u32;
+        let limit = state.limit() - 1;
         let result = result
             .into_iter()
-            .map(|(p, _)| (p, Node::new(len, len, state.limit() - 1)))
+            .map(|(p, _)| (p, Node::init_pn(len, limit)))
             .collect();
         Ok(result)
     }
@@ -91,7 +93,7 @@ pub trait LazyGenerator: Traverser {
             };
         }
 
-        let attacks = state.sorted_four_moves();
+        let attacks = state.four_moves();
 
         if attacks.len() == 0 {
             return Node::zero_dn(state.limit());

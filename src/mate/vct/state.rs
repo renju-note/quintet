@@ -81,21 +81,10 @@ impl State {
             .any(|e| e == forced_move)
     }
 
-    pub fn sorted_four_moves(&self) -> Vec<Point> {
-        let mut result = self.four_moves();
-        let field = &self.field;
-        result.sort_by(|&a, &b| field.get(b).cmp(&field.get(a)));
-        result.retain(|&p| !self.game().is_forbidden_move(p));
-        result
-    }
-
-    pub fn sorted_potentials(&self, min: u8, retain: Option<Vec<Point>>) -> Vec<(Point, u8)> {
-        let mut result = if let Some(retain) = retain {
-            retain
-                .into_iter()
-                .map(|p| (p, self.field.get(p)))
-                .filter(|&(_, o)| o >= min)
-                .collect()
+    pub fn sorted_potentials(&self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
+        let mut result = if let Some(only) = only {
+            let potentials = only.into_iter().map(|p| (p, self.field.get(p)));
+            potentials.filter(|&(_, o)| o >= min).collect()
         } else {
             self.field.collect(min)
         };
