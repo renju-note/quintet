@@ -646,9 +646,9 @@ mod tests {
         .parse::<Board>()?;
 
         let solution =
-            "F6,E5,E7,D8,G9,H10,F10,E11,H4,I3,J6,I7,I5,G3,J5,H5,I9,J10,J8,J7,K7,L8,K6,L6,H9,J9,E9,F9,D6,C5,D10,C11,E10,G10,E6,E8,C6";
+            "F6,E5,E7,D8,G9,H10,F10,E11,H4,I3,J6,I7,I5,G3,D6,C5,J5,H5,J8,J9,I9,J10,J4,J7,K7,L8,M5,L6,K4,I4,J3,J2,K5,L5,K6";
 
-        let result = solve(VCTDFPNS, 20, &board, Black, 3);
+        let result = solve(VCTDFPNS, 255, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 
         Ok(())
