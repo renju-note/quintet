@@ -31,13 +31,11 @@ pub trait Traverser: ProofTree {
     where
         F: Fn(&mut Self, &mut State, Node) -> Node,
     {
-        let mut first = true;
         loop {
             let selection = self.select_attack(state, &attacks);
-            if !first && self.backoff(selection.current, threshold) {
+            if self.backoff(selection.current, threshold) {
                 return selection;
             }
-            first = false;
             let next_threshold = self.next_threshold_attack(&selection, threshold);
             state.into_play(selection.best, |child| {
                 let result = search_defences(self, child, next_threshold);

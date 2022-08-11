@@ -142,6 +142,7 @@ impl State {
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut game = self.game().clone();
+        game.set_limit(u8::MAX); // avoid overflow
         game.play(None);
         let threater = game.turn;
         let mut result = vec![];
