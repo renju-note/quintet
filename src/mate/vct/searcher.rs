@@ -26,7 +26,7 @@ pub trait Searcher: Generator + Traverser {
             };
         }
 
-        let either_attacks = self.generate_attacks(state, threshold);
+        let either_attacks = self.generate_attacks(state);
         if either_attacks.is_err() {
             return either_attacks.unwrap_err();
         }
@@ -60,7 +60,7 @@ pub trait Searcher: Generator + Traverser {
             return Node::zero_dn(state.limit);
         }
 
-        let either_defences = self.generate_defences(state, threshold);
+        let either_defences = self.generate_defences(state);
         if either_defences.is_err() {
             return either_defences.unwrap_err();
         }

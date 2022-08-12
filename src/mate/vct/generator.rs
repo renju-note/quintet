@@ -4,11 +4,7 @@ use crate::mate::vct::proof::*;
 use crate::mate::vct::state::VCTState;
 
 pub trait Generator: VCFHelper {
-    fn generate_attacks(
-        &mut self,
-        state: &mut VCTState,
-        _threshold: Node,
-    ) -> Result<Vec<Point>, Node> {
+    fn generate_attacks(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
             return Err(Node::zero_pn(state.limit));
@@ -24,11 +20,7 @@ pub trait Generator: VCFHelper {
         Ok(result)
     }
 
-    fn generate_defences(
-        &mut self,
-        state: &mut VCTState,
-        _threshold: Node,
-    ) -> Result<Vec<Point>, Node> {
+    fn generate_defences(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
             return Err(Node::zero_dn(state.limit));
