@@ -2,12 +2,12 @@ use crate::board::Point;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
 use crate::mate::vct::generator::*;
-use crate::mate::vct::helper;
+use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::Resolver;
 use crate::mate::vct::searcher::Searcher;
 use crate::mate::vct::solver::Solver;
-use crate::mate::vct::state::State;
+use crate::mate::vct::state::VCTState;
 use crate::mate::vct::traverser::*;
 
 pub struct EagerDFPNSSolver {
@@ -15,8 +15,8 @@ pub struct EagerDFPNSSolver {
     defender_table: Table,
     attacker_vcf_depth: u8,
     defender_vcf_depth: u8,
-    attacker_vcf_solver: vcf::iddfs::Solver,
-    defender_vcf_solver: vcf::iddfs::Solver,
+    attacker_vcf_solver: vcf::IDDFSSolver,
+    defender_vcf_solver: vcf::IDDFSSolver,
 }
 
 impl EagerDFPNSSolver {
@@ -26,8 +26,8 @@ impl EagerDFPNSSolver {
             defender_table: Table::new(),
             attacker_vcf_depth: attacker_vcf_depth,
             defender_vcf_depth: defender_vcf_depth,
-            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
-            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
+            attacker_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
+            defender_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
         }
     }
 }
@@ -49,7 +49,7 @@ impl ProofTree for EagerDFPNSSolver {
 impl Generator for EagerDFPNSSolver {
     fn generate_attacks(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_attacks(self, state, threshold)
@@ -57,7 +57,7 @@ impl Generator for EagerDFPNSSolver {
 
     fn generate_defences(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_defences(self, state, threshold)
@@ -79,16 +79,16 @@ impl Traverser for EagerDFPNSSolver {
 impl DFPNSTraverser for EagerDFPNSSolver {}
 
 impl Resolver for EagerDFPNSSolver {
-    fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
-        helper::VCFHelper::solve_attacker_vcf(self, state)
+    fn solve_attacker_vcf(&mut self, state: &VCTState) -> Option<Mate> {
+        VCFHelper::solve_attacker_vcf(self, state)
     }
 
-    fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
-        helper::VCFHelper::solve_attacker_threat(self, state)
+    fn solve_attacker_threat(&mut self, state: &VCTState) -> Option<Mate> {
+        VCFHelper::solve_attacker_threat(self, state)
     }
 }
 
-impl helper::VCFHelper for EagerDFPNSSolver {
+impl VCFHelper for EagerDFPNSSolver {
     fn attacker_vcf_depth(&self) -> u8 {
         self.attacker_vcf_depth
     }
@@ -97,11 +97,11 @@ impl helper::VCFHelper for EagerDFPNSSolver {
         self.defender_vcf_depth
     }
 
-    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+    fn attacker_vcf_solver(&mut self) -> &mut vcf::IDDFSSolver {
         &mut self.attacker_vcf_solver
     }
 
-    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+    fn defender_vcf_solver(&mut self) -> &mut vcf::IDDFSSolver {
         &mut self.defender_vcf_solver
     }
 }

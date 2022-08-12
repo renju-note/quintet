@@ -7,7 +7,7 @@ use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::Resolver;
 use crate::mate::vct::searcher::Searcher;
 use crate::mate::vct::solver::Solver;
-use crate::mate::vct::state::State;
+use crate::mate::vct::state::VCTState;
 use crate::mate::vct::traverser::*;
 
 pub struct EagerPNSSolver {
@@ -15,8 +15,8 @@ pub struct EagerPNSSolver {
     defender_table: Table,
     attacker_vcf_depth: u8,
     defender_vcf_depth: u8,
-    attacker_vcf_solver: vcf::iddfs::Solver,
-    defender_vcf_solver: vcf::iddfs::Solver,
+    attacker_vcf_solver: vcf::IDDFSSolver,
+    defender_vcf_solver: vcf::IDDFSSolver,
 }
 
 impl EagerPNSSolver {
@@ -26,8 +26,8 @@ impl EagerPNSSolver {
             defender_table: Table::new(),
             attacker_vcf_depth: attacker_vcf_depth,
             defender_vcf_depth: defender_vcf_depth,
-            attacker_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
-            defender_vcf_solver: vcf::iddfs::Solver::init([1].to_vec()),
+            attacker_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
+            defender_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
         }
     }
 }
@@ -49,7 +49,7 @@ impl ProofTree for EagerPNSSolver {
 impl Generator for EagerPNSSolver {
     fn generate_attacks(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_attacks(self, state, threshold)
@@ -57,7 +57,7 @@ impl Generator for EagerPNSSolver {
 
     fn generate_defences(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         EagerGenerator::generate_defences(self, state, threshold)
@@ -79,11 +79,11 @@ impl Traverser for EagerPNSSolver {
 impl PNSTraverser for EagerPNSSolver {}
 
 impl Resolver for EagerPNSSolver {
-    fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
+    fn solve_attacker_vcf(&mut self, state: &VCTState) -> Option<Mate> {
         VCFHelper::solve_attacker_vcf(self, state)
     }
 
-    fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
+    fn solve_attacker_threat(&mut self, state: &VCTState) -> Option<Mate> {
         VCFHelper::solve_attacker_threat(self, state)
     }
 }
@@ -97,11 +97,11 @@ impl VCFHelper for EagerPNSSolver {
         self.defender_vcf_depth
     }
 
-    fn attacker_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+    fn attacker_vcf_solver(&mut self) -> &mut vcf::IDDFSSolver {
         &mut self.attacker_vcf_solver
     }
 
-    fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver {
+    fn defender_vcf_solver(&mut self) -> &mut vcf::IDDFSSolver {
         &mut self.defender_vcf_solver
     }
 }

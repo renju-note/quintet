@@ -1,5 +1,6 @@
-use super::state::State;
+use super::state::VCTState;
 use crate::board::Point;
+use crate::mate::state::State;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -19,12 +20,12 @@ impl Table {
         }
     }
 
-    pub fn insert(&mut self, state: &State, node: Node) {
-        let key = state.game().zobrist_hash();
+    pub fn insert(&mut self, state: &VCTState, node: Node) {
+        let key = state.zobrist_hash();
         self.table.insert(key, node.clone());
     }
 
-    pub fn lookup_next(&self, state: &mut State, next_move: Option<Point>) -> Option<Node> {
+    pub fn lookup_next(&self, state: &mut VCTState, next_move: Option<Point>) -> Option<Node> {
         let key = state.next_zobrist_hash(next_move);
         self.table.get(&key).map(|&c| c)
     }
@@ -60,11 +61,11 @@ impl Node {
         Self::new(INF, 0, limit)
     }
 
-    pub fn init_pn(approx_dn: u32, limit: u8) -> Self {
+    pub fn unit_pn(approx_dn: u32, limit: u8) -> Self {
         Self::new(1, approx_dn, limit)
     }
 
-    pub fn init_dn(approx_pn: u32, limit: u8) -> Self {
+    pub fn unit_dn(approx_pn: u32, limit: u8) -> Self {
         Self::new(approx_pn, 1, limit)
     }
 
@@ -75,14 +76,14 @@ impl Node {
     pub fn min_pn_sum_dn(&self, another: Self) -> Self {
         Self::new(
             self.pn.min(another.pn),
-            self.dn.checked_add(another.dn).unwrap_or(INF),
+            self.dn.saturating_add(another.dn),
             self.limit.min(another.limit),
         )
     }
 
     pub fn min_dn_sum_pn(&self, another: Self) -> Self {
         Self::new(
-            self.pn.checked_add(another.pn).unwrap_or(INF),
+            self.pn.saturating_add(another.pn),
             self.dn.min(another.dn),
             self.limit.min(another.limit),
         )

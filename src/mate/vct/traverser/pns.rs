@@ -5,8 +5,8 @@ pub trait PNSTraverser {
     fn next_threshold_attack(&self, selection: &Selection, _threshold: Node) -> Node {
         let next = selection.next1;
         Node::new(
-            next.pn.checked_add(1).unwrap_or(INF),
-            next.dn.checked_add(1).unwrap_or(INF),
+            next.pn.saturating_add(1),
+            next.dn.saturating_add(1),
             next.limit,
         )
     }
@@ -14,8 +14,8 @@ pub trait PNSTraverser {
     fn next_threshold_defence(&self, selection: &Selection, _threshold: Node) -> Node {
         let next = selection.next1;
         Node::new(
-            next.pn.checked_add(1).unwrap_or(INF),
-            next.dn.checked_add(1).unwrap_or(INF),
+            next.pn.saturating_add(1),
+            next.dn.saturating_add(1),
             next.limit,
         )
     }

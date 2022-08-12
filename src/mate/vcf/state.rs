@@ -1,50 +1,35 @@
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
+use crate::mate::state::State;
 
 #[derive(Clone)]
-pub struct State {
+pub struct VCFState {
     game: Game,
+    pub attacker: Player,
+    pub limit: u8,
 }
 
-impl State {
-    pub fn new(game: Game) -> Self {
-        Self { game: game }
+impl VCFState {
+    pub fn new(game: Game, limit: u8) -> Self {
+        Self {
+            attacker: game.turn,
+            game: game,
+            limit,
+        }
     }
 
     pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
-        let game = Game::init(board, attacker, limit);
-        Self::new(game)
+        let game = Game::init(board, attacker);
+        Self::new(game, limit)
     }
 
-    pub fn play(&mut self, next_move: Point) {
-        self.game.play(Some(next_move));
+    pub fn is_forbidden_move(&self, p: Point) -> bool {
+        self.game().is_forbidden_move(p)
     }
 
-    pub fn undo(&mut self) {
-        self.game.undo();
-    }
-
-    pub fn into_play<F, T>(&mut self, next_move: Point, mut f: F) -> T
-    where
-        F: FnMut(&mut Self) -> T,
-    {
-        self.play(next_move);
-        let result = f(self);
-        self.undo();
-        result
-    }
-
-    pub fn game(&self) -> &Game {
-        &self.game
-    }
-
-    pub fn limit(&self) -> u8 {
-        self.game.limit
-    }
-
-    pub fn set_limit(&mut self, limit: u8) {
-        self.game.set_limit(limit)
+    pub fn check_event(&self) -> Option<Event> {
+        self.game().check_event()
     }
 
     pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
@@ -81,5 +66,27 @@ impl State {
         let e1 = eyes.next().unwrap();
         let e2 = eyes.next().unwrap();
         [(e1, e2), (e2, e1)]
+    }
+}
+
+impl State for VCFState {
+    fn game(&self) -> &Game {
+        &self.game
+    }
+
+    fn game_mut(&mut self) -> &mut Game {
+        &mut self.game
+    }
+
+    fn attacker(&self) -> Player {
+        self.attacker
+    }
+
+    fn limit(&self) -> u8 {
+        self.limit
+    }
+
+    fn set_limit(&mut self, limit: u8) {
+        self.limit = limit
     }
 }
