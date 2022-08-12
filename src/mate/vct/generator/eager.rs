@@ -24,7 +24,7 @@ pub trait EagerGenerator: VCFHelper {
         let limit = state.limit;
         let result = result
             .into_iter()
-            .map(|(p, _)| (p, Node::init_dn(len, limit)))
+            .map(|(p, _)| (p, Node::unit_dn(len, limit)))
             .collect();
         Ok(result)
     }
@@ -52,7 +52,7 @@ pub trait EagerGenerator: VCFHelper {
         let limit = state.limit - 1;
         let result = result
             .into_iter()
-            .map(|(p, _)| (p, Node::init_pn(len, limit)))
+            .map(|(p, _)| (p, Node::unit_pn(len, limit)))
             .collect();
         Ok(result)
     }

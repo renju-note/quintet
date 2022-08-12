@@ -2,7 +2,7 @@ use crate::board::Point;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
 use crate::mate::vct::generator::*;
-use crate::mate::vct::helper;
+use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::Resolver;
 use crate::mate::vct::searcher::Searcher;
@@ -80,15 +80,15 @@ impl DFSTraverser for EagerDFSSolver {}
 
 impl Resolver for EagerDFSSolver {
     fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
-        helper::VCFHelper::solve_attacker_vcf(self, state)
+        VCFHelper::solve_attacker_vcf(self, state)
     }
 
     fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
-        helper::VCFHelper::solve_attacker_threat(self, state)
+        VCFHelper::solve_attacker_threat(self, state)
     }
 }
 
-impl helper::VCFHelper for EagerDFSSolver {
+impl VCFHelper for EagerDFSSolver {
     fn attacker_vcf_depth(&self) -> u8 {
         self.attacker_vcf_depth
     }
