@@ -29,18 +29,6 @@ impl State {
         Self::new(game, limit, field)
     }
 
-    pub fn is_forbidden_move(&self, p: Point) -> bool {
-        self.game().is_forbidden_move(p)
-    }
-
-    pub fn check_event(&self) -> Option<Event> {
-        self.game().check_event()
-    }
-
-    pub fn empties(&self) -> Vec<Point> {
-        self.game().board().empties().collect()
-    }
-
     pub fn vcf_state(&self, max_limit: u8) -> vcf::State {
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);
@@ -59,20 +47,28 @@ impl State {
         vcf::State::new(game, limit)
     }
 
-    pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
-        // Update only game in order not to cause updating state.field (which costs high)
-        let limit = self.limit;
-        let next_limit = if !self.attacking() { limit - 1 } else { limit };
-        self.game
-            .into_play(next_move, |g| g.zobrist_hash(next_limit))
-    }
-
     pub fn is_four_move(&self, forced_move: Point) -> bool {
         self.game
             .board()
             .structures_on(forced_move, self.game.turn, Sword)
             .flat_map(|s| s.eyes())
             .any(|e| e == forced_move)
+    }
+
+    pub fn is_forbidden_move(&self, p: Point) -> bool {
+        self.game().is_forbidden_move(p)
+    }
+
+    pub fn check_event(&self) -> Option<Event> {
+        self.game().check_event()
+    }
+
+    pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
+        // Update only game in order not to cause updating state.field (which costs high)
+        let limit = self.limit;
+        let next_limit = if !self.attacking() { limit - 1 } else { limit };
+        self.game
+            .into_play(next_move, |g| g.zobrist_hash(next_limit))
     }
 
     pub fn sorted_potentials(&self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
@@ -92,6 +88,10 @@ impl State {
         result.sort_by(|&a, &b| b.1.cmp(&a.1));
         result.dedup();
         result
+    }
+
+    pub fn empties(&self) -> Vec<Point> {
+        self.game().board().empties().collect()
     }
 
     pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
