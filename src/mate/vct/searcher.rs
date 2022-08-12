@@ -32,10 +32,6 @@ pub trait Searcher: Generator + Traverser {
         }
 
         let attacks = either_attacks.unwrap();
-        if attacks.is_empty() {
-            return Node::zero_dn(state.limit);
-        }
-
         self.traverse_attacks(state, &attacks, threshold, Self::search_defences)
             .current
     }
@@ -66,10 +62,6 @@ pub trait Searcher: Generator + Traverser {
         }
 
         let defences = either_defences.unwrap();
-        if defences.is_empty() {
-            return Node::zero_pn(state.limit);
-        }
-
         self.traverse_defences(state, &defences, threshold, Self::search_attacks)
             .current
     }
