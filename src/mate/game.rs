@@ -33,19 +33,17 @@ pub use Event::*;
 #[derive(Clone)]
 pub struct Game {
     board: Board,
-    pub attacker: Player,
     moves: Vec<Option<Point>>,
     pub turn: Player,
     pub passed: bool,
 }
 
 impl Game {
-    pub fn init(board: &Board, attacker: Player) -> Self {
+    pub fn init(board: &Board, turn: Player) -> Self {
         Self {
             board: board.clone(),
-            attacker: attacker,
             moves: vec![],
-            turn: attacker,
+            turn: turn,
             passed: false,
         }
     }
@@ -81,10 +79,6 @@ impl Game {
 
     pub fn board(&self) -> &Board {
         &self.board
-    }
-
-    pub fn attacking(&self) -> bool {
-        self.turn == self.attacker
     }
 
     pub fn zobrist_hash(&self, n: u8) -> u64 {

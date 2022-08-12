@@ -6,12 +6,17 @@ use crate::mate::state::MateState;
 #[derive(Clone)]
 pub struct State {
     game: Game,
+    pub attacker: Player,
     pub limit: u8,
 }
 
 impl State {
     pub fn new(game: Game, limit: u8) -> Self {
-        Self { game: game, limit }
+        Self {
+            attacker: game.turn,
+            game: game,
+            limit,
+        }
     }
 
     pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
@@ -63,6 +68,10 @@ impl MateState for State {
 
     fn game_mut(&mut self) -> &mut Game {
         &mut self.game
+    }
+
+    fn attacker(&self) -> Player {
+        self.attacker
     }
 
     fn limit(&self) -> u8 {

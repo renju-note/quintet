@@ -11,7 +11,7 @@ pub trait VCFHelper {
     fn defender_vcf_solver(&mut self) -> &mut vcf::iddfs::Solver;
 
     fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
-        if !state.game().attacking() {
+        if !state.attacking() {
             panic!()
         }
         let state = &mut state.vcf_state(self.attacker_vcf_depth());
@@ -19,7 +19,7 @@ pub trait VCFHelper {
     }
 
     fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
-        if state.game().attacking() {
+        if state.attacking() {
             panic!()
         }
         let state = &mut state.threat_state(self.attacker_vcf_depth());
@@ -27,7 +27,7 @@ pub trait VCFHelper {
     }
 
     fn solve_defender_vcf(&mut self, state: &State) -> Option<Mate> {
-        if state.game().attacking() {
+        if state.attacking() {
             panic!()
         }
         let state = &mut state.vcf_state(self.defender_vcf_depth());
@@ -35,7 +35,7 @@ pub trait VCFHelper {
     }
 
     fn solve_defender_threat(&mut self, state: &State) -> Option<Mate> {
-        if !state.game().attacking() {
+        if !state.attacking() {
             panic!()
         }
         let state = &mut state.threat_state(self.defender_vcf_depth());

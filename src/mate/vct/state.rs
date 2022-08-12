@@ -8,6 +8,7 @@ use crate::mate::vcf;
 
 pub struct State {
     game: Game,
+    pub attacker: Player,
     pub limit: u8,
     field: PotentialField,
 }
@@ -15,6 +16,7 @@ pub struct State {
 impl State {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
         Self {
+            attacker: game.turn,
             game: game,
             limit: limit,
             field: field,
@@ -35,23 +37,22 @@ impl State {
 
     pub fn threat_state(&self, max_limit: u8) -> vcf::State {
         let mut game = self.game.clone();
-        let limit = if game.attacking() {
+        game.play(None);
+        let limit = if self.attacking() {
             self.limit - 1
         } else {
             self.limit
-        };
-        game.play(None);
-        let limit = limit.min(max_limit);
+        }
+        .min(max_limit);
         vcf::State::new(game, limit)
     }
 
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
         // Update only game in order not to cause updating state.field (which costs high)
         let limit = self.limit;
-        self.game.into_play(next_move, |g| {
-            let next_limit = if g.attacking() { limit - 1 } else { limit };
-            g.zobrist_hash(next_limit)
-        })
+        let next_limit = if !self.attacking() { limit - 1 } else { limit };
+        self.game
+            .into_play(next_move, |g| g.zobrist_hash(next_limit))
     }
 
     pub fn is_four_move(&self, forced_move: Point) -> bool {
@@ -148,6 +149,10 @@ impl MateState for State {
 
     fn game_mut(&mut self) -> &mut Game {
         &mut self.game
+    }
+
+    fn attacker(&self) -> Player {
+        self.attacker
     }
 
     fn limit(&self) -> u8 {
