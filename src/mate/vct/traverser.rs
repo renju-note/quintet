@@ -49,7 +49,7 @@ pub trait Traverser: ProofTree {
         state: &mut State,
         defences: &[(Point, Node)],
         threshold: Node,
-        search_limit: F,
+        search_defences: F,
     ) -> Selection
     where
         F: Fn(&mut Self, &mut State, Node) -> Node,
@@ -61,7 +61,7 @@ pub trait Traverser: ProofTree {
             }
             let next_threshold = self.next_threshold_defence(&selection, threshold);
             state.into_play(selection.best, |child| {
-                let result = search_limit(self, child, next_threshold);
+                let result = search_defences(self, child, next_threshold);
                 self.defender_table().insert(child, result);
             });
         }
