@@ -75,14 +75,14 @@ impl Node {
     pub fn min_pn_sum_dn(&self, another: Self) -> Self {
         Self::new(
             self.pn.min(another.pn),
-            self.dn.checked_add(another.dn).unwrap_or(INF),
+            self.dn.saturating_add(another.dn),
             self.limit.min(another.limit),
         )
     }
 
     pub fn min_dn_sum_pn(&self, another: Self) -> Self {
         Self::new(
-            self.pn.checked_add(another.pn).unwrap_or(INF),
+            self.pn.saturating_add(another.pn),
             self.dn.min(another.dn),
             self.limit.min(another.limit),
         )
