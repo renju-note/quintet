@@ -19,7 +19,7 @@ pub trait Searcher: Generator + Traverser {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit),
                 Forced(next_move) => {
-                    let attacks = &[(next_move, Node::unit_dn(1, state.limit))];
+                    let attacks = &[next_move];
                     self.traverse_attacks(state, attacks, threshold, Self::search_defences)
                         .current
                 }
@@ -48,7 +48,7 @@ pub trait Searcher: Generator + Traverser {
                     if state.limit <= 1 {
                         Node::zero_dn(state.limit)
                     } else {
-                        let defences = &[(next_move, Node::unit_pn(1, state.limit - 1))];
+                        let defences = &[next_move];
                         self.traverse_defences(state, defences, threshold, Self::search_attacks)
                             .current
                     }

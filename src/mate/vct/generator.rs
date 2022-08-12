@@ -8,7 +8,7 @@ pub trait Generator: VCFHelper {
         &mut self,
         state: &mut VCTState,
         _threshold: Node,
-    ) -> Result<Vec<(Point, Node)>, Node> {
+    ) -> Result<Vec<Point>, Node> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
             return Err(Node::zero_pn(state.limit));
@@ -20,12 +20,7 @@ pub trait Generator: VCFHelper {
         let mut result = state.sorted_potentials(3, maybe_threat_defences);
         result.retain(|&(p, _)| !state.is_forbidden_move(p));
 
-        let len = result.len() as u32;
-        let limit = state.limit;
-        let result = result
-            .into_iter()
-            .map(|(p, _)| (p, Node::unit_dn(len, limit)))
-            .collect();
+        let result = result.into_iter().map(|x| x.0).collect();
         Ok(result)
     }
 
@@ -33,7 +28,7 @@ pub trait Generator: VCFHelper {
         &mut self,
         state: &mut VCTState,
         _threshold: Node,
-    ) -> Result<Vec<(Point, Node)>, Node> {
+    ) -> Result<Vec<Point>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
             return Err(Node::zero_dn(state.limit));
@@ -48,12 +43,7 @@ pub trait Generator: VCFHelper {
         let mut result = state.sort_by_potential(state.threat_defences(&threat));
         result.retain(|&(p, _)| !state.is_forbidden_move(p));
 
-        let len = result.len() as u32;
-        let limit = state.limit - 1;
-        let result = result
-            .into_iter()
-            .map(|(p, _)| (p, Node::unit_pn(len, limit)))
-            .collect();
+        let result = result.into_iter().map(|x| x.0).collect();
         Ok(result)
     }
 }
