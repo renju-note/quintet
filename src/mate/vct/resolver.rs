@@ -23,10 +23,8 @@ pub trait Resolver: ProofTree {
         }
 
         for attack in state.empties() {
-            let node = self
-                .attacker_table()
-                .lookup_next(state, Some(attack))
-                .unwrap_or(Node::inf());
+            let maybe_node = self.attacker_table().lookup_next(state, Some(attack));
+            let node = maybe_node.unwrap_or(Node::inf());
             if node.proven() {
                 return state.into_play(Some(attack), |s| {
                     self.resolve_defences(s).map(|m| m.unshift(attack))
@@ -52,10 +50,8 @@ pub trait Resolver: ProofTree {
         let mut min_limit = u8::MAX;
         let mut best = None;
         for (defence, _) in defences {
-            let node = self
-                .defender_table()
-                .lookup_next(state, Some(defence))
-                .unwrap_or_else(|| Node::inf());
+            let maybe_node = self.defender_table().lookup_next(state, Some(defence));
+            let node = maybe_node.unwrap_or(Node::inf());
             if node.proven() && node.limit < min_limit {
                 min_limit = node.limit;
                 best.replace(defence);

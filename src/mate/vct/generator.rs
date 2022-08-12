@@ -14,7 +14,7 @@ pub trait Generator: VCFHelper {
         let maybe_threat = self.solve_defender_threat(state);
         let maybe_threat_defences = maybe_threat.map(|t| state.threat_defences(&t));
         let mut result = state.sorted_potentials(3, maybe_threat_defences);
-        result.retain(|&(p, _)| !state.is_forbidden_move(p));
+        result.retain(|&x| !state.is_forbidden_move(x.0));
 
         if result.is_empty() {
             return Err(Node::zero_dn(state.limit));
@@ -37,7 +37,7 @@ pub trait Generator: VCFHelper {
 
         let threat = maybe_threat.unwrap();
         let mut result = state.sort_by_potential(state.threat_defences(&threat));
-        result.retain(|&(p, _)| !state.is_forbidden_move(p));
+        result.retain(|&x| !state.is_forbidden_move(x.0));
 
         if result.is_empty() {
             return Err(Node::zero_pn(state.limit));
