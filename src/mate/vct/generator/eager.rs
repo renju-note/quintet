@@ -1,12 +1,12 @@
 use crate::board::Point;
 use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
-use crate::mate::vct::state::State;
+use crate::mate::vct::state::VCTState;
 
 pub trait EagerGenerator: VCFHelper {
     fn generate_attacks(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         _threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         // This is not necessary but improves speed
@@ -31,7 +31,7 @@ pub trait EagerGenerator: VCFHelper {
 
     fn generate_defences(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         _threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);

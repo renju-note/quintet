@@ -1,6 +1,6 @@
-use super::state::State;
+use super::state::VCTState;
 use crate::board::Point;
-use crate::mate::state::MateState;
+use crate::mate::state::State;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -20,12 +20,12 @@ impl Table {
         }
     }
 
-    pub fn insert(&mut self, state: &State, node: Node) {
+    pub fn insert(&mut self, state: &VCTState, node: Node) {
         let key = state.zobrist_hash();
         self.table.insert(key, node.clone());
     }
 
-    pub fn lookup_next(&self, state: &mut State, next_move: Option<Point>) -> Option<Node> {
+    pub fn lookup_next(&self, state: &mut VCTState, next_move: Option<Point>) -> Option<Node> {
         let key = state.next_zobrist_hash(next_move);
         self.table.get(&key).map(|&c| c)
     }

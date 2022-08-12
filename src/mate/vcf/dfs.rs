@@ -1,22 +1,22 @@
-use super::state::State;
+use super::state::VCFState;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
-use crate::mate::state::MateState;
+use crate::mate::state::State;
 use std::collections::HashSet;
 
-pub struct Solver {
+pub struct DFSSolver {
     deadends: HashSet<u64>,
 }
 
-impl Solver {
+impl DFSSolver {
     pub fn init() -> Self {
         Self {
             deadends: HashSet::new(),
         }
     }
 
-    pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
+    pub fn solve(&mut self, state: &mut VCFState) -> Option<Mate> {
         if state.limit == 0 {
             return None;
         }
@@ -32,7 +32,7 @@ impl Solver {
         result
     }
 
-    fn solve_move_pairs(&mut self, state: &mut State) -> Option<Mate> {
+    fn solve_move_pairs(&mut self, state: &mut VCFState) -> Option<Mate> {
         if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => None,
@@ -64,7 +64,12 @@ impl Solver {
         None
     }
 
-    fn solve_attack(&mut self, state: &mut State, attack: Point, defence: Point) -> Option<Mate> {
+    fn solve_attack(
+        &mut self,
+        state: &mut VCFState,
+        attack: Point,
+        defence: Point,
+    ) -> Option<Mate> {
         if state.is_forbidden_move(attack) {
             return None;
         }
@@ -74,7 +79,7 @@ impl Solver {
         })
     }
 
-    fn solve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
+    fn solve_defence(&mut self, state: &mut VCFState, defence: Point) -> Option<Mate> {
         if let Some(event) = state.check_event() {
             match event {
                 Defeated(end) => return Some(Mate::new(end, vec![])),

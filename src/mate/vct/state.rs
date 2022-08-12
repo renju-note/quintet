@@ -3,17 +3,17 @@ use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
-use crate::mate::state::MateState;
+use crate::mate::state::State;
 use crate::mate::vcf;
 
-pub struct State {
+pub struct VCTState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
     field: PotentialField,
 }
 
-impl State {
+impl VCTState {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
         Self {
             attacker: game.turn,
@@ -29,13 +29,13 @@ impl State {
         Self::new(game, limit, field)
     }
 
-    pub fn vcf_state(&self, max_limit: u8) -> vcf::State {
+    pub fn vcf_state(&self, max_limit: u8) -> vcf::VCFState {
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);
-        vcf::State::new(game, limit)
+        vcf::VCFState::new(game, limit)
     }
 
-    pub fn threat_state(&self, max_limit: u8) -> vcf::State {
+    pub fn threat_state(&self, max_limit: u8) -> vcf::VCFState {
         let mut game = self.game.clone();
         game.play(None);
         let limit = if self.attacking() {
@@ -44,7 +44,7 @@ impl State {
             self.limit
         }
         .min(max_limit);
-        vcf::State::new(game, limit)
+        vcf::VCFState::new(game, limit)
     }
 
     pub fn is_four_move(&self, forced_move: Point) -> bool {
@@ -154,7 +154,7 @@ impl State {
     }
 }
 
-impl MateState for State {
+impl State for VCTState {
     fn game(&self) -> &Game {
         &self.game
     }

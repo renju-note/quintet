@@ -1,16 +1,16 @@
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
-use crate::mate::state::MateState;
+use crate::mate::state::State;
 
 #[derive(Clone)]
-pub struct State {
+pub struct VCFState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
 }
 
-impl State {
+impl VCFState {
     pub fn new(game: Game, limit: u8) -> Self {
         Self {
             attacker: game.turn,
@@ -69,7 +69,7 @@ impl State {
     }
 }
 
-impl MateState for State {
+impl State for VCFState {
     fn game(&self) -> &Game {
         &self.game
     }

@@ -1,7 +1,7 @@
 use super::game::*;
 use crate::board::*;
 
-pub trait MateState {
+pub trait State {
     fn game(&self) -> &Game;
     fn game_mut(&mut self) -> &mut Game;
     fn attacker(&self) -> Player;

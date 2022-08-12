@@ -1,21 +1,21 @@
-use super::dfs;
-use super::state::State;
+use super::dfs::DFSSolver;
+use super::state::VCFState;
 use crate::mate::mate::*;
 
-pub struct Solver {
-    solver: dfs::Solver,
+pub struct IDDFSSolver {
+    solver: DFSSolver,
     limits: Vec<u8>,
 }
 
-impl Solver {
+impl IDDFSSolver {
     pub fn init(limits: Vec<u8>) -> Self {
         Self {
-            solver: dfs::Solver::init(),
+            solver: DFSSolver::init(),
             limits: limits,
         }
     }
 
-    pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
+    pub fn solve(&mut self, state: &mut VCFState) -> Option<Mate> {
         let max_limit = state.limit;
         for &limit in &self.limits {
             if limit >= max_limit {

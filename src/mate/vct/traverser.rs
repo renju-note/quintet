@@ -7,9 +7,9 @@ pub use dfs::DFSTraverser;
 pub use pns::PNSTraverser;
 
 use crate::board::Point;
-use crate::mate::state::MateState;
+use crate::mate::state::State;
 use crate::mate::vct::proof::*;
-use crate::mate::vct::state::State;
+use crate::mate::vct::state::VCTState;
 
 pub struct Selection {
     pub best: Option<Point>,
@@ -24,13 +24,13 @@ pub trait Traverser: ProofTree {
 
     fn traverse_attacks<F>(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         attacks: &[(Point, Node)],
         threshold: Node,
         search_defences: F,
     ) -> Selection
     where
-        F: Fn(&mut Self, &mut State, Node) -> Node,
+        F: Fn(&mut Self, &mut VCTState, Node) -> Node,
     {
         loop {
             let selection = self.select_attack(state, &attacks);
@@ -47,13 +47,13 @@ pub trait Traverser: ProofTree {
 
     fn traverse_defences<F>(
         &mut self,
-        state: &mut State,
+        state: &mut VCTState,
         defences: &[(Point, Node)],
         threshold: Node,
         search_defences: F,
     ) -> Selection
     where
-        F: Fn(&mut Self, &mut State, Node) -> Node,
+        F: Fn(&mut Self, &mut VCTState, Node) -> Node,
     {
         loop {
             let selection = self.select_defence(state, &defences);
@@ -72,7 +72,7 @@ pub trait Traverser: ProofTree {
         current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 
-    fn select_attack(&mut self, state: &mut State, attacks: &[(Point, Node)]) -> Selection {
+    fn select_attack(&mut self, state: &mut VCTState, attacks: &[(Point, Node)]) -> Selection {
         let limit = state.limit;
         let mut best: Option<Point> = Some(attacks[0].0);
         let mut current = Node::zero_dn(limit);
@@ -104,7 +104,7 @@ pub trait Traverser: ProofTree {
         }
     }
 
-    fn select_defence(&mut self, state: &mut State, defences: &[(Point, Node)]) -> Selection {
+    fn select_defence(&mut self, state: &mut VCTState, defences: &[(Point, Node)]) -> Selection {
         let limit = state.limit;
         let mut best: Option<Point> = Some(defences[0].0);
         let mut current = Node::zero_pn(limit - 1);

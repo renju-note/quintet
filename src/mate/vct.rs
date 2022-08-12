@@ -8,10 +8,9 @@ mod solver;
 mod state;
 mod traverser;
 
-pub use solver::eager_dfpns::EagerDFPNSSolver;
-pub use solver::eager_dfs::EagerDFSSolver;
-pub use solver::eager_pns::EagerPNSSolver;
-pub use solver::lazy_dfpns::LazyDFPNSolver;
+pub use solver::EagerDFPNSSolver;
+pub use solver::EagerDFSSolver;
+pub use solver::EagerPNSSolver;
+pub use solver::LazyDFPNSSolver;
 pub use solver::Solver;
-
-pub use state::State;
+pub use state::VCTState;

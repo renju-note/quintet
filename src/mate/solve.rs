@@ -68,28 +68,28 @@ pub fn solve(
     }
     match mode {
         VCFDFS => {
-            let state = &mut vcf::State::init(board, attacker, limit);
-            let mut solver = vcf::dfs::Solver::init();
+            let state = &mut vcf::VCFState::init(board, attacker, limit);
+            let mut solver = vcf::DFSSolver::init();
             solver.solve(state)
         }
         VCTDFS => {
-            let state = &mut vct::State::init(board, attacker, limit);
+            let state = &mut vct::VCTState::init(board, attacker, limit);
             let mut solver = vct::EagerDFSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTPNS => {
-            let state = &mut vct::State::init(board, attacker, limit);
+            let state = &mut vct::VCTState::init(board, attacker, limit);
             let mut solver = vct::EagerPNSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTDFPNS => {
-            let state = &mut vct::State::init(board, attacker, limit);
+            let state = &mut vct::VCTState::init(board, attacker, limit);
             let mut solver = vct::EagerDFPNSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTLAZY => {
-            let state = &mut vct::State::init(board, attacker, limit);
-            let mut solver = vct::LazyDFPNSolver::init();
+            let state = &mut vct::VCTState::init(board, attacker, limit);
+            let mut solver = vct::LazyDFPNSSolver::init();
             solver.solve(state)
         }
         _ => None,

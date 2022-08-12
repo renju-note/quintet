@@ -1,5 +1,7 @@
-pub mod dfs;
-pub mod iddfs;
+mod dfs;
+mod iddfs;
 mod state;
 
-pub use state::State;
+pub use dfs::DFSSolver;
+pub use iddfs::IDDFSSolver;
+pub use state::VCFState;

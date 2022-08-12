@@ -1,18 +1,18 @@
-use super::state::State;
+use super::state::VCTState;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
-use crate::mate::state::MateState;
+use crate::mate::state::State;
 use crate::mate::vct::proof::*;
 
 pub trait Resolver: ProofTree {
-    fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate>;
-    fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate>;
+    fn solve_attacker_vcf(&mut self, state: &VCTState) -> Option<Mate>;
+    fn solve_attacker_threat(&mut self, state: &VCTState) -> Option<Mate>;
 
-    fn resolve(&mut self, state: &mut State) -> Option<Mate> {
+    fn resolve(&mut self, state: &mut VCTState) -> Option<Mate> {
         self.resolve_attacks(state)
     }
 
-    fn resolve_attacks(&mut self, state: &mut State) -> Option<Mate> {
+    fn resolve_attacks(&mut self, state: &mut VCTState) -> Option<Mate> {
         if let Some(event) = state.check_event() {
             return match event {
                 Forced(attack) => state.into_play(Some(attack), |s| {
@@ -37,7 +37,7 @@ pub trait Resolver: ProofTree {
         self.solve_attacker_vcf(state)
     }
 
-    fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
+    fn resolve_defences(&mut self, state: &mut VCTState) -> Option<Mate> {
         if let Some(event) = state.check_event() {
             return match event {
                 Defeated(end) => return Some(Mate::new(end, vec![])),
