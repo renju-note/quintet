@@ -3,6 +3,7 @@ use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
+use crate::mate::state::MateState;
 use crate::mate::vcf;
 
 pub struct State {
@@ -24,45 +25,6 @@ impl State {
         let game = Game::init(board, attacker);
         let field = PotentialField::init(attacker, 2, board);
         Self::new(game, limit, field)
-    }
-
-    pub fn play(&mut self, next_move: Option<Point>) {
-        self.game.play(next_move);
-        if self.game.attacking() {
-            self.limit -= 1
-        }
-        if let Some(next_move) = next_move {
-            self.field.update_along(next_move, self.game.board());
-        }
-    }
-
-    pub fn undo(&mut self) {
-        if self.game.attacking() {
-            self.limit += 1
-        }
-        let maybe_last_move = self.game().last_move();
-        self.game.undo();
-        if let Some(last_move) = maybe_last_move {
-            self.field.update_along(last_move, self.game.board());
-        }
-    }
-
-    pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
-    where
-        F: FnMut(&mut Self) -> T,
-    {
-        self.play(next_move);
-        let result = f(self);
-        self.undo();
-        result
-    }
-
-    pub fn game(&self) -> &Game {
-        &self.game
-    }
-
-    pub fn zobrist_hash(&self) -> u64 {
-        self.game.zobrist_hash(self.limit)
     }
 
     pub fn vcf_state(&self, max_limit: u8) -> vcf::State {
@@ -176,5 +138,35 @@ impl State {
             }
         }
         result
+    }
+}
+
+impl MateState for State {
+    fn game(&self) -> &Game {
+        &self.game
+    }
+
+    fn game_mut(&mut self) -> &mut Game {
+        &mut self.game
+    }
+
+    fn limit(&self) -> u8 {
+        self.limit
+    }
+
+    fn set_limit(&mut self, limit: u8) {
+        self.limit = limit
+    }
+
+    fn after_play(&mut self, next_move: Option<Point>) {
+        if let Some(next_move) = next_move {
+            self.field.update_along(next_move, self.game.board());
+        }
+    }
+
+    fn after_undo(&mut self, maybe_last_move: Option<Point>) {
+        if let Some(last_move) = maybe_last_move {
+            self.field.update_along(last_move, self.game.board());
+        }
     }
 }

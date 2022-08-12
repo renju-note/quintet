@@ -2,6 +2,7 @@ use super::state::State;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
+use crate::mate::state::MateState;
 use std::collections::HashSet;
 
 pub struct Solver {
@@ -32,7 +33,7 @@ impl Solver {
     }
 
     fn solve_move_pairs(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(event) = state.game().check_event() {
+        if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => None,
                 Forced(p) => state
@@ -64,23 +65,23 @@ impl Solver {
     }
 
     fn solve_attack(&mut self, state: &mut State, attack: Point, defence: Point) -> Option<Mate> {
-        if state.game().is_forbidden_move(attack) {
+        if state.is_forbidden_move(attack) {
             return None;
         }
 
-        state.into_play(attack, |s| {
+        state.into_play(Some(attack), |s| {
             self.solve_defence(s, defence).map(|m| m.unshift(attack))
         })
     }
 
     fn solve_defence(&mut self, state: &mut State, defence: Point) -> Option<Mate> {
-        if let Some(event) = state.game().check_event() {
+        if let Some(event) = state.check_event() {
             match event {
                 Defeated(end) => return Some(Mate::new(end, vec![])),
                 _ => (),
             };
         }
 
-        state.into_play(defence, |s| self.solve(s).map(|m| m.unshift(defence)))
+        state.into_play(Some(defence), |s| self.solve(s).map(|m| m.unshift(defence)))
     }
 }

@@ -1,6 +1,7 @@
 use super::state::State;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
+use crate::mate::state::MateState;
 use crate::mate::vct::proof::*;
 
 pub trait Resolver: ProofTree {
@@ -12,7 +13,7 @@ pub trait Resolver: ProofTree {
     }
 
     fn resolve_attacks(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(event) = state.game().check_event() {
+        if let Some(event) = state.check_event() {
             return match event {
                 Forced(attack) => state.into_play(Some(attack), |s| {
                     self.resolve_defences(s).map(|m| m.unshift(attack))
@@ -38,7 +39,7 @@ pub trait Resolver: ProofTree {
     }
 
     fn resolve_defences(&mut self, state: &mut State) -> Option<Mate> {
-        if let Some(event) = state.game().check_event() {
+        if let Some(event) = state.check_event() {
             return match event {
                 Defeated(end) => return Some(Mate::new(end, vec![])),
                 Forced(defence) => state.into_play(Some(defence), |s| {

@@ -1,0 +1,52 @@
+use super::game::{Event, Game};
+use crate::board::Point;
+
+pub trait MateState {
+    fn game(&self) -> &Game;
+    fn game_mut(&mut self) -> &mut Game;
+    fn limit(&self) -> u8;
+    fn set_limit(&mut self, limit: u8);
+
+    fn play(&mut self, next_move: Option<Point>) {
+        self.game_mut().play(next_move);
+        if self.game().attacking() {
+            self.set_limit(self.limit() - 1)
+        }
+        self.after_play(next_move);
+    }
+
+    fn after_play(&mut self, _next_move: Option<Point>) {}
+
+    fn undo(&mut self) {
+        let maybe_last_move = self.game().last_move();
+        if self.game().attacking() {
+            self.set_limit(self.limit() + 1)
+        }
+        self.game_mut().undo();
+        self.after_undo(maybe_last_move);
+    }
+
+    fn after_undo(&mut self, _maybe_last_move: Option<Point>) {}
+
+    fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
+    where
+        F: FnMut(&mut Self) -> T,
+    {
+        self.play(next_move);
+        let result = f(self);
+        self.undo();
+        result
+    }
+
+    fn zobrist_hash(&self) -> u64 {
+        self.game().zobrist_hash(self.limit())
+    }
+
+    fn is_forbidden_move(&self, p: Point) -> bool {
+        self.game().is_forbidden_move(p)
+    }
+
+    fn check_event(&self) -> Option<Event> {
+        self.game().check_event()
+    }
+}

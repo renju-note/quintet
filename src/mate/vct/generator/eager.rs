@@ -1,4 +1,5 @@
 use crate::board::Point;
+use crate::mate::state::MateState;
 use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
@@ -18,7 +19,7 @@ pub trait EagerGenerator: VCFHelper {
         let maybe_threat = self.solve_defender_threat(state);
         let maybe_threat_defences = maybe_threat.map(|t| state.threat_defences(&t));
         let mut result = state.sorted_potentials(3, maybe_threat_defences);
-        result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
+        result.retain(|&(p, _)| !state.is_forbidden_move(p));
 
         let len = result.len() as u32;
         let limit = state.limit;
@@ -46,7 +47,7 @@ pub trait EagerGenerator: VCFHelper {
 
         let threat = maybe_threat.unwrap();
         let mut result = state.sort_by_potential(state.threat_defences(&threat));
-        result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
+        result.retain(|&(p, _)| !state.is_forbidden_move(p));
 
         let len = result.len() as u32;
         let limit = state.limit - 1;

@@ -2,6 +2,7 @@ use super::generator::Generator;
 use super::state::State;
 use super::traverser::Traverser;
 use crate::mate::game::*;
+use crate::mate::state::MateState;
 use crate::mate::vct::proof::*;
 
 // MEMO: Debug printing example is 6e2bace
@@ -15,7 +16,7 @@ pub trait Searcher: Generator + Traverser {
     }
 
     fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
+        if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit),
                 Forced(next_move) => {
@@ -41,7 +42,7 @@ pub trait Searcher: Generator + Traverser {
     }
 
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
+        if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit),
                 Forced(next_move) => {

@@ -1,5 +1,6 @@
 use crate::board::Point;
 use crate::mate::game::*;
+use crate::mate::state::MateState;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;
 use crate::mate::vct::traverser::*;
@@ -14,7 +15,7 @@ pub trait LazyGenerator: Traverser {
         _threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         let mut result = state.sorted_potentials(3, None);
-        result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
+        result.retain(|&(p, _)| !state.is_forbidden_move(p));
 
         let len = result.len() as u32;
         let limit = state.limit;
@@ -38,7 +39,7 @@ pub trait LazyGenerator: Traverser {
         let mut defences = self.lookup_defences(state.next_zobrist_hash(None));
         defences.extend(state.four_moves());
         let mut result = state.sort_by_potential(defences);
-        result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
+        result.retain(|&(p, _)| !state.is_forbidden_move(p));
 
         let len = result.len() as u32;
         let limit = state.limit - 1;
@@ -80,7 +81,7 @@ pub trait LazyGenerator: Traverser {
     }
 
     fn search_attacks_passed(&mut self, state: &mut State, threshold: Node) -> Node {
-        if let Some(event) = state.game().check_event() {
+        if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit),
                 Forced(m) => {
@@ -94,7 +95,7 @@ pub trait LazyGenerator: Traverser {
         }
 
         let mut attacks = state.four_moves();
-        attacks.retain(|&p| !state.game().is_forbidden_move(p));
+        attacks.retain(|&p| !state.is_forbidden_move(p));
 
         if attacks.len() == 0 {
             return Node::zero_dn(state.limit);
@@ -125,7 +126,7 @@ pub trait LazyGenerator: Traverser {
     }
 
     fn search_defences_passed(&mut self, state: &mut State, threshold: Node) -> Node {
-        match state.game().check_event().unwrap() {
+        match state.check_event().unwrap() {
             Defeated(e) => {
                 let key = state.zobrist_hash();
                 let defences = state.end_breakers(e);
