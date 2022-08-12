@@ -1,17 +1,17 @@
 use crate::board::Point;
 use crate::mate::game::*;
 use crate::mate::state::State;
-use crate::mate::vct::proof::*;
-use crate::mate::vct::state::VCTState;
-use crate::mate::vct::traverser::*;
+use crate::mate::vct_lazy::proof::*;
+use crate::mate::vct_lazy::state::LazyVCTState;
+use crate::mate::vct_lazy::traverser::*;
 use std::collections::HashMap;
 
-pub trait LazyGenerator: Traverser {
+pub trait Generator: Traverser {
     fn defences_memory(&mut self) -> &mut HashMap<u64, Vec<Point>>;
 
     fn generate_attacks(
         &mut self,
-        state: &mut VCTState,
+        state: &mut LazyVCTState,
         _threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         let mut result = state.sorted_potentials(3, None);
@@ -28,7 +28,7 @@ pub trait LazyGenerator: Traverser {
 
     fn generate_defences(
         &mut self,
-        state: &mut VCTState,
+        state: &mut LazyVCTState,
         threshold: Node,
     ) -> Result<Vec<(Point, Node)>, Node> {
         let result = self.loop_defence_pass(state, threshold);
@@ -50,7 +50,7 @@ pub trait LazyGenerator: Traverser {
         Ok(result)
     }
 
-    fn loop_defence_pass(&mut self, state: &mut VCTState, threshold: Node) -> Node {
+    fn loop_defence_pass(&mut self, state: &mut LazyVCTState, threshold: Node) -> Node {
         loop {
             let current = self
                 .defender_table()
@@ -73,14 +73,14 @@ pub trait LazyGenerator: Traverser {
         }
     }
 
-    fn search_limit_passed(&mut self, state: &mut VCTState, threshold: Node) -> Node {
+    fn search_limit_passed(&mut self, state: &mut LazyVCTState, threshold: Node) -> Node {
         if state.limit == 0 {
             return Node::zero_dn(state.limit);
         }
         self.search_attacks_passed(state, threshold)
     }
 
-    fn search_attacks_passed(&mut self, state: &mut VCTState, threshold: Node) -> Node {
+    fn search_attacks_passed(&mut self, state: &mut LazyVCTState, threshold: Node) -> Node {
         if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit),
@@ -106,7 +106,7 @@ pub trait LazyGenerator: Traverser {
 
     fn traverse_attacks_passed(
         &mut self,
-        state: &mut VCTState,
+        state: &mut LazyVCTState,
         attacks: &[Point],
         threshold: Node,
     ) -> Node {
@@ -125,7 +125,7 @@ pub trait LazyGenerator: Traverser {
         selection.current
     }
 
-    fn search_defences_passed(&mut self, state: &mut VCTState, threshold: Node) -> Node {
+    fn search_defences_passed(&mut self, state: &mut LazyVCTState, threshold: Node) -> Node {
         match state.check_event().unwrap() {
             Defeated(e) => {
                 let key = state.zobrist_hash();
@@ -139,7 +139,7 @@ pub trait LazyGenerator: Traverser {
 
     fn traverse_defences_passed(
         &mut self,
-        state: &mut VCTState,
+        state: &mut LazyVCTState,
         defences: &[Point],
         threshold: Node,
     ) -> Node {

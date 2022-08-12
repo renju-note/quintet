@@ -1,4 +1,3 @@
-use crate::board::Point;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
 use crate::mate::vct::generator::*;
@@ -6,11 +5,11 @@ use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::Resolver;
 use crate::mate::vct::searcher::Searcher;
-use crate::mate::vct::solver::Solver;
+use crate::mate::vct::solver::VCTSolver;
 use crate::mate::vct::state::VCTState;
 use crate::mate::vct::traverser::*;
 
-pub struct EagerDFSSolver {
+pub struct PNSVCTSolver {
     attacker_table: Table,
     defender_table: Table,
     attacker_vcf_depth: u8,
@@ -19,7 +18,7 @@ pub struct EagerDFSSolver {
     defender_vcf_solver: vcf::IDDFSSolver,
 }
 
-impl EagerDFSSolver {
+impl PNSVCTSolver {
     pub fn init(attacker_vcf_depth: u8, defender_vcf_depth: u8) -> Self {
         Self {
             attacker_table: Table::new(),
@@ -32,11 +31,13 @@ impl EagerDFSSolver {
     }
 }
 
-impl Solver for EagerDFSSolver {}
+impl VCTSolver for PNSVCTSolver {}
 
-impl Searcher for EagerDFSSolver {}
+impl Searcher for PNSVCTSolver {}
 
-impl ProofTree for EagerDFSSolver {
+impl Generator for PNSVCTSolver {}
+
+impl ProofTree for PNSVCTSolver {
     fn attacker_table(&mut self) -> &mut Table {
         &mut self.attacker_table
     }
@@ -46,39 +47,19 @@ impl ProofTree for EagerDFSSolver {
     }
 }
 
-impl Generator for EagerDFSSolver {
-    fn generate_attacks(
-        &mut self,
-        state: &mut VCTState,
-        threshold: Node,
-    ) -> Result<Vec<(Point, Node)>, Node> {
-        EagerGenerator::generate_attacks(self, state, threshold)
-    }
-
-    fn generate_defences(
-        &mut self,
-        state: &mut VCTState,
-        threshold: Node,
-    ) -> Result<Vec<(Point, Node)>, Node> {
-        EagerGenerator::generate_defences(self, state, threshold)
-    }
-}
-
-impl EagerGenerator for EagerDFSSolver {}
-
-impl Traverser for EagerDFSSolver {
+impl Traverser for PNSVCTSolver {
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
-        DFSTraverser::next_threshold_attack(self, selection, threshold)
+        PNSTraverser::next_threshold_attack(self, selection, threshold)
     }
 
     fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
-        DFSTraverser::next_threshold_defence(self, selection, threshold)
+        PNSTraverser::next_threshold_defence(self, selection, threshold)
     }
 }
 
-impl DFSTraverser for EagerDFSSolver {}
+impl PNSTraverser for PNSVCTSolver {}
 
-impl Resolver for EagerDFSSolver {
+impl Resolver for PNSVCTSolver {
     fn solve_attacker_vcf(&mut self, state: &VCTState) -> Option<Mate> {
         VCFHelper::solve_attacker_vcf(self, state)
     }
@@ -88,7 +69,7 @@ impl Resolver for EagerDFSSolver {
     }
 }
 
-impl VCFHelper for EagerDFSSolver {
+impl VCFHelper for PNSVCTSolver {
     fn attacker_vcf_depth(&self) -> u8 {
         self.attacker_vcf_depth
     }

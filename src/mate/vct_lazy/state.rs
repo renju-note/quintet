@@ -6,14 +6,14 @@ use crate::mate::mate::Mate;
 use crate::mate::state::State;
 use crate::mate::vcf;
 
-pub struct VCTState {
+pub struct LazyVCTState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
     field: PotentialField,
 }
 
-impl VCTState {
+impl LazyVCTState {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
         Self {
             attacker: game.turn,
@@ -45,6 +45,14 @@ impl VCTState {
         }
         .min(max_limit);
         vcf::VCFState::new(game, limit)
+    }
+
+    pub fn is_four_move(&self, forced_move: Point) -> bool {
+        self.game
+            .board()
+            .structures_on(forced_move, self.game.turn, Sword)
+            .flat_map(|s| s.eyes())
+            .any(|e| e == forced_move)
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -108,6 +116,16 @@ impl VCTState {
         }
     }
 
+    pub fn next_sword_eyes(&mut self, p: Point) -> Vec<Point> {
+        self.game.into_play(Some(p), |g| {
+            g.board()
+                .structures_on(g.last_move().unwrap(), g.turn.opponent(), Sword)
+                .map(|s| s.eyes())
+                .flatten()
+                .collect()
+        })
+    }
+
     pub fn four_moves(&self) -> Vec<Point> {
         self.game()
             .board()
@@ -136,7 +154,7 @@ impl VCTState {
     }
 }
 
-impl State for VCTState {
+impl State for LazyVCTState {
     fn game(&self) -> &Game {
         &self.game
     }
