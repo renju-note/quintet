@@ -1,9 +1,9 @@
 use crate::board::Point;
 use crate::mate::game::*;
 use crate::mate::state::State;
-use crate::mate::vct::proof::*;
-use crate::mate::vct::state::VCTState;
-use crate::mate::vct::traverser::*;
+use crate::mate::vct_lazy::proof::*;
+use crate::mate::vct_lazy::state::VCTState;
+use crate::mate::vct_lazy::traverser::*;
 use std::collections::HashMap;
 
 pub trait LazyGenerator: Traverser {

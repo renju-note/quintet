@@ -1,13 +1,13 @@
 use crate::board::Point;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
-use crate::mate::vct::generator::*;
-use crate::mate::vct::proof::*;
-use crate::mate::vct::resolver::Resolver;
-use crate::mate::vct::searcher::Searcher;
-use crate::mate::vct::solver::Solver;
-use crate::mate::vct::state::VCTState;
-use crate::mate::vct::traverser::*;
+use crate::mate::vct_lazy::generator::*;
+use crate::mate::vct_lazy::proof::*;
+use crate::mate::vct_lazy::resolver::Resolver;
+use crate::mate::vct_lazy::searcher::Searcher;
+use crate::mate::vct_lazy::solver::LazySolver;
+use crate::mate::vct_lazy::state::VCTState;
+use crate::mate::vct_lazy::traverser::*;
 use std::collections::HashMap;
 
 pub struct LazyDFPNSSolver {
@@ -28,7 +28,7 @@ impl LazyDFPNSSolver {
     }
 }
 
-impl Solver for LazyDFPNSSolver {}
+impl LazySolver for LazyDFPNSSolver {}
 
 impl Searcher for LazyDFPNSSolver {}
 

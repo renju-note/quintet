@@ -47,6 +47,14 @@ impl VCTState {
         vcf::VCFState::new(game, limit)
     }
 
+    pub fn is_four_move(&self, forced_move: Point) -> bool {
+        self.game
+            .board()
+            .structures_on(forced_move, self.game.turn, Sword)
+            .flat_map(|s| s.eyes())
+            .any(|e| e == forced_move)
+    }
+
     pub fn is_forbidden_move(&self, p: Point) -> bool {
         self.game().is_forbidden_move(p)
     }
@@ -106,6 +114,16 @@ impl VCTState {
             }
             _ => vec![],
         }
+    }
+
+    pub fn next_sword_eyes(&mut self, p: Point) -> Vec<Point> {
+        self.game.into_play(Some(p), |g| {
+            g.board()
+                .structures_on(g.last_move().unwrap(), g.turn.opponent(), Sword)
+                .map(|s| s.eyes())
+                .flatten()
+                .collect()
+        })
     }
 
     pub fn four_moves(&self) -> Vec<Point> {
