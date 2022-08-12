@@ -2,8 +2,7 @@ use super::game::*;
 use super::mate::*;
 use super::vcf::*;
 use super::vct::*;
-use super::vct_lazy;
-use super::vct_lazy::LazySolver;
+use super::vct_lazy::*;
 use crate::board::Player::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
@@ -89,8 +88,8 @@ pub fn solve(
             solver.solve(state)
         }
         VCTLAZY => {
-            let state = &mut vct_lazy::VCTState::init(board, attacker, limit);
-            let mut solver = vct_lazy::LazyDFPNSSolver::init();
+            let state = &mut LazyVCTState::init(board, attacker, limit);
+            let mut solver = LazyVCTSolver::init();
             solver.solve(state)
         }
         _ => None,

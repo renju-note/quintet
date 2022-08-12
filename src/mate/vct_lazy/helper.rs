@@ -1,4 +1,4 @@
-use super::state::VCTState;
+use super::state::LazyVCTState;
 use crate::mate::mate::Mate;
 use crate::mate::state::State;
 use crate::mate::vcf;
@@ -10,7 +10,7 @@ pub trait VCFHelper {
     fn attacker_vcf_solver(&mut self) -> &mut vcf::IDDFSSolver;
     fn defender_vcf_solver(&mut self) -> &mut vcf::IDDFSSolver;
 
-    fn solve_attacker_vcf(&mut self, state: &VCTState) -> Option<Mate> {
+    fn solve_attacker_vcf(&mut self, state: &LazyVCTState) -> Option<Mate> {
         if !state.attacking() {
             panic!()
         }
@@ -18,7 +18,7 @@ pub trait VCFHelper {
         self.attacker_vcf_solver().solve(state)
     }
 
-    fn solve_attacker_threat(&mut self, state: &VCTState) -> Option<Mate> {
+    fn solve_attacker_threat(&mut self, state: &LazyVCTState) -> Option<Mate> {
         if state.attacking() {
             panic!()
         }
@@ -26,7 +26,7 @@ pub trait VCFHelper {
         self.attacker_vcf_solver().solve(state)
     }
 
-    fn solve_defender_vcf(&mut self, state: &VCTState) -> Option<Mate> {
+    fn solve_defender_vcf(&mut self, state: &LazyVCTState) -> Option<Mate> {
         if state.attacking() {
             panic!()
         }
@@ -34,7 +34,7 @@ pub trait VCFHelper {
         self.defender_vcf_solver().solve(state)
     }
 
-    fn solve_defender_threat(&mut self, state: &VCTState) -> Option<Mate> {
+    fn solve_defender_threat(&mut self, state: &LazyVCTState) -> Option<Mate> {
         if !state.attacking() {
             panic!()
         }

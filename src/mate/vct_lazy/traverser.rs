@@ -1,15 +1,7 @@
-mod dfpns;
-mod dfs;
-mod pns;
-
-pub use dfpns::DFPNSTraverser;
-pub use dfs::DFSTraverser;
-pub use pns::PNSTraverser;
-
 use crate::board::Point;
 use crate::mate::state::State;
 use crate::mate::vct_lazy::proof::*;
-use crate::mate::vct_lazy::state::VCTState;
+use crate::mate::vct_lazy::state::LazyVCTState;
 
 pub struct Selection {
     pub best: Option<Point>,
@@ -19,18 +11,15 @@ pub struct Selection {
 }
 
 pub trait Traverser: ProofTree {
-    fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node;
-    fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node;
-
     fn traverse_attacks<F>(
         &mut self,
-        state: &mut VCTState,
+        state: &mut LazyVCTState,
         attacks: &[(Point, Node)],
         threshold: Node,
         search_defences: F,
     ) -> Selection
     where
-        F: Fn(&mut Self, &mut VCTState, Node) -> Node,
+        F: Fn(&mut Self, &mut LazyVCTState, Node) -> Node,
     {
         loop {
             let selection = self.select_attack(state, &attacks);
@@ -47,13 +36,13 @@ pub trait Traverser: ProofTree {
 
     fn traverse_defences<F>(
         &mut self,
-        state: &mut VCTState,
+        state: &mut LazyVCTState,
         defences: &[(Point, Node)],
         threshold: Node,
         search_defences: F,
     ) -> Selection
     where
-        F: Fn(&mut Self, &mut VCTState, Node) -> Node,
+        F: Fn(&mut Self, &mut LazyVCTState, Node) -> Node,
     {
         loop {
             let selection = self.select_defence(state, &defences);
@@ -72,7 +61,7 @@ pub trait Traverser: ProofTree {
         current.pn >= threshold.pn || current.dn >= threshold.dn
     }
 
-    fn select_attack(&mut self, state: &mut VCTState, attacks: &[(Point, Node)]) -> Selection {
+    fn select_attack(&mut self, state: &mut LazyVCTState, attacks: &[(Point, Node)]) -> Selection {
         let limit = state.limit;
         let mut best: Option<Point> = Some(attacks[0].0);
         let mut current = Node::zero_dn(limit);
@@ -104,7 +93,11 @@ pub trait Traverser: ProofTree {
         }
     }
 
-    fn select_defence(&mut self, state: &mut VCTState, defences: &[(Point, Node)]) -> Selection {
+    fn select_defence(
+        &mut self,
+        state: &mut LazyVCTState,
+        defences: &[(Point, Node)],
+    ) -> Selection {
         let limit = state.limit;
         let mut best: Option<Point> = Some(defences[0].0);
         let mut current = Node::zero_pn(limit - 1);
@@ -134,5 +127,17 @@ pub trait Traverser: ProofTree {
             next1: next1,
             next2: next2,
         }
+    }
+
+    fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {
+        let pn = threshold.pn.min(selection.next2.pn.saturating_add(1));
+        let dn = (threshold.dn - selection.current.dn).saturating_add(selection.next1.dn);
+        Node::new(pn, dn, selection.next1.limit)
+    }
+
+    fn next_threshold_defence(&self, selection: &Selection, threshold: Node) -> Node {
+        let pn = (threshold.pn - selection.current.pn).saturating_add(selection.next1.pn);
+        let dn = threshold.dn.min(selection.next2.dn.saturating_add(1));
+        Node::new(pn, dn, selection.next1.limit)
     }
 }

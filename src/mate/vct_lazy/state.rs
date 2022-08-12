@@ -6,14 +6,14 @@ use crate::mate::mate::Mate;
 use crate::mate::state::State;
 use crate::mate::vcf;
 
-pub struct VCTState {
+pub struct LazyVCTState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
     field: PotentialField,
 }
 
-impl VCTState {
+impl LazyVCTState {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
         Self {
             attacker: game.turn,
@@ -154,7 +154,7 @@ impl VCTState {
     }
 }
 
-impl State for VCTState {
+impl State for LazyVCTState {
     fn game(&self) -> &Game {
         &self.game
     }

@@ -1,5 +1,5 @@
 use super::generator::Generator;
-use super::state::VCTState;
+use super::state::LazyVCTState;
 use super::traverser::Traverser;
 use crate::mate::game::*;
 use crate::mate::vct_lazy::proof::*;
@@ -7,14 +7,14 @@ use crate::mate::vct_lazy::proof::*;
 // MEMO: Debug printing example is 6e2bace
 
 pub trait Searcher: Generator + Traverser {
-    fn search(&mut self, state: &mut VCTState) -> bool {
+    fn search(&mut self, state: &mut LazyVCTState) -> bool {
         if state.limit == 0 {
             return false;
         }
         self.search_attacks(state, Node::inf()).proven()
     }
 
-    fn search_attacks(&mut self, state: &mut VCTState, threshold: Node) -> Node {
+    fn search_attacks(&mut self, state: &mut LazyVCTState, threshold: Node) -> Node {
         if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit),
@@ -40,7 +40,7 @@ pub trait Searcher: Generator + Traverser {
             .current
     }
 
-    fn search_defences(&mut self, state: &mut VCTState, threshold: Node) -> Node {
+    fn search_defences(&mut self, state: &mut LazyVCTState, threshold: Node) -> Node {
         if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => Node::zero_pn(state.limit),
