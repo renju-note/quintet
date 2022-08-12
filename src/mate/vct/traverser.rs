@@ -72,7 +72,7 @@ pub trait Traverser: ProofTree {
     }
 
     fn select_attack(&mut self, state: &mut State, attacks: &[(Point, Node)]) -> Selection {
-        let limit = state.limit();
+        let limit = state.limit;
         let mut best: Option<Point> = Some(attacks[0].0);
         let mut current = Node::zero_dn(limit);
         let mut next1 = Node::zero_dn(limit);
@@ -104,7 +104,7 @@ pub trait Traverser: ProofTree {
     }
 
     fn select_defence(&mut self, state: &mut State, defences: &[(Point, Node)]) -> Selection {
-        let limit = state.limit();
+        let limit = state.limit;
         let mut best: Option<Point> = Some(defences[0].0);
         let mut current = Node::zero_pn(limit - 1);
         let mut next1 = Node::zero_pn(limit - 1);

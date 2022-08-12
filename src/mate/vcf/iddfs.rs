@@ -16,19 +16,19 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
-        let max_limit = state.limit();
+        let max_limit = state.limit;
         for &limit in &self.limits {
             if limit >= max_limit {
                 break;
             }
-            state.set_limit(limit);
+            state.limit = limit;
             let result = self.solver.solve(state);
             if result.is_some() {
-                state.set_limit(max_limit);
+                state.limit = max_limit;
                 return result;
             }
         }
-        state.set_limit(max_limit);
+        state.limit = max_limit;
         self.solver.solve(state)
     }
 }

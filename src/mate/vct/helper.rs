@@ -13,8 +13,7 @@ pub trait VCFHelper {
         if !state.game().attacking() {
             panic!()
         }
-        let state = &mut state.vcf_state();
-        state.set_limit(state.limit().min(self.attacker_vcf_depth()));
+        let state = &mut state.vcf_state(self.attacker_vcf_depth());
         self.attacker_vcf_solver().solve(state)
     }
 
@@ -22,8 +21,7 @@ pub trait VCFHelper {
         if state.game().attacking() {
             panic!()
         }
-        let state = &mut state.threat_state();
-        state.set_limit(state.limit().min(self.attacker_vcf_depth()));
+        let state = &mut state.threat_state(self.attacker_vcf_depth());
         self.attacker_vcf_solver().solve(state)
     }
 
@@ -31,8 +29,7 @@ pub trait VCFHelper {
         if state.game().attacking() {
             panic!()
         }
-        let state = &mut state.vcf_state();
-        state.set_limit(self.defender_vcf_depth());
+        let state = &mut state.vcf_state(self.defender_vcf_depth());
         self.defender_vcf_solver().solve(state)
     }
 
@@ -40,8 +37,7 @@ pub trait VCFHelper {
         if !state.game().attacking() {
             panic!()
         }
-        let state = &mut state.threat_state();
-        state.set_limit(self.defender_vcf_depth());
+        let state = &mut state.threat_state(self.defender_vcf_depth());
         self.defender_vcf_solver().solve(state)
     }
 }

@@ -11,7 +11,7 @@ pub trait EagerGenerator: VCFHelper {
     ) -> Result<Vec<(Point, Node)>, Node> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
-            return Err(Node::zero_pn(state.limit()));
+            return Err(Node::zero_pn(state.limit));
         }
 
         // This is not necessary but narrows candidates
@@ -21,7 +21,7 @@ pub trait EagerGenerator: VCFHelper {
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
         let len = result.len() as u32;
-        let limit = state.limit();
+        let limit = state.limit;
         let result = result
             .into_iter()
             .map(|(p, _)| (p, Node::init_dn(len, limit)))
@@ -36,12 +36,12 @@ pub trait EagerGenerator: VCFHelper {
     ) -> Result<Vec<(Point, Node)>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
-            return Err(Node::zero_dn(state.limit()));
+            return Err(Node::zero_dn(state.limit));
         }
 
         // This is not necessary but improves speed
         if self.solve_defender_vcf(state).is_some() {
-            return Err(Node::zero_dn(state.limit()));
+            return Err(Node::zero_dn(state.limit));
         }
 
         let threat = maybe_threat.unwrap();
@@ -49,7 +49,7 @@ pub trait EagerGenerator: VCFHelper {
         result.retain(|&(p, _)| !state.game().is_forbidden_move(p));
 
         let len = result.len() as u32;
-        let limit = state.limit() - 1;
+        let limit = state.limit - 1;
         let result = result
             .into_iter()
             .map(|(p, _)| (p, Node::init_pn(len, limit)))

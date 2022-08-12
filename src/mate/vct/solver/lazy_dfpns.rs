@@ -80,10 +80,10 @@ impl DFPNSTraverser for LazyDFPNSolver {}
 
 impl Resolver for LazyDFPNSolver {
     fn solve_attacker_vcf(&mut self, state: &State) -> Option<Mate> {
-        self.vcf_solver.solve(&mut state.vcf_state())
+        self.vcf_solver.solve(&mut state.vcf_state(state.limit))
     }
 
     fn solve_attacker_threat(&mut self, state: &State) -> Option<Mate> {
-        self.vcf_solver.solve(&mut state.threat_state())
+        self.vcf_solver.solve(&mut state.threat_state(state.limit))
     }
 }

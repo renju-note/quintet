@@ -8,7 +8,7 @@ use crate::mate::vct::proof::*;
 
 pub trait Searcher: Generator + Traverser {
     fn search(&mut self, state: &mut State) -> bool {
-        if state.limit() == 0 {
+        if state.limit == 0 {
             return false;
         }
         self.search_attacks(state, Node::inf()).proven()
@@ -17,9 +17,9 @@ pub trait Searcher: Generator + Traverser {
     fn search_attacks(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::zero_dn(state.limit()),
+                Defeated(_) => Node::zero_dn(state.limit),
                 Forced(next_move) => {
-                    let attacks = &[(next_move, Node::init_dn(1, state.limit()))];
+                    let attacks = &[(next_move, Node::init_dn(1, state.limit))];
                     self.traverse_attacks(state, attacks, threshold, Self::search_defences)
                         .current
                 }
@@ -33,7 +33,7 @@ pub trait Searcher: Generator + Traverser {
 
         let attacks = either_attacks.unwrap();
         if attacks.is_empty() {
-            return Node::zero_dn(state.limit());
+            return Node::zero_dn(state.limit);
         }
 
         self.traverse_attacks(state, &attacks, threshold, Self::search_defences)
@@ -43,12 +43,12 @@ pub trait Searcher: Generator + Traverser {
     fn search_defences(&mut self, state: &mut State, threshold: Node) -> Node {
         if let Some(event) = state.game().check_event() {
             return match event {
-                Defeated(_) => Node::zero_pn(state.limit()),
+                Defeated(_) => Node::zero_pn(state.limit),
                 Forced(next_move) => {
-                    if state.limit() <= 1 {
-                        Node::zero_dn(state.limit())
+                    if state.limit <= 1 {
+                        Node::zero_dn(state.limit)
                     } else {
-                        let defences = &[(next_move, Node::init_pn(1, state.limit() - 1))];
+                        let defences = &[(next_move, Node::init_pn(1, state.limit - 1))];
                         self.traverse_defences(state, defences, threshold, Self::search_attacks)
                             .current
                     }
@@ -56,8 +56,8 @@ pub trait Searcher: Generator + Traverser {
             };
         }
 
-        if state.limit() <= 1 {
-            return Node::zero_dn(state.limit());
+        if state.limit <= 1 {
+            return Node::zero_dn(state.limit);
         }
 
         let either_defences = self.generate_defences(state, threshold);
@@ -67,7 +67,7 @@ pub trait Searcher: Generator + Traverser {
 
         let defences = either_defences.unwrap();
         if defences.is_empty() {
-            return Node::zero_pn(state.limit());
+            return Node::zero_pn(state.limit);
         }
 
         self.traverse_defences(state, &defences, threshold, Self::search_attacks)

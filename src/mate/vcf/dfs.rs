@@ -16,11 +16,11 @@ impl Solver {
     }
 
     pub fn solve(&mut self, state: &mut State) -> Option<Mate> {
-        if state.limit() == 0 {
+        if state.limit == 0 {
             return None;
         }
 
-        let hash = state.game().zobrist_hash();
+        let hash = state.zobrist_hash();
         if self.deadends.contains(&hash) {
             return None;
         }

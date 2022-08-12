@@ -20,7 +20,7 @@ impl Table {
     }
 
     pub fn insert(&mut self, state: &State, node: Node) {
-        let key = state.game().zobrist_hash();
+        let key = state.zobrist_hash();
         self.table.insert(key, node.clone());
     }
 

@@ -5,23 +5,30 @@ use crate::mate::game::*;
 #[derive(Clone)]
 pub struct State {
     game: Game,
+    pub limit: u8,
 }
 
 impl State {
-    pub fn new(game: Game) -> Self {
-        Self { game: game }
+    pub fn new(game: Game, limit: u8) -> Self {
+        Self { game: game, limit }
     }
 
     pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
-        let game = Game::init(board, attacker, limit);
-        Self::new(game)
+        let game = Game::init(board, attacker);
+        Self::new(game, limit)
     }
 
     pub fn play(&mut self, next_move: Point) {
         self.game.play(Some(next_move));
+        if self.game.attacking() {
+            self.limit -= 1
+        }
     }
 
     pub fn undo(&mut self) {
+        if self.game.attacking() {
+            self.limit += 1
+        }
         self.game.undo();
     }
 
@@ -39,12 +46,8 @@ impl State {
         &self.game
     }
 
-    pub fn limit(&self) -> u8 {
-        self.game.limit
-    }
-
-    pub fn set_limit(&mut self, limit: u8) {
-        self.game.set_limit(limit)
+    pub fn zobrist_hash(&self) -> u64 {
+        self.game.zobrist_hash(self.limit)
     }
 
     pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
