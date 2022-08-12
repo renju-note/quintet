@@ -19,23 +19,19 @@ pub trait Searcher: Generator + Traverser {
             return match event {
                 Defeated(_) => Node::zero_dn(state.limit),
                 Forced(next_move) => {
-                    let attacks = &[(next_move, Node::unit_dn(1, state.limit))];
+                    let attacks = &[next_move];
                     self.traverse_attacks(state, attacks, threshold, Self::search_defences)
                         .current
                 }
             };
         }
 
-        let either_attacks = self.generate_attacks(state, threshold);
+        let either_attacks = self.generate_attacks(state);
         if either_attacks.is_err() {
             return either_attacks.unwrap_err();
         }
 
         let attacks = either_attacks.unwrap();
-        if attacks.is_empty() {
-            return Node::zero_dn(state.limit);
-        }
-
         self.traverse_attacks(state, &attacks, threshold, Self::search_defences)
             .current
     }
@@ -48,7 +44,7 @@ pub trait Searcher: Generator + Traverser {
                     if state.limit <= 1 {
                         Node::zero_dn(state.limit)
                     } else {
-                        let defences = &[(next_move, Node::unit_pn(1, state.limit - 1))];
+                        let defences = &[next_move];
                         self.traverse_defences(state, defences, threshold, Self::search_attacks)
                             .current
                     }
@@ -60,16 +56,12 @@ pub trait Searcher: Generator + Traverser {
             return Node::zero_dn(state.limit);
         }
 
-        let either_defences = self.generate_defences(state, threshold);
+        let either_defences = self.generate_defences(state);
         if either_defences.is_err() {
             return either_defences.unwrap_err();
         }
 
         let defences = either_defences.unwrap();
-        if defences.is_empty() {
-            return Node::zero_pn(state.limit);
-        }
-
         self.traverse_defences(state, &defences, threshold, Self::search_attacks)
             .current
     }

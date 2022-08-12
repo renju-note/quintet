@@ -4,11 +4,7 @@ use crate::mate::vct::proof::*;
 use crate::mate::vct::state::VCTState;
 
 pub trait Generator: VCFHelper {
-    fn generate_attacks(
-        &mut self,
-        state: &mut VCTState,
-        _threshold: Node,
-    ) -> Result<Vec<(Point, Node)>, Node> {
+    fn generate_attacks(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
             return Err(Node::zero_pn(state.limit));
@@ -18,22 +14,17 @@ pub trait Generator: VCFHelper {
         let maybe_threat = self.solve_defender_threat(state);
         let maybe_threat_defences = maybe_threat.map(|t| state.threat_defences(&t));
         let mut result = state.sorted_potentials(3, maybe_threat_defences);
-        result.retain(|&(p, _)| !state.is_forbidden_move(p));
+        result.retain(|&x| !state.is_forbidden_move(x.0));
 
-        let len = result.len() as u32;
-        let limit = state.limit;
-        let result = result
-            .into_iter()
-            .map(|(p, _)| (p, Node::unit_dn(len, limit)))
-            .collect();
+        if result.is_empty() {
+            return Err(Node::zero_dn(state.limit));
+        }
+
+        let result = result.into_iter().map(|x| x.0).collect();
         Ok(result)
     }
 
-    fn generate_defences(
-        &mut self,
-        state: &mut VCTState,
-        _threshold: Node,
-    ) -> Result<Vec<(Point, Node)>, Node> {
+    fn generate_defences(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
             return Err(Node::zero_dn(state.limit));
@@ -46,14 +37,13 @@ pub trait Generator: VCFHelper {
 
         let threat = maybe_threat.unwrap();
         let mut result = state.sort_by_potential(state.threat_defences(&threat));
-        result.retain(|&(p, _)| !state.is_forbidden_move(p));
+        result.retain(|&x| !state.is_forbidden_move(x.0));
 
-        let len = result.len() as u32;
-        let limit = state.limit - 1;
-        let result = result
-            .into_iter()
-            .map(|(p, _)| (p, Node::unit_pn(len, limit)))
-            .collect();
+        if result.is_empty() {
+            return Err(Node::zero_pn(state.limit));
+        }
+
+        let result = result.into_iter().map(|x| x.0).collect();
         Ok(result)
     }
 }
