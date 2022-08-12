@@ -29,6 +29,18 @@ impl State {
         Self::new(game, limit, field)
     }
 
+    pub fn is_forbidden_move(&self, p: Point) -> bool {
+        self.game().is_forbidden_move(p)
+    }
+
+    pub fn check_event(&self) -> Option<Event> {
+        self.game().check_event()
+    }
+
+    pub fn empties(&self) -> Vec<Point> {
+        self.game().board().empties().collect()
+    }
+
     pub fn vcf_state(&self, max_limit: u8) -> vcf::State {
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);

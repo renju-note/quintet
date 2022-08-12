@@ -2,7 +2,6 @@ use super::generator::Generator;
 use super::state::State;
 use super::traverser::Traverser;
 use crate::mate::game::*;
-use crate::mate::state::MateState;
 use crate::mate::vct::proof::*;
 
 // MEMO: Debug printing example is 6e2bace

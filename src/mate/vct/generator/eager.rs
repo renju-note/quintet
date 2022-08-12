@@ -1,5 +1,4 @@
 use crate::board::Point;
-use crate::mate::state::MateState;
 use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::State;

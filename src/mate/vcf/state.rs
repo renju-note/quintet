@@ -24,6 +24,14 @@ impl State {
         Self::new(game, limit)
     }
 
+    pub fn is_forbidden_move(&self, p: Point) -> bool {
+        self.game().is_forbidden_move(p)
+    }
+
+    pub fn check_event(&self) -> Option<Event> {
+        self.game().check_event()
+    }
+
     pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
         self.game
             .board()

@@ -22,8 +22,7 @@ pub trait Resolver: ProofTree {
             };
         }
 
-        let attacks: Vec<_> = state.game().board().empties().collect();
-        for attack in attacks {
+        for attack in state.empties() {
             let node = self
                 .attacker_table()
                 .lookup_next(state, Some(attack))

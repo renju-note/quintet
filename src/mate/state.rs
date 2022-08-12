@@ -46,12 +46,4 @@ pub trait MateState {
     fn zobrist_hash(&self) -> u64 {
         self.game().zobrist_hash(self.limit())
     }
-
-    fn is_forbidden_move(&self, p: Point) -> bool {
-        self.game().is_forbidden_move(p)
-    }
-
-    fn check_event(&self) -> Option<Event> {
-        self.game().check_event()
-    }
 }
