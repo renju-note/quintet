@@ -1,8 +1,7 @@
 use super::game::*;
 use super::mate::*;
-use super::vcf;
-use super::vct;
-use super::vct::Solver;
+use super::vcf::*;
+use super::vct::*;
 use crate::board::Player::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
@@ -68,28 +67,28 @@ pub fn solve(
     }
     match mode {
         VCFDFS => {
-            let state = &mut vcf::VCFState::init(board, attacker, limit);
-            let mut solver = vcf::DFSSolver::init();
+            let state = &mut VCFState::init(board, attacker, limit);
+            let mut solver = DFSSolver::init();
             solver.solve(state)
         }
         VCTDFS => {
-            let state = &mut vct::VCTState::init(board, attacker, limit);
-            let mut solver = vct::EagerDFSSolver::init(threat_limit, 2);
+            let state = &mut VCTState::init(board, attacker, limit);
+            let mut solver = EagerDFSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTPNS => {
-            let state = &mut vct::VCTState::init(board, attacker, limit);
-            let mut solver = vct::EagerPNSSolver::init(threat_limit, 2);
+            let state = &mut VCTState::init(board, attacker, limit);
+            let mut solver = EagerPNSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTDFPNS => {
-            let state = &mut vct::VCTState::init(board, attacker, limit);
-            let mut solver = vct::EagerDFPNSSolver::init(threat_limit, 2);
+            let state = &mut VCTState::init(board, attacker, limit);
+            let mut solver = EagerDFPNSSolver::init(threat_limit, 2);
             solver.solve(state)
         }
         VCTLAZY => {
-            let state = &mut vct::VCTState::init(board, attacker, limit);
-            let mut solver = vct::LazyDFPNSSolver::init();
+            let state = &mut VCTState::init(board, attacker, limit);
+            let mut solver = LazyDFPNSSolver::init();
             solver.solve(state)
         }
         _ => None,
