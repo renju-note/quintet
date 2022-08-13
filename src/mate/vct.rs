@@ -1,4 +1,3 @@
-mod field;
 mod generator;
 mod helper;
 mod proof;

@@ -1,4 +1,4 @@
-use super::field::*;
+use crate::analysis::field::PotentialField;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
