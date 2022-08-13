@@ -1,10 +1,10 @@
-use super::field::*;
+use crate::analysis::field::PotentialField;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
 use crate::mate::state::State;
-use crate::mate::vcf;
+use crate::mate::vcf::VCFState;
 
 pub struct VCTState {
     game: Game,
@@ -29,13 +29,13 @@ impl VCTState {
         Self::new(game, limit, field)
     }
 
-    pub fn vcf_state(&self, max_limit: u8) -> vcf::VCFState {
+    pub fn vcf_state(&self, max_limit: u8) -> VCFState {
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);
-        vcf::VCFState::new(game, limit)
+        VCFState::new(game, limit)
     }
 
-    pub fn threat_state(&self, max_limit: u8) -> vcf::VCFState {
+    pub fn threat_state(&self, max_limit: u8) -> VCFState {
         let mut game = self.game.clone();
         game.play(None);
         let limit = if self.attacking() {
@@ -44,7 +44,7 @@ impl VCTState {
             self.limit
         }
         .min(max_limit);
-        vcf::VCFState::new(game, limit)
+        VCFState::new(game, limit)
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
