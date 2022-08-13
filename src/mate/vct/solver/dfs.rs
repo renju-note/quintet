@@ -6,6 +6,7 @@ use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::Resolver;
 use crate::mate::vct::searcher::Searcher;
+use crate::mate::vct::selector::*;
 use crate::mate::vct::solver::VCTSolver;
 use crate::mate::vct::state::VCTState;
 use crate::mate::vct::traverser::*;
@@ -60,6 +61,8 @@ impl ProofTree for DFSVCTSolver {
         &mut self.defender_table
     }
 }
+
+impl Selector for DFSVCTSolver {}
 
 impl Traverser for DFSVCTSolver {
     fn next_threshold_attack(&self, selection: &Selection, threshold: Node) -> Node {

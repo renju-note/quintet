@@ -6,6 +6,7 @@ use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::resolver::Resolver;
 use crate::mate::vct::searcher::Searcher;
+use crate::mate::vct::selector::*;
 use crate::mate::vct::solver::VCTSolver;
 use crate::mate::vct::state::VCTState;
 use crate::mate::vct::traverser::*;
@@ -40,6 +41,8 @@ impl PNSVCTSolver {
 impl VCTSolver for PNSVCTSolver {}
 
 impl Searcher for PNSVCTSolver {}
+
+impl Selector for PNSVCTSolver {}
 
 impl Generator for PNSVCTSolver {
     fn attacks_cache(&mut self) -> &mut LruCache<u64, Result<Vec<Point>, Node>> {
