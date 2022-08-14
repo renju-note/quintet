@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
@@ -36,39 +38,76 @@ impl LocalVCTState {
         self.game
             .board()
             .structures_on(forced_move, self.game.turn, Sword)
-            .flat_map(Self::sword_eyes_pairs)
-            .filter(|&(e1, _)| e1 == forced_move)
+            .flat_map(Self::sword_to_movesets)
+            .filter(|ms| ms.attack == forced_move)
             .next()
-            .map(Into::into)
     }
 
-    pub fn neighbor_movesets(&self) -> Vec<Moveset> {
+    pub fn four_movesets(&self) -> Vec<Moveset> {
+        let mut result = vec![];
         if let Some(last2_move) = self.game.last2_move() {
-            self.game
-                .board()
-                .structures_on(last2_move, self.game.turn, Sword)
-                .flat_map(Self::sword_eyes_pairs)
-                .map(Into::into)
-                .collect()
-        } else {
-            vec![]
-        }
+            result.extend(self.four_movesets_on(last2_move));
+        };
+        if let Some(last_move) = self.game.last_move() {
+            result.extend(self.four_movesets_on(last_move));
+        };
+        result.sort_by(|a, b| a.attack.cmp(&b.attack));
+        // TODO: not dedup but merge (intersect defences)
+        result.dedup_by(|a, b| a.attack == b.attack);
+        result
     }
 
-    pub fn movesets(&self) -> Vec<Moveset> {
+    pub fn three_movesets(&self) -> Vec<Moveset> {
+        let mut result = vec![];
+        if let Some(last2_move) = self.game.last2_move() {
+            result.extend(self.three_movesets_on(last2_move));
+        };
+        if let Some(last_move) = self.game.last_move() {
+            result.extend(self.three_movesets_on(last_move));
+        };
+        result.sort_by(|a, b| a.attack.cmp(&b.attack));
+        // TODO: not dedup but merge (intersect defences)
+        result.dedup_by(|a, b| a.attack == b.attack);
+        result
+    }
+
+    // TODO: add trapping movesets
+    // 1. get local forbiddens
+    // 2. get single two sequences (maybe dagger?) over them
+
+    fn four_movesets_on(&self, p: Point) -> Vec<Moveset> {
         self.game
             .board()
-            .structures(self.game.turn, Sword)
-            .flat_map(Self::sword_eyes_pairs)
-            .map(Into::into)
+            .structures_on(p, self.game.turn, Sword)
+            .flat_map(Self::sword_to_movesets)
             .collect()
     }
 
-    fn sword_eyes_pairs(sword: Structure) -> [(Point, Point); 2] {
+    fn three_movesets_on(&self, p: Point) -> Vec<Moveset> {
+        self.game
+            .board()
+            .structures_on(p, self.game.turn, Two)
+            .flat_map(Self::two_to_movesets)
+            .collect()
+    }
+
+    fn sword_to_movesets(sword: Structure) -> [Moveset; 2] {
         let mut eyes = sword.eyes();
         let e1 = eyes.next().unwrap();
         let e2 = eyes.next().unwrap();
-        [(e1, e2), (e2, e1)]
+        [Moveset::new(e1, vec![e2]), Moveset::new(e2, vec![e1])]
+    }
+
+    fn two_to_movesets(two: Structure) -> [Moveset; 2] {
+        let mut eyes = two.eyes();
+        let e1 = eyes.next().unwrap();
+        let e2 = eyes.next().unwrap();
+        let ms = two.start_index().walk_checked(-1).unwrap().to_point();
+        let me = two.start_index().walk_checked(4).unwrap().to_point();
+        [
+            Moveset::new(e1, vec![e2, ms, me]),
+            Moveset::new(e2, vec![e1, ms, me]),
+        ]
     }
 }
 
@@ -104,15 +143,6 @@ impl Moveset {
         Self {
             attack: attack,
             defences: defences,
-        }
-    }
-}
-
-impl From<(Point, Point)> for Moveset {
-    fn from((a, d): (Point, Point)) -> Self {
-        Self {
-            attack: a,
-            defences: vec![d],
         }
     }
 }

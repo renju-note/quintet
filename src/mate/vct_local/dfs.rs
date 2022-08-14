@@ -43,21 +43,25 @@ impl DFSLocalVCTSolver {
             };
         }
 
-        let neighbor_movesets = state.neighbor_movesets();
-        for ms in &neighbor_movesets {
+        let four_movesets = state.four_movesets();
+        for ms in &four_movesets {
             let result = self.solve_attack(state, ms);
             if result.is_some() {
                 return result;
             }
         }
 
-        let movesets = state.movesets();
-        for ms in &movesets {
-            if neighbor_movesets.iter().any(|nms| nms.attack == ms.attack) {
+        let three_movesets = state.three_movesets();
+        for ms in &three_movesets {
+            if four_movesets.iter().any(|nms| nms.attack == ms.attack) {
                 continue;
             }
             let result = self.solve_attack(state, ms);
             if result.is_some() {
+                // TODO: validate by including related opponent's four moves
+                // 1. replace defences with current four moves
+                // 2. limit += 1
+                // 3. replay
                 return result;
             }
         }
@@ -77,7 +81,7 @@ impl DFSLocalVCTSolver {
     }
 
     fn solve_defences(&mut self, state: &mut LocalVCTState, defences: &[Point]) -> Option<Mate> {
-        let mut result = None;
+        let mut result = Some(Mate::new(End::Unknown, vec![]));
         for &defence in defences {
             let maybe_mate = self.solve_defence(state, defence);
             if maybe_mate.is_none() {
