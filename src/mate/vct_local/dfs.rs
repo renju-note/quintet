@@ -1,4 +1,5 @@
 use super::state::LocalVCTState;
+use super::state::Moveset;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::*;
@@ -25,37 +26,37 @@ impl DFSLocalVCTSolver {
         if self.deadends.contains(&hash) {
             return None;
         }
-        let result = self.solve_move_pairs(state);
+        let result = self.solve_movesets(state);
         if result.is_none() {
             self.deadends.insert(hash);
         }
         result
     }
 
-    fn solve_move_pairs(&mut self, state: &mut LocalVCTState) -> Option<Mate> {
+    fn solve_movesets(&mut self, state: &mut LocalVCTState) -> Option<Mate> {
         if let Some(event) = state.check_event() {
             return match event {
                 Defeated(_) => None,
                 Forced(p) => state
-                    .forced_move_pair(p)
-                    .and_then(|(a, d)| self.solve_attack(state, a, d)),
+                    .forced_moveset(p)
+                    .and_then(|ms| self.solve_attack(state, &ms)),
             };
         }
 
-        let neighbor_pairs = state.neighbor_move_pairs();
-        for &(attack, defence) in &neighbor_pairs {
-            let result = self.solve_attack(state, attack, defence);
+        let neighbor_movesets = state.neighbor_movesets();
+        for ms in &neighbor_movesets {
+            let result = self.solve_attack(state, ms);
             if result.is_some() {
                 return result;
             }
         }
 
-        let pairs = state.move_pairs();
-        for &(attack, defence) in &pairs {
-            if neighbor_pairs.iter().any(|(a, _)| *a == attack) {
+        let movesets = state.movesets();
+        for ms in &movesets {
+            if neighbor_movesets.iter().any(|nms| nms.attack == ms.attack) {
                 continue;
             }
-            let result = self.solve_attack(state, attack, defence);
+            let result = self.solve_attack(state, ms);
             if result.is_some() {
                 return result;
             }
@@ -64,19 +65,37 @@ impl DFSLocalVCTSolver {
         None
     }
 
-    fn solve_attack(
-        &mut self,
-        state: &mut LocalVCTState,
-        attack: Point,
-        defence: Point,
-    ) -> Option<Mate> {
+    fn solve_attack(&mut self, state: &mut LocalVCTState, moveset: &Moveset) -> Option<Mate> {
+        let (attack, defences) = (moveset.attack, &moveset.defences);
         if state.is_forbidden_move(attack) {
             return None;
         }
 
         state.into_play(Some(attack), |s| {
-            self.solve_defence(s, defence).map(|m| m.unshift(attack))
+            self.solve_defences(s, defences).map(|m| m.unshift(attack))
         })
+    }
+
+    fn solve_defences(&mut self, state: &mut LocalVCTState, defences: &[Point]) -> Option<Mate> {
+        let mut result = None;
+        for &defence in defences {
+            let maybe_mate = self.solve_defence(state, defence);
+            if maybe_mate.is_none() {
+                return None;
+            }
+            let new_mate = maybe_mate.unwrap();
+            if result.is_none() {
+                result = Some(new_mate);
+                continue;
+            }
+            let old_mate = result.unwrap();
+            result = if new_mate.n_moves() > old_mate.n_moves() {
+                Some(new_mate)
+            } else {
+                Some(old_mate)
+            };
+        }
+        result
     }
 
     fn solve_defence(&mut self, state: &mut LocalVCTState, defence: Point) -> Option<Mate> {

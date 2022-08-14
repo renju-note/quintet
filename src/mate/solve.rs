@@ -358,7 +358,7 @@ mod tests {
         let result = solve(VCTLAZY, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
-        let result = solve(VCTLOCAL, 4, &board, Black, 1);
+        let result = solve(VCTLOCAL, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
         Ok(())

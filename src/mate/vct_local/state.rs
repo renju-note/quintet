@@ -32,32 +32,35 @@ impl LocalVCTState {
         self.game().check_event()
     }
 
-    pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
+    pub fn forced_moveset(&self, forced_move: Point) -> Option<Moveset> {
         self.game
             .board()
             .structures_on(forced_move, self.game.turn, Sword)
             .flat_map(Self::sword_eyes_pairs)
             .filter(|&(e1, _)| e1 == forced_move)
             .next()
+            .map(Into::into)
     }
 
-    pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
+    pub fn neighbor_movesets(&self) -> Vec<Moveset> {
         if let Some(last2_move) = self.game.last2_move() {
             self.game
                 .board()
                 .structures_on(last2_move, self.game.turn, Sword)
                 .flat_map(Self::sword_eyes_pairs)
+                .map(Into::into)
                 .collect()
         } else {
             vec![]
         }
     }
 
-    pub fn move_pairs(&self) -> Vec<(Point, Point)> {
+    pub fn movesets(&self) -> Vec<Moveset> {
         self.game
             .board()
             .structures(self.game.turn, Sword)
             .flat_map(Self::sword_eyes_pairs)
+            .map(Into::into)
             .collect()
     }
 
@@ -88,5 +91,28 @@ impl State for LocalVCTState {
 
     fn set_limit(&mut self, limit: u8) {
         self.limit = limit
+    }
+}
+
+pub struct Moveset {
+    pub attack: Point,
+    pub defences: Vec<Point>,
+}
+
+impl Moveset {
+    pub fn new(attack: Point, defences: Vec<Point>) -> Self {
+        Self {
+            attack: attack,
+            defences: defences,
+        }
+    }
+}
+
+impl From<(Point, Point)> for Moveset {
+    fn from((a, d): (Point, Point)) -> Self {
+        Self {
+            attack: a,
+            defences: vec![d],
+        }
     }
 }
