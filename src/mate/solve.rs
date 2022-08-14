@@ -3,6 +3,7 @@ use super::mate::*;
 use super::vcf::*;
 use super::vct::*;
 use super::vct_lazy::*;
+use super::vct_local::*;
 use crate::board::Player::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
@@ -18,6 +19,7 @@ pub enum SolveMode {
     VCTPNS,
     VCTDFPNS,
     VCTLAZY,
+    VCTLOCAL,
 }
 
 pub use SolveMode::*;
@@ -34,6 +36,7 @@ impl TryFrom<u8> for SolveMode {
             15 => Ok(VCTPNS),
             16 => Ok(VCTDFPNS),
             20 => Ok(VCTLAZY),
+            21 => Ok(VCTLOCAL),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -51,6 +54,7 @@ impl FromStr for SolveMode {
             "vct_pns" => Ok(VCTPNS),
             "vct_dfpns" => Ok(VCTDFPNS),
             "vct_lazy" => Ok(VCTLAZY),
+            "vct_local" => Ok(VCTLAZY),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -90,6 +94,11 @@ pub fn solve(
         VCTLAZY => {
             let state = &mut LazyVCTState::init(board, attacker, limit);
             let mut solver = LazyVCTSolver::init();
+            solver.solve(state)
+        }
+        VCTLOCAL => {
+            let state = &mut LocalVCTState::init(board, attacker, limit);
+            let mut solver = IDDFSLocalVCTSolver::init(vec![1]);
             solver.solve(state)
         }
         _ => None,
@@ -301,6 +310,9 @@ mod tests {
         let result = solve(VCTLAZY, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
+        let result = solve(VCTLOCAL, 4, &board, Black, 1);
+        assert_eq!(path_string(result), solution);
+
         Ok(())
     }
 
@@ -344,6 +356,9 @@ mod tests {
         let solution = "I10,I8,F7,E6,J11";
 
         let result = solve(VCTLAZY, 4, &board, White, 1);
+        assert_eq!(path_string(result), solution);
+
+        let result = solve(VCTLOCAL, 4, &board, Black, 1);
         assert_eq!(path_string(result), solution);
 
         Ok(())
