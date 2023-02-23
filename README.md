@@ -1,6 +1,6 @@
 # quintet
 
-Renju mate solver compilable to WebAssemby
+Renju mate solver compilable to WebAssembly
 
 ## Run
 
