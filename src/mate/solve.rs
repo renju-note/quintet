@@ -106,9 +106,6 @@ fn validate(board: &Board, attacker: Player) -> Result<(), Option<Mate>> {
     if board.structures(Black, OverFive).next().is_some() {
         return Err(None);
     }
-    if board.structures(attacker.opponent(), Four).next().is_some() {
-        return Err(None);
-    }
     if board.structures(attacker, Four).next().is_some() {
         return Err(Some(Mate::new(Unknown, vec![])));
     }
