@@ -129,7 +129,11 @@ impl Game {
                 .flat_map(|r| r.eyes());
             Self::take_distinct_two(last_four_eyes)
         } else {
-            (None, None)
+            let four_eyes = self
+                .board
+                .structures(self.turn.opponent(), Four)
+                .flat_map(|r| r.eyes());
+            Self::take_distinct_two(four_eyes)
         }
     }
 

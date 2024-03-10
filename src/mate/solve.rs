@@ -106,9 +106,6 @@ fn validate(board: &Board, attacker: Player) -> Result<(), Option<Mate>> {
     if board.structures(Black, OverFive).next().is_some() {
         return Err(None);
     }
-    if board.structures(attacker.opponent(), Four).next().is_some() {
-        return Err(None);
-    }
     if board.structures(attacker, Four).next().is_some() {
         return Err(Some(Mate::new(Unknown, vec![])));
     }
@@ -255,6 +252,35 @@ mod tests {
         let solution = "J8,K9,K8,L8,H11";
 
         let result = solve(VCFDFS, 3, &board, Black, 0);
+        assert_eq!(path_string(result), solution);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_vcf_counter() -> Result<(), String> {
+        let board = "
+        . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . x . . . . . . .
+         . . . . . . . o . o o x . . .
+         . . . . . . . . o x . o . . .
+         . . . . . . . . o . x . . . .
+         . . . . . . . . x . . x . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let solution: String = "I8,G8,I10,I9,J9".split_whitespace().collect();
+
+        let result = solve(VCFDFS, u8::MAX, &board, Black, 0);
         assert_eq!(path_string(result), solution);
 
         Ok(())
