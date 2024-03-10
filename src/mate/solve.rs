@@ -261,6 +261,35 @@ mod tests {
     }
 
     #[test]
+    fn test_vcf_counter() -> Result<(), String> {
+        let board = "
+        . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . x . . . . . . .
+         . . . . . . . o . o o x . . .
+         . . . . . . . . o x . o . . .
+         . . . . . . . . o . x . . . .
+         . . . . . . . . x . . x . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let solution: String = "I8,G8,I10,I9,J9".split_whitespace().collect();
+
+        let result = solve(VCFDFS, u8::MAX, &board, Black, 0);
+        assert_eq!(path_string(result), solution);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_vct_black() -> Result<(), String> {
         // No. 02 from 5-moves-to-end problems by Hiroshi Okabe
         let board = "
