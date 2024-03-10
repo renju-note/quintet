@@ -135,7 +135,7 @@ impl FromStr for Line {
         }
         let mut line = Self::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
-            Player::try_from(c).map_or((), |p| line.put_mut(p, i as u8));
+            let _ = Player::try_from(c).map_or((), |p| line.put_mut(p, i as u8));
         }
         Ok(line)
     }
