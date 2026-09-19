@@ -18,6 +18,9 @@ Conventions for adding documents:
 - One topic per file, numbered in reading order: `NN-kebab-case.en.md` **and** `NN-kebab-case.ja.md` (`README.*` has no number), both
   linked from the table above. Always add and update the two languages
   together; they must say the same thing.
+- Do not hard-wrap paragraphs in the Japanese files: Markdown renders a
+  line break inside a paragraph as a space, which shows up as a stray gap in
+  Japanese text. English files may wrap as usual.
 - Prefer ASCII board diagrams in the same format the tests use
   (`o` = Black, `x` = White, `.` = empty, row 15 at the top) so examples can be
   pasted straight into a `.parse::<Board>()` test.
