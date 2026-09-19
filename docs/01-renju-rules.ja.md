@@ -202,4 +202,4 @@
 | 12 | 開局規定は**モデル化していない**。任意の局面と手番を入力にとる。 |
 | 5, 10.3 | パスはモデル化していない。 |
 
-実装の詳細は [board-implementation.ja.md](board-implementation.ja.md) を参照。
+実装の詳細は [02-board-implementation.ja.md](02-board-implementation.ja.md) を参照。

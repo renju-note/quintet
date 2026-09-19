@@ -10,12 +10,12 @@ Japanese index: [README.ja.md](README.ja.md).
 
 | Document | What it covers |
 | --- | --- |
-| [renju-rules.en.md](renju-rules.en.md) / [ja](renju-rules.ja.md) | The RIF International Rules of Renju (board, terminology, win conditions, forbidden moves, opening rules) restated in Markdown. |
-| [board-implementation.en.md](board-implementation.en.md) / [ja](board-implementation.ja.md) | How `src/board/` represents the board and implements the rules above: line encoding, sequence/structure detection, forbidden-move detection, hashing. |
+| [01-renju-rules.en.md](01-renju-rules.en.md) / [ja](01-renju-rules.ja.md) | The RIF International Rules of Renju (board, terminology, win conditions, forbidden moves, opening rules) restated in Markdown. |
+| [02-board-implementation.en.md](02-board-implementation.en.md) / [ja](02-board-implementation.ja.md) | How `src/board/` represents the board and implements the rules above: line encoding, sequence/structure detection, forbidden-move detection, hashing. |
 
 Conventions for adding documents:
 
-- One topic per file, `kebab-case.en.md` **and** `kebab-case.ja.md`, both
+- One topic per file, numbered in reading order: `NN-kebab-case.en.md` **and** `NN-kebab-case.ja.md` (`README.*` has no number), both
   linked from the table above. Always add and update the two languages
   together; they must say the same thing.
 - Prefer ASCII board diagrams in the same format the tests use

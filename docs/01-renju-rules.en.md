@@ -229,5 +229,5 @@ The parts of the rules that `quintet` encodes:
 | 12 | Opening restrictions are **not** modelled; the solver takes an arbitrary position and side to move. |
 | 5, 10.3 | Passing is not modelled. |
 
-See [board-implementation.en.md](board-implementation.en.md) for how these are
+See [02-board-implementation.en.md](02-board-implementation.en.md) for how these are
 implemented.
