@@ -222,7 +222,7 @@ fn double_three(q, p) -> bool {
 fn truthy_double_three(next, p) -> bool {
     let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();   // 棒四点
-        forbidden(next, eye).is_none()
+        forbidden_strict(next, eye).is_none()
     });
     distinctive(&mut truthy_threes.map(|s| s.start_index()))
 }
@@ -233,14 +233,15 @@ fn truthy_double_three(next, p) -> bool {
 2. コピーした盤に着手し、`p` を通る本当の `Three` を列挙する。`Three`
    （`Compact`, 3）の眼はちょうど 1 つ — 棒四を作る点である。
 3. ルール 9.3: 三は、その眼が黒にとって合法な着手であるときだけ数える。
-   これは新しい局面で眼に対して `forbidden` を呼ぶことで判定され、9.3 a
-   （棒四の手が長連や四四になる）と 9.3 b（禁手の三三になる）の両方を
-   カバーする。`forbidden → double_three → truthy_double_three → forbidden …`
-   の再帰が、ルールの言う「以下同様」の入れ子を処理する。
+   これは新しい局面で眼に対して `forbidden_strict` を呼ぶことで判定され、
+   9.3 a（棒四の手が長連や四四になる）と 9.3 b（禁手の三三になる）の両方を
+   カバーする。`forbidden_strict → forbidden → double_three →
+   truthy_double_three → forbidden_strict …` の再帰が、ルールの言う
+   「以下同様」の入れ子を処理する。`_strict` 版であることが重要で、眼が別の
+   線で同時に五を作る場合、その手は四四を形成していても 9.2 により合法
+   （かつ勝ち）なので、その三は本物として数える
+   （`test_double_three_eye_makes_five`）。判定は再帰的なので、この五は候補手自身が作った四によるものでもよく、その場合は候補手自体の判定が反転する（`test_double_three_nested_eye_makes_five`）。なお RIF 9.3 a) の字面は「長連または四四ができない限り」で、9.2 の五の例外を再掲していない。本実装はこれを「*禁手*にならない限り」と読んでおり、9.2 および日本連珠社規約の三の定義と整合する解釈である。
 4. *異なる*本物の三が 2 つ以上残れば、その手は禁手の三三である。
-
-眼の判定には `forbidden_strict` ではなく `forbidden` を使っている点に注意。
-三の棒四点を検証する際には「同時に五を作る場合を除く」の例外は適用されない。
 
 テスト（`test_double_three`）の例: 次の局面の `H8`
 
@@ -283,4 +284,4 @@ fn truthy_double_three(next, p) -> bool {
 | 黒の「長連を作らずに」 | `Sequences` の `strict` マージン。 |
 | 禁手: 長連 / 四四 / 三三 | `forbidden.rs`: `overline` / `double_four` / `double_three`。 |
 | 9.2「同時に五を作る場合を除く」 | `forbidden_strict`。 |
-| 9.3 本物の三と偽の三、再帰 | `truthy_double_three` が各三の眼に `forbidden` を呼ぶ。 |
+| 9.3 本物の三と偽の三、再帰 | `truthy_double_three` が各三の眼に `forbidden_strict` を呼ぶ。 |

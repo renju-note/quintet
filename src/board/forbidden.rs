@@ -66,7 +66,7 @@ fn double_three(q: &Square, p: Point) -> bool {
 fn truthy_double_three(next: &Square, p: Point) -> bool {
     let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();
-        forbidden(next, eye).is_none()
+        forbidden_strict(next, eye).is_none()
     });
     distinctive(&mut truthy_threes.map(|s| s.start_index()))
 }
@@ -116,6 +116,84 @@ mod tests {
             (DoubleFour, Point(4, 4)),
         ];
         assert_eq!(result, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_three_eye_makes_five() -> Result<(), String> {
+        // H8 makes two threes. The eye of the horizontal one (G8) is a
+        // double-four, but it also completes a five (G4-G8), so it is a legal
+        // move and the three counts as a real one (rule 9.2 / 9.3).
+        let square = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . o . . . . . . . . . .
+         . . . . . o . o . . . . . . .
+         . . . . . o . . o . . . . . .
+         . . . . . . o o . . . . . . .
+         . . . . . . o . . . . . . . .
+         . . . . . . o . . . . . . . .
+         . . . . . . o . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Square>()?;
+        let mut next = square.clone();
+        next.put_mut(Black, Point(7, 7));
+        assert_eq!(forbidden(&next, Point(6, 7)), Some(DoubleFour));
+        assert_eq!(forbidden_strict(&next, Point(6, 7)), None);
+
+        assert_eq!(forbidden(&square, Point(7, 7)), Some(DoubleThree));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_three_nested_eye_makes_five() -> Result<(), String> {
+        // H8 makes a four (E8-H8, eye I8) and two threes (H6-H9 via H7,
+        // F6-I9 via I9). Whether H8 is a double-three depends on the nested
+        // check: H7 would make two threes (H7-K10 via I8, G8-J5 via I6), and
+        // I8 is a double-four but also completes the five E8-I8, so I8 is a
+        // legal move, H7 is a real double-three (forbidden), the vertical
+        // three through H8 is fake, and H8 is a legal four-three.
+        // Checking I8 with `forbidden` instead of `forbidden_strict` flips
+        // every step and wrongly reports H8 as a double-three.
+        let square = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . x . . . . . . . . . .
+         . . . . . o . . . . . . . . .
+         . . . . . . o . . . o . . . .
+         . . . . . . . o . o . . . . .
+         . . . x o o o . . . . . . . .
+         . . . . . . o . . . . . . . .
+         . . . . . o . o . . . . . . .
+         . . . . . . . . . o . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Square>()?;
+        let h8 = Point(7, 7);
+        let h7 = Point(7, 6);
+        let i8 = Point(8, 7);
+
+        let mut after_h8 = square.clone();
+        after_h8.put_mut(Black, h8);
+        let mut after_h7 = after_h8.clone();
+        after_h7.put_mut(Black, h7);
+        assert_eq!(forbidden(&after_h7, i8), Some(DoubleFour));
+        assert_eq!(forbidden_strict(&after_h7, i8), None);
+        assert_eq!(forbidden(&after_h8, h7), Some(DoubleThree));
+
+        assert_eq!(forbidden(&square, h8), None);
 
         Ok(())
     }

@@ -232,7 +232,7 @@ fn double_three(q, p) -> bool {
 fn truthy_double_three(next, p) -> bool {
     let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();   // the straight-four point
-        forbidden(next, eye).is_none()
+        forbidden_strict(next, eye).is_none()
     });
     distinctive(&mut truthy_threes.map(|s| s.start_index()))
 }
@@ -244,17 +244,17 @@ fn truthy_double_three(next, p) -> bool {
    enumerated. A `Three` (`Compact`, 3) has exactly one eye — the point
    that would make the straight four.
 3. Rule 9.3: a three only counts if that eye is itself a legal Black move.
-   This is decided by calling `forbidden` on the eye in the new position,
-   which covers 9.3 a (the straight-four move would be an overline or
-   double-four) and 9.3 b (it would be a forbidden double-three), and the
-   recursion through `forbidden → double_three → truthy_double_three →
-   forbidden …` handles the "and so on" nesting the rule describes.
+   This is decided by calling `forbidden_strict` on the eye in the new
+   position, which covers 9.3 a (the straight-four move would be an overline
+   or double-four) and 9.3 b (it would be a forbidden double-three), and the
+   recursion through `forbidden_strict → forbidden → double_three →
+   truthy_double_three → forbidden_strict …` handles the "and so on" nesting
+   the rule describes. Using the `_strict` variant matters: if the eye also
+   completes a five on another line it is a legal (winning) move under 9.2
+   even when it forms a double-four, so the three is real
+   (`test_double_three_eye_makes_five`). Because the check is recursive, the five can also be one that the candidate move itself creates, in which case the answer for the candidate move flips (`test_double_three_nested_eye_makes_five`). Note that RIF 9.3 a) literally says "without … an overline or double-four is attained" and does not restate the 9.2 five exception; this implementation reads it as "without making a *forbidden* move", consistent with 9.2 and with the Japanese rule definition of a three.
 4. The move is a forbidden double-three when two or more *distinct* real
    threes remain.
-
-Note that the eye is checked with `forbidden`, not `forbidden_strict`: the
-"unless it makes a five" exception is not applied when validating a three's
-straight-four point.
 
 Worked example from the tests (`test_double_three`): at `H8` in
 
@@ -300,4 +300,4 @@ solvers use the `_mut` variants to avoid cloning in the search loop.
 | "Without making an overline" for Black | `strict` margins in `Sequences`. |
 | Forbidden: overline / double-four / double-three | `forbidden.rs`: `overline` / `double_four` / `double_three`. |
 | 9.2 "unless it makes a five" | `forbidden_strict`. |
-| 9.3 real vs. fake threes, recursive | `truthy_double_three` calling `forbidden` on each three's eye. |
+| 9.3 real vs. fake threes, recursive | `truthy_double_three` calling `forbidden_strict` on each three's eye. |
