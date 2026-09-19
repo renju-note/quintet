@@ -80,11 +80,8 @@ impl DFSSolver {
     }
 
     fn solve_defence(&mut self, state: &mut VCFState, defence: Point) -> Option<Mate> {
-        if let Some(event) = state.check_event() {
-            match event {
-                Defeated(end) => return Some(Mate::new(end, vec![])),
-                _ => (),
-            };
+        if let Some(Defeated(end)) = state.check_event() {
+            return Some(Mate::new(end, vec![]));
         }
 
         state.into_play(Some(defence), |s| self.solve(s).map(|m| m.unshift(defence)))

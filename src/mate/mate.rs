@@ -9,10 +9,7 @@ pub struct Mate {
 
 impl Mate {
     pub fn new(end: End, path: Vec<Point>) -> Self {
-        Self {
-            end: end,
-            path: path,
-        }
+        Self { end, path }
     }
 
     pub fn end(&self) -> &End {
@@ -43,6 +40,6 @@ impl Mate {
     }
 
     pub fn n_times(&self) -> u8 {
-        ((self.path.len() + 1) / 2) as u8
+        self.path.len().div_ceil(2) as u8
     }
 }

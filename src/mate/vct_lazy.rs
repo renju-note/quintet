@@ -6,7 +6,6 @@ The idea was inspired by following paper.
 */
 
 mod generator;
-mod helper;
 mod proof;
 mod resolver;
 mod searcher;

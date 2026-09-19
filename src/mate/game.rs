@@ -14,7 +14,7 @@ impl fmt::Display for End {
         let s = match self {
             Fours(p1, p2) => format!("Fours({}, {})", p1, p2),
             Forbidden(p) => format!("Forbidden({})", p),
-            Unknown => format!("Unknown"),
+            Unknown => "Unknown".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -43,7 +43,7 @@ impl Game {
         Self {
             board: board.clone(),
             moves: vec![],
-            turn: turn,
+            turn,
             passed: false,
         }
     }
@@ -67,6 +67,7 @@ impl Game {
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,
@@ -86,7 +87,7 @@ impl Game {
     }
 
     pub fn last_move(&self) -> Option<Point> {
-        if self.moves.len() >= 1 {
+        if !self.moves.is_empty() {
             self.moves[self.moves.len() - 1]
         } else {
             None
@@ -106,18 +107,13 @@ impl Game {
     }
 
     pub fn check_event(&self) -> Option<Event> {
-        let (maybe_first, maybe_another) = self.check_last_four_eyes();
-        if maybe_first.is_some() && maybe_another.is_some() {
-            let end = Fours(maybe_first.unwrap(), maybe_another.unwrap());
-            Some(Defeated(end))
-        } else if maybe_first.map_or(false, |e| self.is_forbidden_move(e)) {
-            let end = Forbidden(maybe_first.unwrap());
-            Some(Defeated(end))
-        } else if maybe_first.is_some() {
-            let forced_move = maybe_first.unwrap();
-            Some(Forced(forced_move))
-        } else {
-            None
+        match self.check_last_four_eyes() {
+            (Some(first), Some(another)) => Some(Defeated(Fours(first, another))),
+            (Some(first), None) if self.is_forbidden_move(first) => {
+                Some(Defeated(Forbidden(first)))
+            }
+            (Some(first), None) => Some(Forced(first)),
+            (None, _) => None,
         }
     }
 
@@ -140,7 +136,7 @@ impl Game {
     fn take_distinct_two(points: impl Iterator<Item = Point>) -> (Option<Point>, Option<Point>) {
         let mut ret = None;
         for p in points {
-            if ret.map_or(false, |e| e != p) {
+            if ret.is_some_and(|e| e != p) {
                 return (ret, Some(p));
             }
             ret = Some(p);

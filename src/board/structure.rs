@@ -39,10 +39,7 @@ pub struct Structure {
 
 impl Structure {
     pub fn new(start: Index, sequence: Sequence) -> Self {
-        Self {
-            start: start,
-            sequence: sequence,
-        }
+        Self { start, sequence }
     }
 
     pub fn start_index(&self) -> Index {

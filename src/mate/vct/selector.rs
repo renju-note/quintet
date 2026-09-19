@@ -34,10 +34,10 @@ pub trait Selector: ProofTree {
             }
         }
         Selection {
-            best: best,
-            current: current,
-            next1: next1,
-            next2: next2,
+            best,
+            current,
+            next1,
+            next2,
         }
     }
 
@@ -65,10 +65,10 @@ pub trait Selector: ProofTree {
             }
         }
         Selection {
-            best: best,
-            current: current,
-            next1: next1,
-            next2: next2,
+            best,
+            current,
+            next1,
+            next2,
         }
     }
 }

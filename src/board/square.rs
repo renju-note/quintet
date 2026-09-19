@@ -20,6 +20,12 @@ pub struct Square {
     dlines: DiagonalLines,
 }
 
+impl Default for Square {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Square {
     pub fn new() -> Self {
         Self {
@@ -53,30 +59,46 @@ impl Square {
 
     pub fn put_mut(&mut self, player: Player, p: Point) {
         let vidx = p.to_index(Vertical);
-        Self::line_idx(vidx).map(|i| self.vlines[i].put_mut(player, vidx.j));
+        if let Some(i) = Self::line_idx(vidx) {
+            self.vlines[i].put_mut(player, vidx.j)
+        }
 
         let hidx = p.to_index(Horizontal);
-        Self::line_idx(hidx).map(|i| self.hlines[i].put_mut(player, hidx.j));
+        if let Some(i) = Self::line_idx(hidx) {
+            self.hlines[i].put_mut(player, hidx.j)
+        }
 
         let aidx = p.to_index(Ascending);
-        Self::line_idx(aidx).map(|i| self.alines[i].put_mut(player, aidx.j));
+        if let Some(i) = Self::line_idx(aidx) {
+            self.alines[i].put_mut(player, aidx.j)
+        }
 
         let didx = p.to_index(Descending);
-        Self::line_idx(didx).map(|i| self.dlines[i].put_mut(player, didx.j));
+        if let Some(i) = Self::line_idx(didx) {
+            self.dlines[i].put_mut(player, didx.j)
+        }
     }
 
     pub fn remove_mut(&mut self, p: Point) {
         let vidx = p.to_index(Vertical);
-        Self::line_idx(vidx).map(|i| self.vlines[i].remove_mut(vidx.j));
+        if let Some(i) = Self::line_idx(vidx) {
+            self.vlines[i].remove_mut(vidx.j)
+        }
 
         let hidx = p.to_index(Horizontal);
-        Self::line_idx(hidx).map(|i| self.hlines[i].remove_mut(hidx.j));
+        if let Some(i) = Self::line_idx(hidx) {
+            self.hlines[i].remove_mut(hidx.j)
+        }
 
         let aidx = p.to_index(Ascending);
-        Self::line_idx(aidx).map(|i| self.alines[i].remove_mut(aidx.j));
+        if let Some(i) = Self::line_idx(aidx) {
+            self.alines[i].remove_mut(aidx.j)
+        }
 
         let didx = p.to_index(Descending);
-        Self::line_idx(didx).map(|i| self.dlines[i].remove_mut(didx.j));
+        if let Some(i) = Self::line_idx(didx) {
+            self.dlines[i].remove_mut(didx.j)
+        }
     }
 
     pub fn stone(&self, p: Point) -> Option<Player> {
@@ -85,14 +107,10 @@ impl Square {
     }
 
     pub fn stones(&self, player: Player) -> impl Iterator<Item = Point> + '_ {
-        self.vlines
-            .iter()
-            .enumerate()
-            .map(move |(i, l)| {
-                l.stones(player)
-                    .map(move |j| Index::new(Vertical, i as u8, j).to_point())
-            })
-            .flatten()
+        self.vlines.iter().enumerate().flat_map(move |(i, l)| {
+            l.stones(player)
+                .map(move |j| Index::new(Vertical, i as u8, j).to_point())
+        })
     }
 
     pub fn neighbors(
@@ -115,14 +133,10 @@ impl Square {
     }
 
     pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
-        self.vlines
-            .iter()
-            .enumerate()
-            .map(move |(i, l)| {
-                l.blanks()
-                    .map(move |j| Index::new(Vertical, i as u8, j).to_point())
-            })
-            .flatten()
+        self.vlines.iter().enumerate().flat_map(move |(i, l)| {
+            l.blanks()
+                .map(move |j| Index::new(Vertical, i as u8, j).to_point())
+        })
     }
 
     pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
@@ -248,7 +262,7 @@ impl Square {
             Vertical => Some(i as usize),
             Horizontal => Some(i as usize),
             _ => {
-                if D_LINE_OMIT <= i && i < D_LINE_OMIT + D_LINE_NUM {
+                if (D_LINE_OMIT..D_LINE_OMIT + D_LINE_NUM).contains(&i) {
                     Some((i - D_LINE_OMIT) as usize)
                 } else {
                     None
@@ -317,10 +331,10 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
             return Err("Wrong line size");
         }
         for j in 0..hline.size {
-            hline.stone(j).map(|player| {
-                let point = Index::new(Horizontal, i as u8, j as u8).to_point();
+            if let Some(player) = hline.stone(j) {
+                let point = Index::new(Horizontal, i as u8, j).to_point();
                 square.put_mut(player, point)
-            });
+            }
         }
     }
     Ok(square)

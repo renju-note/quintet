@@ -58,7 +58,7 @@ pub trait Generator: Traverser {
                 .unwrap_or(Node::unit_pn(1, state.limit - 1));
             let selection = Selection {
                 best: None,
-                current: current,
+                current,
                 next1: current,
                 next2: Node::zero_pn(state.limit - 1),
             };
@@ -97,7 +97,7 @@ pub trait Generator: Traverser {
         let mut attacks = state.four_moves();
         attacks.retain(|&p| !state.is_forbidden_move(p));
 
-        if attacks.len() == 0 {
+        if attacks.is_empty() {
             return Node::zero_dn(state.limit);
         }
 
@@ -111,7 +111,7 @@ pub trait Generator: Traverser {
         threshold: Node,
     ) -> Node {
         let attacks: Vec<_> = attacks
-            .into_iter()
+            .iter()
             .map(|&p| (p, Node::unit_dn(1, state.limit)))
             .collect();
         let selection =
@@ -144,7 +144,7 @@ pub trait Generator: Traverser {
         threshold: Node,
     ) -> Node {
         let defences: Vec<_> = defences
-            .into_iter()
+            .iter()
             .map(|&p| (p, Node::unit_pn(1, state.limit)))
             .collect();
         let selection =

@@ -26,8 +26,8 @@ impl PNSVCTSolver {
         Self {
             attacker_table: Table::new(),
             defender_table: Table::new(),
-            attacker_vcf_depth: attacker_vcf_depth,
-            defender_vcf_depth: defender_vcf_depth,
+            attacker_vcf_depth,
+            defender_vcf_depth,
             attacker_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
             defender_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
             attacks_cache: LruCache::new(1000),
