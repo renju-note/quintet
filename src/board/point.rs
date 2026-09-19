@@ -19,7 +19,7 @@ pub struct Point(pub u8, pub u8);
 
 impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let x = char::from_u32(('A' as u8 + self.0) as u32).unwrap();
+        let x = char::from_u32((b'A' + self.0) as u32).unwrap();
         let y = self.1 + 1;
         write!(f, "{}{}", x, y)
     }
@@ -53,23 +53,21 @@ impl FromStr for Point {
         let mut cs = s.trim().chars();
         let x = cs
             .next()
-            .map(|c| match c {
-                'A'..='O' => Some(c as u8 - 'A' as u8),
-                'a'..='o' => Some(c as u8 - 'a' as u8),
+            .and_then(|c| match c {
+                'A'..='O' => Some(c as u8 - b'A'),
+                'a'..='o' => Some(c as u8 - b'a'),
                 _ => None,
             })
-            .flatten()
             .ok_or("Failed to parse x part.")?;
         let y = cs
             .take(2)
             .collect::<String>()
             .parse::<u8>()
             .ok()
-            .map(|n| match n {
+            .and_then(|n| match n {
                 1..=RANGE => Some(n - 1),
                 _ => None,
             })
-            .flatten()
             .ok_or("Failed to parse y part.")?;
         Ok(Point(x, y))
     }
@@ -104,7 +102,7 @@ pub struct Index {
 
 impl Index {
     pub fn new(d: Direction, i: u8, j: u8) -> Self {
-        Self { d: d, i: i, j: j }
+        Self { d, i, j }
     }
 
     pub fn to_point(&self) -> Point {
@@ -127,7 +125,7 @@ impl Index {
     }
 
     pub fn walk(&self, step: u8) -> Self {
-        Self::new(self.d, self.i, (self.j + step) as u8)
+        Self::new(self.d, self.i, self.j + step)
     }
 
     pub fn walk_checked(&self, step: i8) -> Option<Self> {
@@ -214,7 +212,7 @@ impl TryFrom<&[u8]> for Points {
 
 impl From<Points> for Vec<u8> {
     fn from(value: Points) -> Vec<u8> {
-        value.0.into_iter().map(|p| u8::from(p)).collect()
+        value.0.into_iter().map(u8::from).collect()
     }
 }
 

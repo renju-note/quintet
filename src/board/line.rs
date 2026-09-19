@@ -19,7 +19,7 @@ impl Line {
         Self {
             blacks: 0b0,
             whites: 0b0,
-            size: size,
+            size,
         }
     }
 
@@ -135,7 +135,9 @@ impl FromStr for Line {
         }
         let mut line = Self::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
-            let _ = Player::try_from(c).map_or((), |p| line.put_mut(p, i as u8));
+            if let Ok(p) = Player::try_from(c) {
+                line.put_mut(p, i as u8);
+            }
         }
         Ok(line)
     }

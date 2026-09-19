@@ -1,4 +1,5 @@
 mod game;
+#[allow(clippy::module_inception)]
 mod mate;
 mod solve;
 mod state;

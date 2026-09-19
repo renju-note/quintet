@@ -27,11 +27,10 @@ pub trait Searcher: Generator + Traverser {
         }
 
         let either_attacks = self.generate_attacks(state);
-        if either_attacks.is_err() {
-            return either_attacks.unwrap_err();
-        }
-
-        let attacks = either_attacks.unwrap();
+        let attacks = match either_attacks {
+            Ok(v) => v,
+            Err(node) => return node,
+        };
         self.traverse_attacks(state, &attacks, threshold, Self::search_defences)
             .current
     }
@@ -57,11 +56,10 @@ pub trait Searcher: Generator + Traverser {
         }
 
         let either_defences = self.generate_defences(state);
-        if either_defences.is_err() {
-            return either_defences.unwrap_err();
-        }
-
-        let defences = either_defences.unwrap();
+        let defences = match either_defences {
+            Ok(v) => v,
+            Err(node) => return node,
+        };
         self.traverse_defences(state, &defences, threshold, Self::search_attacks)
             .current
     }

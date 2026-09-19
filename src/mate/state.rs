@@ -29,6 +29,7 @@ pub trait State {
 
     fn after_undo(&mut self, _maybe_last_move: Option<Point>) {}
 
+    #[allow(clippy::wrong_self_convention)]
     fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,

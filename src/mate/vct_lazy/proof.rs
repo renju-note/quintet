@@ -22,12 +22,12 @@ impl Table {
 
     pub fn insert(&mut self, state: &LazyVCTState, node: Node) {
         let key = state.zobrist_hash();
-        self.table.insert(key, node.clone());
+        self.table.insert(key, node);
     }
 
     pub fn lookup_next(&self, state: &mut LazyVCTState, next_move: Option<Point>) -> Option<Node> {
         let key = state.next_zobrist_hash(next_move);
-        self.table.get(&key).map(|&c| c)
+        self.table.get(&key).copied()
     }
 }
 
@@ -42,11 +42,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(pn: u32, dn: u32, limit: u8) -> Self {
-        Self {
-            pn: pn,
-            dn: dn,
-            limit: limit,
-        }
+        Self { pn, dn, limit }
     }
 
     pub fn inf() -> Self {

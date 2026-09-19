@@ -27,11 +27,10 @@ pub trait Searcher: Generator + Traverser {
         }
 
         let either_attacks = self.generate_attacks(state, threshold);
-        if either_attacks.is_err() {
-            return either_attacks.unwrap_err();
-        }
-
-        let attacks = either_attacks.unwrap();
+        let attacks = match either_attacks {
+            Ok(v) => v,
+            Err(node) => return node,
+        };
         if attacks.is_empty() {
             return Node::zero_dn(state.limit);
         }
@@ -61,11 +60,10 @@ pub trait Searcher: Generator + Traverser {
         }
 
         let either_defences = self.generate_defences(state, threshold);
-        if either_defences.is_err() {
-            return either_defences.unwrap_err();
-        }
-
-        let defences = either_defences.unwrap();
+        let defences = match either_defences {
+            Ok(v) => v,
+            Err(node) => return node,
+        };
         if defences.is_empty() {
             return Node::zero_pn(state.limit);
         }

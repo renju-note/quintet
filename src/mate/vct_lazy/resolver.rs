@@ -55,7 +55,7 @@ pub trait Resolver: ProofTree {
             let node = self
                 .defender_table()
                 .lookup_next(state, Some(defence))
-                .unwrap_or_else(|| Node::inf());
+                .unwrap_or_else(Node::inf);
             if node.proven() && node.limit < min_limit {
                 min_limit = node.limit;
                 best.replace(defence);

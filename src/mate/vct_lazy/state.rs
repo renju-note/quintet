@@ -17,9 +17,9 @@ impl LazyVCTState {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
         Self {
             attacker: game.turn,
-            game: game,
-            limit: limit,
-            field: field,
+            game,
+            limit,
+            field,
         }
     }
 
@@ -78,14 +78,14 @@ impl LazyVCTState {
         } else {
             self.field.collect(min)
         };
-        result.sort_by(|&a, &b| b.1.cmp(&a.1));
+        result.sort_by_key(|&a| std::cmp::Reverse(a.1));
         result.dedup();
         result
     }
 
     pub fn sort_by_potential(&self, points: Vec<Point>) -> Vec<(Point, u8)> {
         let mut result: Vec<_> = points.into_iter().map(|p| (p, self.field.get(p))).collect();
-        result.sort_by(|&a, &b| b.1.cmp(&a.1));
+        result.sort_by_key(|&a| std::cmp::Reverse(a.1));
         result.dedup();
         result
     }
@@ -120,8 +120,7 @@ impl LazyVCTState {
         self.game.into_play(Some(p), |g| {
             g.board()
                 .structures_on(g.last_move().unwrap(), g.turn.opponent(), Sword)
-                .map(|s| s.eyes())
-                .flatten()
+                .flat_map(|s| s.eyes())
                 .collect()
         })
     }

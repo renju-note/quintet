@@ -39,8 +39,8 @@ impl PotentialField {
     pub fn new(player: Player, min: u8) -> Self {
         Self {
             potentials: Potentials::default(),
-            player: player,
-            min: min,
+            player,
+            min,
         }
     }
 

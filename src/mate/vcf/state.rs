@@ -14,7 +14,7 @@ impl VCFState {
     pub fn new(game: Game, limit: u8) -> Self {
         Self {
             attacker: game.turn,
-            game: game,
+            game,
             limit,
         }
     }
@@ -37,8 +37,7 @@ impl VCFState {
             .board()
             .structures_on(forced_move, self.game.turn, Sword)
             .flat_map(Self::sword_eyes_pairs)
-            .filter(|&(e1, _)| e1 == forced_move)
-            .next()
+            .find(|&(e1, _)| e1 == forced_move)
     }
 
     pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {

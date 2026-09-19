@@ -13,6 +13,12 @@ pub struct Board {
     z_hash: u64,
 }
 
+impl Default for Board {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Board {
     pub fn new() -> Self {
         Self {
@@ -24,10 +30,7 @@ impl Board {
     pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
         let square = Square::from_stones(blacks, whites);
         let z_hash = zobrist::from_stones(blacks, whites);
-        Self {
-            square: square,
-            z_hash: z_hash,
-        }
+        Self { square, z_hash }
     }
 
     pub fn put_mut(&mut self, r: Player, p: Point) {
@@ -37,7 +40,9 @@ impl Board {
     }
 
     pub fn remove_mut(&mut self, p: Point) {
-        self.stone(p).map(|r| self.update_z_hash(r, p));
+        if let Some(r) = self.stone(p) {
+            self.update_z_hash(r, p)
+        }
         self.square.remove_mut(p);
     }
 
@@ -150,10 +155,7 @@ impl FromStr for Board {
         let whites = square.stones(White).collect();
         let z_hash = zobrist::from_stones(&Points(blacks), &Points(whites));
 
-        Ok(Self {
-            square: square,
-            z_hash: z_hash,
-        })
+        Ok(Self { square, z_hash })
     }
 }
 
