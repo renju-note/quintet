@@ -154,6 +154,51 @@ mod tests {
     }
 
     #[test]
+    fn test_double_three_nested_eye_makes_five() -> Result<(), String> {
+        // H8 makes a four (E8-H8, eye I8) and two threes (H6-H9 via H7,
+        // F6-I9 via I9). Whether H8 is a double-three depends on the nested
+        // check: H7 would make two threes (H7-K10 via I8, G8-J5 via I6), and
+        // I8 is a double-four but also completes the five E8-I8, so I8 is a
+        // legal move, H7 is a real double-three (forbidden), the vertical
+        // three through H8 is fake, and H8 is a legal four-three.
+        // Checking I8 with `forbidden` instead of `forbidden_strict` flips
+        // every step and wrongly reports H8 as a double-three.
+        let square = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . o . . . . . . . . .
+         . . . . . . o . . . o . . . .
+         . . . . . . . o . o . . . . .
+         . . . x o o o . . . . . . . .
+         . . . . . . o . . . . . . . .
+         . . . . . o . o . . . . . . .
+         . . . . . . . . . o . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Square>()?;
+        let h8 = Point(7, 7);
+        let h7 = Point(7, 6);
+        let i8 = Point(8, 7);
+
+        let mut after_h8 = square.clone();
+        after_h8.put_mut(Black, h8);
+        let mut after_h7 = after_h8.clone();
+        after_h7.put_mut(Black, h7);
+        assert_eq!(forbidden(&after_h7, i8), Some(DoubleFour));
+        assert_eq!(forbidden_strict(&after_h7, i8), None);
+        assert_eq!(forbidden(&after_h8, h7), Some(DoubleThree));
+
+        assert_eq!(forbidden(&square, h8), None);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_double_three() -> Result<(), String> {
         let square = "
          . . . . . . . . . . . . . . .

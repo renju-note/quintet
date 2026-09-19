@@ -240,7 +240,7 @@ fn truthy_double_three(next, p) -> bool {
    「以下同様」の入れ子を処理する。`_strict` 版であることが重要で、眼が別の
    線で同時に五を作る場合、その手は四四を形成していても 9.2 により合法
    （かつ勝ち）なので、その三は本物として数える
-   （`test_double_three_eye_makes_five`）。
+   （`test_double_three_eye_makes_five`）。判定は再帰的なので、この五は候補手自身が作った四によるものでもよく、その場合は候補手自体の判定が反転する（`test_double_three_nested_eye_makes_five`）。
 4. *異なる*本物の三が 2 つ以上残れば、その手は禁手の三三である。
 
 テスト（`test_double_three`）の例: 次の局面の `H8`

@@ -252,7 +252,7 @@ fn truthy_double_three(next, p) -> bool {
    the rule describes. Using the `_strict` variant matters: if the eye also
    completes a five on another line it is a legal (winning) move under 9.2
    even when it forms a double-four, so the three is real
-   (`test_double_three_eye_makes_five`).
+   (`test_double_three_eye_makes_five`). Because the check is recursive, the five can also be one that the candidate move itself creates, in which case the answer for the candidate move flips (`test_double_three_nested_eye_makes_five`).
 4. The move is a forbidden double-three when two or more *distinct* real
    threes remain.
 
