@@ -50,6 +50,10 @@ slower and some cases time out.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
   `solve_vct`, `solve_vct_dfpn`, `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`.
+- `docs/` — reference documentation for humans and AI agents: the Renju
+  rules (`docs/renju-rules.md`) and how `src/board/` implements them
+  (`docs/board-implementation.md`). Read these before touching rule logic
+  (structures, forbidden moves) and keep them in sync when changing it.
 
 ## Conventions and constraints
 
