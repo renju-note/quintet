@@ -19,8 +19,8 @@ impl Potentials {
         Self {
             my: my << 1,
             op: op << 1,
-            min: min,
-            strict: strict,
+            min,
+            strict,
             limit: size,
             i: 0,
             acc: <[u8; 5]>::default(),

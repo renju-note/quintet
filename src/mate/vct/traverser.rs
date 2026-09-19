@@ -27,7 +27,7 @@ pub trait Traverser: Selector {
         F: Fn(&mut Self, &mut VCTState, Node) -> Node,
     {
         loop {
-            let selection = self.select_attack(state, &attacks);
+            let selection = self.select_attack(state, attacks);
             if self.backoff(selection.current, threshold) {
                 return selection;
             }
@@ -50,7 +50,7 @@ pub trait Traverser: Selector {
         F: Fn(&mut Self, &mut VCTState, Node) -> Node,
     {
         loop {
-            let selection = self.select_defence(state, &defences);
+            let selection = self.select_defence(state, defences);
             if self.backoff(selection.current, threshold) {
                 return selection;
             }

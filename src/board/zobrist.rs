@@ -18,31 +18,12 @@ pub fn new() -> u64 {
 
 pub fn apply_move(current: u64, player: Player, p: Point) -> u64 {
     let idx = 2 * (u8::from(p) as usize) + if player.is_black() { 0 } else { 1 };
-    let code = CODE_TABLE[idx as usize];
+    let code = CODE_TABLE[idx];
     current ^ code
 }
 
 pub fn apply_n(current: u64, n: u8) -> u64 {
     current ^ N_TABLE[n as usize]
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_apply_move() {
-        let mut code1 = new();
-        code1 = apply_move(code1, Black, Point(7, 7));
-        code1 = apply_move(code1, White, Point(8, 8));
-        code1 = apply_move(code1, Black, Point(9, 8));
-        // different order
-        let mut code2 = new();
-        code2 = apply_move(code2, Black, Point(7, 7));
-        code2 = apply_move(code2, Black, Point(9, 8));
-        code2 = apply_move(code2, White, Point(8, 8));
-        assert_eq!(code1, code2)
-    }
 }
 
 const TABLE_SIZE: usize = 2 * (RANGE as usize) * (RANGE as usize); // 450
@@ -760,3 +741,22 @@ const N_TABLE: [u64; 256] = [
     0xcda055fb9539e21a,
     0x52f5ca90d749b554,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_move() {
+        let mut code1 = new();
+        code1 = apply_move(code1, Black, Point(7, 7));
+        code1 = apply_move(code1, White, Point(8, 8));
+        code1 = apply_move(code1, Black, Point(9, 8));
+        // different order
+        let mut code2 = new();
+        code2 = apply_move(code2, Black, Point(7, 7));
+        code2 = apply_move(code2, Black, Point(9, 8));
+        code2 = apply_move(code2, White, Point(8, 8));
+        assert_eq!(code1, code2)
+    }
+}

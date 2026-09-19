@@ -11,7 +11,7 @@ impl IDDFSSolver {
     pub fn init(limits: Vec<u8>) -> Self {
         Self {
             solver: DFSSolver::init(),
-            limits: limits,
+            limits,
         }
     }
 

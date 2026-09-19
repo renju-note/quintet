@@ -22,7 +22,7 @@ pub trait Traverser: ProofTree {
         F: Fn(&mut Self, &mut LazyVCTState, Node) -> Node,
     {
         loop {
-            let selection = self.select_attack(state, &attacks);
+            let selection = self.select_attack(state, attacks);
             if self.backoff(selection.current, threshold) {
                 return selection;
             }
@@ -45,7 +45,7 @@ pub trait Traverser: ProofTree {
         F: Fn(&mut Self, &mut LazyVCTState, Node) -> Node,
     {
         loop {
-            let selection = self.select_defence(state, &defences);
+            let selection = self.select_defence(state, defences);
             if self.backoff(selection.current, threshold) {
                 return selection;
             }
@@ -86,10 +86,10 @@ pub trait Traverser: ProofTree {
             }
         }
         Selection {
-            best: best,
-            current: current,
-            next1: next1,
-            next2: next2,
+            best,
+            current,
+            next1,
+            next2,
         }
     }
 
@@ -122,10 +122,10 @@ pub trait Traverser: ProofTree {
             }
         }
         Selection {
-            best: best,
-            current: current,
-            next1: next1,
-            next2: next2,
+            best,
+            current,
+            next1,
+            next2,
         }
     }
 

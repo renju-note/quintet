@@ -32,11 +32,11 @@ pub fn forbidden_strict(q: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind> {
-    if overline(&q, p) {
+    if overline(q, p) {
         Some(Overline)
-    } else if double_four(&q, p) {
+    } else if double_four(q, p) {
         Some(DoubleFour)
-    } else if double_three(&q, p) {
+    } else if double_three(q, p) {
         Some(DoubleThree)
     } else {
         None
@@ -66,7 +66,7 @@ fn double_three(q: &Square, p: Point) -> bool {
 fn truthy_double_three(next: &Square, p: Point) -> bool {
     let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();
-        forbidden(&next, eye).is_none()
+        forbidden(next, eye).is_none()
     });
     distinctive(&mut truthy_threes.map(|s| s.start_index()))
 }
