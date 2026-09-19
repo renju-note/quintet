@@ -4,3 +4,7 @@
 
 # quintet
 .tmp/
+
+# claude code (per-user / worktrees)
+.claude/settings.local.json
+.claude/worktrees/

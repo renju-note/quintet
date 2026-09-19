@@ -1,0 +1,19 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+        targets: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v2
+    - run: cargo fmt --check
+    - run: cargo clippy --all-targets
+    - run: cargo test --release
+    - run: cargo build --target wasm32-unknown-unknown
