@@ -1,7 +1,7 @@
 # `src/board/` における連珠ルールの実装
 
 このドキュメントは盤面の表現と、[01-renju-rules.ja.md](01-renju-rules.ja.md) の
-ルール用語 — 連、五、長連、四、達四、三、四四、三三、禁手 — をどのように
+ルール用語 — 連、五、長連、四、棒四、三、四四、三三、禁手 — をどのように
 検出しているかを説明します。現在のコードに沿って書かれており、バッククォートで
 囲んだ識別子は `grep` で探せます。
 
@@ -148,8 +148,8 @@ pub struct Square {
 | --- | --- | --- | --- |
 | `Five` | `Single`, 5 | `ooooo` | **五**（§3）。黒は strict マージンにより長連を除外。 |
 | `OverFive` | `Double`, 5, 常に非 strict | `oooooo`（6 以上） | **長連**。 |
-| `Four` | `Single`, 4 | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五。達四は隣り合う **2 つ**の `Four` として現れる。 |
-| `OpenFour` | `Compact`, 4 | `.oooo.` | **達四**。 |
+| `Four` | `Single`, 4 | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五。棒四は隣り合う **2 つ**の `Four` として現れる。 |
+| `OpenFour` | `Compact`, 4 | `.oooo.` | **棒四**。 |
 | `Sword` | `Single`, 3 | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | 「四になる手前」: どちらかの眼に打てば `Four`。ルール用語ではなく、VCF/VCT が四を作る手を列挙するのに使う。 |
 | `Three` | `Compact`, 3 | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `OpenFour`。 |
 | `Two` | `Compact`, 2 | `.oo__.`、`.o_o_.` など | 「三になる手前」: 眼に打てば `Three`。 |
@@ -203,7 +203,7 @@ fn double_four(q, p) -> bool {
 
 `p` を通る各 `Sword` は、`p` に打つと `Four` になる。`distinctive` は、
 イテレータが `first` と `first.walk(1)` 以外の組み合わせで 2 つ以上の索引を
-返すときに真を返す。同一線上の隣り合う窓にある 2 つの `Sword` は 1 つの達四の
+返すときに真を返す。同一線上の隣り合う窓にある 2 つの `Sword` は 1 つの棒四の
 両半分（`.oo_o.` → `.oooo.`）であり四は 1 つなので二重に数えない。隣接しない
 2 つの窓 — 別の線上、あるいは同一線上でも `o.o_o.o` → 2 つの異なる五候補 —
 は本物の四四である。
@@ -221,7 +221,7 @@ fn double_three(q, p) -> bool {
 
 fn truthy_double_three(next, p) -> bool {
     let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
-        let eye = s.eyes().next().unwrap();   // 達四点
+        let eye = s.eyes().next().unwrap();   // 棒四点
         forbidden(next, eye).is_none()
     });
     distinctive(&mut truthy_threes.map(|s| s.start_index()))
@@ -231,16 +231,16 @@ fn truthy_double_three(next, p) -> bool {
 1. `p` を通る `Two` 構造は必要条件なので、ほとんどの点は盤をクローンせずに
    却下される。
 2. コピーした盤に着手し、`p` を通る本当の `Three` を列挙する。`Three`
-   （`Compact`, 3）の眼はちょうど 1 つ — 達四を作る点である。
+   （`Compact`, 3）の眼はちょうど 1 つ — 棒四を作る点である。
 3. ルール 9.3: 三は、その眼が黒にとって合法な着手であるときだけ数える。
    これは新しい局面で眼に対して `forbidden` を呼ぶことで判定され、9.3 a
-   （達四の手が長連や四四になる）と 9.3 b（禁手の三三になる）の両方を
+   （棒四の手が長連や四四になる）と 9.3 b（禁手の三三になる）の両方を
    カバーする。`forbidden → double_three → truthy_double_three → forbidden …`
    の再帰が、ルールの言う「以下同様」の入れ子を処理する。
 4. *異なる*本物の三が 2 つ以上残れば、その手は禁手の三三である。
 
 眼の判定には `forbidden_strict` ではなく `forbidden` を使っている点に注意。
-三の達四点を検証する際には「同時に五を作る場合を除く」の例外は適用されない。
+三の棒四点を検証する際には「同時に五を作る場合を除く」の例外は適用されない。
 
 テスト（`test_double_three`）の例: 次の局面の `H8`
 
@@ -248,7 +248,7 @@ fn truthy_double_three(next, p) -> bool {
 . . . . x . o . o . x . . . .   <- 8 行目
 ```
 
-（上下に石あり）では、横の `x.o_o.x` は `x` に挟まれて達四になれないため、
+（上下に石あり）では、横の `x.o_o.x` は `x` に挟まれて棒四になれないため、
 `H8` を通る本物の三は 1 つだけで、この手は合法である。2 方向とも黒だけの
 `.o_o.` なら `Some(DoubleThree)` になる。参照されている Twitter スレッドの
 入れ子の「偽の三」の局面を含む他のケースは `forbidden.rs` のテストにある。
@@ -278,8 +278,8 @@ fn truthy_double_three(next, p) -> bool {
 | --- | --- |
 | 五で勝ち | `structures(r, Five)`（`mate::solve` / `Game` で判定）。 |
 | 長連は白の勝ち、黒は不可 | `Five` は黒だけ strict なので白の六も `Five`。黒の長連は禁手（`NextOverFive`）。`mate::solve::validate` は五や黒の `OverFive` を既に含む入力局面を拒否する。 |
-| 四 / 達四 | `Four`（`Single`, 4）/ `OpenFour`（`Compact`, 4）。達四 = 隣接する 2 つの `Four`。 |
-| 三（達四にできること） | `Three`（`Compact`, 3）。唯一の眼 = 達四点。 |
+| 四 / 棒四 | `Four`（`Single`, 4）/ `OpenFour`（`Compact`, 4）。棒四 = 隣接する 2 つの `Four`。 |
+| 三（棒四にできること） | `Three`（`Compact`, 3）。唯一の眼 = 棒四点。 |
 | 黒の「長連を作らずに」 | `Sequences` の `strict` マージン。 |
 | 禁手: 長連 / 四四 / 三三 | `forbidden.rs`: `overline` / `double_four` / `double_three`。 |
 | 9.2「同時に五を作る場合を除く」 | `forbidden_strict`。 |
