@@ -1,7 +1,7 @@
 # How `src/board/` implements the Renju rules
 
 This document explains the board representation and how the rule concepts
-from [renju-rules.md](renju-rules.md) — row, five, overline, four, straight
+from [renju-rules.en.md](renju-rules.en.md) — row, five, overline, four, straight
 four, three, double-four, double-three, forbidden move — are detected. It is
 written against the current code; identifiers in backticks can be grepped.
 
