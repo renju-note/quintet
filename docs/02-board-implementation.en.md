@@ -5,7 +5,7 @@ from [01-renju-rules.en.md](01-renju-rules.en.md) — row, five, overline, four,
 four, three, double-four, double-three, forbidden move — are detected. It is
 written against the current code; identifiers in backticks can be grepped.
 
-Module map (`src/board/mod.rs`):
+Module map (`src/board.rs` declares the modules):
 
 | File | Role |
 | --- | --- |
@@ -19,6 +19,21 @@ Module map (`src/board/mod.rs`):
 | `potential.rs` | Per-point "potential" scoring used for move ordering. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
 | `board.rs` | `Board` = `Square` + Zobrist hash; the public facade used by the solvers. |
+
+The pieces are layered, and the sections below follow the layers from the
+bottom up:
+
+1. `Line` stores one line of the board as bitmasks (§2).
+2. `Sequences` slides a 5-cell window over a `Line` and finds the windows
+   with a given number of own stones (§3).
+3. `Square` holds all the lines and answers "which patterns are on the
+   board / through this point?" (§4).
+4. `StructureKind` names those patterns in rule vocabulary — `Five`, `Four`,
+   `Three`, ... (§5).
+5. `forbidden.rs` combines a few `structures_on` queries into the
+   forbidden-move rules (§6).
+6. `potential.rs` and `zobrist.rs` reuse the same machinery for move
+   ordering and hashing (§7, §8).
 
 ---
 
@@ -47,6 +62,13 @@ and a line number `i`, and a position on the line by `j`:
 | `Horizontal` | row (`-`) | `y` | `x` |
 | `Ascending` | ascending diagonal (`/`) | `x + 14 - y` (0 through 28) | `x` if `i < 14`, else `y` |
 | `Descending` | descending diagonal (`\`) | `x + y` (0 through 28) | `x` if `i < 14`, else `14 - y` |
+
+Ascending diagonals are numbered from the top-left corner (`A15` is on
+`i = 0`) to the bottom-right corner (`O1` is on `i = 28`), descending
+diagonals from `A1` (`i = 0`) to `O15` (`i = 28`). On every diagonal `j`
+counts from its leftmost point, so `j` grows with `x`; the two formulas in
+the table only differ in whether the diagonal starts on the left edge
+(`i < 14`) or on the bottom edge (ascending) / top edge (descending).
 
 The triple `(Direction, i, j)` is an `Index`. Related operations:
 
@@ -116,6 +138,15 @@ For each valid window the number of own stones is compared with `n`. Three
 | `Single` | window `i` has exactly `n` own stones | A place where adding `5 - n` stones makes a five. |
 | `Double` | window `i-1` **and** window `i` both have `n` own stones | Two overlapping fives-to-be, i.e. a 6-cell span `i-1..=i+4`. Its two ends are either both stones (`n + 1` stones in 6 cells) or both empty (the `Open` case below). |
 | `Open` | the `Double` case whose ends `i-1` and `i+4` are both empty, so the `n` own stones all lie in the 4 cells `i..=i+3` | A pattern with **open ends** on both sides, as in *open three* / *open four*. |
+
+In pictures (Black shown, cells labelled by their position on the line):
+
+```
+                i-1  i  i+1 i+2 i+3 i+4
+Single  n = 4        o   o   o   .   o     window i holds 4 stones               -> Four (the gap is the eye)
+Double  n = 4    o   o   .   o   o   o     windows i-1 and i both hold 4 stones  -> Overlining (5 stones in 6 cells)
+Open    n = 3    .   o   o   .   o   .     a Double whose ends are both empty    -> Three
+```
 
 The reported item is a pair `(i, Sequence)`, where `Sequence` is a 5-bit
 mask describing the target cells.
@@ -315,13 +346,31 @@ As a worked example from the tests (`test_double_three`), consider playing
 `H8` in this position:
 
 ```
-. . . . x . o . o . x . . . .   <- row 8
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . o . . . . . . .
+ . . . . x . o . o . x . . . .
+ . . . . . . . o . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
+ . . . . . . . . . . . . . . .
 ```
 
-with further stones above and below. The horizontal `x.o_o.x` cannot become
-a straight four because the `x`s cap it, so only one real three passes
-through `H8` and the move is legal. If both directions were the Black-only
-shape `.o_o.` instead, the result would be `Some(DoubleThree)`. More cases,
+Only the vertical direction has a `Two` through `H8`: `.o_o.` on column H
+(its two overlapping `Open` windows are adjacent, so `distinctive` counts
+them once). The horizontal `x.o_o.x` is capped by the `x`s, so no `Open`
+window fits and it is not a `Two` — it could never become a straight four.
+The pre-filter in step 1 therefore rejects the move without cloning the
+board, and the result is `None`. Remove the two `x`s and both directions
+have a `Two`; after playing `H8` both become `Three`s whose straight-four
+points are legal, so the result is `Some(DoubleThree)`. More cases,
 including the nested "fake three" positions from the referenced Twitter
 thread, are in `forbidden.rs`'s tests.
 

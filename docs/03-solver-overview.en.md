@@ -21,7 +21,7 @@ Module map:
 | `mate/mate.rs` | `Mate`: the result (`End` + move path). |
 | `mate/vcf/` | VCF solver: `VCFState` (four-making move pairs), `DFSSolver`, `IDDFSSolver`. |
 | `mate/vct/` | VCT solvers (`DFSVCTSolver`, `PNSVCTSolver`, `DFPNSVCTSolver`); see 04. |
-| `analysis/field.rs` | `PotentialField`, move ordering for VCT; see 04, §8. |
+| `analysis/field.rs` | `PotentialField`, move ordering for VCT; see 04, §9. |
 
 ---
 
@@ -49,7 +49,8 @@ other side is called the *defender* throughout the code.
 
 - `limit` is the maximum number of **attacker moves** in the solution. Every
   attacking move counts, including fours. A solution path of 7 moves (4
-  attacks and 3 defences) needs `limit >= 4`; see `test_vct_black`.
+  attacks and 3 defences) needs `limit >= 4`; see `test_vct_black`. The
+  example in §3 shows how the value is consumed move by move.
 - `threat_limit` bounds the depth of the nested VCF searches that the VCT
   solvers run (04, §2). It does not affect `VCFDFS`.
 
@@ -245,6 +246,22 @@ end `Fours(H11, M6)`:
 3. `J9` makes `I10,J9,K8,L7` with both `H11` and `M6` open: a straight four,
    reported as two `Four`s, so `check_event` for White is
    `Defeated(Fours(H11, M6))`.
+
+Following `limit` along this path shows how the budget is spent. It starts
+at 3 and drops by one each time White answers, i.e. each time the turn
+returns to Black:
+
+| Position | `limit` | Note |
+| --- | --- | --- |
+| root, Black to move | 3 | |
+| after `I8`, White to move | 3 | the attack just played is still counted |
+| after `G8`, Black to move | 2 | |
+| after `I9`, Black to move | 1 | |
+| after `J9`, White to move | 1 | `check_event` reports `Defeated` |
+
+With `limit = 2` the same search fails: after `I9` the limit is 0, and
+`solve` returns `None` before `J9` is ever tried. A VCF of three fours
+needs `limit >= 3`, whether from the CLI or in a test.
 
 ## 4. Cheat sheet
 

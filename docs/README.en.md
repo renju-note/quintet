@@ -15,10 +15,20 @@ Japanese index: [README.ja.md](README.ja.md).
 | [03-solver-overview.en.md](03-solver-overview.en.md) / [ja](03-solver-overview.ja.md) | Overview of `src/mate/`: `solve` and its parameters (`limit`, `threat_limit`, `SolveMode`), the shared search state (`Game`, `State`, `check_event`), and the VCF depth-first search. |
 | [04-solver-algorithm-vct.en.md](04-solver-algorithm-vct.en.md) / [ja](04-solver-algorithm-vct.ja.md) | The VCT solvers in `src/mate/vct/`: threats, move generation, proof numbers, the DFS / PNS / df-pn traversals, path extraction, and the `PotentialField` used for move ordering. |
 
+Where to start:
+
+- New to Renju? Read 01 first; the solver documents assume its vocabulary
+  (four, straight four, three, forbidden move).
+- Changing rule logic in `src/board/` (structures, forbidden moves)? Read 02.
+- Changing the search in `src/mate/` or `src/analysis/`? Read 03, then 04.
+- Looking for one specific thing? Each document ends with a cheat sheet that
+  maps questions to identifiers (02 §9, 03 §4, 04 §10).
+
 Conventions for adding documents:
 
-- One topic per file, numbered in reading order: `NN-kebab-case.en.md` **and** `NN-kebab-case.ja.md` (`README.*` has no number), both
-  linked from the table above. Always add and update the two languages
+- One topic per file, numbered in reading order: `NN-kebab-case.en.md`
+  **and** `NN-kebab-case.ja.md`, both linked from the table above
+  (`README.*` has no number). Always add and update the two languages
   together; they must say the same thing.
 - Do not hard-wrap paragraphs in the Japanese files: Markdown renders a
   line break inside a paragraph as a space, which shows up as a stray gap in

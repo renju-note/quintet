@@ -26,7 +26,36 @@ Module map:
 | `vct/searcher.rs` | The AND/OR node functions `search_attacks` / `search_defences` and the expansion loop `expand_attacks` / `expand_defences`. |
 | `vct/selector.rs` | `select_attack` / `select_defence`: evaluate a node from its children's table entries and pick the most-proving child. |
 | `vct/extractor.rs` | `extract`: walks the tables after a proof to recover the winning line. |
-| `analysis/field.rs` | `PotentialField` (§8). |
+| `analysis/field.rs` | `PotentialField` (§9). |
+
+The search at a glance — `solve` proves the root, then walks the proof again
+to read off the path. Each node function generates candidates (asking the
+nested VCF solvers a few yes/no questions on the way) and then expands the
+most promising child, storing the child's result in a transposition table:
+
+```
+VCTSolver::solve
+├── search ................................................. §5
+│   search_attacks (OR node: attacker to move)
+│   ├── generate_attacks ................................... §3
+│   │     solve_attacker_vcf     -> Terminal(proven)?
+│   │     solve_defender_threat  -> restrict candidates to threat_defences
+│   │     candidates ordered by PotentialField ............. §9
+│   └── expand_attacks: loop { select_attack; play best; search_defences; store in attacker_table }
+│
+│   search_defences (AND node: defender to move)
+│   ├── generate_defences .................................. §3
+│   │     solve_attacker_threat  -> Terminal(disproven)?  (was the attack a threat?)
+│   │     solve_defender_vcf     -> Terminal(disproven)?  (does the defender win first?)
+│   │     threat_defences ordered by PotentialField
+│   └── expand_defences: loop { select_defence; play best; search_attacks; store in defender_table }
+│
+└── extract ................................................ §6
+```
+
+Proof numbers (§4) decide which child `select_*` picks, and the threshold
+policy (§5) decides how long `expand_*` stays in that child before returning
+to the parent. §7 walks through a complete example.
 
 ---
 
@@ -61,7 +90,7 @@ how they traverse it.
 - `Game`;
 - `attacker`;
 - `limit`;
-- a `PotentialField` (§8) for the attacker, initialised with
+- a `PotentialField` (§9) for the attacker, initialised with
   `PotentialField::init(attacker, 2, board)` and refreshed along the four
   lines of each move in `after_play` / `after_undo`.
 
@@ -188,6 +217,14 @@ There are two ways to combine children. Sums are saturating.
 
 - `min_pn_sum_dn`: for OR nodes. pn = min, dn = sum.
 - `min_dn_sum_pn`: for AND nodes. pn = sum, dn = min.
+
+The intuition: at an OR node the attacker needs only one child proven, so
+proving the node costs as much as proving its cheapest child (min), while
+disproving it means disproving every child (sum). At an AND node the roles
+swap. Walking down from the root, taking the child with the smallest `pn` at
+OR nodes and the smallest `dn` at AND nodes, therefore leads to the leaf
+whose result would settle the most — the *most-proving node* — and that is
+what the selectors do (§5).
 
 `limit` rides along as the minimum over the children. It records how much
 budget was left where the subtree was decided; the extractor uses it to pick
@@ -327,10 +364,11 @@ to recover the winning line.
 - If no candidate is proven, the path ends with `End::Unknown`. This is a
   node that was proven because no legal defence existed.
 
-### Example
+## 7. Worked example
 
-The board from `test_vct_black` (Black to move; No. 02 of Hiroshi Okabe's
-five-move problems):
+This section follows the pieces above through one regression test, from the
+root position to the reported path. The board is from `test_vct_black`
+(Black to move; No. 02 of Hiroshi Okabe's five-move problems):
 
 ```
  . . . . . . . . . . . . . . .
@@ -360,14 +398,14 @@ five-move problems):
 - `G12` makes `G12,H11,I10,J9` with `F13` and `K8` open: `Fours`.
 
 At the root the attacker's candidates are the points with potential `>= 3`,
-highest first (`I10`, `G10`, `G9`, `F10`, ...; the overlay is in §8). The
+highest first (`I10`, `G10`, `G9`, `F10`, ...; the overlay is in §9). The
 depth-first solver therefore tries `I10` before `F10`.
 
 `I10` is refuted at once. It makes no three, so after a White pass Black has
 no one-move VCF. `compute_defences` returns `Terminal(disproven)`, and the refutation is
 stored in `attacker_table`.
 
-## 7. Lazy VCT (removed)
+## 8. Lazy VCT (removed)
 
 An experimental "lazy" VCT solver (`vct_lazy/`, `SolveMode::VCTLAZY`) used to
 live next to `vct/`. Instead of solving the attacker's threat VCF up front at
@@ -381,7 +419,7 @@ It never reached the quality of the other solvers and was removed in
 [renju-note/quintet#133](https://github.com/renju-note/quintet/pull/133); see that PR for the state it was in and the measurements
 that motivated the removal.
 
-## 8. `PotentialField` (`analysis/field.rs`)
+## 9. `PotentialField` (`analysis/field.rs`)
 
 The VCT generators need an ordering of empty points by "how useful is a
 stone here for the attacker". It has to be cheap and always up to date.
@@ -419,7 +457,7 @@ With `min = 2` a lone stone four cells away is enough to score.
 ### Overlay
 
 `overlay(board)` renders the field for debugging. Empty points show their
-sum and `.` is zero. For the board in §6's example with
+sum and `.` is zero. For the board in §7 with
 `PotentialField::init(Black, 2, ..)`:
 
 ```
@@ -446,7 +484,7 @@ they head the attacker's candidate list.
 The field is the attacker's even when ordering *defences*: a defence that
 lands on a high-potential point of the attacker is tried first.
 
-## 9. Cheat sheet
+## 10. Cheat sheet
 
 | Question | Where to look |
 | --- | --- |
