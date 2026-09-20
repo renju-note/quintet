@@ -4,12 +4,12 @@ version = "0.0.0-dev"
 authors = ["yubessy <yubessy0@gmail.com>"]
 description = "Renju mate solver compilable to WebAssemby"
 license = "MIT"
-edition = "2018"
+edition = "2024"
 repository = "https://github.com/renju-note/quintet"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-lru = "0.7.8"
+lru = "0.18"
 wasm-bindgen = "0.2"

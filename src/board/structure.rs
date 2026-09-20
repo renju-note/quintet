@@ -54,13 +54,13 @@ impl Structure {
         self.start.to_point()
     }
 
-    pub fn stones(&self) -> impl Iterator<Item = Point> {
+    pub fn stones(&self) -> impl Iterator<Item = Point> + use<> {
         self.start
             .mapped(self.sequence.stones())
             .map(|i| i.to_point())
     }
 
-    pub fn eyes(&self) -> impl Iterator<Item = Point> {
+    pub fn eyes(&self) -> impl Iterator<Item = Point> + use<> {
         self.start
             .mapped(self.sequence.eyes())
             .map(|i| i.to_point())
