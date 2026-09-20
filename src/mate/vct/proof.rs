@@ -4,16 +4,13 @@ use crate::mate::state::State;
 use std::collections::HashMap;
 use std::fmt;
 
-pub trait ProofTree {
-    fn attacker_table(&mut self) -> &mut Table;
-    fn defender_table(&mut self) -> &mut Table;
-}
-
-pub struct Table {
+/// Transposition table of proof numbers, keyed by position hash (which
+/// includes the remaining `limit`).
+pub struct ProofTable {
     table: HashMap<u64, Node>,
 }
 
-impl Table {
+impl ProofTable {
     pub fn new() -> Self {
         Self {
             table: HashMap::new(),
@@ -33,6 +30,8 @@ impl Table {
 
 pub const INF: u32 = u32::MAX;
 
+/// Proof and disproof numbers of a position, plus the smallest `limit` at
+/// which the numbers were established.
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct Node {
     pub pn: u32,
@@ -45,30 +44,43 @@ impl Node {
         Self { pn, dn, limit }
     }
 
-    pub fn inf() -> Self {
+    /// A position the tables know nothing about.
+    pub fn unknown() -> Self {
         Self::new(INF, INF, 0)
     }
 
-    pub fn zero_pn(limit: u8) -> Self {
+    /// A threshold that is never exceeded.
+    pub fn no_threshold() -> Self {
+        Self::new(INF, INF, 0)
+    }
+
+    /// The attacker wins (pn = 0).
+    pub fn proven(limit: u8) -> Self {
         Self::new(0, INF, limit)
     }
 
-    pub fn zero_dn(limit: u8) -> Self {
+    /// The attacker cannot win within `limit` (dn = 0).
+    pub fn disproven(limit: u8) -> Self {
         Self::new(INF, 0, limit)
     }
 
-    pub fn unit_pn(approx_dn: u32, limit: u8) -> Self {
+    /// Initial value of an unexpanded child of an AND node (a position where
+    /// the attacker is to move). `approx_dn` is a heuristic disproof number.
+    pub fn unexpanded_attack(approx_dn: u32, limit: u8) -> Self {
         Self::new(1, approx_dn, limit)
     }
 
-    pub fn unit_dn(approx_pn: u32, limit: u8) -> Self {
+    /// Initial value of an unexpanded child of an OR node (a position where
+    /// the defender is to move). `approx_pn` is a heuristic proof number.
+    pub fn unexpanded_defence(approx_pn: u32, limit: u8) -> Self {
         Self::new(approx_pn, 1, limit)
     }
 
-    pub fn proven(&self) -> bool {
+    pub fn is_proven(&self) -> bool {
         self.pn == 0
     }
 
+    /// Aggregation for an OR node: pn is the minimum, dn the sum over children.
     pub fn min_pn_sum_dn(&self, another: Self) -> Self {
         Self::new(
             self.pn.min(another.pn),
@@ -77,6 +89,7 @@ impl Node {
         )
     }
 
+    /// Aggregation for an AND node: dn is the minimum, pn the sum over children.
     pub fn min_dn_sum_pn(&self, another: Self) -> Self {
         Self::new(
             self.pn.saturating_add(another.pn),

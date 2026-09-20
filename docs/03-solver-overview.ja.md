@@ -82,7 +82,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 
 - `Fours(p1, p2)`: 攻め方の四の勝ち点が `p1` と `p2` の 2 つあり、1 手では止められない。白なら四四か達四である。黒は四四が禁手なので（攻め手を打つ前に必ず `is_forbidden_move` を確認する）、実際には達四である。`Square` は達四を、眼の異なる隣接した 2 つの `Four` として報告する。
 - `Forbidden(p)`: 攻め方の四が 1 つあり、その唯一の止め点 `p` が受け方の禁手である。受け方が黒のときだけ起こる。
-- `Unknown`: 勝ちは証明できたが、詰み手順を復元できなかった（上の `validate` と 04 の §6 `Resolver` を参照）。
+- `Unknown`: 勝ちは証明できたが、詰み手順を復元できなかった（上の `validate` と 04 の §6 の復元処理を参照）。
 
 `Mate::n_moves()` は詰み手順の長さ、`n_times()` はそのうち攻め方の着手数である。
 

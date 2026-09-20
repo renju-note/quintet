@@ -17,14 +17,14 @@
 | ファイル | 役割 |
 | --- | --- |
 | `vct/state.rs` | `VCTState`: `Game` + `limit` + `PotentialField`。内部の四追い探索用に派生させる `VCFState`、`threat_defences`。 |
-| `vct/helper.rs` | `VCFHelper`: 内部の四追い探索 4 種（攻め方 / 受け方 × 四追い / 追い手）。 |
-| `vct/generator.rs` | `Generator`: 攻め手と受け手の候補生成と、その場で決着する場合のショートカット。 |
-| `vct/proof.rs` | `Node`（証明数・反証数）、`Table`（置換表）、`ProofTree`。 |
-| `vct/searcher.rs` | `Searcher`: AND/OR ノードの関数 `search_attacks` / `search_defences`。 |
-| `vct/selector.rs` | `Selector`: 子の表エントリからノードを評価し、最も証明に近い子を選ぶ。 |
-| `vct/traverser.rs` + `traverser/*.rs` | `Traverser`: 展開ループ。`DFSTraverser`、`PNSTraverser`、`DFPNSTraverser` は子の閾値だけが異なる。 |
-| `vct/resolver.rs` | `Resolver`: 証明の後に表をたどって手順を復元する。 |
-| `vct/solver.rs` + `solver/*.rs` | `VCTSolver` = `search` してから `resolve`。具体型 3 つ。 |
+| `vct/solver.rs` | `VCTSolver<P>`: 唯一のソルバー構造体（表、内部の四追いソルバー、キャッシュ）。`solve` = `search` してから `extract`。 |
+| `vct/threshold.rs` | `ThresholdPolicy` とその実装 `DFSThreshold`、`PNSThreshold`、`DFPNSThreshold`。ソルバー間で唯一異なる部分。 |
+| `vct/nested_vcf.rs` | 内部の四追い探索 4 種（攻め方 / 受け方 × 四追い / 追い手）。 |
+| `vct/generator.rs` | 攻め手と受け手の候補生成（`Candidates`）と、その場で決着する場合のショートカット。 |
+| `vct/proof.rs` | `Node`（証明数・反証数）、`ProofTable`（置換表）。 |
+| `vct/searcher.rs` | AND/OR ノードの関数 `search_attacks` / `search_defences` と、展開ループ `expand_attacks` / `expand_defences`。 |
+| `vct/selector.rs` | `select_attack` / `select_defence`: 子の表エントリからノードを評価し、最も証明に近い子を選ぶ。 |
+| `vct/extractor.rs` | `extract`: 証明の後に表をたどって詰み手順を復元する。 |
 | `analysis/field.rs` | `PotentialField`（§8）。 |
 
 ---
@@ -64,7 +64,7 @@
 | `vcf_state(max)` | そのまま | 手番側 | `min(limit, max)` | 手番側は今すぐ四追いで勝てるか？ |
 | `threat_state(max)` | 手番側がパスした後 | 相手側 | 攻め方の手番なら `min(limit - 1, max)`、そうでなければ `min(limit, max)` | 自分が何もしなければ相手に四追いがあるか？ つまり直前の手は追い手か？ |
 
-`VCFHelper` は、手番と問いの 4 通りの組み合わせに名前を付けている:
+`nested_vcf.rs` は、手番と問いの 4 通りの組み合わせに名前を付けている:
 
 | メソッド | 手番 | 問い |
 | --- | --- | --- |
@@ -86,26 +86,26 @@
 
 ## 3. 手の生成（`generator.rs`）
 
-生成器は攻め方用と受け方用の 2 つある。どちらも `Result<Vec<Point>, Node>` を返す:
+生成器は攻め方用と受け方用の 2 つある。どちらも `Candidates` を返す:
 
-- `Ok(候補)`: 内部ノード。候補手のリスト。
-- `Err(node)`: その場で決着がついた。`Node::zero_pn` なら攻め方の勝ちが証明済み、`Node::zero_dn` なら反証済み。
+- `Moves(候補)`: 内部ノード。候補手のリスト。
+- `Terminal(node)`: その場で決着がついた。`Node::proven` なら攻め方の勝ちが証明済み、`Node::disproven` なら反証済み。
 
 結果は `zobrist_hash()` をキーに、1000 エントリの `LruCache` にメモ化される（攻め方用と受け方用で 1 つずつ）。
 
 ### `compute_attacks`（攻め方の手番）
 
-1. `solve_attacker_vcf` を呼ぶ。四追いがあれば `Err(zero_pn)` を返す。これは正しさのためには不要である（本探索でも `Forced` の応手を 1 つずつたどれば四追いは見つかる）。しかし大幅に速くなる。
+1. `solve_attacker_vcf` を呼ぶ。四追いがあれば `Terminal(proven)` を返す。これは正しさのためには不要である（本探索でも `Forced` の応手を 1 つずつたどれば四追いは見つかる）。しかし大幅に速くなる。
 2. `solve_defender_threat` を呼ぶ。受け方に四追いがあれば（攻め方が何もしなければ受け方が勝つ）、候補を `threat_defences(threat)`（後述）に絞る。攻め手はその狙いも同時に受けなければならない。
-3. 候補を作る。攻め方のポテンシャル場でポテンシャル `>= 3` の点（`sorted_potentials(3, ..)`）を高い順に並べ、禁手を除く。空なら `Err(zero_dn)`。
+3. 候補を作る。攻め方のポテンシャル場でポテンシャル `>= 3` の点（`sorted_potentials(3, ..)`）を高い順に並べ、禁手を除く。空なら `Terminal(disproven)`。
 
 ここでは、候補が追い手かどうかを判定していない。判定は 1 手先の受け方のノードで行う。追い手でない手は、`compute_defences` のステップ 1 で反証される。
 
 ### `compute_defences`（受け方の手番）
 
-1. `solve_attacker_threat` を呼ぶ。受け方がパスしても攻め方に四追いがなければ、直前の攻め手は追い手ではなかった。`Err(zero_dn)` を返す。
-2. `solve_defender_vcf` を呼ぶ。受け方自身に（`defender_vcf_depth` 手以内の）四追いがあれば、受け方が先に勝つ。`Err(zero_dn)` を返す。
-3. 候補を作る。`threat_defences(threat)` を攻め方のポテンシャルで並べ替え（`sort_by_potential`）、禁手を除く。空なら `Err(zero_pn)`。つまり、その攻め手は受けられない。
+1. `solve_attacker_threat` を呼ぶ。受け方がパスしても攻め方に四追いがなければ、直前の攻め手は追い手ではなかった。`Terminal(disproven)` を返す。
+2. `solve_defender_vcf` を呼ぶ。受け方自身に（`defender_vcf_depth` 手以内の）四追いがあれば、受け方が先に勝つ。`Terminal(disproven)` を返す。
+3. 候補を作る。`threat_defences(threat)` を攻め方のポテンシャルで並べ替え（`sort_by_potential`）、禁手を除く。空なら `Terminal(proven)`。つまり、その攻め手は受けられない。
 
 ### `threat_defences`
 
@@ -132,116 +132,121 @@ pub const INF: u32 = u32::MAX;
 
 | コンストラクタ | `(pn, dn)` | 意味 |
 | --- | --- | --- |
-| `Node::inf()` | `(INF, INF)` | 情報なし。根の閾値「決着するまで探索する」にも使う。 |
-| `Node::zero_pn(limit)` | `(0, INF)` | 証明済み（攻め方の勝ち）。 |
-| `Node::zero_dn(limit)` | `(INF, 0)` | 反証済み。 |
-| `Node::unit_dn(n, limit)` | `(n, 1)` | 未展開の攻め方の子の初期見積もり。`n` は兄弟の数。 |
-| `Node::unit_pn(n, limit)` | `(1, n)` | 未展開の受け方の子の初期見積もり。`n` は兄弟の数。 |
+| `Node::unknown()` | `(INF, INF)` | 情報なし（表にない局面）。 |
+| `Node::no_threshold()` | `(INF, INF)` | 根の閾値「決着するまで探索する」。値は `unknown` と同じだが意味が異なる。 |
+| `Node::proven(limit)` | `(0, INF)` | 証明済み（攻め方の勝ち）。 |
+| `Node::disproven(limit)` | `(INF, 0)` | 反証済み。 |
+| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | OR ノードの未展開の子（受け方の手番）の初期見積もり。`n` は兄弟の数。 |
+| `Node::unexpanded_attack(n, limit)` | `(1, n)` | AND ノードの未展開の子（攻め方の手番）の初期見積もり。`n` は兄弟の数。 |
+
+`Node::is_proven()` は `pn == 0` である。
 
 子の値を合成する方法は 2 つある。和は飽和加算である。
 
 - `min_pn_sum_dn`: OR ノード用。pn = min、dn = 和。
 - `min_dn_sum_pn`: AND ノード用。pn = 和、dn = min。
 
-`limit` は子の最小値として一緒に運ばれる。部分木が決着した時点で、予算がどれだけ残っていたかを記録するためである。リゾルバはこれを使って、最も粘り強い受けを選ぶ（§6）。
+`limit` は子の最小値として一緒に運ばれる。部分木が決着した時点で、予算がどれだけ残っていたかを記録するためである。復元処理はこれを使って、最も粘り強い受けを選ぶ（§6）。
 
-`ProofTree` は 2 つの置換表（`Table`、中身は `HashMap<u64, Node>`）へのアクセスを提供する:
+ソルバーは 2 つの置換表（`ProofTable`、中身は `HashMap<u64, Node>`）を持つ:
 
 - `attacker_table`: 攻め手で到達した局面（受け方の手番）の値
 - `defender_table`: 受け手で到達した局面（攻め方の手番）の値
 
-`Table::lookup_next(state, m)` は、`next_zobrist_hash` で `m` の後の子を引く。
+`ProofTable::lookup_next(state, m)` は、`next_zobrist_hash` で `m` の後の子を引く。
 
-## 5. 探索（`searcher.rs`、`selector.rs`、`traverser.rs`）
+## 5. 探索（`searcher.rs`、`selector.rs`、`threshold.rs`）
 
-### `Searcher`
+### ノード関数
 
-`Searcher::search` は根が証明済みかどうかを返す。`limit == 0` を確認した後、`search_attacks(state, Node::inf()).proven()` を返す。
+`VCTSolver::search` は根が証明済みかどうかを返す。`limit == 0` を確認した後、`search_attacks(state, Node::no_threshold()).is_proven()` を返す。
 
 相互再帰する 2 つのノード関数は次のとおりである:
 
 ```
 search_attacks(state, threshold):              # OR node, attacker to move
-    Defeated(_)  -> zero_dn
-    Forced(p)    -> traverse_attacks(state, [p], threshold, search_defences)
-    otherwise    -> generate_attacks -> Err(node) => node
-                                     | Ok(attacks) => traverse_attacks(...)
+    Defeated(_)  -> disproven
+    Forced(p)    -> expand_attacks(state, [p], threshold)
+    otherwise    -> generate_attacks -> Terminal(node) => node
+                                     | Moves(attacks) => expand_attacks(...)
 
 search_defences(state, threshold):             # AND node, defender to move
-    Defeated(_)  -> zero_pn                     # the attacker has won
-    limit <= 1   -> zero_dn                     # the attacker has no move left after this defence
-    Forced(p)    -> traverse_defences(state, [p], threshold, search_attacks)
-    otherwise    -> generate_defences -> Err(node) => node
-                                      | Ok(defences) => traverse_defences(...)
+    Defeated(_)  -> proven                      # the attacker has won
+    limit <= 1   -> disproven                   # the attacker has no move left after this defence
+    Forced(p)    -> expand_defences(state, [p], threshold)
+    otherwise    -> generate_defences -> Terminal(node) => node
+                                      | Moves(defences) => expand_defences(...)
 ```
 
-### `Selector`
+### 子の選択（`selector.rs`）
 
-`Selector` は何も展開しない。子の表エントリを見て、ノードを評価する。`select_attack` は `Selection` を返す:
+`select_attack` は何も展開しない。子の表エントリを見てノードを評価し、`Selection` を返す:
 
-- `current`: ノード自身の `(pn, dn)`。子に対する `min_pn_sum_dn` で求める。表にない子は `unit_dn(attacks.len())` とみなす。
+- `node`: ノード自身の `(pn, dn)`。子に対する `min_pn_sum_dn` で求める。表にない子は `unexpanded_defence(attacks.len())` とみなす。
 - `best`: `pn` が最小の子（最も証明に近い子）。
-- `next1` / `next2`: 最良の子と 2 番目の子の値。
+- `best_child` / `second_child`: 最良の子と 2 番目の子の値。
 
-証明済みの子が見つかれば、`current` は直ちに `(0, INF)` になる。
+証明済みの子が見つかれば、`node` は直ちに `(0, INF)` になる。
 
-`select_defence` はその鏡像である。`dn` が最小の子を選び、`min_dn_sum_pn` で合成し、表にない子は `unit_pn(defences.len())` とみなす。`current.limit` は `limit - 1` になる。
+`select_defence` はその鏡像である。`dn` が最小の子を選び、`min_dn_sum_pn` で合成し、表にない子は `unexpanded_attack(defences.len())` とみなす。`node.limit` は `limit - 1` になる。
 
 未展開の子を兄弟数で初期化するのは「トリック」である。候補手の少ないノードほど簡単に見えるので、探索は狭く強制的な手順を優先する。
 
-### `Traverser`
+### 展開ループ
 
-`Traverser` は 3 つのソルバーに共通の展開ループである:
+`expand_attacks` は 3 つのソルバーに共通の展開ループである:
 
 ```
-traverse_attacks(state, attacks, threshold, search_defences):
+expand_attacks(state, attacks, threshold):
     loop:
         selection = select_attack(state, attacks)
-        if selection.current.pn >= threshold.pn or selection.current.dn >= threshold.dn:
-            return selection                   # backoff
-        next = next_threshold_attack(selection, threshold)
+        if selection.node.pn >= threshold.pn or selection.node.dn >= threshold.dn:
+            return selection                   # exceeds_threshold
+        next = P::next_threshold_attack(selection, threshold)
         play selection.best
             attacker_table.insert(child, search_defences(child, next))
         undo
 ```
 
-`traverse_defences` も同じで、受け方の表と `next_threshold_defence` を使う。
+`expand_defences` も同じで、受け方の表、`P::next_threshold_defence`、`search_attacks` を使う。
 
-ノードは、その数値が親から渡された閾値を超えるまで展開される。根の閾値は `Node::inf()` なので、根は決着するまでループする。決着とは `pn == 0`（証明済み。このとき `dn` は `INF` にされる）か `pn == INF`（反証済み）である。
+ノードは、その数値が親から渡された閾値を超えるまで展開される。根の閾値は `Node::no_threshold()` なので、根は決着するまでループする。決着とは `pn == 0`（証明済み。このとき `dn` は `INF` にされる）か `pn == INF`（反証済み）である。
 
-ソルバー間の唯一の違いは `next_threshold_*`、つまり子に渡す閾値の決め方である:
+### 閾値ポリシー（`threshold.rs`）
 
-| トレイト | 子の閾値 | 振る舞い |
+ソルバー間の唯一の違いは `next_threshold_*`、つまり子に渡す閾値の決め方である。この選択が `VCTSolver<P>` の型パラメータ `P: ThresholdPolicy` であり、3 つのポリシーはサイズ 0 の型である:
+
+| ポリシー | 子の閾値 | 振る舞い |
 | --- | --- | --- |
-| `DFSTraverser` | `Node::inf()` | 選んだ子を完全に探索してから、親が次の子を見る。通常の深さ優先探索で、証明数は手の並べ替えにだけ使う。 |
-| `PNSTraverser` | `(next1.pn + 1, next1.dn + 1)` | 子は数値が変わり次第戻る。制御が上に戻り、各階層で最も証明に近い子が選び直される。展開のたびに根から選び直す最良優先 PNS を、再帰的な探索の中で模倣したもの。 |
-| `DFPNSTraverser` | OR ノード: `pn = min(threshold.pn, next2.pn + 1)`、`dn = threshold.dn - current.dn + next1.dn`。AND ノードはその鏡像 | Nagai & Imai (2002) の df-pn の閾値。最良の子が最良である間はそこに留まり、親の予算を超えない。 |
+| `DFSThreshold` | `Node::no_threshold()` | 選んだ子を完全に探索してから、親が次の子を見る。通常の深さ優先探索で、証明数は手の並べ替えにだけ使う。 |
+| `PNSThreshold` | `(best_child.pn + 1, best_child.dn + 1)` | 子は数値が変わり次第戻る。制御が上に戻り、各階層で最も証明に近い子が選び直される。展開のたびに根から選び直す最良優先 PNS を、再帰的な探索の中で模倣したもの。 |
+| `DFPNSThreshold` | OR ノード: `pn = min(threshold.pn, second_child.pn + 1)`、`dn = threshold.dn - node.dn + best_child.dn`。AND ノードはその鏡像 | Nagai & Imai (2002) の df-pn の閾値。最良の子が最良である間はそこに留まり、親の予算を超えない。 |
 
 ### ソルバーの構造体
 
-`DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`（`solver/*.rs`）は、閾値以外は同一の構造体である。持っているのは次のものだけで、振る舞いはすべてトレイトのデフォルトメソッドから来る:
+`VCTSolver<P>`（`solver.rs`）は 1 つの構造体で、`DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver` は 3 つのポリシーに対する型エイリアスである。持っているのは次のものだけである:
 
-- `Table` 2 つ
+- `ProofTable` 2 つ
 - 四追い用の `IDDFSSolver` 2 つと、その深さ 2 つ
 - 生成器のキャッシュ 2 つ
 
-`VCTSolver::solve` は次のとおりである:
+メソッドは段階ごとに `searcher.rs`、`selector.rs`、`generator.rs`、`nested_vcf.rs`、`extractor.rs` に分かれている。`VCTSolver::solve` は次のとおりである:
 
 ```rust
-if self.search(state) { self.resolve(state) } else { None }
+if self.search(state) { self.extract(state) } else { None }
 ```
 
-## 6. リゾルバ（`resolver.rs`）
+## 6. 手順の復元（`extractor.rs`）
 
-探索は、勝ちがあることを証明するだけである。`Resolver` は表をもう一度たどって手順を作る。
+探索は、勝ちがあることを証明するだけである。`extract` は表をもう一度たどって詰み手順を復元する。
 
-`resolve_attacks`（攻め方の手番）:
+`extract_attacks`（攻め方の手番）:
 
 - `Forced` なら、それに従う。
 - そうでなければ `state.empties()` を走査し、`attacker_table` のエントリが証明済みである最初の手を打つ。
 - 証明済みの手がなければ、`solve_attacker_vcf` の四追いを手順の末尾として返す。これは `compute_attacks` の四追いショートカットで証明されたノードである。
 
-`resolve_defences`（受け方の手番）:
+`extract_defences`（受け方の手番）:
 
 - `Defeated(end)` なら、その `end` を詰め上がりとして手順を終える。
 - `Forced` なら、それに従う。
@@ -279,7 +284,7 @@ if self.search(state) { self.resolve(state) } else { None }
 
 根での攻め方の候補は、ポテンシャル `>= 3` の点を高い順に並べたものである（`I10`、`G10`、`G9`、`F10`、…。オーバーレイは §8 にある）。したがって深さ優先ソルバーは、`F10` より先に `I10` を試す。
 
-`I10` は即座に反証される。三ができないので、白がパスしても黒に 1 手の四追いはない。`compute_defences` が `zero_dn` を返し、その反証が `attacker_table` に保存される。
+`I10` は即座に反証される。三ができないので、白がパスしても黒に 1 手の四追いはない。`compute_defences` が `Terminal(disproven)` を返し、その反証が `attacker_table` に保存される。
 
 ## 7. 遅延追い詰め（削除済み）
 
@@ -341,11 +346,11 @@ if self.search(state) { self.resolve(state) } else { None }
 
 | 知りたいこと | 見る場所 |
 | --- | --- |
-| なぜ深さ N で探索が止まったか | `limit` は攻め方の着手数を数える。受け方のノードで `limit <= 1` なら `search_defences` は `zero_dn` を返す。 |
+| なぜ深さ N で探索が止まったか | `limit` は攻め方の着手数を数える。受け方のノードで `limit <= 1` なら `search_defences` は `disproven` を返す。 |
 | 追い手として認識されない | `compute_defences` のステップ 1（`solve_attacker_threat`）。`attacker_vcf_depth = threat_limit` で、四追いは `Sword` の眼に限られる。 |
 | 受けが足りない | `VCTState::threat_defences`（手順、`end_breakers`、`counter_defences`、`four_moves`）。 |
 | 逆襲による反証が見つからない | `solve_defender_vcf` は `defender_vcf_depth = 2` に制限される。より深い逆襲の四追いは、ノリ手が `threat_defences` に現れる場合にしか見つからない。 |
 | 手の並べ替え | `PotentialField`（`analysis/field.rs`）、`min = 2`、候補は合計 `>= 3` が必要。 |
-| 置換表 | `ProofTree::attacker_table` / `defender_table`、`Generator::*_cache`、`DFSSolver::deadends`。すべて `zobrist_hash_n(limit)` がキー。 |
-| 詰み手順の復元 | `Resolver`。`End::Unknown` は、表にたどれる証明済みの子がなかったことを意味する。 |
+| 置換表 | `VCTSolver::attacker_table` / `defender_table`、`VCTSolver::*_cache`、`DFSSolver::deadends`。すべて `zobrist_hash_n(limit)` がキー。 |
+| 詰み手順の復元 | `extract`（`extractor.rs`）。`End::Unknown` は、表にたどれる証明済みの子がなかったことを意味する。 |
 | 回帰テストの追加 | `solve.rs` のテストに ASCII 盤面と期待する詰み手順の文字列を追加し、関係する `SolveMode` ごとに 1 つずつ assert する（03 の §4 を参照）。 |
