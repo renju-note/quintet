@@ -11,6 +11,13 @@
 | [03-solver-overview.ja.md](03-solver-overview.ja.md) / [en](03-solver-overview.en.md) | `src/mate/` の全体像: `solve` とその引数（`limit`、`threat_limit`、`SolveMode`）、共通の探索状態（`Game`、`State`、`check_event`）、四追い（VCF）の深さ優先探索。 |
 | [04-solver-algorithm-vct.ja.md](04-solver-algorithm-vct.ja.md) / [en](04-solver-algorithm-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）ソルバー: 追い手、手の生成、証明数、DFS / PNS / df-pn の探索、手順の復元、手の並べ替えに使う `PotentialField`。 |
 
+どこから読むか:
+
+- 連珠を知らない場合はまず 01 を読む。ソルバーのドキュメントはその用語（四、棒四、三、禁手）を前提にしている。
+- `src/board/` のルール周り（連の構造、禁手）を変更するなら 02 を読む。
+- `src/mate/` や `src/analysis/` の探索を変更するなら 03、続いて 04 を読む。
+- 特定のことだけ知りたい場合は、各ドキュメント末尾のチートシート（02 §9、03 §4、04 §10）が「知りたいこと」から識別子への対応表になっている。
+
 ドキュメント追加時の規約:
 
 - 1 トピック 1 ファイルとし、読む順に通し番号を付けた `NN-kebab-case.en.md` **と** `NN-kebab-case.ja.md` の（`README.*` には番号を付けない）両方を作って上の表からリンクする。追加・更新は必ず両言語同時に行い、内容を一致させる。

@@ -25,7 +25,31 @@
 | `vct/searcher.rs` | AND/OR ノードの関数 `search_attacks` / `search_defences` と、展開ループ `expand_attacks` / `expand_defences`。 |
 | `vct/selector.rs` | `select_attack` / `select_defence`: 子の表エントリからノードを評価し、最も証明に近い子を選ぶ。 |
 | `vct/extractor.rs` | `extract`: 証明の後に表をたどって詰み手順を復元する。 |
-| `analysis/field.rs` | `PotentialField`（§8）。 |
+| `analysis/field.rs` | `PotentialField`（§9）。 |
+
+探索の全体像 — `solve` はまず根を証明し、次に証明をもう一度たどって手順を読み取る。各ノード関数は候補手を生成し（その途中で内部の四追いソルバーにいくつかの yes/no の問いを投げる）、最も見込みのある子を展開して、その結果を置換表に保存する:
+
+```
+VCTSolver::solve
+├── search ................................................. §5
+│   search_attacks（OR ノード: 攻め方の手番）
+│   ├── generate_attacks ................................... §3
+│   │     solve_attacker_vcf     -> Terminal(proven)?
+│   │     solve_defender_threat  -> 候補を threat_defences に絞る
+│   │     候補を PotentialField で並べる ...................... §9
+│   └── expand_attacks: loop { select_attack; 最良の子を打つ; search_defences; attacker_table に保存 }
+│
+│   search_defences（AND ノード: 受け方の手番）
+│   ├── generate_defences .................................. §3
+│   │     solve_attacker_threat  -> Terminal(disproven)?（直前の攻め手は追い手だったか？）
+│   │     solve_defender_vcf     -> Terminal(disproven)?（受け方が先に勝つか？）
+│   │     threat_defences を PotentialField で並べる
+│   └── expand_defences: loop { select_defence; 最良の子を打つ; search_attacks; defender_table に保存 }
+│
+└── extract ................................................ §6
+```
+
+`select_*` がどの子を選ぶかは証明数（§4）が決め、`expand_*` がその子にどれだけ留まってから親に戻るかは閾値ポリシー（§5）が決める。§7 で完全な例を追う。
 
 ---
 
@@ -53,7 +77,7 @@
 - `Game`
 - `attacker`
 - `limit`
-- 攻め方の `PotentialField`（§8）。`PotentialField::init(attacker, 2, board)` で初期化し、`after_play` / `after_undo` で各手の 4 本の線に沿って更新する
+- 攻め方の `PotentialField`（§9）。`PotentialField::init(attacker, 2, board)` で初期化し、`after_play` / `after_undo` で各手の 4 本の線に沿って更新する
 
 ### 内部の四追い探索
 
@@ -145,6 +169,8 @@ pub const INF: u32 = u32::MAX;
 
 - `min_pn_sum_dn`: OR ノード用。pn = min、dn = 和。
 - `min_dn_sum_pn`: AND ノード用。pn = 和、dn = min。
+
+直観的には次のとおり。OR ノードでは攻め方は子を 1 つ証明すればよいので、ノードの証明の手間は最も安い子と同じ（min）で、反証にはすべての子の反証が要る（和）。AND ノードでは役割が入れ替わる。したがって根から、OR ノードでは `pn` が最小の子、AND ノードでは `dn` が最小の子をたどって下りていくと、その結果が最も多くを決める葉 — *最も証明に近いノード* — に着く。これがセレクタのしていることである（§5）。
 
 `limit` は子の最小値として一緒に運ばれる。部分木が決着した時点で、予算がどれだけ残っていたかを記録するためである。復元処理はこれを使って、最も粘り強い受けを選ぶ（§6）。
 
@@ -253,9 +279,9 @@ if self.search(state) { self.extract(state) } else { None }
 - そうでなければ、攻め方の追い手に対する `threat_defences` を再計算する。証明済みの子のうち、`Node::limit` が最小のものを選ぶ。これは攻め方に最も多くの手を使わせた受けである。したがって報告される手順は、最も粘り強い受けに対するものになる。
 - 証明済みの候補がなければ、手順は `End::Unknown` で終わる。これは、合法な受けが存在しないために証明されたノードである。
 
-### 例
+## 7. 例で追う
 
-`test_vct_black` の盤面（黒番。`solve.rs` のコメントによれば岡部寛氏の五手詰め問題 No. 02）:
+この章では、ここまでの部品が 1 つの回帰テストの中でどう動くかを、根の局面から報告される手順まで追う。盤面は `test_vct_black` のもの（黒番。`solve.rs` のコメントによれば岡部寛氏の五手詰め問題 No. 02）:
 
 ```
  . . . . . . . . . . . . . . .
@@ -282,11 +308,11 @@ if self.search(state) { self.extract(state) } else { None }
 - `H11` で四 `H8..H11` ができ、`H12` が `Forced` になる。
 - `G12` で `G12,H11,I10,J9` ができ、`F13` と `K8` が空いている: `Fours`。
 
-根での攻め方の候補は、ポテンシャル `>= 3` の点を高い順に並べたものである（`I10`、`G10`、`G9`、`F10`、…。オーバーレイは §8 にある）。したがって深さ優先ソルバーは、`F10` より先に `I10` を試す。
+根での攻め方の候補は、ポテンシャル `>= 3` の点を高い順に並べたものである（`I10`、`G10`、`G9`、`F10`、…。オーバーレイは §9 にある）。したがって深さ優先ソルバーは、`F10` より先に `I10` を試す。
 
 `I10` は即座に反証される。三ができないので、白がパスしても黒に 1 手の四追いはない。`compute_defences` が `Terminal(disproven)` を返し、その反証が `attacker_table` に保存される。
 
-## 7. 遅延追い詰め（削除済み）
+## 8. 遅延追い詰め（削除済み）
 
 かつて `vct/` の隣に、実験的な「遅延」追い詰めソルバー（`vct_lazy/`、`SolveMode::VCTLAZY`）があった。受け方の各ノードで攻め方の追い手（四追い）を先に解いてしまうのではなく、その確認を本体の df-pn 探索に織り込み、途中で見つかった受けの手を記録していくものだった。アイデアは次の論文に由来する。
 
@@ -294,7 +320,7 @@ if self.search(state) { self.extract(state) } else { None }
 
 他のソルバーと同じ品質には至らず、[renju-note/quintet#133](https://github.com/renju-note/quintet/pull/133) で削除された。削除時点の状態と、削除の判断材料となった計測結果はその PR を参照。
 
-## 8. `PotentialField`（`analysis/field.rs`）
+## 9. `PotentialField`（`analysis/field.rs`）
 
 追い詰めの生成器には、「攻め方にとってここに石を置くとどれくらい有用か」で空点を並べる指標が必要である。それは安価で、常に最新でなければならない。`PotentialField` は各点について方向ごとに 1 つの `u8`（`Potential { v, h, a, d }`）を保持し、その合計を返す。
 
@@ -318,7 +344,7 @@ if self.search(state) { self.extract(state) } else { None }
 
 ### オーバーレイ
 
-`overlay(board)` はデバッグ用に場を描画する。空点は合計を表示し、`.` はゼロである。§6 の例の盤面で `PotentialField::init(Black, 2, ..)` とすると次のようになる:
+`overlay(board)` はデバッグ用に場を描画する。空点は合計を表示し、`.` はゼロである。§7 の盤面で `PotentialField::init(Black, 2, ..)` とすると次のようになる:
 
 ```
  . . . . . . . . . . . . . . .
@@ -342,7 +368,7 @@ if self.search(state) { self.extract(state) } else { None }
 
 *受け* を並べるときも、場は攻め方のものである。攻め方にとってポテンシャルの高い点に置く受けが、先に試される。
 
-## 9. チートシート
+## 10. チートシート
 
 | 知りたいこと | 見る場所 |
 | --- | --- |

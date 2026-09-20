@@ -31,7 +31,7 @@
 | `mate/mate.rs` | `Mate`: 詰みの結果（詰め上がり `End` + 詰み手順 `path`）。 |
 | `mate/vcf/` | 四追いソルバー: `VCFState`（四を作る手のペア）、`DFSSolver`、`IDDFSSolver`。 |
 | `mate/vct/` | 追い詰めソルバー（`DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`）。04 を参照。 |
-| `analysis/field.rs` | `PotentialField`。追い詰めの手の並べ替え。04 の §8 を参照。 |
+| `analysis/field.rs` | `PotentialField`。追い詰めの手の並べ替え。04 の §9 を参照。 |
 
 ---
 
@@ -56,7 +56,7 @@ pub fn solve(mode: SolveMode, limit: u8, board: &Board, attacker: Player, threat
 
 ### `limit` と `threat_limit`
 
-- `limit` は解に含まれる **攻め方の着手数** の上限である。四も含めて攻め方の着手はすべて数える。たとえば 7 手（攻め 4 手 + 受け 3 手）の解を見つけるには `limit >= 4` が必要である（`test_vct_black` を参照）。
+- `limit` は解に含まれる **攻め方の着手数** の上限である。四も含めて攻め方の着手はすべて数える。たとえば 7 手（攻め 4 手 + 受け 3 手）の解を見つけるには `limit >= 4` が必要である（`test_vct_black` を参照）。§3 の例で、この値が 1 手ごとにどう消費されるかを追っている。
 - `threat_limit` は、追い詰めソルバーが内部で走らせる四追い探索の深さの上限である（04 の §2）。`VCFDFS` には影響しない。
 
 ### `validate`
@@ -212,6 +212,18 @@ solve_defence(state, defence):                 # defender to move
 1. `I8` で四 `H8,I8,J8,K8` ができる（剣先 `H8,J8,K8`、眼は `G8` と `I8`）。白は `G8` に止めるしかない。
 2. `I10` で四 `I6,I7,I8,_,I10` ができる。白は `I9` に止めるしかない。
 3. `J9` で `I10,J9,K8,L7` ができる。`H11` と `M6` の両方が空いている達四である。2 つの `Four` として報告されるので、白に対する `check_event` は `Defeated(Fours(H11, M6))` になる。
+
+この手順に沿って `limit` を追うと、予算がどう消費されるかが分かる。最初は 3 で、白が応じるたび、つまり手番が黒に戻るたびに 1 減る:
+
+| 局面 | `limit` | 備考 |
+| --- | --- | --- |
+| 根、黒番 | 3 | |
+| `I8` の後、白番 | 3 | 直前の攻め手の分がまだ含まれている |
+| `G8` の後、黒番 | 2 | |
+| `I9` の後、黒番 | 1 | |
+| `J9` の後、白番 | 1 | `check_event` が `Defeated` を返す |
+
+`limit = 2` では同じ探索が失敗する。`I9` の後で limit が 0 になり、`J9` を試す前に `solve` が `None` を返すからである。四を 3 つ続ける四追いには、CLI でもテストでも `limit >= 3` が必要である。
 
 ## 4. チートシート
 
