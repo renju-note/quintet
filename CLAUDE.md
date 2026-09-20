@@ -53,7 +53,8 @@ slower and some cases time out.
 - `docs/` — reference documentation for humans and AI agents: the Renju
   rules (`docs/01-renju-rules.en.md`), how `src/board/` implements them
   (`docs/02-board-implementation.en.md`) and how the solvers in `src/mate/`
-  and `src/analysis/` work (`docs/03-solver-algorithm.en.md`). Read these
+  and `src/analysis/` work (`docs/03-solver-overview.en.md`,
+  `docs/04-solver-algorithm-vct.en.md`). Read these
   before touching rule logic (structures, forbidden moves) or the search
   code, and keep them in sync when changing it.
   Every document has an English `*.en.md` and a Japanese `*.ja.md` version;

@@ -8,7 +8,8 @@
 | --- | --- |
 | [01-renju-rules.ja.md](01-renju-rules.ja.md) / [en](01-renju-rules.en.md) | RIF 連珠国際ルール（盤、用語定義、勝敗、禁手、開局規定）の Markdown 版。 |
 | [02-board-implementation.ja.md](02-board-implementation.ja.md) / [en](02-board-implementation.en.md) | `src/board/` が盤面をどう表現し、上のルールをどう実装しているか: 線のビット表現、連（sequence/structure）の検出、禁手判定、ハッシュ。 |
-| [03-solver-algorithm.ja.md](03-solver-algorithm.ja.md) / [en](03-solver-algorithm.en.md) | `src/mate/` と `src/analysis/` がどう詰みを探索するか: `solve` とその引数、四追い（VCF）の深さ優先探索、追い詰め（VCT）の証明数探索（DFS / PNS / df-pn）、遅延版、手の並べ替えに使うポテンシャル場。 |
+| [03-solver-overview.ja.md](03-solver-overview.ja.md) / [en](03-solver-overview.en.md) | `src/mate/` の全体像: `solve` とその引数（`limit`、`threat_limit`、`SolveMode`）、共通の探索状態（`Game`、`State`、`check_event`）、四追い（VCF）の深さ優先探索。 |
+| [04-solver-algorithm-vct.ja.md](04-solver-algorithm-vct.ja.md) / [en](04-solver-algorithm-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）ソルバー: 追い手、手の生成、証明数、DFS / PNS / df-pn の探索、手順の復元、遅延版、手の並べ替えに使う `PotentialField`。 |
 
 ドキュメント追加時の規約:
 
