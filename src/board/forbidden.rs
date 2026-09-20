@@ -44,7 +44,7 @@ pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(q: &Square, p: Point) -> bool {
-    let mut next_overlines = q.structures_on(p, Black, NextOverFive);
+    let mut next_overlines = q.structures_on(p, Black, Overlining);
     next_overlines.next().is_some()
 }
 

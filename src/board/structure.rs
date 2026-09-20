@@ -6,12 +6,12 @@ use super::sequence::*;
 pub enum StructureKind {
     Two,
     Three,
-    OpenFour,
+    Straight,
     Sword,
     Four,
     Five,
-    NextOverFive,
-    OverFive,
+    Overlining,
+    Overlined,
 }
 
 pub use StructureKind::*;
@@ -25,12 +25,12 @@ impl StructureKind {
         match self {
             Two => (Open, 2, exact),
             Three => (Open, 3, exact),
-            OpenFour => (Open, 4, exact),
+            Straight => (Open, 4, exact),
             Sword => (Single, 3, exact),
             Four => (Single, 4, exact),
             Five => (Single, 5, exact),
-            NextOverFive => (Double, 4, false),
-            OverFive => (Double, 5, false),
+            Overlining => (Double, 4, false),
+            Overlined => (Double, 5, false),
         }
     }
 }
