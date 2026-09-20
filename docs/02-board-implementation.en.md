@@ -90,9 +90,10 @@ primitive from which every rule concept is built.
 For each window start `i` it takes 7 bits from each colour's mask:
 
 ```
-bit:   6      5 4 3 2 1     0
-cell:  i+5    i+4 … i       i-1
-       ^ right margin  ^ target (5 cells)  ^ left margin
+bit  :   6   |  5    4    3    2    1  |   0
+cell :  i+5  | i+4  i+3  i+2  i+1   i  |  i-1
+     : right |          target         | left
+     : margin|        (5 cells)        | margin
 ```
 
 The own-stone mask `my` and the opponent mask `op` are shifted left by one
