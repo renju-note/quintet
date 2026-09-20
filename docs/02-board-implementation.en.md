@@ -181,7 +181,9 @@ formats:
 
 `StructureKind::to_sequence(r)` maps each kind to a triple
 `(SequenceKind, n, strict)`. `strict` is normally `r.is_black()` (true for
-Black only); the overline kinds are never strict:
+Black only). The overline kinds are never strict: an overline always has an
+own stone next to each of its 5-windows, which is exactly what `strict`
+rejects, so they could not be detected otherwise:
 
 | `StructureKind` | `SequenceKind` | `n` | `strict` | Pattern (Black shown, `_` = eye) | Rule concept |
 | --- | --- | --- | --- | --- | --- |
