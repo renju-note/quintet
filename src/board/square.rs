@@ -134,7 +134,7 @@ impl Square {
 
     pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
         self.vlines.iter().enumerate().flat_map(move |(i, l)| {
-            l.blanks()
+            l.empties()
                 .map(move |j| Index::new(Vertical, i as u8, j).to_point())
         })
     }

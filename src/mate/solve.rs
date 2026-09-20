@@ -103,7 +103,7 @@ fn validate(board: &Board, attacker: Player) -> Result<(), Option<Mate>> {
     if board.structures(White, Five).next().is_some() {
         return Err(None);
     }
-    if board.structures(Black, OverFive).next().is_some() {
+    if board.structures(Black, Overlined).next().is_some() {
         return Err(None);
     }
     if board.structures(attacker, Four).next().is_some() {

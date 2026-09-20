@@ -24,8 +24,8 @@ pub fn forbidden_strict(q: &Square, p: Point) -> Option<ForbiddenKind> {
     if q.stone(p).is_some() {
         return None;
     }
-    let mut next_fives = q.structures_on(p, Black, Four);
-    if next_fives.next().is_some() {
+    let mut fours = q.structures_on(p, Black, Four);
+    if fours.next().is_some() {
         return None;
     }
     forbidden(q, p)
@@ -44,18 +44,18 @@ pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind> {
 }
 
 fn overline(q: &Square, p: Point) -> bool {
-    let mut next_overlines = q.structures_on(p, Black, NextOverFive);
-    next_overlines.next().is_some()
+    let mut overlinings = q.structures_on(p, Black, Overlining);
+    overlinings.next().is_some()
 }
 
 fn double_four(q: &Square, p: Point) -> bool {
-    let next_fours = q.structures_on(p, Black, Sword);
-    distinctive(&mut next_fours.map(|s| s.start_index()))
+    let swords = q.structures_on(p, Black, Sword);
+    distinctive(&mut swords.map(|s| s.start_index()))
 }
 
 fn double_three(q: &Square, p: Point) -> bool {
-    let next_threes = q.structures_on(p, Black, Two);
-    if !distinctive(&mut next_threes.map(|s| s.start_index())) {
+    let twos = q.structures_on(p, Black, Two);
+    if !distinctive(&mut twos.map(|s| s.start_index())) {
         return false;
     }
     let mut next = q.clone();

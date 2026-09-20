@@ -189,13 +189,13 @@ be detected otherwise:
 | `StructureKind` | `SequenceKind` | `n` | `exact` | Pattern (Black shown, `_` = eye) | Rule concept |
 | --- | --- | --- | --- | --- | --- |
 | `Five` | `Single` | 5 | Black only | `ooooo` | **Five** (§3). For Black, exact margins exclude overlines. |
-| `OverFive` | `Double` | 5 | never | `oooooo` (6+) | **Overline**. |
+| `Overlined` | `Double` | 5 | never | `oooooo` (6+) | **Overline**. |
 | `Four` | `Single` | 4 | Black only | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: one more stone at the eye makes a five. A straight four appears as **two** adjacent `Four`s. |
-| `OpenFour` | `Open` | 4 | Black only | `.oooo.` | **Straight four**. |
-| `Sword` | `Single` | 3 | Black only | `ooo__`, `o_oo_`, … (3 stones in a 5-window) | A "four-to-be": playing either eye makes a `Four`. Not a rule term; used by VCF/VCT to enumerate four-making moves. |
-| `Three` | `Open` | 3 | Black only | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: playing the single eye makes an `OpenFour`. |
+| `Straight` | `Open` | 4 | Black only | `.oooo.` | **Straight four**. |
+| `Sword` | `Single` | 3 | Black only | `ooo__`, `o_oo_`, … (3 stones in a 5-window) | A "four-to-be" (Japanese *kensaki*, "sword tip"): playing either eye makes a `Four`. Includes open threes, so it is not the same as a "closed three". Not a rule term; used by VCF/VCT to enumerate four-making moves. |
+| `Three` | `Open` | 3 | Black only | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: playing the single eye makes a `Straight`. |
 | `Two` | `Open` | 2 | Black only | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
-| `NextOverFive` | `Double` | 4 | never | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
+| `Overlining` | `Double` | 4 | never | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
 
 Because `exact` is applied for Black, kinds such as `Four` and `Three`
 already embody the condition "without at the same time making an overline".
@@ -235,10 +235,10 @@ by the search itself before the forbidden check matters.
 ### Overline (rule 9.2 a)
 
 ```rust
-fn overline(q, p) -> bool { q.structures_on(p, Black, NextOverFive).next().is_some() }
+fn overline(q, p) -> bool { q.structures_on(p, Black, Overlining).next().is_some() }
 ```
 
-A `NextOverFive` is two adjacent 5-windows, each holding 4 black stones and
+An `Overlining` is two adjacent 5-windows, each holding 4 black stones and
 both containing the empty point `p`. Together they span 6 cells with 5
 stones, so playing `p` completes a run of six or more.
 
@@ -365,8 +365,8 @@ cell of a line, `Potentials` computes a score as follows:
 | Rule | Code |
 | --- | --- |
 | Five wins | `structures(r, Five)` (checked in `mate::solve` / `Game`). |
-| Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`NextOverFive`). `mate::solve::validate` rejects input positions that already contain a five or a Black `OverFive`. |
-| Four / straight four | `Four` (`Single`, 4) / `OpenFour` (`Open`, 4); a straight four = two adjacent `Four`s. |
+| Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::validate` rejects input positions that already contain a five or a Black `Overlined`. |
+| Four / straight four | `Four` (`Single`, 4) / `Straight` (`Open`, 4); a straight four = two adjacent `Four`s. |
 | Three (must reach a straight four) | `Three` (`Open`, 3), single eye = the straight-four point. |
 | "Without making an overline" for Black | `exact` margins in `Sequences`. |
 | Forbidden: overline / double-four / double-three | `forbidden.rs`: `overline` / `double_four` / `double_three`. |

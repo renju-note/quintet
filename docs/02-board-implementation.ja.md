@@ -136,13 +136,13 @@ pub struct Square {
 | `StructureKind` | `SequenceKind` | `n` | `exact` | パターン（黒の例、`_` = 眼） | ルール上の概念 |
 | --- | --- | --- | --- | --- | --- |
 | `Five` | `Single` | 5 | 黒のみ | `ooooo` | **五連**（§3）。黒は exact マージンにより長連を除外。 |
-| `OverFive` | `Double` | 5 | 常に偽 | `oooooo`（6 以上） | **長連**。 |
+| `Overlined` | `Double` | 5 | 常に偽 | `oooooo`（6 以上） | **長連**。 |
 | `Four` | `Single` | 4 | 黒のみ | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五連。棒四は隣り合う **2 つ**の `Four` として現れる。 |
-| `OpenFour` | `Open` | 4 | 黒のみ | `.oooo.` | **棒四**。 |
-| `Sword` | `Single` | 3 | 黒のみ | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | **剣先**: どちらかの眼に打てば `Four`。ルール上の定義はないが、VCF/VCT が四を作る手を列挙するのに使う。 |
-| `Three` | `Open` | 3 | 黒のみ | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `OpenFour`。 |
+| `Straight` | `Open` | 4 | 黒のみ | `.oooo.` | **棒四**。 |
+| `Sword` | `Single` | 3 | 黒のみ | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | **剣先**: どちらかの眼に打てば `Four`。活三も含むので英語の "closed three" とは異なる。ルール上の定義はないが、VCF/VCT が四を作る手を列挙するのに使う。 |
+| `Three` | `Open` | 3 | 黒のみ | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `Straight`。 |
 | `Two` | `Open` | 2 | 黒のみ | `.oo__.`、`.o_o_.` など | **連**（二）: 眼に打てば `Three`。 |
-| `NextOverFive` | `Double` | 4 | 常に偽 | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
+| `Overlining` | `Double` | 4 | 常に偽 | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
 
 黒には `exact` が適用されるため、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
 
@@ -172,10 +172,10 @@ pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)>
 ### 長連（9.2 a）
 
 ```rust
-fn overline(q, p) -> bool { q.structures_on(p, Black, NextOverFive).next().is_some() }
+fn overline(q, p) -> bool { q.structures_on(p, Black, Overlining).next().is_some() }
 ```
 
-`NextOverFive`（六腐）は、隣り合う 2 つの 5 マス窓がそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
+`Overlining`（六腐）は、隣り合う 2 つの 5 マス窓がそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
 
 ### 四四（9.2 b）
 
@@ -257,8 +257,8 @@ fn truthy_double_three(next, p) -> bool {
 | ルール | コード |
 | --- | --- |
 | 五連で勝ち | `structures(r, Five)`（`mate::solve` / `Game` で判定）。 |
-| 長連は白の勝ち、黒は不可 | `Five` は黒だけ exact なので白の六も `Five`。黒の長連は禁手（`NextOverFive` = 六腐）。`mate::solve::validate` は五や黒の `OverFive` を既に含む入力局面を拒否する。 |
-| 四 / 棒四 | `Four`（`Single`, 4）/ `OpenFour`（`Open`, 4）。棒四 = 隣接する 2 つの `Four`。 |
+| 長連は白の勝ち、黒は不可 | `Five` は黒だけ exact なので白の六も `Five`。黒の長連は禁手（`Overlining` = 六腐）。`mate::solve::validate` は五や黒の `Overlined` を既に含む入力局面を拒否する。 |
+| 四 / 棒四 | `Four`（`Single`, 4）/ `Straight`（`Open`, 4）。棒四 = 隣接する 2 つの `Four`。 |
 | 三（達四できること） | `Three`（`Open`, 3）。唯一の眼 = 達四点。 |
 | 黒の「長連を作らずに」 | `Sequences` の `exact` マージン。 |
 | 禁手: 長連 / 四四 / 三三 | `forbidden.rs`: `overline` / `double_four` / `double_three`。 |
