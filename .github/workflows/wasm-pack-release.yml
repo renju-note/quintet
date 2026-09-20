@@ -6,21 +6,28 @@ on:
 jobs:
   build_and_publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC); no NODE_AUTH_TOKEN needed
     steps:
-    - uses: actions/checkout@v4
-    - run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    - uses: actions/checkout@v7
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v2
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-pack
     - run: |
         NPM_PACKAGE_VERSION="$(echo $RELEASE_TAG_NAME | sed s/v//)"
         sed -i -e 's/version = "0.0.0-dev"/version = "'"$NPM_PACKAGE_VERSION"'"/' Cargo.toml
       env:
         RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
     - run: wasm-pack build --scope renju-note
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v7
       with:
-        node-version: '20'
-        registry-url: 'https://registry.npmjs.org/'
-        scope: '@renju-note'
+        node-version: '24'
+    # Trusted publishing requires npm >= 11.5.1
+    - run: npm install -g npm@latest
     - run: cp ./pkg/package.json ./pkg/quintet* ./
     - run: npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
