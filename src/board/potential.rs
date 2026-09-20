@@ -50,11 +50,7 @@ impl Iterator for Potentials {
         self.acc[3] = self.acc[4];
         self.acc[4] = if is_fullsize && is_valid {
             let p = (my_ & TARGET_MASK).count_ones() as u8 + 1;
-            if p >= self.min {
-                p
-            } else {
-                0
-            }
+            if p >= self.min { p } else { 0 }
         } else {
             0
         };

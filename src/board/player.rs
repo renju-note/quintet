@@ -11,11 +11,7 @@ pub use Player::*;
 
 impl Player {
     pub fn opponent(&self) -> Self {
-        if self.is_black() {
-            White
-        } else {
-            Black
-        }
+        if self.is_black() { White } else { Black }
     }
 
     pub fn is_black(&self) -> bool {
@@ -29,11 +25,7 @@ impl Player {
 
 impl From<bool> for Player {
     fn from(value: bool) -> Self {
-        if value {
-            Black
-        } else {
-            White
-        }
+        if value { Black } else { White }
     }
 }
 

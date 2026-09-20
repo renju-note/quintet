@@ -6,6 +6,7 @@ use crate::mate::mate::Mate;
 use crate::mate::vcf;
 use lru::LruCache;
 use std::marker::PhantomData;
+use std::num::NonZeroUsize;
 
 /// The VCT solver. The three variants (DFS, PNS, df-pn) share everything
 /// except how child thresholds are chosen, which is supplied by `P`.
@@ -35,8 +36,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             defender_vcf_depth,
             attacker_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
             defender_vcf_solver: vcf::IDDFSSolver::init([1].to_vec()),
-            attacks_cache: LruCache::new(1000),
-            defences_cache: LruCache::new(1000),
+            attacks_cache: LruCache::new(NonZeroUsize::new(1000).unwrap()),
+            defences_cache: LruCache::new(NonZeroUsize::new(1000).unwrap()),
             policy: PhantomData,
         }
     }

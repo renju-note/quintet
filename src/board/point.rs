@@ -139,7 +139,7 @@ impl Index {
         }
     }
 
-    pub fn mapped<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + 'a {
+    pub fn mapped<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + use<'a> {
         let start = *self;
         steps.iter().map(move |&s| start.walk(s))
     }
