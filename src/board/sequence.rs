@@ -8,11 +8,18 @@ const HEAD_MASK: u8 = 0b00011110;
 const REST_MASK: u8 = 0b00111100;
 const LAST_MASK: u8 = 0b00100000;
 
+/// How `Sequences` matches a 5-cell window `i` holding exactly `n` own stones.
+///
+/// - `Single`: window `i` alone.
+/// - `Double`: windows `i-1` and `i` both match, i.e. a 6-cell span.
+///   Both ends are either stones (`n + 1` stones in 6 cells) or empty (`Open`).
+/// - `Open`: the `Double` case whose ends `i-1` and `i+4` are both empty,
+///   so the `n` stones lie in the middle 4 cells with open ends on both sides.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
     Single,
     Double,
-    Compact,
+    Open,
 }
 
 pub use SequenceKind::*;
@@ -110,7 +117,7 @@ impl Iterator for Sequences {
                     return Some((i, Sequence(my >> 1)));
                 }
             }
-            Compact => {
+            Open => {
                 let prev_ok = self.prev_ok;
                 self.prev_ok = (my & REST_MASK).count_ones() as u8 == self.n;
                 if ok && prev_ok && (my & HEAD_MASK).count_ones() as u8 == self.n {
@@ -230,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sequences_double_or_compact() {
+    fn test_sequences_double_or_open() {
         let my = 0b001000110001010;
         let op = 0b000000001000000;
 
@@ -244,7 +251,7 @@ mod tests {
         let expected = [(1, Sequence(0b00000101))];
         assert_eq!(result, expected);
 
-        let k = Compact;
+        let k = Open;
 
         let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
         let expected = [(1, Sequence(0b00010101))];
@@ -267,7 +274,7 @@ mod tests {
         let expected = [];
         assert_eq!(result, expected);
 
-        let k = Compact;
+        let k = Open;
 
         let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
         let expected = [];

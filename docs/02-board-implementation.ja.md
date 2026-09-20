@@ -88,13 +88,13 @@ cell :  i+5  | i+4  i+3  i+2  i+1   i  |  i-1
 | `SequenceKind` | 条件 | 意味 |
 | --- | --- | --- |
 | `Single` | 窓 `i` にちょうど `n` 個の自分の石がある | あと `5 - n` 石で五になる場所。 |
-| `Double` | 窓 `i-1` **と** 窓 `i` の両方に `n` 個の自分の石がある | 重なり合う 2 つの五候補。6 マスの範囲に `n + 1` 石がある状態。 |
-| `Compact` | `n` 個の石がすべて 4 マス `i..=i+3` の中にあり、両隣の `i-1` と `i+4` が空（窓 `i-1` と窓 `i` がどちらも有効で `n` 石） | **両端が開いた**パターン。 |
+| `Double` | 窓 `i-1` **と** 窓 `i` の両方に `n` 個の自分の石がある | 重なり合う 2 つの五候補、すなわち 6 マスの範囲 `i-1..=i+4`。両端は「どちらも石」（6 マスに `n + 1` 石）か「どちらも空」（下の `Open`）のいずれか。 |
+| `Open` | `Double` のうち両端 `i-1` と `i+4` がどちらも空のもの。`n` 個の石はすべて 4 マス `i..=i+3` の中にある | **両端が開いた**パターン。活三・活四の「活（open）」。 |
 
 返り値は `(i, Sequence)` の組で、`Sequence` は対象 5 マスの状態を表す 5 ビットのマスクである。
 
 - `Sequence::stones()` と `eyes()` はマスクをオフセット `0..5` に写す。立っているビットが石、空きが「眼（eye）」である。
-- `Compact` の場合、閉じ側の空点 `i+4` が眼として返らないよう、5 ビット目を強制的に立てている（`LAST_MASK`）。その副作用として `stones()` にはこのマスも含まれる。したがって `Compact` な構造の `stones()` は「眼でないマス」と読むこと。
+- `Open` の場合、閉じ側の空点 `i+4` が眼として返らないよう、5 ビット目を強制的に立てている（`LAST_MASK`）。その副作用として `stones()` にはこのマスも含まれる。したがって `Open` な構造の `stones()` は「眼でないマス」と読むこと。
 
 `Sequences::new_on(j, …)` は、位置 `j` を含む窓だけをスキャンする変種である。`structures_on(p, …)` が「この着手はどのパターンに関わるか」を調べるときに使う。
 
@@ -131,18 +131,18 @@ pub struct Square {
 
 ## 5. `StructureKind`: ルール用語の語彙
 
-`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, strict)` の組に写す。ここで `strict = r.is_black()` である:
+`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, strict)` の組に写す。`strict` は原則 `r.is_black()`（黒のみ真）だが、長連系では常に偽である:
 
-| `StructureKind` | Sequence | パターン（黒の例、`_` = 眼） | ルール上の概念 |
-| --- | --- | --- | --- |
-| `Five` | `Single`, 5 | `ooooo` | **五連**（§3）。黒は strict マージンにより長連を除外。 |
-| `OverFive` | `Double`, 5, 常に非 strict | `oooooo`（6 以上） | **長連**。 |
-| `Four` | `Single`, 4 | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五連。棒四は隣り合う **2 つ**の `Four` として現れる。 |
-| `OpenFour` | `Compact`, 4 | `.oooo.` | **棒四**。 |
-| `Sword` | `Single`, 3 | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | **剣先**: どちらかの眼に打てば `Four`。ルール上の定義はないが、VCF/VCT が四を作る手を列挙するのに使う。 |
-| `Three` | `Compact`, 3 | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `OpenFour`。 |
-| `Two` | `Compact`, 2 | `.oo__.`、`.o_o_.` など | **連**（二）: 眼に打てば `Three`。 |
-| `NextOverFive` | `Double`, 4, 常に非 strict | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
+| `StructureKind` | `SequenceKind` | `n` | `strict` | パターン（黒の例、`_` = 眼） | ルール上の概念 |
+| --- | --- | --- | --- | --- | --- |
+| `Five` | `Single` | 5 | 黒のみ | `ooooo` | **五連**（§3）。黒は strict マージンにより長連を除外。 |
+| `OverFive` | `Double` | 5 | 常に偽 | `oooooo`（6 以上） | **長連**。 |
+| `Four` | `Single` | 4 | 黒のみ | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五連。棒四は隣り合う **2 つ**の `Four` として現れる。 |
+| `OpenFour` | `Open` | 4 | 黒のみ | `.oooo.` | **棒四**。 |
+| `Sword` | `Single` | 3 | 黒のみ | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | **剣先**: どちらかの眼に打てば `Four`。ルール上の定義はないが、VCF/VCT が四を作る手を列挙するのに使う。 |
+| `Three` | `Open` | 3 | 黒のみ | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `OpenFour`。 |
+| `Two` | `Open` | 2 | 黒のみ | `.oo__.`、`.o_o_.` など | **連**（二）: 眼に打てば `Three`。 |
+| `NextOverFive` | `Double` | 4 | 常に偽 | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
 
 黒には `strict` が適用されるため、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
 
@@ -213,7 +213,7 @@ fn truthy_double_three(next, p) -> bool {
 判定は次の手順で進む:
 
 1. `p` を通る `Two`（連）が 2 つ以上あることは三三の必要条件なので、これを先に調べる。ほとんどの点はここで却下され、盤をクローンせずに済む。
-2. コピーした盤に着手し、`p` を通る本当の `Three` を列挙する。`Three`（`Compact`, 3）の眼はちょうど 1 つで、それが達四点である。
+2. コピーした盤に着手し、`p` を通る本当の `Three` を列挙する。`Three`（`Open`, 3）の眼はちょうど 1 つで、それが達四点である。
 3. ルール 9.3 に従い、三はその眼が黒にとって合法な着手であるときだけ数える。新しい局面で眼に対して `forbidden_strict` を呼ぶことで判定する（詳細は後述）。
 4. *異なる*本物の三が 2 つ以上残れば、その手は禁手の三三である。
 
@@ -258,8 +258,8 @@ fn truthy_double_three(next, p) -> bool {
 | --- | --- |
 | 五連で勝ち | `structures(r, Five)`（`mate::solve` / `Game` で判定）。 |
 | 長連は白の勝ち、黒は不可 | `Five` は黒だけ strict なので白の六も `Five`。黒の長連は禁手（`NextOverFive` = 六腐）。`mate::solve::validate` は五や黒の `OverFive` を既に含む入力局面を拒否する。 |
-| 四 / 棒四 | `Four`（`Single`, 4）/ `OpenFour`（`Compact`, 4）。棒四 = 隣接する 2 つの `Four`。 |
-| 三（達四できること） | `Three`（`Compact`, 3）。唯一の眼 = 達四点。 |
+| 四 / 棒四 | `Four`（`Single`, 4）/ `OpenFour`（`Open`, 4）。棒四 = 隣接する 2 つの `Four`。 |
+| 三（達四できること） | `Three`（`Open`, 3）。唯一の眼 = 達四点。 |
 | 黒の「長連を作らずに」 | `Sequences` の `strict` マージン。 |
 | 禁手: 長連 / 四四 / 三三 | `forbidden.rs`: `overline` / `double_four` / `double_three`。 |
 | 9.2「同時に五を作る場合を除く」 | `forbidden_strict`。 |

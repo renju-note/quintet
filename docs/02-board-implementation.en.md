@@ -119,17 +119,17 @@ For each valid window the number of own stones is compared with `n`. Three
 | `SequenceKind` | Condition | Meaning |
 | --- | --- | --- |
 | `Single` | window `i` has exactly `n` own stones | A place where adding `5 - n` stones makes a five. |
-| `Double` | window `i-1` **and** window `i` both have `n` own stones | Two overlapping fives-to-be, i.e. a 6-cell span holding `n + 1` stones. |
-| `Compact` | the `n` own stones all lie in the 4 cells `i..=i+3`, and both neighbours `i-1` and `i+4` are empty (window `i-1` and window `i` are both valid with `n` stones) | A pattern with **open ends** on both sides. |
+| `Double` | window `i-1` **and** window `i` both have `n` own stones | Two overlapping fives-to-be, i.e. a 6-cell span `i-1..=i+4`. Its two ends are either both stones (`n + 1` stones in 6 cells) or both empty (the `Open` case below). |
+| `Open` | the `Double` case whose ends `i-1` and `i+4` are both empty, so the `n` own stones all lie in the 4 cells `i..=i+3` | A pattern with **open ends** on both sides, as in *open three* / *open four*. |
 
 The reported item is a pair `(i, Sequence)`, where `Sequence` is a 5-bit
 mask describing the target cells.
 
 - `Sequence::stones()` and `eyes()` map that mask to offsets `0..5`: set
   bits are stones, empty cells are "eyes".
-- For `Compact` the 5th bit is forced on (`LAST_MASK`) so that the closing
+- For `Open` the 5th bit is forced on (`LAST_MASK`) so that the closing
   empty cell `i+4` is *not* reported as an eye. As a side effect that cell
-  does show up in `stones()`, so read `stones()` of a `Compact` structure as
+  does show up in `stones()`, so read `stones()` of a `Open` structure as
   "cells that are not eyes".
 
 `Sequences::new_on(j, …)` is a variant that scans only the windows
@@ -180,18 +180,19 @@ formats:
 ## 5. `StructureKind`: the rule vocabulary
 
 `StructureKind::to_sequence(r)` maps each kind to a triple
-`(SequenceKind, n, strict)`, where `strict = r.is_black()`:
+`(SequenceKind, n, strict)`. `strict` is normally `r.is_black()` (true for
+Black only); the overline kinds are never strict:
 
-| `StructureKind` | Sequence | Pattern (Black shown, `_` = eye) | Rule concept |
-| --- | --- | --- | --- |
-| `Five` | `Single`, 5 | `ooooo` | **Five** (§3). For Black, strict margins exclude overlines. |
-| `OverFive` | `Double`, 5, never strict | `oooooo` (6+) | **Overline**. |
-| `Four` | `Single`, 4 | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: one more stone at the eye makes a five. A straight four appears as **two** adjacent `Four`s. |
-| `OpenFour` | `Compact`, 4 | `.oooo.` | **Straight four**. |
-| `Sword` | `Single`, 3 | `ooo__`, `o_oo_`, … (3 stones in a 5-window) | A "four-to-be": playing either eye makes a `Four`. Not a rule term; used by VCF/VCT to enumerate four-making moves. |
-| `Three` | `Compact`, 3 | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: playing the single eye makes an `OpenFour`. |
-| `Two` | `Compact`, 2 | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
-| `NextOverFive` | `Double`, 4, never strict | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
+| `StructureKind` | `SequenceKind` | `n` | `strict` | Pattern (Black shown, `_` = eye) | Rule concept |
+| --- | --- | --- | --- | --- | --- |
+| `Five` | `Single` | 5 | Black only | `ooooo` | **Five** (§3). For Black, strict margins exclude overlines. |
+| `OverFive` | `Double` | 5 | never | `oooooo` (6+) | **Overline**. |
+| `Four` | `Single` | 4 | Black only | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: one more stone at the eye makes a five. A straight four appears as **two** adjacent `Four`s. |
+| `OpenFour` | `Open` | 4 | Black only | `.oooo.` | **Straight four**. |
+| `Sword` | `Single` | 3 | Black only | `ooo__`, `o_oo_`, … (3 stones in a 5-window) | A "four-to-be": playing either eye makes a `Four`. Not a rule term; used by VCF/VCT to enumerate four-making moves. |
+| `Three` | `Open` | 3 | Black only | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: playing the single eye makes an `OpenFour`. |
+| `Two` | `Open` | 2 | Black only | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
+| `NextOverFive` | `Double` | 4 | never | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
 
 Because `strict` is applied for Black, kinds such as `Four` and `Three`
 already embody the condition "without at the same time making an overline".
@@ -284,7 +285,7 @@ The check proceeds in these steps:
    for a double-three, so it is checked first. Most points are rejected
    here, without cloning the board.
 2. The move is played on a copy, and the real `Three`s through `p` are
-   enumerated. A `Three` (`Compact`, 3) has exactly one eye, which is the
+   enumerated. A `Three` (`Open`, 3) has exactly one eye, which is the
    straight-four point.
 3. Following rule 9.3, a three only counts if that eye is itself a legal
    Black move. This is decided by calling `forbidden_strict` on the eye in
@@ -362,8 +363,8 @@ cell of a line, `Potentials` computes a score as follows:
 | --- | --- |
 | Five wins | `structures(r, Five)` (checked in `mate::solve` / `Game`). |
 | Overline wins for White, not Black | `Five` is strict only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`NextOverFive`). `mate::solve::validate` rejects input positions that already contain a five or a Black `OverFive`. |
-| Four / straight four | `Four` (`Single`, 4) / `OpenFour` (`Compact`, 4); a straight four = two adjacent `Four`s. |
-| Three (must reach a straight four) | `Three` (`Compact`, 3), single eye = the straight-four point. |
+| Four / straight four | `Four` (`Single`, 4) / `OpenFour` (`Open`, 4); a straight four = two adjacent `Four`s. |
+| Three (must reach a straight four) | `Three` (`Open`, 3), single eye = the straight-four point. |
 | "Without making an overline" for Black | `strict` margins in `Sequences`. |
 | Forbidden: overline / double-four / double-three | `forbidden.rs`: `overline` / `double_four` / `double_three`. |
 | 9.2 "unless it makes a five" | `forbidden_strict`. |
