@@ -131,7 +131,7 @@ pub struct Square {
 
 ## 5. `StructureKind`: ルール用語の語彙
 
-`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, strict)` の組に写す。`strict` は原則 `r.is_black()`（黒のみ真）である。長連系は常に偽で、これは長連が必ず各 5 マス窓の隣に自分の石を持ち、strict ではまさにその窓が無効になって検出できないためである:
+`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, strict)` の組に写す。`strict` は原則 `r.is_black()`（黒のみ真）であるが、黒の長連系の `StructureKind` を検出する際は常に偽となる。これは長連が必ず各 5 マス窓の隣に自分の石を持ち、strict ではまさにその窓が無効になって検出できないためである:
 
 | `StructureKind` | `SequenceKind` | `n` | `strict` | パターン（黒の例、`_` = 眼） | ルール上の概念 |
 | --- | --- | --- | --- | --- | --- |
