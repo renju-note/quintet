@@ -3,7 +3,6 @@
 このドキュメントが説明するもの:
 
 - `src/mate/vct/` の追い詰め（VCT、Victory by Continuous Threats）ソルバー
-- `src/mate/vct_lazy/` の実験的な遅延版
 - それらの手を並べ替える `src/analysis/field.rs` の `PotentialField`
 
 [03-solver-overview.ja.md](03-solver-overview.ja.md) の内容を前提とする。特に次のものは説明せずに使う。
@@ -26,7 +25,6 @@
 | `vct/traverser.rs` + `traverser/*.rs` | `Traverser`: 展開ループ。`DFSTraverser`、`PNSTraverser`、`DFPNSTraverser` は子の閾値だけが異なる。 |
 | `vct/resolver.rs` | `Resolver`: 証明の後に表をたどって手順を復元する。 |
 | `vct/solver.rs` + `solver/*.rs` | `VCTSolver` = `search` してから `resolve`。具体型 3 つ。 |
-| `vct_lazy/` | `LazyVCTSolver`。同じ構成で、追い手の確認を遅延させる（§7）。 |
 | `analysis/field.rs` | `PotentialField`（§8）。 |
 
 ---
@@ -283,47 +281,13 @@ if self.search(state) { self.resolve(state) } else { None }
 
 `I10` は即座に反証される。三ができないので、白がパスしても黒に 1 手の四追いはない。`compute_defences` が `zero_dn` を返し、その反証が `attacker_table` に保存される。
 
-## 7. 遅延追い詰め（`vct_lazy/`）
+## 7. 遅延追い詰め（削除済み）
 
-`LazyVCTSolver` は初期の実験的な変種で、比較のために残されている。他と同じ水準では保守されていない（`vct_lazy.rs` 冒頭のコメントを参照）。アイデアは長井氏の 2011 年 GPW 論文「難解な必至問題を解くアルゴリズムとその実装」に由来する。
+かつて `vct/` の隣に、実験的な「遅延」追い詰めソルバー（`vct_lazy/`、`SolveMode::VCTLAZY`）があった。受け方の各ノードで攻め方の追い手（四追い）を先に解いてしまうのではなく、その確認を本体の df-pn 探索に織り込み、途中で見つかった受けの手を記録していくものだった。アイデアは次の論文に由来する。
 
-`vct/` と同じファイル構成と、同じ `Searcher` / `Traverser` / `Resolver` の構造を持つ。異なるのは次の点である。
+> 長井歩. "難解な必至問題を解くアルゴリズムとその実装." ゲームプログラミングワークショップ 2011 論文集 2011.6 (2011): 1-8.
 
-### 閾値と候補
-
-- 閾値は df-pn のもののみである（`Traverser::next_threshold_*` が df-pn の式）。
-- 候補は自身の初期 `Node` を持つ（`&[(Point, Node)]`）。
-
-### 攻め手の生成
-
-`generate_attacks` はポテンシャルによるフィルタ（`>= 3`、禁手を除く）だけである。四追いのショートカットも、受け方の狙いによる絞り込みもない。
-
-### 受け手の生成
-
-`generate_defences` は、追い手の確認に別の四追いソルバーを呼ばない。代わりに次のようにする。
-
-- 「受け方がパスする」を、受け方ノードの擬似的な子（手 `None`）として扱う。
-- その子を、同じ df-pn の仕組みで探索する。ただし四を作る手に限定する（`loop_defence_pass` → `search_limit_passed` → `search_attacks_passed`）。`search_attacks_passed` は `four_moves()` だけを生成し、`Forced` の応手は四である場合だけ受け入れる。
-- パスのノードは、他の子と同様に `defender_table` に保存する。その探索は親の閾値で制限される。
-- パスのノードが証明されていなければ、その `Node` を受け方ノードの値として返す。
-
-したがって追い手の確認は、前もって完了まで走らせるのではなく、本探索と交互に進む。これが「遅延」の由来である。
-
-### 受け手の記録
-
-パスの部分木を証明する過程で、それを崩す点を `defences_memory: HashMap<u64, Vec<Point>>` に記録する。キーは局面である。記録されるのは次の点:
-
-- 終端での `end_breakers`
-- 各階層での、勝ちの攻め手と強制された止め（`traverse_attacks_passed`、`traverse_defences_passed`）
-- 各止めを通る、受け方の剣先の眼（`next_sword_eyes`。`counter_defences` に相当する）
-
-パスのノードが証明されると、受け方の候補は、記録された集合に `four_moves()` を加え、ポテンシャルで並べ替えたものになる。
-
-### リゾルバ
-
-`Resolver` は `solve_attacker_vcf` / `solve_attacker_threat` を必要とする。`LazyVCTSolver` はこれを、`1..u8::MAX` にわたる単一の `IDDFSSolver`（上限は状態の `limit`）で提供する。`threat_limit` は使われない。
-
-リゾルバは `vct/` からコピーされたもので、受け方の候補を `threat_defences` で組み立て直す。これは遅延的に記録された集合と、必ずしも一致しない。そのため、復元された手順が途中で `End::Unknown` で終わることがある。§6 の盤面では、他のソルバーが完全な手順を返すのに対し、`F10,G9,I10` で終わる。`solve.rs` のテストにある `VCTLAZY` の期待値は、目標ではなくこの振る舞いを記録したものである。
+他のソルバーと同じ品質には至らず、PR_URL_PLACEHOLDER で削除された。削除時点の状態と、削除の判断材料となった計測結果はその PR を参照。
 
 ## 8. `PotentialField`（`analysis/field.rs`）
 

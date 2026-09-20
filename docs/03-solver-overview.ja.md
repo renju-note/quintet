@@ -31,7 +31,6 @@
 | `mate/mate.rs` | `Mate`: 詰みの結果（詰め上がり `End` + 詰み手順 `path`）。 |
 | `mate/vcf/` | 四追いソルバー: `VCFState`（四を作る手のペア）、`DFSSolver`、`IDDFSSolver`。 |
 | `mate/vct/` | 追い詰めソルバー（`DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`）。04 を参照。 |
-| `mate/vct_lazy/` | 実験的な「遅延」追い詰めソルバー（`LazyVCTSolver`）。04 の §7 を参照。 |
 | `analysis/field.rs` | `PotentialField`。追い詰めの手の並べ替え。04 の §8 を参照。 |
 
 ---
@@ -54,7 +53,6 @@ pub fn solve(mode: SolveMode, limit: u8, board: &Board, attacker: Player, threat
 | `VCTIDDFS` | `vct_iddfs` | — | 予約のみ。現在 `solve` は `None` を返す。 |
 | `VCTPNS` | `vct_pns` | `PNSVCTSolver` | 最良優先の証明数探索。 |
 | `VCTDFPNS` | `vct_dfpns` | `DFPNSVCTSolver` | df-pn（深さ優先証明数探索）。実質的なデフォルト。 |
-| `VCTLAZY` | `vct_lazy` | `LazyVCTSolver` | 実験的（04 の §7）。`threat_limit` は無視される。 |
 
 ### `limit` と `threat_limit`
 
@@ -97,7 +95,6 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 - `Board`
 - 探索中に打った手のリスト（`Vec<Option<Point>>`。`None` はパス）
 - 手番 `turn`
-- `passed` フラグ
 
 `play` / `undo` は盤面をその場で書き換える。`into_play(m, f)` は `m` を打ち、`f` を実行し、手を戻して `f` の結果を返す。すべてのソルバーはこのパターンで、盤面を複製せずに木をたどる。
 
@@ -120,7 +117,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 
 ### `State`: limit の管理と置換表のキー
 
-`State`（`VCFState`、`VCTState`、`LazyVCTState` が実装）は、`Game` に `attacker` と残り `limit` を加えたものである:
+`State`（`VCFState`、`VCTState` が実装）は、`Game` に `attacker` と残り `limit` を加えたものである:
 
 - `play(m)` は `m` を打つ。その結果として攻め方の手番に戻った（つまり受け方が打った）場合は、`limit` を 1 減らす。`undo` はその両方を戻す。
 - したがって `limit` は「攻め方があと何手打てるか」である。受け方のノードでは、直前の攻め手の分がまだ含まれている。
@@ -186,7 +183,7 @@ solve_defence(state, defence):                 # defender to move
 
 `IDDFSSolver::init(limits)` は同じ `DFSSolver` を、`limits` のうち状態自身の limit より小さいものについて順に走らせ、最後に本来の limit で走らせる。最初に見つかった解を返す。メモは `(盤面, limit)` をキーにしているので、浅いパスが深いパスを汚すことはない。
 
-追い詰めソルバーは `IDDFSSolver::init(vec![1])`（「まず 1 手で勝てるか調べる」）を使う。遅延ソルバーは `(1..u8::MAX)`、つまり完全な反復深化を使う。
+追い詰めソルバーは `IDDFSSolver::init(vec![1])`（「まず 1 手で勝てるか調べる」）を使う。
 
 ### 例
 

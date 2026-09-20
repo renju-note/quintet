@@ -5,7 +5,6 @@ mod solve;
 mod state;
 mod vcf;
 mod vct;
-mod vct_lazy;
 
 pub use game::End;
 pub use mate::Mate;

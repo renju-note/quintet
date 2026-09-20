@@ -35,7 +35,6 @@ pub struct Game {
     board: Board,
     moves: Vec<Option<Point>>,
     pub turn: Player,
-    pub passed: bool,
 }
 
 impl Game {
@@ -44,15 +43,12 @@ impl Game {
             board: board.clone(),
             moves: vec![],
             turn,
-            passed: false,
         }
     }
 
     pub fn play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
             self.board.put_mut(self.turn, next_move);
-        } else {
-            self.passed = true
         }
         self.moves.push(next_move);
         self.turn = self.turn.opponent();
@@ -62,8 +58,6 @@ impl Game {
         self.turn = self.turn.opponent();
         if let Some(last_move) = self.moves.pop().unwrap() {
             self.board.remove_mut(last_move);
-        } else {
-            self.passed = false
         }
     }
 
