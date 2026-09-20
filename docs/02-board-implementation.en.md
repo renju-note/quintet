@@ -46,12 +46,12 @@ Every point lies on exactly four lines: a column, a row, an ascending
 diagonal and a descending diagonal. A line is identified by its `Direction`
 and a line number `i`, and a position on the line by `j`:
 
-| `Direction` | Line number `i` | Position on the line `j` |
-| --- | --- | --- |
-| `Vertical` (column) | `x` | `y` |
-| `Horizontal` (row) | `y` | `x` |
-| `Ascending` (`/`) | `x + 14 - y` (0 through 28) | `x` if `i < 14`, else `y` |
-| `Descending` (`\`) | `x + y` (0 through 28) | `x` if `i < 14`, else `14 - y` |
+| `Direction` | Line type | Line number `i` | Position on the line `j` |
+| --- | --- | --- | --- |
+| `Vertical` | column (`\|`) | `x` | `y` |
+| `Horizontal` | row (`-`) | `y` | `x` |
+| `Ascending` | ascending diagonal (`/`) | `x + 14 - y` (0 through 28) | `x` if `i < 14`, else `y` |
+| `Descending` | descending diagonal (`\`) | `x + y` (0 through 28) | `x` if `i < 14`, else `14 - y` |
 
 The triple `(Direction, i, j)` is an `Index`. Related operations:
 
