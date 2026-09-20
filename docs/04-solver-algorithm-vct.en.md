@@ -3,7 +3,6 @@
 This document explains:
 
 - the VCT (Victory by Continuous Threats) solvers in `src/mate/vct/`;
-- the experimental lazy variant in `src/mate/vct_lazy/`;
 - the `PotentialField` in `src/analysis/field.rs` that orders their moves.
 
 It assumes [03-solver-overview.en.md](03-solver-overview.en.md). In
@@ -27,7 +26,6 @@ Module map:
 | `vct/traverser.rs` + `traverser/*.rs` | `Traverser`: the expansion loop; `DFSTraverser`, `PNSTraverser`, `DFPNSTraverser` differ only in child thresholds. |
 | `vct/resolver.rs` | `Resolver`: walks the tables after a proof to extract the path. |
 | `vct/solver.rs` + `solver/*.rs` | `VCTSolver` = `search` then `resolve`; the three concrete structs. |
-| `vct_lazy/` | `LazyVCTSolver`, the same shape with lazy threat detection (§7). |
 | `analysis/field.rs` | `PotentialField` (§8). |
 
 ---
@@ -362,73 +360,19 @@ depth-first solver therefore tries `I10` before `F10`.
 no one-move VCF. `compute_defences` returns `zero_dn`, and the refutation is
 stored in `attacker_table`.
 
-## 7. Lazy VCT (`vct_lazy/`)
+## 7. Lazy VCT (removed)
 
-`LazyVCTSolver` is an earlier, experimental variant that is kept for
-comparison. It is not maintained to the same standard (see the comment at
-the top of `vct_lazy.rs`). The idea comes from Nagai's 2011 GPW paper on
-solving hisshi problems.
+An experimental "lazy" VCT solver (`vct_lazy/`, `SolveMode::VCTLAZY`) used to
+live next to `vct/`. Instead of solving the attacker's threat VCF up front at
+every defender node, it interleaved the threat check with the main df-pn
+search and recorded the defences found along the way. The idea comes from:
 
-It has the same files as `vct/` and the same `Searcher` / `Traverser` /
-`Resolver` structure. The differences are the following.
+> 長井歩. "難解な必至問題を解くアルゴリズムとその実装." ゲームプログラミング
+> ワークショップ 2011 論文集 2011.6 (2011): 1-8.
 
-### Thresholds and candidates
-
-- Only df-pn thresholds (`Traverser::next_threshold_*` are the df-pn
-  formulas).
-- Candidates carry their own initial `Node` (`&[(Point, Node)]`).
-
-### Attack generation
-
-`generate_attacks` is just the potential filter (`>= 3`, not forbidden).
-There is no VCF shortcut and no narrowing by the defender's threat.
-
-### Defence generation
-
-`generate_defences` does not call a separate VCF solver to check the threat.
-Instead:
-
-- It treats "the defender passes" as a pseudo-child (move `None`) of the
-  defender node.
-- It searches that child with the same df-pn machinery, restricted to
-  four-making moves (`loop_defence_pass` → `search_limit_passed` →
-  `search_attacks_passed`). `search_attacks_passed` generates `four_moves()`
-  only and accepts a `Forced` reply only if it is a four.
-- The pass node is stored in `defender_table` like any other child, and its
-  search is bounded by the parent's threshold.
-- If the pass node is not proven, its `Node` is returned as the value of the
-  defender node.
-
-So the threat check is interleaved with the main search instead of being run
-to completion up front — hence "lazy".
-
-### Recording defences
-
-While the pass subtree is being proven, the points that would break it are
-recorded in `defences_memory: HashMap<u64, Vec<Point>>`, keyed by position.
-The recorded points are:
-
-- `end_breakers` at the terminal;
-- the winning attack and the forced block at each level
-  (`traverse_attacks_passed`, `traverse_defences_passed`);
-- the eyes of the defender's swords through each block (`next_sword_eyes`,
-  the analogue of `counter_defences`).
-
-Once the pass node is proven, the defender's candidates are the recorded set
-plus `four_moves()`, sorted by potential.
-
-### Resolver
-
-`Resolver` needs `solve_attacker_vcf` / `solve_attacker_threat`.
-`LazyVCTSolver` provides them with a single `IDDFSSolver` over `1..u8::MAX`
-bounded by the state's `limit`; `threat_limit` is not used.
-
-The resolver was copied from `vct/` and rebuilds the defender's candidates
-with `threat_defences`. That set does not always coincide with the lazily
-recorded one. So the extracted path can stop early with `End::Unknown`: for
-the board in §6 it stops at `F10,G9,I10`, while the other solvers return
-the full line. The `VCTLAZY` expectations in `solve.rs` document this
-behaviour rather than a target.
+It never reached the quality of the other solvers and was removed in
+[renju-note/quintet#133](https://github.com/renju-note/quintet/pull/133); see that PR for the state it was in and the measurements
+that motivated the removal.
 
 ## 8. `PotentialField` (`analysis/field.rs`)
 

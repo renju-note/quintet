@@ -21,7 +21,6 @@ Module map:
 | `mate/mate.rs` | `Mate`: the result (`End` + move path). |
 | `mate/vcf/` | VCF solver: `VCFState` (four-making move pairs), `DFSSolver`, `IDDFSSolver`. |
 | `mate/vct/` | VCT solvers (`DFSVCTSolver`, `PNSVCTSolver`, `DFPNSVCTSolver`); see 04. |
-| `mate/vct_lazy/` | Experimental "lazy" VCT solver (`LazyVCTSolver`); see 04, §7. |
 | `analysis/field.rs` | `PotentialField`, move ordering for VCT; see 04, §8. |
 
 ---
@@ -45,7 +44,6 @@ other side is called the *defender* throughout the code.
 | `VCTIDDFS` | `vct_iddfs` | — | Reserved: `solve` currently returns `None`. |
 | `VCTPNS` | `vct_pns` | `PNSVCTSolver` | Best-first proof-number search. |
 | `VCTDFPNS` | `vct_dfpns` | `DFPNSVCTSolver` | df-pn (depth-first proof-number search). The default in practice. |
-| `VCTLAZY` | `vct_lazy` | `LazyVCTSolver` | Experimental (04, §7). `threat_limit` is ignored. |
 
 ### `limit` and `threat_limit`
 
@@ -94,8 +92,8 @@ moves in it.
 ### `Game`
 
 `Game` owns a `Board`, the list of moves played during the search
-(`Vec<Option<Point>>`, `None` being a pass), the side to move `turn` and a
-`passed` flag. `play` / `undo` mutate in place; `into_play(m, f)` plays `m`,
+(`Vec<Option<Point>>`, `None` being a pass) and the side to move `turn`.
+`play` / `undo` mutate in place; `into_play(m, f)` plays `m`,
 runs `f`, undoes, and returns `f`'s result — this is the pattern every
 solver uses to walk the tree without cloning boards.
 
@@ -123,7 +121,7 @@ same as a double-four.
 
 ### `State`: limit bookkeeping and transposition keys
 
-`State` (implemented by `VCFState`, `VCTState` and `LazyVCTState`) wraps a
+`State` (implemented by `VCFState` and `VCTState`) wraps a
 `Game` with `attacker` and the remaining `limit`:
 
 - `play(m)` plays `m` on the game and, if it is now the attacker's turn
@@ -214,8 +212,7 @@ Notes:
 `limits` that is smaller than the state's own limit, then with the full
 limit, returning the first solution. Because the memo is keyed by `(board,
 limit)`, the shallow passes never poison the deeper ones. The VCT solvers use
-`IDDFSSolver::init(vec![1])` — "check for a one-move win first" — and the
-lazy solver uses `(1..u8::MAX)`, i.e. full iterative deepening.
+`IDDFSSolver::init(vec![1])` — "check for a one-move win first".
 
 ### Example
 

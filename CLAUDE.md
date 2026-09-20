@@ -22,7 +22,7 @@ wasm-pack build --scope renju-note            # what CI runs on release
 
 # CLI for manual experiments (examples/solve.rs)
 cargo run --release --example solve <mode> <limit> <threat_limit> <x|o> <moves>
-#   mode: vcf | vcf_iddfs | vct | vct_iddfs | vct_pns | vct_dfpns | vct_lazy
+#   mode: vcf | vcf_iddfs | vct | vct_iddfs | vct_pns | vct_dfpns
 #   moves: comma-separated like H8,H7,F6 (alternating Black, White, ...)
 ```
 
@@ -45,8 +45,6 @@ slower and some cases time out.
   - `vct/` — Victory by Continuous Threats: DFS, PNS and df-pn solvers built
     from `generator` (move generation), `searcher`, `resolver`, `selector`,
     `traverser`, `proof` (proof/disproof numbers).
-  - `vct_lazy/` — an experimental lazy-expansion VCT variant with the same
-    shape as `vct/`.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
   `solve_vct`, `solve_vct_dfpn`, `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`.
