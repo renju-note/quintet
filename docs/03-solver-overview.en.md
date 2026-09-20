@@ -15,7 +15,8 @@ Module map:
 
 | File | Role |
 | --- | --- |
-| `mate/solve.rs` | Public entry point `solve` and `SolveMode`; input validation; the solver regression tests. |
+| `mate/solve.rs` | Public entry points `solve` / `solve_limited`, `SolveMode`, `SolveLimits`, `SolveResult`; input validation; the solver regression tests. |
+| `mate/budget.rs` | `NodeBudget`: how much work a search may do, counted in nodes. |
 | `mate/game.rs` | `Game`: board + move history + side to move, with pass support; `check_event` (four detection); `End`. |
 | `mate/state.rs` | `State` trait: play/undo that also tracks the remaining `limit`, and the transposition key. |
 | `mate/mate.rs` | `Mate`: the result (`End` + move path). |
@@ -25,14 +26,19 @@ Module map:
 
 ---
 
-## 1. Entry point (`solve.rs`)
+## 1. Entry points (`solve.rs`)
 
 ```rust
 pub fn solve(mode: SolveMode, limit: u8, board: &Board, attacker: Player, threat_limit: u8) -> Option<Mate>
+pub fn solve_limited(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
 ```
 
 `attacker` is the side to move and the side we try to prove a win for. The
 other side is called the *defender* throughout the code.
+
+`solve` is the short form and is what `wasm.rs` calls; `solve_limited` is the
+same search with a node budget and a three-valued answer. `solve` is written
+in terms of it.
 
 ### `SolveMode`
 
@@ -45,14 +51,91 @@ other side is called the *defender* throughout the code.
 | `VCTPNS` | `vct_pns` | `PNSVCTSolver` | Best-first proof-number search. |
 | `VCTDFPNS` | `vct_dfpns` | `DFPNSVCTSolver` | df-pn (depth-first proof-number search). The default in practice. |
 
-### `limit` and `threat_limit`
+### `SolveLimits`: how far a search may go
+
+```rust
+SolveLimits::new(limit)
+    .with_threat_limit(threat_limit)
+    .with_defender_vcf_depth(depth)   // default 2
+    .with_max_nodes(nodes)            // default: no budget
+```
 
 - `limit` is the maximum number of **attacker moves** in the solution. Every
   attacking move counts, including fours. A solution path of 7 moves (4
   attacks and 3 defences) needs `limit >= 4`; see `test_vct_black`. The
   example in §3 shows how the value is consumed move by move.
-- `threat_limit` bounds the depth of the nested VCF searches that the VCT
-  solvers run (04, §2). It does not affect `VCFDFS`.
+- `threat_limit` bounds the depth of the nested VCF searches that decide
+  whether a move is a threat (04, §2). It does not affect `VCFDFS`.
+- `defender_vcf_depth` bounds the nested VCF that looks for the defender's
+  counter-VCF (04, §2). It used to be fixed at 2, which is still the
+  default (`DEFAULT_DEFENDER_VCF_DEPTH`).
+- `max_nodes` is the budget; see §1.1.
+
+The `with_*` methods return a new value, so adding a field later does not
+break callers that build their limits this way.
+
+### `SolveResult` and `NodeBudget`
+
+```rust
+pub enum SolveResult { Proven(Mate), Disproven, Aborted }
+```
+
+`Option<Mate>` cannot say why there is no mate. `SolveResult` can:
+`Disproven` means there is none within the limits, `Aborted` means the
+search ran out of budget and the position is still open. A caller that
+searches with a budget must treat the two differently — taking `Aborted`
+for "safe" is how an engine walks into a mate.
+
+A `NodeBudget` counts nodes, not time: everything under `src/` compiles for
+`wasm32-unknown-unknown`, where there is no clock, so a caller with a time
+control converts it into a number of nodes itself. One node is one call of
+`DFSSolver::solve` (VCF) or of `search_attacks` / `search_defences` (VCT),
+nested VCF searches included.
+
+The solvers take `&mut NodeBudget`, so one budget can bound a whole group of
+related searches:
+
+```rust
+let budget = &mut NodeBudget::new(100_000);
+let mut solver = DFPNSVCTSolver::init(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
+for board in candidates {
+    let state = &mut VCTState::init(&board, attacker, limit);
+    match solver.solve(state, budget) {
+        Some(mate) => /* proven */,
+        None if budget.is_exhausted() => break,   // out of budget, nothing proved
+        None => /* no mate within the limits */,
+    }
+}
+```
+
+An exhausted budget stays exhausted until `restart()`, so every later call
+gives up at once instead of doing a little more work each time.
+
+A search that gave up proves nothing, so nothing it computed is written to
+the memo tables: not `DFSSolver::deadends`, not the VCT proof tables, not
+the candidate-move caches. A solver whose search was aborted can therefore
+be reused as is, and `test_abort_leaves_no_wrong_memo` checks exactly that.
+Proofs are never spurious, though: a mate found just before the budget ran
+out is a real mate and is returned.
+
+### Using the solvers directly
+
+`solve`/`solve_limited` build a solver, use it once and drop it. A caller
+that asks many related questions — a game engine, an analysis view — should
+keep one instead, because the tables it fills are most of its value. The
+solvers, the states and `Game` are all public for that:
+
+- `VCTSolver::clear()` throws away both proof tables, both candidate caches
+  and the nested VCF deadends. Call it when moving to a position that is not
+  a descendant of the last one; skip it to let the tables carry over.
+- `VCTState::threat_defences(&threat)` lists the moves worth trying against
+  a mate that was found — the threat's own path, the points that break its
+  end, counter-fours and the defender's own four-making moves. It is what
+  the VCT search itself generates defences from (04, §3), and what a
+  defender should try.
+- `Game::play(None)` is a pass, which is how the "is this a threat?"
+  question is asked: let the side to move pass and see whether the opponent
+  then has a VCF. `test_threat_after_pass` does it move by move.
 
 ### `validate`
 
@@ -271,6 +354,9 @@ needs `limit >= 3`, whether from the CLI or in a test.
 | Why did the solver stop at depth N? | `limit` counts attacker moves and is decremented in `State::play` after each defender move. |
 | A four-making move is not generated | `VCFState::move_pairs` only looks at `Sword` eyes; for Black, `exact` margins exclude overline-making fours. |
 | A counter-four is mishandled | `Game::check_event` on the attacker's side and `VCFState::forced_move_pair`. |
-| Transposition memo | `DFSSolver::deadends`, keyed by `zobrist_hash_n(limit)`; only failures are stored. |
+| Transposition memo | `DFSSolver::deadends`, keyed by `zobrist_hash_n(limit)`; only failures are stored, and never after the budget ran out. |
+| Stop a search that is taking too long | `SolveLimits::with_max_nodes`, or pass a `NodeBudget` to the solver directly; the answer is then `SolveResult::Aborted`. |
+| Reuse a solver across positions | Keep the `VCTSolver` and pass it a fresh `VCTState` each time; `clear()` to forget the tables. |
+| Which moves defend against a mate | `VCTState::threat_defences`. |
 | Adding a regression case | ASCII board + expected path string in `solve.rs` tests, one assertion per relevant `SolveMode`. |
 | VCT-specific questions | See the cheat sheet in [04-solver-algorithm-vct.en.md](04-solver-algorithm-vct.en.md). |

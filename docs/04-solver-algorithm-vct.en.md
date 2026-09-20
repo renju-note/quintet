@@ -116,8 +116,8 @@ position?". For that, two kinds of `VCFState` are derived from `VCTState`:
 There are two VCF depth bounds `max`:
 
 - for the attacker's searches, `attacker_vcf_depth`, which is `threat_limit`;
-- for the defender's searches, `defender_vcf_depth`, hard-coded to `2` in
-  `solve`.
+- for the defender's searches, `defender_vcf_depth`, which is
+  `SolveLimits::defender_vcf_depth` (`2` unless the caller says otherwise).
 
 The solvers behind them are `IDDFSSolver`s with `limits = [1]`, one per
 side. Their `deadends` memo persists for the whole VCT search.
@@ -491,7 +491,7 @@ lands on a high-potential point of the attacker is tried first.
 | Why did the solver stop at depth N? | `limit` counts attacker moves; `search_defences` returns `disproven` when `limit <= 1` at a defender node. |
 | A threat is not recognised | `compute_defences` step 1 (`solve_attacker_threat`) with `attacker_vcf_depth = threat_limit`; the VCF is limited to `Sword` eyes. |
 | A defence is missing | `VCTState::threat_defences` (path, `end_breakers`, `counter_defences`, `four_moves`). |
-| A refutation by counter-attack is missing | `solve_defender_vcf` is limited to `defender_vcf_depth = 2`; deeper counter-VCFs are found only if a counter-four appears in `threat_defences`. |
+| A refutation by counter-attack is missing | `solve_defender_vcf` is limited to `defender_vcf_depth` (2 by default); deeper counter-VCFs are found only if a counter-four appears in `threat_defences`. Raise it with `SolveLimits::with_defender_vcf_depth`. |
 | Move ordering | `PotentialField` (`analysis/field.rs`) with `min = 2`, candidates need a sum `>= 3`. |
 | Transposition tables | `VCTSolver::attacker_table` / `defender_table`, `VCTSolver::*_cache`, `DFSSolver::deadends`; all keyed by `zobrist_hash_n(limit)`. |
 | Path extraction | `extract` (`extractor.rs`); `End::Unknown` means the tables had no proven child to follow. |

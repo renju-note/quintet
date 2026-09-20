@@ -17,6 +17,10 @@ impl ProofTable {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.table.clear();
+    }
+
     pub fn insert(&mut self, state: &VCTState, node: Node) {
         let key = state.zobrist_hash();
         self.table.insert(key, node);

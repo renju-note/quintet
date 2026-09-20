@@ -25,7 +25,8 @@
 
 | ファイル | 役割 |
 | --- | --- |
-| `mate/solve.rs` | 公開エントリポイント `solve` と `SolveMode`、入力の検証、ソルバーの回帰テスト。 |
+| `mate/solve.rs` | 公開エントリポイント `solve` / `solve_limited`、`SolveMode`、`SolveLimits`、`SolveResult`、入力の検証、ソルバーの回帰テスト。 |
+| `mate/budget.rs` | `NodeBudget`: 探索が使ってよい仕事量。ノード数で数える。 |
 | `mate/game.rs` | `Game`: 盤面 + 手順 + 手番（パス対応）、`check_event`（四の検出）、`End`（詰め上がり）。 |
 | `mate/state.rs` | `State` トレイト: 残り `limit` も管理する play/undo と、置換表のキー。 |
 | `mate/mate.rs` | `Mate`: 詰みの結果（詰め上がり `End` + 詰み手順 `path`）。 |
@@ -39,9 +40,12 @@
 
 ```rust
 pub fn solve(mode: SolveMode, limit: u8, board: &Board, attacker: Player, threat_limit: u8) -> Option<Mate>
+pub fn solve_limited(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
 ```
 
 `attacker` は手番側であり、勝ちを証明したい側である。相手側はコード全体で *defender* と呼ばれる。
+
+`solve` は短い形で、`wasm.rs` が呼ぶのもこちらである。`solve_limited` は同じ探索にノード予算と三値の結果を加えたものである。`solve` は `solve_limited` で書かれている。
 
 ### `SolveMode`
 
@@ -54,10 +58,58 @@ pub fn solve(mode: SolveMode, limit: u8, board: &Board, attacker: Player, threat
 | `VCTPNS` | `vct_pns` | `PNSVCTSolver` | 最良優先の証明数探索。 |
 | `VCTDFPNS` | `vct_dfpns` | `DFPNSVCTSolver` | df-pn（深さ優先証明数探索）。実質的なデフォルト。 |
 
-### `limit` と `threat_limit`
+### `SolveLimits`: どこまで探索してよいか
+
+```rust
+SolveLimits::new(limit)
+    .with_threat_limit(threat_limit)
+    .with_defender_vcf_depth(depth)   // 既定は 2
+    .with_max_nodes(nodes)            // 既定は予算なし
+```
 
 - `limit` は解に含まれる **攻め方の着手数** の上限である。四も含めて攻め方の着手はすべて数える。たとえば 7 手（攻め 4 手 + 受け 3 手）の解を見つけるには `limit >= 4` が必要である（`test_vct_black` を参照）。§3 の例で、この値が 1 手ごとにどう消費されるかを追っている。
-- `threat_limit` は、追い詰めソルバーが内部で走らせる四追い探索の深さの上限である（04 の §2）。`VCFDFS` には影響しない。
+- `threat_limit` は、ある手が追い手かどうかを判定する内部の四追い探索の深さの上限である（04 の §2）。`VCFDFS` には影響しない。
+- `defender_vcf_depth` は、受け方の逆襲の四追いを探す内部探索の深さの上限である（04 の §2）。以前は 2 に固定されていた。現在もそれが既定値である（`DEFAULT_DEFENDER_VCF_DEPTH`）。
+- `max_nodes` はノード予算である。下を参照。
+
+`with_*` は新しい値を返す。この形で組み立てておけば、後からフィールドが増えても呼び出し側は壊れない。
+
+### `SolveResult` と `NodeBudget`
+
+```rust
+pub enum SolveResult { Proven(Mate), Disproven, Aborted }
+```
+
+`Option<Mate>` では「詰みがない理由」を表せない。`SolveResult` は表せる。`Disproven` は与えた上限の中に詰みがないこと、`Aborted` は予算が尽きて局面がまだ未解決であることを意味する。予算付きで探索する呼び出し側は、この 2 つを区別しなければならない。`Aborted` を「安全」と読むのが、エンジンが詰みに踏み込む典型的な失敗である。
+
+`NodeBudget` が数えるのは時間ではなくノード数である。`src/` 以下はすべて `wasm32-unknown-unknown` 向けにコンパイルできなければならず、そこに時計はない。持ち時間があるなら、呼び出し側がノード数に換算する。1 ノードは `DFSSolver::solve`（四追い）または `search_attacks` / `search_defences`（追い詰め）の 1 回の呼び出しであり、内部の四追い探索も含めて数える。
+
+ソルバーは `&mut NodeBudget` を受け取る。したがって 1 つの予算で、関連する一連の探索全体を縛れる:
+
+```rust
+let budget = &mut NodeBudget::new(100_000);
+let mut solver = DFPNSVCTSolver::init(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
+for board in candidates {
+    let state = &mut VCTState::init(&board, attacker, limit);
+    match solver.solve(state, budget) {
+        Some(mate) => /* 詰みあり */,
+        None if budget.is_exhausted() => break,   // 予算切れ。何も証明できていない
+        None => /* 上限の中に詰みなし */,
+    }
+}
+```
+
+尽きた予算は `restart()` するまで尽きたままである。したがって以降の呼び出しは、少しずつ余計に探索することなく、すぐに諦める。
+
+打ち切った探索は何も証明していないので、そこで計算したものはメモ表に書かない。`DFSSolver::deadends` にも、追い詰めの証明数表にも、候補手のキャッシュにも書かない。よって打ち切られたソルバーはそのまま再利用でき、`test_abort_leaves_no_wrong_memo` がそれを確かめている。ただし証明のほうは偽にならない。予算が尽きる直前に見つかった詰みは本物であり、そのまま返される。
+
+### ソルバーを直接使う
+
+`solve` / `solve_limited` は、ソルバーを作って 1 回使って捨てる。関連する問いを何度も投げる側（対局エンジン、解析画面）は、ソルバーを持ち続けるべきである。埋まった表こそがソルバーの価値のほとんどだからだ。そのためにソルバー、状態、`Game` はいずれも公開されている:
+
+- `VCTSolver::clear()` は、2 つの証明数表、2 つの候補手キャッシュ、内部の四追いの `deadends` を捨てる。直前の局面の子孫でない局面に移るときに呼ぶ。呼ばなければ表を引き継ぐ。
+- `VCTState::threat_defences(&threat)` は、見つかった詰みに対して試す価値のある手を返す。詰み手順そのもの、詰め上がりを崩す点、ノリ手、受け方自身が四を作る手である。追い詰め探索が受けの候補を作るのに使っているもの（04 の §3）であり、受け方が試すべきものでもある。
+- `Game::play(None)` はパスである。「この手は追い手か」はこれで問う。手番側にパスさせ、相手に四追いがあるかを見る。`test_threat_after_pass` が 1 手ずつ確かめている。
 
 ### `validate`
 
@@ -233,6 +285,9 @@ solve_defence(state, defence):                 # defender to move
 | なぜ深さ N で探索が止まったか | `limit` は攻め方の着手数を数え、受け方が打つたびに `State::play` で減る。 |
 | 四を作る手が生成されない | `VCFState::move_pairs` は `Sword` の眼しか見ない。黒では `exact` の縁の条件により、長連になる四は除かれる。 |
 | ノリ手の扱いがおかしい | 攻め方側の `Game::check_event` と `VCFState::forced_move_pair`。 |
-| 置換表のメモ | `DFSSolver::deadends`。`zobrist_hash_n(limit)` がキーで、失敗だけを記憶する。 |
+| 置換表のメモ | `DFSSolver::deadends`。`zobrist_hash_n(limit)` がキーで、失敗だけを記憶する。予算が尽きた後は記憶しない。 |
+| 長すぎる探索を止める | `SolveLimits::with_max_nodes`、またはソルバーに直接 `NodeBudget` を渡す。結果は `SolveResult::Aborted` になる。 |
+| ソルバーを複数の局面で使い回す | `VCTSolver` を持ち続け、毎回新しい `VCTState` を渡す。表を捨てるなら `clear()`。 |
+| 詰みに対する受けの候補 | `VCTState::threat_defences`。 |
 | 回帰テストの追加 | `solve.rs` のテストに ASCII 盤面と期待する詰み手順の文字列を追加し、関係する `SolveMode` ごとに 1 つずつ assert する。 |
 | 追い詰め固有の疑問 | [04-solver-algorithm-vct.ja.md](04-solver-algorithm-vct.ja.md) のチートシートを参照。 |

@@ -100,7 +100,7 @@ VCTSolver::solve
 四追いの深さの上限 `max` は 2 種類ある:
 
 - 攻め方の探索: `attacker_vcf_depth`。`threat_limit` がそのまま入る。
-- 受け方の探索: `defender_vcf_depth`。`solve` で `2` に固定されている。
+- 受け方の探索: `defender_vcf_depth`。`SolveLimits::defender_vcf_depth` がそのまま入る（指定しなければ `2`）。
 
 裏で動くのは各側 1 つずつの `IDDFSSolver`（`limits = [1]`）である。その `deadends` メモは、追い詰め探索全体を通して保持される。
 
@@ -375,7 +375,7 @@ if self.search(state) { self.extract(state) } else { None }
 | なぜ深さ N で探索が止まったか | `limit` は攻め方の着手数を数える。受け方のノードで `limit <= 1` なら `search_defences` は `disproven` を返す。 |
 | 追い手として認識されない | `compute_defences` のステップ 1（`solve_attacker_threat`）。`attacker_vcf_depth = threat_limit` で、四追いは `Sword` の眼に限られる。 |
 | 受けが足りない | `VCTState::threat_defences`（手順、`end_breakers`、`counter_defences`、`four_moves`）。 |
-| 逆襲による反証が見つからない | `solve_defender_vcf` は `defender_vcf_depth = 2` に制限される。より深い逆襲の四追いは、ノリ手が `threat_defences` に現れる場合にしか見つからない。 |
+| 逆襲による反証が見つからない | `solve_defender_vcf` は `defender_vcf_depth`（既定は 2）に制限される。より深い逆襲の四追いは、ノリ手が `threat_defences` に現れる場合にしか見つからない。`SolveLimits::with_defender_vcf_depth` で深くできる。 |
 | 手の並べ替え | `PotentialField`（`analysis/field.rs`）、`min = 2`、候補は合計 `>= 3` が必要。 |
 | 置換表 | `VCTSolver::attacker_table` / `defender_table`、`VCTSolver::*_cache`、`DFSSolver::deadends`。すべて `zobrist_hash_n(limit)` がキー。 |
 | 詰み手順の復元 | `extract`（`extractor.rs`）。`End::Unknown` は、表にたどれる証明済みの子がなかったことを意味する。 |
