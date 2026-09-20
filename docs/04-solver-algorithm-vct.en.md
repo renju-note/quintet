@@ -371,7 +371,7 @@ search and recorded the defences found along the way. The idea comes from:
 > ワークショップ 2011 論文集 2011.6 (2011): 1-8.
 
 It never reached the quality of the other solvers and was removed in
-PR_URL_PLACEHOLDER; see that PR for the state it was in and the measurements
+[renju-note/quintet#133](https://github.com/renju-note/quintet/pull/133); see that PR for the state it was in and the measurements
 that motivated the removal.
 
 ## 8. `PotentialField` (`analysis/field.rs`)

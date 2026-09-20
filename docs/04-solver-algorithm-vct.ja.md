@@ -287,7 +287,7 @@ if self.search(state) { self.resolve(state) } else { None }
 
 > 長井歩. "難解な必至問題を解くアルゴリズムとその実装." ゲームプログラミングワークショップ 2011 論文集 2011.6 (2011): 1-8.
 
-他のソルバーと同じ品質には至らず、PR_URL_PLACEHOLDER で削除された。削除時点の状態と、削除の判断材料となった計測結果はその PR を参照。
+他のソルバーと同じ品質には至らず、[renju-note/quintet#133](https://github.com/renju-note/quintet/pull/133) で削除された。削除時点の状態と、削除の判断材料となった計測結果はその PR を参照。
 
 ## 8. `PotentialField`（`analysis/field.rs`）
 
