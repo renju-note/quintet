@@ -79,9 +79,9 @@ cell :  i+5  | i+4  i+3  i+2  i+1   i  |  i-1
 窓が**有効**と見なされるのは、次の条件をすべて満たすときである:
 
 - 対象 5 マスに相手の石がない（`op & TARGET_MASK == 0`）。
-- `strict` モードのときは、さらに左右どちらのマージンにも*自分の*石がない（`my & MARGIN_MASK == 0`）。
+- `exact` モードのときは、さらに左右どちらのマージンにも*自分の*石がない（`my & MARGIN_MASK == 0`）。
 
-`strict` はプレイヤーが**黒**のときにちょうど真になる（`StructureKind::to_sequence` 参照）。これは「黒の五はちょうど五でなければならない」というルールの実装である。窓に隣接して自分の石があれば、その窓に五を作ると長連になってしまうので、五になりうる窓として数えない。白にはこの制約がないため非 strict でスキャンし、長連も通常の勝ちとして扱われる。
+`exact` はプレイヤーが**黒**のときにちょうど真になる（`StructureKind::to_sequence` 参照）。これは「黒の五はちょうど五でなければならない」というルールの実装である。窓に隣接して自分の石があれば、その窓に五を作ると長連になってしまうので、五になりうる窓として数えない。白にはこの制約がないため非 exact でスキャンし、長連も通常の勝ちとして扱われる。
 
 有効な窓について、自分の石の数を `n` と比較する。何を返すかは 3 種類の `SequenceKind` で決まる:
 
@@ -131,11 +131,11 @@ pub struct Square {
 
 ## 5. `StructureKind`: ルール用語の語彙
 
-`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, strict)` の組に写す。`strict` は原則 `r.is_black()`（黒のみ真）であるが、黒の長連系の `StructureKind` を検出する際は常に偽となる。これは長連が必ず各 5 マス窓の隣に自分の石を持ち、strict ではまさにその窓が無効になって検出できないためである:
+`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, exact)` の組に写す。`exact` は原則 `r.is_black()`（黒のみ真）であるが、黒の長連系の `StructureKind` を検出する際は常に偽となる。これは長連が必ず各 5 マス窓の隣に自分の石を持ち、exact ではまさにその窓が無効になって検出できないためである:
 
-| `StructureKind` | `SequenceKind` | `n` | `strict` | パターン（黒の例、`_` = 眼） | ルール上の概念 |
+| `StructureKind` | `SequenceKind` | `n` | `exact` | パターン（黒の例、`_` = 眼） | ルール上の概念 |
 | --- | --- | --- | --- | --- | --- |
-| `Five` | `Single` | 5 | 黒のみ | `ooooo` | **五連**（§3）。黒は strict マージンにより長連を除外。 |
+| `Five` | `Single` | 5 | 黒のみ | `ooooo` | **五連**（§3）。黒は exact マージンにより長連を除外。 |
 | `OverFive` | `Double` | 5 | 常に偽 | `oooooo`（6 以上） | **長連**。 |
 | `Four` | `Single` | 4 | 黒のみ | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五連。棒四は隣り合う **2 つ**の `Four` として現れる。 |
 | `OpenFour` | `Open` | 4 | 黒のみ | `.oooo.` | **棒四**。 |
@@ -144,7 +144,7 @@ pub struct Square {
 | `Two` | `Open` | 2 | 黒のみ | `.oo__.`、`.o_o_.` など | **連**（二）: 眼に打てば `Three`。 |
 | `NextOverFive` | `Double` | 4 | 常に偽 | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
 
-黒には `strict` が適用されるため、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
+黒には `exact` が適用されるため、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
 
 - 窓 `o.ooo` と窓 `.oooo` は、マージンに黒石があるため却下される。左の隙間を埋めると六になってしまうからである。
 - 窓 `oooo.` だけが数えられる。右端に打てばちょうど五連になるからである。
@@ -237,7 +237,7 @@ fn truthy_double_three(next, p) -> bool {
 
 ルールの一部ではないが、同じ窓スキャンの上に作られている。`Potentials` は線上の各空点について次のように点数を求める:
 
-1. その空点を含む 5 つの 5 マス窓を見る。窓には `Sequences` と同じ `strict` マージン規則が適用される。
+1. その空点を含む 5 つの 5 マス窓を見る。窓には `Sequences` と同じ `exact` マージン規則が適用される。
 2. 有効な窓ごとに「自分の石数 + 1」（そこに打った後に窓が持つ石数）を点数とする。
 3. 「最大点数 × 最大点数を達成した窓の数」をその空点の値として返す。
 
@@ -257,10 +257,10 @@ fn truthy_double_three(next, p) -> bool {
 | ルール | コード |
 | --- | --- |
 | 五連で勝ち | `structures(r, Five)`（`mate::solve` / `Game` で判定）。 |
-| 長連は白の勝ち、黒は不可 | `Five` は黒だけ strict なので白の六も `Five`。黒の長連は禁手（`NextOverFive` = 六腐）。`mate::solve::validate` は五や黒の `OverFive` を既に含む入力局面を拒否する。 |
+| 長連は白の勝ち、黒は不可 | `Five` は黒だけ exact なので白の六も `Five`。黒の長連は禁手（`NextOverFive` = 六腐）。`mate::solve::validate` は五や黒の `OverFive` を既に含む入力局面を拒否する。 |
 | 四 / 棒四 | `Four`（`Single`, 4）/ `OpenFour`（`Open`, 4）。棒四 = 隣接する 2 つの `Four`。 |
 | 三（達四できること） | `Three`（`Open`, 3）。唯一の眼 = 達四点。 |
-| 黒の「長連を作らずに」 | `Sequences` の `strict` マージン。 |
+| 黒の「長連を作らずに」 | `Sequences` の `exact` マージン。 |
 | 禁手: 長連 / 四四 / 三三 | `forbidden.rs`: `overline` / `double_four` / `double_three`。 |
 | 9.2「同時に五を作る場合を除く」 | `forbidden_strict`。 |
 | 9.3 本物の三と偽の三、再帰 | `truthy_double_three` が各三の眼に `forbidden_strict` を呼ぶ。 |

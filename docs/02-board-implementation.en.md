@@ -103,15 +103,15 @@ outside the board read as empty.
 A window is considered **valid** when all of the following hold:
 
 - No opponent stone is in the 5 target cells (`op & TARGET_MASK == 0`).
-- In `strict` mode, additionally no *own* stone is in either margin
+- In `exact` mode, additionally no *own* stone is in either margin
   (`my & MARGIN_MASK == 0`).
 
-`strict` is set exactly when the player is **Black** (see
+`exact` is set exactly when the player is **Black** (see
 `StructureKind::to_sequence`). It implements the rule that a completed five
 for Black must be *exactly* five: if an own stone is adjacent to the window,
 making a five in that window would produce an overline, so the window does
 not count as a five-to-be. White has no such restriction, so its windows are
-scanned non-strictly and an overline is treated like any other win.
+scanned non-exactly and an overline is treated like any other win.
 
 For each valid window the number of own stones is compared with `n`. Three
 `SequenceKind`s decide what is reported:
@@ -180,15 +180,15 @@ formats:
 ## 5. `StructureKind`: the rule vocabulary
 
 `StructureKind::to_sequence(r)` maps each kind to a triple
-`(SequenceKind, n, strict)`. `strict` is normally `r.is_black()` (true for
+`(SequenceKind, n, exact)`. `exact` is normally `r.is_black()` (true for
 Black only), but it is always false when detecting the overline
 `StructureKind`s for Black: an overline always has an own stone next to each
-of its 5-windows, which is exactly what `strict` rejects, so they could not
+of its 5-windows, which is precisely what `exact` rejects, so they could not
 be detected otherwise:
 
-| `StructureKind` | `SequenceKind` | `n` | `strict` | Pattern (Black shown, `_` = eye) | Rule concept |
+| `StructureKind` | `SequenceKind` | `n` | `exact` | Pattern (Black shown, `_` = eye) | Rule concept |
 | --- | --- | --- | --- | --- | --- |
-| `Five` | `Single` | 5 | Black only | `ooooo` | **Five** (§3). For Black, strict margins exclude overlines. |
+| `Five` | `Single` | 5 | Black only | `ooooo` | **Five** (§3). For Black, exact margins exclude overlines. |
 | `OverFive` | `Double` | 5 | never | `oooooo` (6+) | **Overline**. |
 | `Four` | `Single` | 4 | Black only | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: one more stone at the eye makes a five. A straight four appears as **two** adjacent `Four`s. |
 | `OpenFour` | `Open` | 4 | Black only | `.oooo.` | **Straight four**. |
@@ -197,7 +197,7 @@ be detected otherwise:
 | `Two` | `Open` | 2 | Black only | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
 | `NextOverFive` | `Double` | 4 | never | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
 
-Because `strict` is applied for Black, kinds such as `Four` and `Three`
+Because `exact` is applied for Black, kinds such as `Four` and `Three`
 already embody the condition "without at the same time making an overline".
 Consider the shape `o.oooo.` as an example:
 
@@ -336,7 +336,7 @@ Not part of the rules, but built on the same window scan. For each empty
 cell of a line, `Potentials` computes a score as follows:
 
 1. Look at the five 5-windows containing the cell. Windows are subject to
-   the same `strict` margin rule as in `Sequences`.
+   the same `exact` margin rule as in `Sequences`.
 2. Score each valid window as "own stones + 1", the number of stones it
    would hold after playing there.
 3. Report "max score × number of windows achieving that max" as the value of
@@ -365,10 +365,10 @@ cell of a line, `Potentials` computes a score as follows:
 | Rule | Code |
 | --- | --- |
 | Five wins | `structures(r, Five)` (checked in `mate::solve` / `Game`). |
-| Overline wins for White, not Black | `Five` is strict only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`NextOverFive`). `mate::solve::validate` rejects input positions that already contain a five or a Black `OverFive`. |
+| Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`NextOverFive`). `mate::solve::validate` rejects input positions that already contain a five or a Black `OverFive`. |
 | Four / straight four | `Four` (`Single`, 4) / `OpenFour` (`Open`, 4); a straight four = two adjacent `Four`s. |
 | Three (must reach a straight four) | `Three` (`Open`, 3), single eye = the straight-four point. |
-| "Without making an overline" for Black | `strict` margins in `Sequences`. |
+| "Without making an overline" for Black | `exact` margins in `Sequences`. |
 | Forbidden: overline / double-four / double-three | `forbidden.rs`: `overline` / `double_four` / `double_three`. |
 | 9.2 "unless it makes a five" | `forbidden_strict`. |
 | 9.3 real vs. fake threes, recursive | `truthy_double_three` calling `forbidden_strict` on each three's eye. |

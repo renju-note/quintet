@@ -19,16 +19,16 @@ pub use StructureKind::*;
 impl StructureKind {
     pub fn to_sequence(&self, r: Player) -> (SequenceKind, u8, bool) {
         // Black's five must be exactly five, so a window next to an own stone is
-        // excluded (`strict`). Overline kinds look for exactly such windows, so
-        // they are never strict.
-        let strict = r.is_black();
+        // excluded (`exact`). Overline kinds look for precisely such windows,
+        // so they are never exact.
+        let exact = r.is_black();
         match self {
-            Two => (Open, 2, strict),
-            Three => (Open, 3, strict),
-            OpenFour => (Open, 4, strict),
-            Sword => (Single, 3, strict),
-            Four => (Single, 4, strict),
-            Five => (Single, 5, strict),
+            Two => (Open, 2, exact),
+            Three => (Open, 3, exact),
+            OpenFour => (Open, 4, exact),
+            Sword => (Single, 3, exact),
+            Four => (Single, 4, exact),
+            Five => (Single, 5, exact),
             NextOverFive => (Double, 4, false),
             OverFive => (Double, 5, false),
         }
