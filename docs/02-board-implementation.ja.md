@@ -135,19 +135,19 @@ pub struct Square {
 
 | `StructureKind` | Sequence | パターン（黒の例、`_` = 眼） | ルール上の概念 |
 | --- | --- | --- | --- |
-| `Five` | `Single`, 5 | `ooooo` | **五**（§3）。黒は strict マージンにより長連を除外。 |
+| `Five` | `Single`, 5 | `ooooo` | **五連**（§3）。黒は strict マージンにより長連を除外。 |
 | `OverFive` | `Double`, 5, 常に非 strict | `oooooo`（6 以上） | **長連**。 |
-| `Four` | `Single`, 4 | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五。棒四は隣り合う **2 つ**の `Four` として現れる。 |
+| `Four` | `Single`, 4 | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五連。棒四は隣り合う **2 つ**の `Four` として現れる。 |
 | `OpenFour` | `Compact`, 4 | `.oooo.` | **棒四**。 |
-| `Sword` | `Single`, 3 | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | 「四になる手前」: どちらかの眼に打てば `Four`。ルール用語ではなく、VCF/VCT が四を作る手を列挙するのに使う。 |
+| `Sword` | `Single`, 3 | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | **剣先**: どちらかの眼に打てば `Four`。ルール上の定義はないが、VCF/VCT が四を作る手を列挙するのに使う。 |
 | `Three` | `Compact`, 3 | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `OpenFour`。 |
-| `Two` | `Compact`, 2 | `.oo__.`、`.o_o_.` など | 「三になる手前」: 眼に打てば `Three`。 |
-| `NextOverFive` | `Double`, 4, 常に非 strict | `oo_ooo`、`ooo_oo` など | 眼に打つと長連（6 以上）。 |
+| `Two` | `Compact`, 2 | `.oo__.`、`.o_o_.` など | **連**（二）: 眼に打てば `Three`。 |
+| `NextOverFive` | `Double`, 4, 常に非 strict | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
 
 黒には `strict` が適用されるため、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
 
 - 窓 `o.ooo` と窓 `.oooo` は、マージンに黒石があるため却下される。左の隙間を埋めると六になってしまうからである。
-- 窓 `oooo.` だけが数えられる。右端に打てばちょうど五になるからである。
+- 窓 `oooo.` だけが数えられる。右端に打てばちょうど五連になるからである。
 
 `Structure` は `(start: Index, sequence: Sequence)` の組で、`stones()` と `eyes()` は盤上の `Point` を返す。
 
@@ -175,7 +175,7 @@ pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)>
 fn overline(q, p) -> bool { q.structures_on(p, Black, NextOverFive).next().is_some() }
 ```
 
-`NextOverFive` は、隣り合う 2 つの 5 マス窓がそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
+`NextOverFive`（六腐）は、隣り合う 2 つの 5 マス窓がそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
 
 ### 四四（9.2 b）
 
@@ -185,7 +185,7 @@ fn double_four(q, p) -> bool {
 }
 ```
 
-`p` を通る各 `Sword` は、`p` に打つと `Four` になる。`distinctive` は、イテレータが返す索引の中に「`first` と `first.walk(1)`」以外の組み合わせが 2 つ以上あるときに真を返す。この除外が必要なのは次の理由による:
+`p` を通る各 `Sword`（剣先）は、`p` に打つと `Four` になる。`distinctive` は、イテレータが返す索引の中に「`first` と `first.walk(1)`」以外の組み合わせが 2 つ以上あるときに真を返す。この除外が必要なのは次の理由による:
 
 - 同一線上の隣り合う窓にある 2 つの `Sword` は、1 つの棒四の両半分（`.oo_o.` → `.oooo.`）である。四としては 1 つなので二重に数えない。
 - 隣接しない 2 つの窓は本物の四四である。別の線上にある場合はもちろん、同一線上でも `o.o_o.o` のように 2 つの異なる五候補になる場合が該当する。
@@ -194,7 +194,7 @@ fn double_four(q, p) -> bool {
 
 ```rust
 fn double_three(q, p) -> bool {
-    // 軽い前段フィルタ: p を通る「三になる手前」のパターンが 2 つ以上
+    // 軽い前段フィルタ: p を通る連（Two）が 2 つ以上
     if !distinctive(q.structures_on(p, Black, Two)) { return false; }
     let mut next = q.clone();
     next.put_mut(Black, p);
@@ -212,7 +212,7 @@ fn truthy_double_three(next, p) -> bool {
 
 判定は次の手順で進む:
 
-1. `p` を通る `Two` 構造が 2 つ以上あることは三三の必要条件なので、これを先に調べる。ほとんどの点はここで却下され、盤をクローンせずに済む。
+1. `p` を通る `Two`（連）が 2 つ以上あることは三三の必要条件なので、これを先に調べる。ほとんどの点はここで却下され、盤をクローンせずに済む。
 2. コピーした盤に着手し、`p` を通る本当の `Three` を列挙する。`Three`（`Compact`, 3）の眼はちょうど 1 つで、それが達四点である。
 3. ルール 9.3 に従い、三はその眼が黒にとって合法な着手であるときだけ数える。新しい局面で眼に対して `forbidden_strict` を呼ぶことで判定する（詳細は後述）。
 4. *異なる*本物の三が 2 つ以上残れば、その手は禁手の三三である。
@@ -256,8 +256,8 @@ fn truthy_double_three(next, p) -> bool {
 
 | ルール | コード |
 | --- | --- |
-| 五で勝ち | `structures(r, Five)`（`mate::solve` / `Game` で判定）。 |
-| 長連は白の勝ち、黒は不可 | `Five` は黒だけ strict なので白の六も `Five`。黒の長連は禁手（`NextOverFive`）。`mate::solve::validate` は五や黒の `OverFive` を既に含む入力局面を拒否する。 |
+| 五連で勝ち | `structures(r, Five)`（`mate::solve` / `Game` で判定）。 |
+| 長連は白の勝ち、黒は不可 | `Five` は黒だけ strict なので白の六も `Five`。黒の長連は禁手（`NextOverFive` = 六腐）。`mate::solve::validate` は五や黒の `OverFive` を既に含む入力局面を拒否する。 |
 | 四 / 棒四 | `Four`（`Single`, 4）/ `OpenFour`（`Compact`, 4）。棒四 = 隣接する 2 つの `Four`。 |
 | 三（達四できること） | `Three`（`Compact`, 3）。唯一の眼 = 達四点。 |
 | 黒の「長連を作らずに」 | `Sequences` の `strict` マージン。 |
