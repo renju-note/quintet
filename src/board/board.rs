@@ -96,9 +96,9 @@ impl Board {
         &self,
         r: Player,
         min: u8,
-        strict: bool,
+        exact: bool,
     ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.square.potentials(r, min, strict)
+        self.square.potentials(r, min, exact)
     }
 
     pub fn potentials_along(
@@ -106,9 +106,9 @@ impl Board {
         p: Point,
         r: Player,
         min: u8,
-        strict: bool,
+        exact: bool,
     ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.square.potentials_along(p, r, min, strict)
+        self.square.potentials_along(p, r, min, exact)
     }
 
     pub fn to_pretty_string(&self) -> String {

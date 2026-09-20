@@ -64,38 +64,31 @@ impl Line {
         (0..self.size).filter(move |i| blacks & 0b1 << i == 0b0 && whites & 0b1 << i == 0b0)
     }
 
-    pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, strict: bool) -> Sequences {
+    pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
         let (my, op) = if r.is_black() {
             (self.blacks, self.whites)
         } else {
             (self.whites, self.blacks)
         };
-        Sequences::new(self.size, my, op, k, n, strict)
+        Sequences::new(self.size, my, op, k, n, exact)
     }
 
-    pub fn sequences_on(
-        &self,
-        i: u8,
-        r: Player,
-        k: SequenceKind,
-        n: u8,
-        strict: bool,
-    ) -> Sequences {
+    pub fn sequences_on(&self, i: u8, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
         let (my, op) = if r.is_black() {
             (self.blacks, self.whites)
         } else {
             (self.whites, self.blacks)
         };
-        Sequences::new_on(i, self.size, my, op, k, n, strict)
+        Sequences::new_on(i, self.size, my, op, k, n, exact)
     }
 
-    pub fn potentials(&self, r: Player, min: u8, strict: bool) -> Potentials {
+    pub fn potentials(&self, r: Player, min: u8, exact: bool) -> Potentials {
         let (my, op) = if r.is_black() {
             (self.blacks, self.whites)
         } else {
             (self.whites, self.blacks)
         };
-        Potentials::new(self.size, my, op, min, strict)
+        Potentials::new(self.size, my, op, min, exact)
     }
 
     pub fn potential_cap(&self, r: Player) -> u8 {

@@ -8,19 +8,19 @@ pub struct Potentials {
     my: u16,
     op: u16,
     min: u8,
-    strict: bool,
+    exact: bool,
     limit: u8,
     i: u8,
     acc: [u8; 5],
 }
 
 impl Potentials {
-    pub fn new(size: u8, my: u16, op: u16, min: u8, strict: bool) -> Self {
+    pub fn new(size: u8, my: u16, op: u16, min: u8, exact: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
             min,
-            strict,
+            exact,
             limit: size,
             i: 0,
             acc: <[u8; 5]>::default(),
@@ -41,7 +41,7 @@ impl Iterator for Potentials {
         let my_ = (self.my >> i) as u8;
         let op_ = (self.op >> i) as u8;
         let is_fullsize = i <= self.limit - VICTORY;
-        let is_valid = op_ & TARGET_MASK == 0b0 && (!self.strict || my_ & MARGIN_MASK == 0b0);
+        let is_valid = op_ & TARGET_MASK == 0b0 && (!self.exact || my_ & MARGIN_MASK == 0b0);
         let blank = my_ & FIRST_MASK == 0b0 && op_ & FIRST_MASK == 0b0;
 
         self.acc[0] = self.acc[1];

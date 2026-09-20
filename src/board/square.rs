@@ -140,11 +140,11 @@ impl Square {
     }
 
     pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
-        let (sk, n, strict) = k.to_sequence(r);
+        let (sk, n, exact) = k.to_sequence(r);
         self.iter_lines()
             .filter(move |(_, _, l)| l.potential_cap(r) > n)
             .flat_map(move |(d, i, l)| {
-                l.sequences(r, sk, n, strict)
+                l.sequences(r, sk, n, exact)
                     .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
             })
     }
@@ -155,12 +155,12 @@ impl Square {
         r: Player,
         k: StructureKind,
     ) -> impl Iterator<Item = Structure> + '_ {
-        let (sk, n, strict) = k.to_sequence(r);
+        let (sk, n, exact) = k.to_sequence(r);
         self.iter_lines_on(p)
             .filter(move |(_, _, l)| l.potential_cap(r) > n)
             .flat_map(move |(d, i, l)| {
                 let j = p.to_index(d).j;
-                l.sequences_on(j, r, sk, n, strict)
+                l.sequences_on(j, r, sk, n, exact)
                     .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
             })
     }
@@ -169,12 +169,12 @@ impl Square {
         &self,
         r: Player,
         min: u8,
-        strict: bool,
+        exact: bool,
     ) -> impl Iterator<Item = (Index, u8)> + '_ {
         self.iter_lines()
             .filter(move |(_, _, l)| l.potential_cap(r) >= min)
             .flat_map(move |(d, i, l)| {
-                l.potentials(r, min, strict)
+                l.potentials(r, min, exact)
                     .map(move |(j, p)| (Index::new(d, i, j), p))
             })
     }
@@ -184,12 +184,12 @@ impl Square {
         p: Point,
         r: Player,
         min: u8,
-        strict: bool,
+        exact: bool,
     ) -> impl Iterator<Item = (Index, u8)> + '_ {
         self.iter_lines_on(p)
             .filter(move |(_, _, l)| l.potential_cap(r) >= min)
             .flat_map(move |(d, i, l)| {
-                l.potentials(r, min, strict)
+                l.potentials(r, min, exact)
                     .map(move |(j, p)| (Index::new(d, i, j), p))
             })
     }

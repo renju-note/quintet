@@ -48,33 +48,33 @@ pub struct Sequences {
     op: u16,
     k: SequenceKind,
     n: u8,
-    strict: bool,
+    exact: bool,
     limit: u8,
     i: u8,
     prev_ok: bool,
 }
 
 impl Sequences {
-    pub fn new(size: u8, my: u16, op: u16, k: SequenceKind, n: u8, strict: bool) -> Self {
+    pub fn new(size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
             k,
             n,
-            strict,
+            exact,
             limit: size - VICTORY,
             i: 0,
             prev_ok: false,
         }
     }
 
-    pub fn new_on(i: u8, size: u8, my: u16, op: u16, k: SequenceKind, n: u8, strict: bool) -> Self {
+    pub fn new_on(i: u8, size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
         Self {
             my: my << 1,
             op: op << 1,
             k,
             n,
-            strict,
+            exact,
             limit: i.min(size - VICTORY),
             i: i.max(VICTORY - 1) - (VICTORY - 1),
             prev_ok: false,
@@ -95,7 +95,7 @@ impl Iterator for Sequences {
         let op_ = (self.op >> i) as u8;
         let my_ = (self.my >> i) as u8;
 
-        if op_ & TARGET_MASK != 0b0 || self.strict && my_ & MARGIN_MASK != 0b0 {
+        if op_ & TARGET_MASK != 0b0 || self.exact && my_ & MARGIN_MASK != 0b0 {
             if self.k != Single {
                 self.prev_ok = false;
             }
