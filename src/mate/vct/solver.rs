@@ -2,6 +2,7 @@ use super::generator::Candidates;
 use super::proof::ProofTable;
 use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
+use crate::mate::budget::NodeBudget;
 use crate::mate::mate::Mate;
 use crate::mate::vcf;
 use lru::LruCache;
@@ -42,9 +43,28 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
     }
 
-    pub fn solve(&mut self, state: &mut VCTState) -> Option<Mate> {
-        if self.search(state) {
-            self.extract(state)
+    /// Forgets everything remembered from earlier searches: both proof
+    /// tables, both move caches and the nested VCF solvers' deadends. Call it
+    /// before reusing a solver on a position that is not a descendant of the
+    /// last one.
+    pub fn clear(&mut self) {
+        self.attacker_table.clear();
+        self.defender_table.clear();
+        self.attacks_cache.clear();
+        self.defences_cache.clear();
+        self.attacker_vcf_solver.clear();
+        self.defender_vcf_solver.clear();
+    }
+
+    /// Searches for a VCT. `None` means either "no VCT within `state.limit`"
+    /// or "gave up"; the two are told apart by `budget.is_exhausted()`.
+    pub fn solve(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
+        if self.search(state, budget) {
+            // The root is proven, so the winning line is in the tables and
+            // recovering it is bounded by the length of that line. It would be
+            // pointless to abandon a proof for want of budget, so the walk runs
+            // outside the budget.
+            self.extract(state, &mut NodeBudget::unlimited())
         } else {
             None
         }

@@ -8,9 +8,10 @@ mod solver;
 mod state;
 mod threshold;
 
+pub use proof::Node;
 pub use solver::VCTSolver;
 pub use state::VCTState;
-use threshold::{DFPNSThreshold, DFSThreshold, PNSThreshold};
+pub use threshold::{DFPNSThreshold, DFSThreshold, PNSThreshold, ThresholdPolicy};
 
 pub type DFSVCTSolver = VCTSolver<DFSThreshold>;
 pub type PNSVCTSolver = VCTSolver<PNSThreshold>;

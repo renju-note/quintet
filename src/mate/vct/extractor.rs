@@ -1,6 +1,7 @@
 use super::solver::VCTSolver;
 use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
+use crate::mate::budget::NodeBudget;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
 use crate::mate::state::State;
@@ -11,15 +12,15 @@ use crate::mate::vct::proof::*;
 /// The search only records proof numbers in the tables; this walks them
 /// again, following proven children, to build the `Mate` path.
 impl<P: ThresholdPolicy> VCTSolver<P> {
-    pub fn extract(&mut self, state: &mut VCTState) -> Option<Mate> {
-        self.extract_attacks(state)
+    pub fn extract(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
+        self.extract_attacks(state, budget)
     }
 
-    fn extract_attacks(&mut self, state: &mut VCTState) -> Option<Mate> {
+    fn extract_attacks(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
         if let Some(event) = state.check_event() {
             return match event {
                 Forced(attack) => state.into_play(Some(attack), |s| {
-                    self.extract_defences(s).map(|m| m.unshift(attack))
+                    self.extract_defences(s, budget).map(|m| m.unshift(attack))
                 }),
                 _ => unreachable!(),
             };
@@ -30,25 +31,25 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             let node = maybe_node.unwrap_or(Node::unknown());
             if node.is_proven() {
                 return state.into_play(Some(attack), |s| {
-                    self.extract_defences(s).map(|m| m.unshift(attack))
+                    self.extract_defences(s, budget).map(|m| m.unshift(attack))
                 });
             }
         }
 
-        self.solve_attacker_vcf(state)
+        self.solve_attacker_vcf(state, budget)
     }
 
-    fn extract_defences(&mut self, state: &mut VCTState) -> Option<Mate> {
+    fn extract_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
         if let Some(event) = state.check_event() {
             return match event {
                 Defeated(end) => return Some(Mate::new(end, vec![])),
                 Forced(defence) => state.into_play(Some(defence), |s| {
-                    self.extract_attacks(s).map(|m| m.unshift(defence))
+                    self.extract_attacks(s, budget).map(|m| m.unshift(defence))
                 }),
             };
         }
 
-        let threat = self.solve_attacker_threat(state).unwrap();
+        let threat = self.solve_attacker_threat(state, budget).unwrap();
         let defences = state.sort_by_potential(state.threat_defences(&threat));
         let mut min_limit = u8::MAX;
         let mut best = None;
@@ -64,7 +65,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             return Some(Mate::new(End::Unknown, vec![]));
         };
         state.into_play(best, |s| {
-            self.extract_attacks(s).map(|m| m.unshift(best.unwrap()))
+            self.extract_attacks(s, budget)
+                .map(|m| m.unshift(best.unwrap()))
         })
     }
 }
