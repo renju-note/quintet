@@ -10,7 +10,7 @@ Module map (`src/board/mod.rs`):
 | File | Role |
 | --- | --- |
 | `player.rs` | `Player` (`Black` / `White`) and its text form (`o` / `x`). |
-| `point.rs` | `Point` (x, y), `Points`, `Direction`, `Index` (position along a line), the `u8` wasm encoding. |
+| `point.rs` | `Point` (x, y), `Points`, `Direction`, `Index` (position along a line). |
 | `line.rs` | `Line`: one row/column/diagonal as two bitmasks. |
 | `sequence.rs` | `Sequences`: sliding-window scanner over a `Line` that finds stone patterns. |
 | `structure.rs` | `StructureKind` (Two, Three, Sword, Four, Five, ...) and `Structure` (a pattern located on the board). |
@@ -34,11 +34,6 @@ A point on the board is a `Point(x, y)`.
 Conversion to and from text uses the usual Renju notation such as `H8`
 (the `Display` / `FromStr` implementations). `Points`, a list of points, is
 written comma-separated, as in `H8,H7,F6`.
-
-At the wasm/JS boundary a point is passed as a single byte. The encoding is
-`code = x * 15 + y`, implemented by `From<Point> for u8` and
-`TryFrom<u8> for Point`. This encoding is part of the public API and must
-not change.
 
 ### Lines and `Index`
 

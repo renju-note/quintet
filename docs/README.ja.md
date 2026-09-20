@@ -1,13 +1,15 @@
 # ドキュメント
 
-`quintet` を開発する人および AI エージェント向けのリファレンスです。ドメイン（連珠）と、そのルールがコードにどう対応しているかを説明し、ソースから毎回導き直さなくてもソルバーの変更を検討できるようにするためのものです。
+`quintet` を開発する人および AI エージェント向けのリファレンスである。ドメイン（連珠）と、そのルールがコードにどう対応しているかを説明し、ソースから毎回導き直さなくてもソルバーの変更を検討できるようにするためのものである。
 
-すべてのドキュメントは英語版（`*.en.md`）と日本語版（`*.ja.md`）のセットで置きます。英語版の索引: [README.en.md](README.en.md)。
+すべてのドキュメントは英語版（`*.en.md`）と日本語版（`*.ja.md`）のセットで置く。英語版の索引: [README.en.md](README.en.md)。
 
 | ドキュメント | 内容 |
 | --- | --- |
 | [01-renju-rules.ja.md](01-renju-rules.ja.md) / [en](01-renju-rules.en.md) | RIF 連珠国際ルール（盤、用語定義、勝敗、禁手、開局規定）の Markdown 版。 |
 | [02-board-implementation.ja.md](02-board-implementation.ja.md) / [en](02-board-implementation.en.md) | `src/board/` が盤面をどう表現し、上のルールをどう実装しているか: 線のビット表現、連（sequence/structure）の検出、禁手判定、ハッシュ。 |
+| [03-solver-overview.ja.md](03-solver-overview.ja.md) / [en](03-solver-overview.en.md) | `src/mate/` の全体像: `solve` とその引数（`limit`、`threat_limit`、`SolveMode`）、共通の探索状態（`Game`、`State`、`check_event`）、四追い（VCF）の深さ優先探索。 |
+| [04-solver-algorithm-vct.ja.md](04-solver-algorithm-vct.ja.md) / [en](04-solver-algorithm-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）ソルバー: 追い手、手の生成、証明数、DFS / PNS / df-pn の探索、手順の復元、遅延版、手の並べ替えに使う `PotentialField`。 |
 
 ドキュメント追加時の規約:
 
