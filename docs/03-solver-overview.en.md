@@ -82,7 +82,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 - `Forbidden(p)`: the attacker has a single four whose only block `p` is a
   forbidden move for the defender. Only possible when the defender is Black.
 - `Unknown`: the search proved the win but the path could not be completed
-  (see `validate` above and the `Resolver` in 04, §6).
+  (see `validate` above and the extractor in 04, §6).
 
 `Mate::n_moves()` is the path length and `n_times()` the number of attacker
 moves in it.

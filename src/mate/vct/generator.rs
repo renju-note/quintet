@@ -1,29 +1,39 @@
+use super::solver::VCTSolver;
+use super::threshold::ThresholdPolicy;
 use crate::board::Point;
 use crate::mate::state::State;
-use crate::mate::vct::helper::VCFHelper;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::VCTState;
-use lru::LruCache;
 
-pub trait Generator: VCFHelper {
-    fn attacks_cache(&mut self) -> &mut LruCache<u64, Result<Vec<Point>, Node>>;
-    fn defences_cache(&mut self) -> &mut LruCache<u64, Result<Vec<Point>, Node>>;
+/// What move generation found for a node.
+#[derive(Clone)]
+pub enum Candidates {
+    /// The moves to expand, best first.
+    Moves(Vec<Point>),
+    /// The node is decided without expansion (e.g. the attacker has a VCF, or
+    /// there is no move at all); this is its value.
+    Terminal(Node),
+}
 
-    fn generate_attacks(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
+use Candidates::*;
+
+/// Candidate move generation, cached by position.
+impl<P: ThresholdPolicy> VCTSolver<P> {
+    pub fn generate_attacks(&mut self, state: &mut VCTState) -> Candidates {
         let key = state.zobrist_hash();
-        if let Some(hit) = self.attacks_cache().get(&key) {
+        if let Some(hit) = self.attacks_cache.get(&key) {
             hit.clone()
         } else {
             let result = self.compute_attacks(state);
-            self.attacks_cache().put(key, result.clone());
+            self.attacks_cache.put(key, result.clone());
             result
         }
     }
 
-    fn compute_attacks(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
+    fn compute_attacks(&mut self, state: &mut VCTState) -> Candidates {
         // This is not necessary but improves speed
         if self.solve_attacker_vcf(state).is_some() {
-            return Err(Node::zero_pn(state.limit));
+            return Terminal(Node::proven(state.limit));
         }
 
         // This is not necessary but narrows candidates
@@ -33,33 +43,32 @@ pub trait Generator: VCFHelper {
         result.retain(|&x| !state.is_forbidden_move(x.0));
 
         if result.is_empty() {
-            return Err(Node::zero_dn(state.limit));
+            return Terminal(Node::disproven(state.limit));
         }
 
-        let result = result.into_iter().map(|x| x.0).collect();
-        Ok(result)
+        Moves(result.into_iter().map(|x| x.0).collect())
     }
 
-    fn generate_defences(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
+    pub fn generate_defences(&mut self, state: &mut VCTState) -> Candidates {
         let key = state.zobrist_hash();
-        if let Some(hit) = self.defences_cache().get(&key) {
+        if let Some(hit) = self.defences_cache.get(&key) {
             hit.clone()
         } else {
             let result = self.compute_defences(state);
-            self.defences_cache().put(key, result.clone());
+            self.defences_cache.put(key, result.clone());
             result
         }
     }
 
-    fn compute_defences(&mut self, state: &mut VCTState) -> Result<Vec<Point>, Node> {
+    fn compute_defences(&mut self, state: &mut VCTState) -> Candidates {
         let maybe_threat = self.solve_attacker_threat(state);
         if maybe_threat.is_none() {
-            return Err(Node::zero_dn(state.limit));
+            return Terminal(Node::disproven(state.limit));
         }
 
         // This is not necessary but improves speed
         if self.solve_defender_vcf(state).is_some() {
-            return Err(Node::zero_dn(state.limit));
+            return Terminal(Node::disproven(state.limit));
         }
 
         let threat = maybe_threat.unwrap();
@@ -67,10 +76,9 @@ pub trait Generator: VCFHelper {
         result.retain(|&x| !state.is_forbidden_move(x.0));
 
         if result.is_empty() {
-            return Err(Node::zero_pn(state.limit));
+            return Terminal(Node::proven(state.limit));
         }
 
-        let result = result.into_iter().map(|x| x.0).collect();
-        Ok(result)
+        Moves(result.into_iter().map(|x| x.0).collect())
     }
 }

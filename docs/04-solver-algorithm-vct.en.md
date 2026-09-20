@@ -18,14 +18,14 @@ Module map:
 | File | Role |
 | --- | --- |
 | `vct/state.rs` | `VCTState`: `Game` + `limit` + `PotentialField`; derived `VCFState`s for the nested VCF searches; `threat_defences`. |
-| `vct/helper.rs` | `VCFHelper`: the four nested VCF questions (attacker/defender × VCF/threat). |
-| `vct/generator.rs` | `Generator`: candidate attacks and defences, with terminal shortcuts. |
-| `vct/proof.rs` | `Node` (proof/disproof numbers) and `Table` (transposition tables), `ProofTree`. |
-| `vct/searcher.rs` | `Searcher`: the AND/OR node functions `search_attacks` / `search_defences`. |
-| `vct/selector.rs` | `Selector`: evaluates a node from its children's table entries and picks the most-proving child. |
-| `vct/traverser.rs` + `traverser/*.rs` | `Traverser`: the expansion loop; `DFSTraverser`, `PNSTraverser`, `DFPNSTraverser` differ only in child thresholds. |
-| `vct/resolver.rs` | `Resolver`: walks the tables after a proof to extract the path. |
-| `vct/solver.rs` + `solver/*.rs` | `VCTSolver` = `search` then `resolve`; the three concrete structs. |
+| `vct/solver.rs` | `VCTSolver<P>`: the one solver struct (tables, nested VCF solvers, caches); `solve` = `search` then `extract`. |
+| `vct/threshold.rs` | `ThresholdPolicy` and its three implementations `DFSThreshold`, `PNSThreshold`, `DFPNSThreshold`: the only thing that differs between the solvers. |
+| `vct/nested_vcf.rs` | The four nested VCF questions (attacker/defender × VCF/threat). |
+| `vct/generator.rs` | Candidate attacks and defences (`Candidates`), with terminal shortcuts. |
+| `vct/proof.rs` | `Node` (proof/disproof numbers) and `ProofTable` (transposition table). |
+| `vct/searcher.rs` | The AND/OR node functions `search_attacks` / `search_defences` and the expansion loop `expand_attacks` / `expand_defences`. |
+| `vct/selector.rs` | `select_attack` / `select_defence`: evaluate a node from its children's table entries and pick the most-proving child. |
+| `vct/extractor.rs` | `extract`: walks the tables after a proof to recover the winning line. |
 | `analysis/field.rs` | `PotentialField` (§8). |
 
 ---
@@ -75,7 +75,7 @@ position?". For that, two kinds of `VCFState` are derived from `VCTState`:
 | `vcf_state(max)` | as is | side to move | `min(limit, max)` | Does the side to move win by fours right now? |
 | `threat_state(max)` | after a pass by the side to move | the other side | `min(limit - 1, max)` if the attacker is to move, else `min(limit, max)` | Does the other side have a VCF if I do nothing — i.e. is the last move a threat? |
 
-`VCFHelper` names the four combinations of side to move and question:
+`nested_vcf.rs` names the four combinations of side to move and question:
 
 | Method | Side to move | Question |
 | --- | --- | --- |
@@ -102,18 +102,18 @@ This is how table lookups for unexpanded children stay cheap.
 ## 3. Move generation (`generator.rs`)
 
 There are two generators, one for attacks and one for defences. Both return
-`Result<Vec<Point>, Node>`:
+a `Candidates`:
 
-- `Ok(candidates)`: an inner node, with its list of candidate moves.
-- `Err(node)`: the position is decided on the spot. `Node::zero_pn` means
-  proven for the attacker, `Node::zero_dn` means disproven.
+- `Moves(candidates)`: an inner node, with its list of candidate moves.
+- `Terminal(node)`: the position is decided on the spot. `Node::proven` means
+  proven for the attacker, `Node::disproven` means disproven.
 
 Results are memoised in an `LruCache` of 1000 entries keyed by
 `zobrist_hash()` (one cache for attacks, one for defences).
 
 ### `compute_attacks` (attacker to move)
 
-1. Call `solve_attacker_vcf`. If there is a VCF, return `Err(zero_pn)`. This
+1. Call `solve_attacker_vcf`. If there is a VCF, return `Terminal(proven)`. This
    is not required for correctness (the main search would find the fours
    itself, one `Forced` reply at a time), but it is much faster.
 2. Call `solve_defender_threat`. If the defender has a VCF (the defender
@@ -122,7 +122,7 @@ Results are memoised in an `LruCache` of 1000 entries keyed by
    threat.
 3. Build the candidates: the points with potential `>= 3` in the attacker's
    field (`sorted_potentials(3, ..)`), highest first, minus forbidden moves.
-   Empty → `Err(zero_dn)`.
+   Empty → `Terminal(disproven)`.
 
 The candidates are not filtered for being threats here. That is done one ply
 later, at the defender node: a non-threat is refuted by `compute_defences`
@@ -131,12 +131,12 @@ step 1.
 ### `compute_defences` (defender to move)
 
 1. Call `solve_attacker_threat`. If the attacker has no VCF after a defender
-   pass, the last attack was not a threat. Return `Err(zero_dn)`.
+   pass, the last attack was not a threat. Return `Terminal(disproven)`.
 2. Call `solve_defender_vcf`. If the defender has a VCF of their own (up to
-   `defender_vcf_depth` fours), they win first. Return `Err(zero_dn)`.
+   `defender_vcf_depth` fours), they win first. Return `Terminal(disproven)`.
 3. Build the candidates: `threat_defences(threat)` sorted by the attacker's
    potential (`sort_by_potential`), minus forbidden moves. Empty →
-   `Err(zero_pn)`: the attack cannot be answered.
+   `Terminal(proven)`: the attack cannot be answered.
 
 ### `threat_defences`
 
@@ -175,11 +175,14 @@ pub const INF: u32 = u32::MAX;
 
 | Constructor | `(pn, dn)` | Meaning |
 | --- | --- | --- |
-| `Node::inf()` | `(INF, INF)` | No information; also the root threshold "search until decided". |
-| `Node::zero_pn(limit)` | `(0, INF)` | Proven (attacker wins). |
-| `Node::zero_dn(limit)` | `(INF, 0)` | Disproven. |
-| `Node::unit_dn(n, limit)` | `(n, 1)` | Initial estimate of an unexpanded attacker child; `n` is the number of siblings. |
-| `Node::unit_pn(n, limit)` | `(1, n)` | Initial estimate of an unexpanded defender child; `n` is the number of siblings. |
+| `Node::unknown()` | `(INF, INF)` | No information (a position not in the tables). |
+| `Node::no_threshold()` | `(INF, INF)` | The root threshold "search until decided". Same value as `unknown`, different meaning. |
+| `Node::proven(limit)` | `(0, INF)` | Proven (attacker wins). |
+| `Node::disproven(limit)` | `(INF, 0)` | Disproven. |
+| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | Initial estimate of an unexpanded child of an OR node (defender to move); `n` is the number of siblings. |
+| `Node::unexpanded_attack(n, limit)` | `(1, n)` | Initial estimate of an unexpanded child of an AND node (attacker to move); `n` is the number of siblings. |
+
+`Node::is_proven()` is `pn == 0`.
 
 There are two ways to combine children. Sums are saturating.
 
@@ -187,10 +190,10 @@ There are two ways to combine children. Sums are saturating.
 - `min_dn_sum_pn`: for AND nodes. pn = sum, dn = min.
 
 `limit` rides along as the minimum over the children. It records how much
-budget was left where the subtree was decided; the resolver uses it to pick
+budget was left where the subtree was decided; the extractor uses it to pick
 the most stubborn defence (§6).
 
-`ProofTree` gives access to two transposition tables (`Table`, a
+The solver holds two transposition tables (`ProofTable`, a
 `HashMap<u64, Node>`):
 
 - `attacker_table`: values of positions reached by an attack (defender to
@@ -198,109 +201,113 @@ the most stubborn defence (§6).
 - `defender_table`: values of positions reached by a defence (attacker to
   move).
 
-`Table::lookup_next(state, m)` looks up the child after `m` using
+`ProofTable::lookup_next(state, m)` looks up the child after `m` using
 `next_zobrist_hash`.
 
-## 5. Search (`searcher.rs`, `selector.rs`, `traverser.rs`)
+## 5. Search (`searcher.rs`, `selector.rs`, `threshold.rs`)
 
-### `Searcher`
+### Node functions
 
-`Searcher::search` returns whether the root is proven. After a `limit == 0`
-check, it returns `search_attacks(state, Node::inf()).proven()`.
+`VCTSolver::search` returns whether the root is proven. After a `limit == 0`
+check, it returns `search_attacks(state, Node::no_threshold()).is_proven()`.
 
 The two mutually recursive node functions are:
 
 ```
 search_attacks(state, threshold):              # OR node, attacker to move
-    Defeated(_)  -> zero_dn
-    Forced(p)    -> traverse_attacks(state, [p], threshold, search_defences)
-    otherwise    -> generate_attacks -> Err(node) => node
-                                     | Ok(attacks) => traverse_attacks(...)
+    Defeated(_)  -> disproven
+    Forced(p)    -> expand_attacks(state, [p], threshold)
+    otherwise    -> generate_attacks -> Terminal(node) => node
+                                     | Moves(attacks) => expand_attacks(...)
 
 search_defences(state, threshold):             # AND node, defender to move
-    Defeated(_)  -> zero_pn                     # the attacker has won
-    limit <= 1   -> zero_dn                     # the attacker has no move left after this defence
-    Forced(p)    -> traverse_defences(state, [p], threshold, search_attacks)
-    otherwise    -> generate_defences -> Err(node) => node
-                                      | Ok(defences) => traverse_defences(...)
+    Defeated(_)  -> proven                      # the attacker has won
+    limit <= 1   -> disproven                   # the attacker has no move left after this defence
+    Forced(p)    -> expand_defences(state, [p], threshold)
+    otherwise    -> generate_defences -> Terminal(node) => node
+                                      | Moves(defences) => expand_defences(...)
 ```
 
-### `Selector`
+### Selection (`selector.rs`)
 
-`Selector` expands nothing. It looks at the children's table entries and
-evaluates the node. `select_attack` returns a `Selection`:
+`select_attack` expands nothing. It looks at the children's table entries and
+evaluates the node, returning a `Selection`:
 
-- `current`: the node's own `(pn, dn)`, computed as `min_pn_sum_dn` over
+- `node`: the node's own `(pn, dn)`, computed as `min_pn_sum_dn` over
   the children. A child not yet in the table counts as
-  `unit_dn(attacks.len())`.
+  `unexpanded_defence(attacks.len())`.
 - `best`: the child with the smallest `pn` (the most-proving child).
-- `next1` / `next2`: the values of the best and second-best child.
+- `best_child` / `second_child`: the values of the best and second-best
+  child.
 
-If a proven child is found, `current` becomes `(0, INF)` immediately.
+If a proven child is found, `node` becomes `(0, INF)` immediately.
 
 `select_defence` is the mirror image. It picks the child with the smallest
 `dn`, combines with `min_dn_sum_pn`, and counts a child not in the table as
-`unit_pn(defences.len())`. `current.limit` becomes `limit - 1`.
+`unexpanded_attack(defences.len())`. `node.limit` becomes `limit - 1`.
 
 Initialising unexpanded children with the number of siblings is a "trick":
 nodes with fewer candidate moves look easier, so the search prefers narrow,
 forcing lines.
 
-### `Traverser`
+### Expansion loop
 
-`Traverser` is the expansion loop shared by all three solvers:
+`expand_attacks` is the expansion loop shared by all three solvers:
 
 ```
-traverse_attacks(state, attacks, threshold, search_defences):
+expand_attacks(state, attacks, threshold):
     loop:
         selection = select_attack(state, attacks)
-        if selection.current.pn >= threshold.pn or selection.current.dn >= threshold.dn:
-            return selection                   # backoff
-        next = next_threshold_attack(selection, threshold)
+        if selection.node.pn >= threshold.pn or selection.node.dn >= threshold.dn:
+            return selection                   # exceeds_threshold
+        next = P::next_threshold_attack(selection, threshold)
         play selection.best
             attacker_table.insert(child, search_defences(child, next))
         undo
 ```
 
-`traverse_defences` is the same with the defender table and
-`next_threshold_defence`.
+`expand_defences` is the same with the defender table,
+`P::next_threshold_defence` and `search_attacks`.
 
 A node is expanded until its numbers cross the threshold handed down by its
-parent. The root threshold is `Node::inf()`, so the root loops until it is
-decided: `pn == 0` (proven; `dn` is then set to `INF`) or `pn == INF`
+parent. The root threshold is `Node::no_threshold()`, so the root loops until
+it is decided: `pn == 0` (proven; `dn` is then set to `INF`) or `pn == INF`
 (disproven).
 
+### Threshold policies (`threshold.rs`)
+
 The only difference between the solvers is `next_threshold_*`, i.e. how the
-threshold for a child is chosen:
+threshold for a child is chosen. That choice is the type parameter `P:
+ThresholdPolicy` of `VCTSolver<P>`; the three policies are zero-sized types:
 
-| Trait | Child threshold | Behaviour |
+| Policy | Child threshold | Behaviour |
 | --- | --- | --- |
-| `DFSTraverser` | `Node::inf()` | The chosen child is searched to completion before the parent looks at the next one. Ordinary depth-first search; proof numbers are used only for move ordering. |
-| `PNSTraverser` | `(next1.pn + 1, next1.dn + 1)` | The child returns as soon as its numbers change. Control goes back up and the most-proving child is re-selected at every level. This emulates best-first PNS (re-selecting from the root after each expansion) inside a recursive search. |
-| `DFPNSTraverser` | OR node: `pn = min(threshold.pn, next2.pn + 1)`, `dn = threshold.dn - current.dn + next1.dn`; AND node mirrored | df-pn thresholds of Nagai & Imai (2002): stay in the best child as long as it remains the best, and never exceed the parent's budget. |
+| `DFSThreshold` | `Node::no_threshold()` | The chosen child is searched to completion before the parent looks at the next one. Ordinary depth-first search; proof numbers are used only for move ordering. |
+| `PNSThreshold` | `(best_child.pn + 1, best_child.dn + 1)` | The child returns as soon as its numbers change. Control goes back up and the most-proving child is re-selected at every level. This emulates best-first PNS (re-selecting from the root after each expansion) inside a recursive search. |
+| `DFPNSThreshold` | OR node: `pn = min(threshold.pn, second_child.pn + 1)`, `dn = threshold.dn - node.dn + best_child.dn`; AND node mirrored | df-pn thresholds of Nagai & Imai (2002): stay in the best child as long as it remains the best, and never exceed the parent's budget. |
 
-### The solver structs
+### The solver struct
 
-`DFSVCTSolver`, `PNSVCTSolver` and `DFPNSVCTSolver` (`solver/*.rs`) are
-identical structs apart from the thresholds. They hold only the following,
-and all behaviour comes from the trait default methods:
+`VCTSolver<P>` (`solver.rs`) is one struct; `DFSVCTSolver`, `PNSVCTSolver`
+and `DFPNSVCTSolver` are type aliases for the three policies. It holds only:
 
-- two `Table`s;
+- two `ProofTable`s;
 - two `IDDFSSolver`s for VCF and their two depths;
 - the two generator caches.
 
-`VCTSolver::solve` is
+Its methods are split by phase across `searcher.rs`, `selector.rs`,
+`generator.rs`, `nested_vcf.rs` and `extractor.rs`. `VCTSolver::solve` is
 
 ```rust
-if self.search(state) { self.resolve(state) } else { None }
+if self.search(state) { self.extract(state) } else { None }
 ```
 
-## 6. Resolver (`resolver.rs`)
+## 6. Extractor (`extractor.rs`)
 
-The search only proves that a win exists; `Resolver` walks the tables again
-to produce the path.
+The search only proves that a win exists; `extract` walks the tables again
+to recover the winning line.
 
-`resolve_attacks` (attacker to move):
+`extract_attacks` (attacker to move):
 
 - If `Forced`, follow it.
 - Otherwise scan `state.empties()` and play the first move whose
@@ -309,7 +316,7 @@ to produce the path.
   of the path. This is a node that was proven by the VCF shortcut in
   `compute_attacks`.
 
-`resolve_defences` (defender to move):
+`extract_defences` (defender to move):
 
 - `Defeated(end)` ends the path with that `end`.
 - If `Forced`, follow it.
@@ -357,7 +364,7 @@ highest first (`I10`, `G10`, `G9`, `F10`, ...; the overlay is in §8). The
 depth-first solver therefore tries `I10` before `F10`.
 
 `I10` is refuted at once. It makes no three, so after a White pass Black has
-no one-move VCF. `compute_defences` returns `zero_dn`, and the refutation is
+no one-move VCF. `compute_defences` returns `Terminal(disproven)`, and the refutation is
 stored in `attacker_table`.
 
 ## 7. Lazy VCT (removed)
@@ -443,11 +450,11 @@ lands on a high-potential point of the attacker is tried first.
 
 | Question | Where to look |
 | --- | --- |
-| Why did the solver stop at depth N? | `limit` counts attacker moves; `search_defences` returns `zero_dn` when `limit <= 1` at a defender node. |
+| Why did the solver stop at depth N? | `limit` counts attacker moves; `search_defences` returns `disproven` when `limit <= 1` at a defender node. |
 | A threat is not recognised | `compute_defences` step 1 (`solve_attacker_threat`) with `attacker_vcf_depth = threat_limit`; the VCF is limited to `Sword` eyes. |
 | A defence is missing | `VCTState::threat_defences` (path, `end_breakers`, `counter_defences`, `four_moves`). |
 | A refutation by counter-attack is missing | `solve_defender_vcf` is limited to `defender_vcf_depth = 2`; deeper counter-VCFs are found only if a counter-four appears in `threat_defences`. |
 | Move ordering | `PotentialField` (`analysis/field.rs`) with `min = 2`, candidates need a sum `>= 3`. |
-| Transposition tables | `ProofTree::attacker_table` / `defender_table`, `Generator::*_cache`, `DFSSolver::deadends`; all keyed by `zobrist_hash_n(limit)`. |
-| Path extraction | `Resolver`; `End::Unknown` means the tables had no proven child to follow. |
+| Transposition tables | `VCTSolver::attacker_table` / `defender_table`, `VCTSolver::*_cache`, `DFSSolver::deadends`; all keyed by `zobrist_hash_n(limit)`. |
+| Path extraction | `extract` (`extractor.rs`); `End::Unknown` means the tables had no proven child to follow. |
 | Adding a regression case | ASCII board + expected path string in `solve.rs` tests, one assertion per relevant `SolveMode` (see 03, §4). |

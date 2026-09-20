@@ -42,9 +42,11 @@ slower and some cases time out.
   `SolveMode`) and also holds the integration tests. `game.rs`/`state.rs`/
   `mate.rs` are shared search-state types.
   - `vcf/` — Victory by Continuous Fours (DFS and IDDFS).
-  - `vct/` — Victory by Continuous Threats: DFS, PNS and df-pn solvers built
-    from `generator` (move generation), `searcher`, `resolver`, `selector`,
-    `traverser`, `proof` (proof/disproof numbers).
+  - `vct/` — Victory by Continuous Threats: one `VCTSolver<P>` (`solver`)
+    whose DFS / PNS / df-pn variants differ only in the `threshold` policy;
+    its methods are split across `searcher`, `selector`, `generator` (move
+    generation), `nested_vcf`, `extractor` (path recovery) and `proof`
+    (proof/disproof numbers).
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
   `solve_vct`, `solve_vct_dfpn`, `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`.

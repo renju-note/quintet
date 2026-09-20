@@ -1,15 +1,17 @@
+mod extractor;
 mod generator;
-mod helper;
+mod nested_vcf;
 mod proof;
-mod resolver;
 mod searcher;
 mod selector;
 mod solver;
 mod state;
-mod traverser;
+mod threshold;
 
-pub use solver::DFPNSVCTSolver;
-pub use solver::DFSVCTSolver;
-pub use solver::PNSVCTSolver;
 pub use solver::VCTSolver;
 pub use state::VCTState;
+use threshold::{DFPNSThreshold, DFSThreshold, PNSThreshold};
+
+pub type DFSVCTSolver = VCTSolver<DFSThreshold>;
+pub type PNSVCTSolver = VCTSolver<PNSThreshold>;
+pub type DFPNSVCTSolver = VCTSolver<DFPNSThreshold>;
