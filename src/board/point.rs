@@ -73,6 +73,8 @@ impl FromStr for Point {
     }
 }
 
+// `code = x * 15 + y`. This encoding is the wasm/JS boundary representation
+// of a point (see `src/wasm.rs`) and is public API: do not change it.
 impl TryFrom<u8> for Point {
     type Error = &'static str;
 

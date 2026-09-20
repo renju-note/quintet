@@ -22,6 +22,8 @@ pub enum SolveMode {
 
 pub use SolveMode::*;
 
+// The numeric codes are the wasm/JS boundary representation of a mode (see
+// `src/wasm.rs`) and are public API: do not renumber them.
 impl TryFrom<u8> for SolveMode {
     type Error = &'static str;
 

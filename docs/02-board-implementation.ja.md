@@ -1,13 +1,13 @@
 # `src/board/` における連珠ルールの実装
 
-このドキュメントは盤面の表現と、[01-renju-rules.ja.md](01-renju-rules.ja.md) のルール用語 — 連、五、長連、四、棒四、三、四四、三三、禁手 — をどのように検出しているかを説明します。現在のコードに沿って書かれており、バッククォートで囲んだ識別子は `grep` で探せます。
+このドキュメントは盤面の表現と、[01-renju-rules.ja.md](01-renju-rules.ja.md) のルール用語 — 連、五、長連、四、棒四、三、四四、三三、禁手 — をどのように検出しているかを説明する。現在のコードに沿って書かれており、バッククォートで囲んだ識別子は `grep` で探せる。
 
 モジュール構成（`src/board/mod.rs`）:
 
 | ファイル | 役割 |
 | --- | --- |
 | `player.rs` | `Player`（`Black` / `White`）とその文字表現（`o` / `x`）。 |
-| `point.rs` | `Point` (x, y)、`Points`、`Direction`、`Index`（線上の位置）、wasm 向けの `u8` エンコード。 |
+| `point.rs` | `Point` (x, y)、`Points`、`Direction`、`Index`（線上の位置）。 |
 | `line.rs` | `Line`: 縦・横・斜めの 1 本を 2 つのビットマスクで表す。 |
 | `sequence.rs` | `Sequences`: `Line` 上を窓をスライドさせて石のパターンを見つけるスキャナ。 |
 | `structure.rs` | `StructureKind`（Two, Three, Sword, Four, Five, ...）と `Structure`（盤上に位置づけられたパターン）。 |
@@ -28,8 +28,6 @@
 - `y` は行を表し、`1` 行目が 0、`15` 行目が 14。
 
 文字列との変換には連珠でよく使う `H8` のような表記を用いる（`Display` / `FromStr` の実装）。複数の点を表す `Points` は、`H8,H7,F6` のようにカンマで区切って書く。
-
-wasm/JS との境界では、点を 1 バイトの整数にエンコードして受け渡す。エンコードの式は `code = x * 15 + y` で、`From<Point> for u8` と `TryFrom<u8> for Point` が相互変換を担う。この符号化は公開 API の一部であり、変更してはならない。
 
 ### 線と `Index`
 

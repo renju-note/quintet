@@ -12,6 +12,7 @@ Japanese index: [README.ja.md](README.ja.md).
 | --- | --- |
 | [01-renju-rules.en.md](01-renju-rules.en.md) / [ja](01-renju-rules.ja.md) | The RIF International Rules of Renju (board, terminology, win conditions, forbidden moves, opening rules) restated in Markdown. |
 | [02-board-implementation.en.md](02-board-implementation.en.md) / [ja](02-board-implementation.ja.md) | How `src/board/` represents the board and implements the rules above: line encoding, sequence/structure detection, forbidden-move detection, hashing. |
+| [03-solver-algorithm.en.md](03-solver-algorithm.en.md) / [ja](03-solver-algorithm.ja.md) | How `src/mate/` and `src/analysis/` search for mates: `solve` and its parameters, the VCF depth-first search, the VCT proof-number search (DFS / PNS / df-pn), the lazy variant, and the potential field used for move ordering. |
 
 Conventions for adding documents:
 
