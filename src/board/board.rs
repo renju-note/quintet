@@ -1,4 +1,5 @@
 use super::forbidden::*;
+use super::line::*;
 use super::player::*;
 use super::point::*;
 use super::square::*;
@@ -77,6 +78,22 @@ impl Board {
         only_empty: bool,
     ) -> impl Iterator<Item = Point> + '_ {
         self.square.neighbors(p, distance, only_empty)
+    }
+
+    pub fn line(&self, d: Direction, i: u8) -> Option<&Line> {
+        self.square.line(d, i)
+    }
+
+    pub fn line_on(&self, p: Point, d: Direction) -> Option<&Line> {
+        self.square.line_on(p, d)
+    }
+
+    pub fn lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
+        self.square.lines()
+    }
+
+    pub fn lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
+        self.square.lines_on(p)
     }
 
     pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
