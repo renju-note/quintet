@@ -133,10 +133,12 @@ solvers, the states and `Game` are all public for that:
   (`Memo` in `mate/memo.rs`). `VCTSolver::with_carry_capacity` sets how much
   is carried; `memo_len()` reports what is held.
 - Repeated questions are what reuse makes cheap: asking the same thing again
-  costs a few nodes rather than the whole search. Two *different* positions
-  share much less than one might hope, because the remaining `limit` is part
-  of the key, so the same board reached from two roots is two entries unless
-  the roots are the same depth apart from it.
+  costs a few nodes rather than the whole search. So is asking the *same
+  position at another limit*, because a decision is a bound (§2): a proof at
+  limit 4 answers at 5 and 6, a disproof at 3 answers at 2 and 1. Iterative
+  deepening over limits 1..6 on one position costs about a fifth of what six
+  fresh solvers cost. Two genuinely *different* positions at the same limit
+  still share little, because they are different positions.
 - `VCTSolver::clear()` throws away both proof tables, both candidate caches
   and the nested VCF deadends. Nothing requires it — use it to hand a solver
   on with a clean slate, or to give the memory back.
@@ -226,14 +228,29 @@ same as a double-four.
   it still includes the attack that was just played. A hook `after_play` /
   `after_undo` lets `VCTState` refresh its potential field.
 - `attacking()` is `turn == attacker`.
-- `zobrist_hash()` is the key every memo table in the solvers uses, and it
-  carries four things: the stones, whose turn it is, the remaining `limit`
-  and the `attacker`. `Game::zobrist_hash(n)` supplies the first three
-  (`Board::zobrist_hash_n(n)` plus the turn) and `State::zobrist_hash` adds
-  the attacker. So the same position reached with a different budget is a
-  different entry, a pass is a different entry from the position before it,
-  and a question about Black's mate is a different entry from the same
-  question about White's.
+- `key()` is what every memo table in the solvers is keyed by. It is a
+  `Key { position, limit }`: `position` is the stones and the turn
+  (`Game::position_hash`) plus the attacker, and `limit` is how many
+  attacker moves are still allowed. A pass is a different `position` from
+  the one before it, and a question about Black's mate is a different
+  `position` from the same question about White's.
+- The two parts are remembered differently, which is what lets one search
+  use what another established. A **decision** is a bound rather than a fact
+  about one limit: a mate within `limit` is a mate within more, and no mate
+  within `limit` is no mate within less. So decisions are keyed by
+  `position` alone — `ProofTable::decided` as a smallest-proven and a
+  largest-disproven limit, `DFSSolver::deadends` as a largest limit with no
+  VCF. **Proof numbers short of a decision** belong to the limit they were
+  computed at, so those go under `Key::hash()`, the two combined
+  (`ProofTable::estimates`, and the candidate caches).
+- For the VCF solver the bound is exact: nothing it generates reads `limit`,
+  so the tree at one limit is the tree at a larger one cut short. For VCT it
+  starts at `transfer_from`, because `VCTState::vcf_state` and `threat_state`
+  ask the nested VCF solvers with `min(state.limit, depth)` — below that
+  depth the moves generated still move with the limit, so two limits are
+  answering about different trees.
+  `test_verdict_is_monotone_in_limit` (`--ignored`) measures that the
+  verdict never turns back from "mate" to "no mate" as the limit grows.
 
 ## 3. VCF (`vcf/`)
 
@@ -269,9 +286,9 @@ Three generators, in the order the solver tries them:
 ```
 solve(state):
     if state.limit == 0: return None
-    if deadends contains state.zobrist_hash(): return None
+    if state.limit <= deadends[state.key().position]: return None
     result = solve_move_pairs(state)
-    if result is None: deadends.insert(hash)
+    if result is None: deadends[key.position] = max(known, state.limit)
     return result
 
 solve_move_pairs(state):                        # attacker to move
@@ -293,9 +310,12 @@ solve_defence(state, defence):                 # defender to move
 
 Notes:
 
-- `deadends: HashSet<u64>` remembers positions (with their `limit`) that
-  have no VCF, so transpositions and repeated calls from VCT do not redo the
-  work. Successes are not memoised; they are returned immediately.
+- `deadends: Memo<u8>` remembers, for each position with no VCF, the largest
+  `limit` it was shown for — and so every limit up to it, since no VCF within
+  `limit` is no VCF within less. Nothing this solver generates reads `limit`,
+  so that bound is exact. Transpositions, repeated calls from VCT, and the
+  deepening steps of `IDDFSSolver` therefore do not redo the work.
+  Successes are not memoised; they are returned immediately.
 - The defence point is not re-derived from the board after the attack: if
   the attack happens to make two fours, `check_event` on the defender's side
   reports `Defeated(Fours(..))` before `defence` is ever played, so the
@@ -369,7 +389,7 @@ needs `limit >= 3`, whether from the CLI or in a test.
 | Why did the solver stop at depth N? | `limit` counts attacker moves and is decremented in `State::play` after each defender move. |
 | A four-making move is not generated | `VCFState::move_pairs` only looks at `Sword` eyes; for Black, `exact` margins exclude overline-making fours. |
 | A counter-four is mishandled | `Game::check_event` on the attacker's side and `VCFState::forced_move_pair`. |
-| Transposition memo | `DFSSolver::deadends`, keyed by `zobrist_hash_n(limit)`; only failures are stored, and never after the budget ran out. |
+| Transposition memo | `DFSSolver::deadends`, keyed by `key().position`, holding the largest `limit` with no VCF; only failures are stored, and never after the budget ran out. |
 | Stop a search that is taking too long | `SolveLimits::with_max_nodes`, or pass a `NodeBudget` to the solver directly; the answer is then `SolveResult::Aborted`. |
 | Reuse a solver across positions | Keep the `VCTSolver` and pass it a fresh `VCTState` each time, for either attacker. `clear()` only to forget the tables. |
 | Which moves defend against a mate | `VCTState::threat_defences`. |

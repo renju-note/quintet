@@ -40,7 +40,7 @@ pub use mate::Mate;
 pub use solve::{
     DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, solve, solve_limited,
 };
-pub use state::State;
+pub use state::{Key, State};
 pub use vcf::{DFSSolver, IDDFSSolver, VCFState};
 pub use vct::{
     DFPNSThreshold, DFPNSVCTSolver, DFSThreshold, DFSVCTSolver, Node, PNSThreshold, PNSVCTSolver,

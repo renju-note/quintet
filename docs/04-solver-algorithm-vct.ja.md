@@ -174,12 +174,12 @@ pub const INF: u32 = u32::MAX;
 
 `limit` は子の最小値として一緒に運ばれる。部分木が決着した時点で、予算がどれだけ残っていたかを記録するためである。復元処理はこれを使って、最も粘り強い受けを選ぶ（§6）。
 
-ソルバーは 2 つの置換表（`ProofTable`、中身は世代付きの `Memo<Node>`。`mate/memo.rs` を参照）を持つ:
+ソルバーは 2 つの置換表（`ProofTable`、中身は世代付きの `Memo` 2 つ。`mate/memo.rs` と 03 の §2 を参照）を持つ:
 
 - `attacker_table`: 攻め手で到達した局面（受け方の手番）の値
 - `defender_table`: 受け手で到達した局面（攻め方の手番）の値
 
-`ProofTable::lookup_next(state, m)` は、`next_zobrist_hash` で `m` の後の子を引く。
+`ProofTable::lookup_next(state, m)` は、`next_key` で `m` の後の子を引く。まず `Key` 全体で `estimates` を、次に `position` だけで `decided` を引く。後者では、より小さい `limit` での証明やより大きい `limit` での反証がそのまま答えになる（03 の §2）。
 
 ## 5. 探索（`searcher.rs`、`selector.rs`、`threshold.rs`）
 
@@ -380,6 +380,6 @@ if self.search(state) { self.extract(state) } else { None }
 | 受けが足りない | `VCTState::threat_defences`（手順、`end_breakers`、`counter_defences`、`four_moves`）。 |
 | 逆襲による反証が見つからない | `solve_defender_vcf` は `defender_vcf_depth`（既定は 2）に制限される。より深い逆襲の四追いは、ノリ手が `threat_defences` に現れる場合にしか見つからない。`SolveLimits::with_defender_vcf_depth` で深くできる。 |
 | 手の並べ替え | `PotentialField`（`analysis/field.rs`）、`min = 2`、候補は合計 `>= 3` が必要。 |
-| 置換表 | `VCTSolver::attacker_table` / `defender_table`、`VCTSolver::*_cache`、`DFSSolver::deadends`。すべて `State::zobrist_hash()`（局面・手番・`limit`・攻め方）がキー。 |
+| 置換表 | `VCTSolver::attacker_table` / `defender_table`、`VCTSolver::*_cache`、`DFSSolver::deadends`。すべて `State::key()`（局面 = 石・手番・攻め方、と `limit`）がキー。決着だけは局面のみをキーにする（03 の §2）。 |
 | 詰み手順の復元 | `extract`（`extractor.rs`）。`End::Unknown` は、表にたどれる証明済みの子がなかったことを意味する。 |
 | 回帰テストの追加 | `solve.rs` のテストに ASCII 盤面と期待する詰み手順の文字列を追加し、関係する `SolveMode` ごとに 1 つずつ assert する（03 の §4 を参照）。 |

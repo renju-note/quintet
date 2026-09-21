@@ -1,6 +1,33 @@
 use super::game::*;
 use crate::board::*;
 
+/// What a memo entry is about: a `position` — the stones, whose turn it is
+/// and which side the search is for — and the `limit`, how many attacker
+/// moves are still allowed.
+///
+/// The two are kept apart because they are remembered differently. What a
+/// search *decides* about a position bounds every other limit: a mate within
+/// `limit` is a mate within more, and no mate within `limit` is no mate
+/// within less. Proof numbers short of a decision belong to the one limit
+/// they were computed at, so those are stored under [`Key::hash`], the two
+/// combined.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Key {
+    pub position: u64,
+    pub limit: u8,
+}
+
+impl Key {
+    pub fn new(position: u64, limit: u8) -> Self {
+        Self { position, limit }
+    }
+
+    /// One entry per limit.
+    pub fn hash(&self) -> u64 {
+        apply_n(self.position, self.limit)
+    }
+}
+
 pub trait State {
     fn game(&self) -> &Game;
     fn game_mut(&mut self) -> &mut Game;
@@ -44,15 +71,22 @@ pub trait State {
         self.game().turn == self.attacker()
     }
 
-    /// The key every memo in the solvers is stored under: the position, the
-    /// turn and the remaining limit (all from [`Game::zobrist_hash`]), plus
-    /// the attacker.
+    /// What every memo in the solvers is keyed by: the position — the stones
+    /// and the turn from [`Game::position_hash`], plus the attacker — and
+    /// the remaining limit.
     ///
     /// The attacker is what lets one solver answer questions about both
     /// sides without forgetting what it learned in between: the same
     /// position is a win for one of them and not the other, so an entry made
     /// while attacking as Black must not be read while attacking as White.
+    fn key(&self) -> Key {
+        let position = apply_attacker(self.game().position_hash(), self.attacker());
+        Key::new(position, self.limit())
+    }
+
+    /// [`Self::key`] collapsed to one value, for a memo that wants one entry
+    /// per limit.
     fn zobrist_hash(&self) -> u64 {
-        apply_attacker(self.game().zobrist_hash(self.limit()), self.attacker())
+        self.key().hash()
     }
 }

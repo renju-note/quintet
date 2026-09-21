@@ -1008,6 +1008,167 @@ mod tests {
         );
     }
 
+    /// The whole point of keying decisions by position alone: a proof found
+    /// at one limit answers at a larger one, and a disproof at a smaller.
+    #[test]
+    fn test_decisions_carry_between_limits() {
+        let board = vct_board();
+        let mut solver = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+
+        // Black has a VCT in 4 and none in 3.
+        assert!(
+            solver
+                .solve(&mut VCTState::init(&board, Black, 3), budget)
+                .is_none()
+        );
+        let after_three = budget.nodes();
+        assert!(
+            solver
+                .solve(&mut VCTState::init(&board, Black, 4), budget)
+                .is_some()
+        );
+        let four = budget.nodes() - after_three;
+
+        // Proven at 4, so limits 5 and 6 are answered from the bound.
+        for limit in [5u8, 6] {
+            let before = budget.nodes();
+            assert!(
+                solver
+                    .solve(&mut VCTState::init(&board, Black, limit), budget)
+                    .is_some(),
+                "limit {limit}"
+            );
+            let spent = budget.nodes() - before;
+            assert!(
+                spent * 8 < four,
+                "limit {limit} still cost {spent} of {four}"
+            );
+        }
+
+        // Disproven at 3, so limits 2 and 1 are answered from the bound.
+        for limit in [2u8, 1] {
+            let before = budget.nodes();
+            assert!(
+                solver
+                    .solve(&mut VCTState::init(&board, Black, limit), budget)
+                    .is_none(),
+                "limit {limit}"
+            );
+            assert!(budget.nodes() - before < after_three);
+        }
+    }
+
+    /// Carrying a decision between limits must not change any answer: one
+    /// solver asked every limit in a jumbled order, against fresh solvers.
+    #[test]
+    fn test_reused_solver_matches_fresh_across_limits() {
+        let board = vct_board();
+        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+        let mut verdicts = vec![];
+
+        // Deliberately out of order, and both attackers, so that a larger
+        // limit is asked before a smaller one and the other way round.
+        for &limit in &[4u8, 2, 6, 1, 5, 3, 6, 2, 4] {
+            for attacker in [Black, White] {
+                let state = &mut VCTState::init(&board, attacker, limit);
+                let got = reused.solve(state, budget).is_some();
+
+                let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+                let state = &mut VCTState::init(&board, attacker, limit);
+                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+
+                assert_eq!(got, want, "{attacker:?} at limit {limit}");
+                verdicts.push(got);
+            }
+        }
+        assert!(verdicts.iter().any(|&v| v), "expected some proven");
+        assert!(verdicts.iter().any(|&v| !v), "expected some disproven");
+    }
+
+    /// The assumption everything above rests on: the verdict only ever turns
+    /// from "no mate" to "mate" as the limit grows, never back.
+    ///
+    /// For limits from `transfer_from` up this follows from the search: the
+    /// candidate generation no longer moves with the limit there, so a
+    /// winning line within `limit` is still a winning line when more moves
+    /// are allowed. Below it the nested VCF depths do move, so this is a
+    /// measurement rather than an argument — hence the test. Slow, so
+    /// `#[ignore]`d; run with `cargo test --release -- --ignored`.
+    #[test]
+    #[ignore]
+    fn test_verdict_is_monotone_in_limit() {
+        let mut checked = 0;
+        let mut breaks = vec![];
+        for seed in 1..=60u64 {
+            for n in [8usize, 12, 16] {
+                let board = random_position(seed, n);
+                if board.structures(Black, Five).next().is_some()
+                    || board.structures(White, Five).next().is_some()
+                    || board.structures(Black, Overlined).next().is_some()
+                {
+                    continue;
+                }
+                for attacker in [Black, White] {
+                    if board.structures(attacker, Four).next().is_some() {
+                        continue;
+                    }
+                    let verdicts: String = (1..=5u8)
+                        .map(|limit| {
+                            let limits = SolveLimits::new(limit)
+                                .with_threat_limit(1)
+                                .with_max_nodes(200_000);
+                            match solve_limited(VCTDFPNS, &board, attacker, limits) {
+                                SolveResult::Proven(_) => 'P',
+                                SolveResult::Disproven => 'D',
+                                // An abort is no information either way.
+                                SolveResult::Aborted => '?',
+                            }
+                        })
+                        .collect();
+                    checked += 1;
+                    if let Some(first) = verdicts.find('P')
+                        && verdicts[first..].contains('D')
+                    {
+                        breaks.push(format!("seed {seed} n {n} {attacker:?} {verdicts}"));
+                    }
+                }
+            }
+        }
+        assert!(checked > 300, "only checked {checked}");
+        assert!(breaks.is_empty(), "not monotone: {breaks:?}");
+    }
+
+    /// Deterministic pseudo-random position with `n` stones near the centre.
+    fn random_position(seed: u64, n: usize) -> Board {
+        let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let mut board = Board::new();
+        let mut r = Black;
+        let mut placed = 0;
+        while placed < n {
+            if board.structures(Black, Five).next().is_some()
+                || board.structures(White, Five).next().is_some()
+            {
+                break;
+            }
+            let p = Point((next() % 9) as u8 + 3, (next() % 9) as u8 + 3);
+            if board.stone(p).is_some() {
+                continue;
+            }
+            board.put_mut(r, p);
+            placed += 1;
+            r = r.opponent();
+        }
+        board
+    }
+
     /// The defender's side of a threat: find the attacker's mate, ask which
     /// moves are worth trying against it, and check that one of them really
     /// makes it go away.

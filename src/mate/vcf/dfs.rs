@@ -11,10 +11,16 @@ use crate::mate::state::State;
 pub const DEFAULT_CARRY_CAPACITY: usize = 1 << 16;
 
 pub struct DFSSolver {
-    /// Positions already shown to have no VCF within their limit, keyed by
-    /// [`State::zobrist_hash`]. `solve` is only ever called with the
-    /// attacker to move, so the attacker in the key pins the turn as well.
-    deadends: Memo<()>,
+    /// For each position already shown to have no VCF, the largest limit it
+    /// was shown for — and so, since no VCF within `limit` is no VCF within
+    /// less, every limit up to it.
+    ///
+    /// Keyed by [`Key::position`](crate::mate::Key::position) alone. Nothing this solver generates
+    /// depends on `limit` (`move_pairs` and `neighbor_move_pairs` read only
+    /// the board), so the tree at one limit is the tree at a larger one cut
+    /// short, and the bound holds exactly. `solve` is only ever called with
+    /// the attacker to move, so the attacker in the position pins the turn.
+    deadends: Memo<u8>,
 }
 
 impl DFSSolver {
@@ -54,14 +60,19 @@ impl DFSSolver {
             return None;
         }
 
-        let hash = state.zobrist_hash();
-        if self.deadends.contains(hash) {
+        let key = state.key();
+        if self
+            .deadends
+            .get(key.position)
+            .is_some_and(|&l| key.limit <= l)
+        {
             return None;
         }
         let result = self.solve_move_pairs(state, budget);
         // A search that gave up proves nothing, so it must not be memoized.
         if result.is_none() && !budget.is_exhausted() {
-            self.deadends.insert(hash, ());
+            let known = self.deadends.get(key.position).copied().unwrap_or(0);
+            self.deadends.insert(key.position, known.max(key.limit));
         }
         result
     }

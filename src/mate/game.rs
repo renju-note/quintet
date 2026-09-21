@@ -76,11 +76,15 @@ impl Game {
         &self.board
     }
 
-    /// The position hash for a memo key: the stones, the remaining limit `n`
-    /// and whose turn it is. The turn has to be in it because a pass changes
-    /// it without touching the board.
+    /// The stones and whose turn it is. The turn has to be in it because a
+    /// pass changes it without touching the board.
+    pub fn position_hash(&self) -> u64 {
+        apply_turn(self.board.zobrist_hash(), self.turn)
+    }
+
+    /// [`Self::position_hash`] combined with a remaining limit `n`.
     pub fn zobrist_hash(&self, n: u8) -> u64 {
-        apply_turn(self.board.zobrist_hash_n(n), self.turn)
+        apply_n(self.position_hash(), n)
     }
 
     pub fn last_move(&self) -> Option<Point> {

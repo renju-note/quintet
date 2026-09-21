@@ -72,10 +72,6 @@ impl<V> Memo<V> {
         self.entries.get(&key).map(|e| &e.value)
     }
 
-    pub fn contains(&self, key: u64) -> bool {
-        self.entries.contains_key(&key)
-    }
-
     pub fn insert(&mut self, key: u64, value: V) {
         self.entries.insert(
             key,
@@ -138,9 +134,9 @@ mod tests {
     fn test_clear() {
         let mut memo = Memo::new(10);
         memo.insert(1, ());
-        assert!(memo.contains(1));
+        assert_eq!(memo.get(1), Some(&()));
         memo.clear();
-        assert!(!memo.contains(1));
+        assert_eq!(memo.get(1), None);
         assert_eq!(memo.len(), 0);
     }
 }
