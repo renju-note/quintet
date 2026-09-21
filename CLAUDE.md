@@ -40,7 +40,8 @@ slower and some cases time out.
   ordering.
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
   `SolveMode`) and also holds the integration tests. `game.rs`/`state.rs`/
-  `mate.rs` are shared search-state types.
+  `mate.rs` are shared search-state types, and `memo.rs` is the generational
+  memo the solvers keep between searches.
   - `vcf/` — Victory by Continuous Fours (DFS and IDDFS).
   - `vct/` — Victory by Continuous Threats: one `VCTSolver<P>` (`solver`)
     whose DFS / PNS / df-pn variants differ only in the `threshold` policy;

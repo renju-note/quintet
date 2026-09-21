@@ -76,8 +76,15 @@ impl Game {
         &self.board
     }
 
+    /// The stones and whose turn it is. The turn has to be in it because a
+    /// pass changes it without touching the board.
+    pub fn position_hash(&self) -> u64 {
+        apply_turn(self.board.zobrist_hash(), self.turn)
+    }
+
+    /// [`Self::position_hash`] combined with a remaining limit `n`.
     pub fn zobrist_hash(&self, n: u8) -> u64 {
-        self.board.zobrist_hash_n(n)
+        apply_n(self.position_hash(), n)
     }
 
     pub fn last_move(&self) -> Option<Point> {
@@ -148,5 +155,35 @@ impl Game {
             })
             .collect::<Vec<_>>()
             .join(",")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::Player::{Black, White};
+
+    #[test]
+    fn test_zobrist_hash_separates_the_turn_and_the_limit() -> Result<(), String> {
+        let board = "H8,J9/I9".parse::<Board>()?;
+        let mut game = Game::init(&board, Black);
+        let hash = game.zobrist_hash(5);
+
+        // The same stones with the other side to move is another position.
+        assert_ne!(Game::init(&board, White).zobrist_hash(5), hash);
+        // ... which is exactly what a pass makes, leaving the board alone.
+        game.play(None);
+        assert_ne!(game.zobrist_hash(5), hash);
+        assert_eq!(
+            game.zobrist_hash(5),
+            Game::init(&board, White).zobrist_hash(5)
+        );
+        game.undo();
+        assert_eq!(game.zobrist_hash(5), hash);
+
+        // The remaining limit still separates otherwise identical positions.
+        assert_ne!(game.zobrist_hash(4), hash);
+
+        Ok(())
     }
 }

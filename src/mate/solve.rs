@@ -896,6 +896,279 @@ mod tests {
         assert_eq!(third, first);
     }
 
+    /// Both attackers on one solver. Every memo is keyed by the attacker, so
+    /// what the Black searches leave behind must not reach the White ones.
+    #[test]
+    fn test_reused_solver_both_attackers() {
+        let board = vct_board();
+        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+
+        for round in 0..3 {
+            for attacker in [Black, White] {
+                let state = &mut VCTState::init(&board, attacker, 4);
+                let got = reused.solve(state, budget).is_some();
+
+                let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+                let state = &mut VCTState::init(&board, attacker, 4);
+                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+
+                assert_eq!(got, want, "round {round}, {attacker:?} attacking");
+            }
+        }
+        // Black wins here and White does not, so the two answers differ and a
+        // key that ignored the attacker would have had to get one of them
+        // wrong.
+        let state = &mut VCTState::init(&board, Black, 4);
+        assert!(reused.solve(state, budget).is_some());
+        let state = &mut VCTState::init(&board, White, 4);
+        assert!(reused.solve(state, budget).is_none());
+    }
+
+    /// The reuse this is for: one move's worth of questions — does Black have
+    /// a VCT, and does each candidate defence stop it — asked of a single
+    /// solver. Every answer has to be the one a fresh solver gives.
+    #[test]
+    fn test_reused_solver_matches_fresh_over_a_move() {
+        let board = vct_board();
+        let limits = SolveLimits::new(4).with_threat_limit(1);
+
+        let threat = solve_limited(VCTDFPNS, &board, Black, limits)
+            .into_mate()
+            .expect("Black has a VCT");
+        let defences = VCTState::init(&board, White, 4).threat_defences(&threat);
+
+        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+        let mut seen = std::collections::HashSet::new();
+        let mut checked = 0;
+        for p in defences {
+            if !seen.insert(p) || board.forbidden(p).is_some() {
+                continue;
+            }
+            let next = board.put(White, p);
+
+            let state = &mut VCTState::init(&next, Black, 4);
+            let got = reused.solve(state, budget).is_some();
+
+            let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+            let state = &mut VCTState::init(&next, Black, 4);
+            let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+
+            assert_eq!(got, want, "after White {p}");
+            checked += 1;
+        }
+        assert!(checked > 1, "expected several defences to check");
+    }
+
+    /// A reused solver must not grow with the number of searches. One search
+    /// is held down by its node budget; a series of them is held down by the
+    /// generations, which settle the memos at about two searches' worth.
+    #[test]
+    fn test_reused_solver_memo_stays_bounded() {
+        let board = vct_board();
+        let budget = &mut NodeBudget::unlimited();
+        let positions: Vec<_> = board
+            .empties()
+            .take(24)
+            .enumerate()
+            .filter(|(_, p)| board.forbidden(*p).is_none())
+            .map(|(i, p)| board.put(if i % 2 == 0 { White } else { Black }, p))
+            .collect();
+        assert!(positions.len() > 20);
+
+        // Small enough that every search drops what the ones before it left.
+        let mut solver = DFPNSVCTSolver::with_carry_capacity(1, DEFAULT_DEFENDER_VCF_DEPTH, 0);
+        let mut early = 0;
+        let mut total_alone = 0;
+        for (i, b) in positions.iter().enumerate() {
+            solver.solve(&mut VCTState::init(b, Black, 4), budget);
+            if i == 3 {
+                early = solver.memo_len();
+            }
+            let mut alone = DFPNSVCTSolver::with_carry_capacity(1, DEFAULT_DEFENDER_VCF_DEPTH, 0);
+            alone.solve(
+                &mut VCTState::init(b, Black, 4),
+                &mut NodeBudget::unlimited(),
+            );
+            total_alone += alone.memo_len();
+        }
+        let late = solver.memo_len();
+
+        assert!(early > 0, "nothing was memoized");
+        // Flat, not cumulative: keeping every search would reach `total_alone`.
+        assert!(
+            late < 2 * early,
+            "grew from {early} after 4 searches to {late} after {}",
+            positions.len()
+        );
+        assert!(
+            late * 4 < total_alone,
+            "{late} is not far enough below the {total_alone} of keeping everything"
+        );
+    }
+
+    /// The whole point of keying decisions by position alone: a proof found
+    /// at one limit answers at a larger one, and a disproof at a smaller.
+    #[test]
+    fn test_decisions_carry_between_limits() {
+        let board = vct_board();
+        let mut solver = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+
+        // Black has a VCT in 4 and none in 3.
+        assert!(
+            solver
+                .solve(&mut VCTState::init(&board, Black, 3), budget)
+                .is_none()
+        );
+        let after_three = budget.nodes();
+        assert!(
+            solver
+                .solve(&mut VCTState::init(&board, Black, 4), budget)
+                .is_some()
+        );
+        let four = budget.nodes() - after_three;
+
+        // Proven at 4, so limits 5 and 6 are answered from the bound.
+        for limit in [5u8, 6] {
+            let before = budget.nodes();
+            assert!(
+                solver
+                    .solve(&mut VCTState::init(&board, Black, limit), budget)
+                    .is_some(),
+                "limit {limit}"
+            );
+            let spent = budget.nodes() - before;
+            assert!(
+                spent * 8 < four,
+                "limit {limit} still cost {spent} of {four}"
+            );
+        }
+
+        // Disproven at 3, so limits 2 and 1 are answered from the bound.
+        for limit in [2u8, 1] {
+            let before = budget.nodes();
+            assert!(
+                solver
+                    .solve(&mut VCTState::init(&board, Black, limit), budget)
+                    .is_none(),
+                "limit {limit}"
+            );
+            assert!(budget.nodes() - before < after_three);
+        }
+    }
+
+    /// Carrying a decision between limits must not change any answer: one
+    /// solver asked every limit in a jumbled order, against fresh solvers.
+    #[test]
+    fn test_reused_solver_matches_fresh_across_limits() {
+        let board = vct_board();
+        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+        let mut verdicts = vec![];
+
+        // Deliberately out of order, and both attackers, so that a larger
+        // limit is asked before a smaller one and the other way round.
+        for &limit in &[4u8, 2, 6, 1, 5, 3, 6, 2, 4] {
+            for attacker in [Black, White] {
+                let state = &mut VCTState::init(&board, attacker, limit);
+                let got = reused.solve(state, budget).is_some();
+
+                let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+                let state = &mut VCTState::init(&board, attacker, limit);
+                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+
+                assert_eq!(got, want, "{attacker:?} at limit {limit}");
+                verdicts.push(got);
+            }
+        }
+        assert!(verdicts.iter().any(|&v| v), "expected some proven");
+        assert!(verdicts.iter().any(|&v| !v), "expected some disproven");
+    }
+
+    /// The assumption everything above rests on: the verdict only ever turns
+    /// from "no mate" to "mate" as the limit grows, never back.
+    ///
+    /// For limits from `transfer_from` up this follows from the search: the
+    /// candidate generation no longer moves with the limit there, so a
+    /// winning line within `limit` is still a winning line when more moves
+    /// are allowed. Below it the nested VCF depths do move, so this is a
+    /// measurement rather than an argument — hence the test. Slow, so
+    /// `#[ignore]`d; run with `cargo test --release -- --ignored`.
+    #[test]
+    #[ignore]
+    fn test_verdict_is_monotone_in_limit() {
+        let mut checked = 0;
+        let mut breaks = vec![];
+        for seed in 1..=60u64 {
+            for n in [8usize, 12, 16] {
+                let board = random_position(seed, n);
+                if board.structures(Black, Five).next().is_some()
+                    || board.structures(White, Five).next().is_some()
+                    || board.structures(Black, Overlined).next().is_some()
+                {
+                    continue;
+                }
+                for attacker in [Black, White] {
+                    if board.structures(attacker, Four).next().is_some() {
+                        continue;
+                    }
+                    let verdicts: String = (1..=5u8)
+                        .map(|limit| {
+                            let limits = SolveLimits::new(limit)
+                                .with_threat_limit(1)
+                                .with_max_nodes(200_000);
+                            match solve_limited(VCTDFPNS, &board, attacker, limits) {
+                                SolveResult::Proven(_) => 'P',
+                                SolveResult::Disproven => 'D',
+                                // An abort is no information either way.
+                                SolveResult::Aborted => '?',
+                            }
+                        })
+                        .collect();
+                    checked += 1;
+                    if let Some(first) = verdicts.find('P')
+                        && verdicts[first..].contains('D')
+                    {
+                        breaks.push(format!("seed {seed} n {n} {attacker:?} {verdicts}"));
+                    }
+                }
+            }
+        }
+        assert!(checked > 300, "only checked {checked}");
+        assert!(breaks.is_empty(), "not monotone: {breaks:?}");
+    }
+
+    /// Deterministic pseudo-random position with `n` stones near the centre.
+    fn random_position(seed: u64, n: usize) -> Board {
+        let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let mut board = Board::new();
+        let mut r = Black;
+        let mut placed = 0;
+        while placed < n {
+            if board.structures(Black, Five).next().is_some()
+                || board.structures(White, Five).next().is_some()
+            {
+                break;
+            }
+            let p = Point((next() % 9) as u8 + 3, (next() % 9) as u8 + 3);
+            if board.stone(p).is_some() {
+                continue;
+            }
+            board.put_mut(r, p);
+            placed += 1;
+            r = r.opponent();
+        }
+        board
+    }
+
     /// The defender's side of a threat: find the attacker's mate, ask which
     /// moves are worth trying against it, and check that one of them really
     /// makes it go away.

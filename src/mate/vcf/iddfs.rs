@@ -16,9 +16,29 @@ impl IDDFSSolver {
         }
     }
 
+    /// Like [`Self::init`], but bounding what the deadend memo carries from
+    /// one search into the next (see [`DFSSolver::advance_generation`]).
+    pub fn with_carry_capacity(limits: Vec<u8>, carry_capacity: usize) -> Self {
+        Self {
+            solver: DFSSolver::with_carry_capacity(carry_capacity),
+            limits,
+        }
+    }
+
     /// Forgets the deadends memoized so far.
     pub fn clear(&mut self) {
         self.solver.clear();
+    }
+
+    /// See [`DFSSolver::advance_generation`]. `solve` is called many times
+    /// within one VCT search, so this is not done per call: the outermost
+    /// caller decides where one question ends and the next begins.
+    pub fn advance_generation(&mut self) {
+        self.solver.advance_generation();
+    }
+
+    pub fn deadends_len(&self) -> usize {
+        self.solver.deadends_len()
     }
 
     /// Searches for a VCF, deepening the limit step by step. `None` means
