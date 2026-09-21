@@ -230,8 +230,8 @@ what the selectors do (§5).
 budget was left where the subtree was decided; the extractor uses it to pick
 the most stubborn defence (§6).
 
-The solver holds two transposition tables (`ProofTable`, a generational
-`Memo<Node>` — see `mate/memo.rs`):
+The solver holds two transposition tables (`ProofTable`, two generational
+`Memo`s — see `mate/memo.rs` and 03, §2):
 
 - `attacker_table`: values of positions reached by an attack (defender to
   move);
@@ -239,7 +239,9 @@ The solver holds two transposition tables (`ProofTable`, a generational
   move).
 
 `ProofTable::lookup_next(state, m)` looks up the child after `m` using
-`next_zobrist_hash`.
+`next_key`: first `estimates`, under the whole `Key`, then `decided`, under
+the `position` alone, where a proof at a smaller limit or a disproof at a
+larger one still answers (03, §2).
 
 ## 5. Search (`searcher.rs`, `selector.rs`, `threshold.rs`)
 
@@ -504,6 +506,6 @@ lands on a high-potential point of the attacker is tried first.
 | A defence is missing | `VCTState::threat_defences` (path, `end_breakers`, `counter_defences`, `four_moves`). |
 | A refutation by counter-attack is missing | `solve_defender_vcf` is limited to `defender_vcf_depth` (2 by default); deeper counter-VCFs are found only if a counter-four appears in `threat_defences`. Raise it with `SolveLimits::with_defender_vcf_depth`. |
 | Move ordering | `PotentialField` (`analysis/field.rs`) with `min = 2`, candidates need a sum `>= 3`. |
-| Transposition tables | `VCTSolver::attacker_table` / `defender_table`, `VCTSolver::*_cache`, `DFSSolver::deadends`; all keyed by `State::zobrist_hash()` — the position, the turn, the `limit` and the attacker. |
+| Transposition tables | `VCTSolver::attacker_table` / `defender_table`, `VCTSolver::*_cache`, `DFSSolver::deadends`; all keyed by `State::key()` — the position (stones, turn, attacker) and the `limit`, with decisions keyed by the position alone (03, §2). |
 | Path extraction | `extract` (`extractor.rs`); `End::Unknown` means the tables had no proven child to follow. |
 | Adding a regression case | ASCII board + expected path string in `solve.rs` tests, one assertion per relevant `SolveMode` (see 03, §4). |

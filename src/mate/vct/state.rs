@@ -3,7 +3,7 @@ use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
-use crate::mate::state::State;
+use crate::mate::state::{Key, State};
 use crate::mate::vcf::VCFState;
 
 pub struct VCTState {
@@ -56,17 +56,15 @@ impl VCTState {
     }
 
     /// The key the child after `next_move` would have, without building it.
-    /// Must stay in step with [`State::zobrist_hash`].
-    pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
+    /// Must stay in step with [`State::key`].
+    pub fn next_key(&mut self, next_move: Option<Point>) -> Key {
         // Update only game in order not to cause updating state.field (which costs high)
         let limit = self.limit;
         let next_limit = if !self.attacking() { limit - 1 } else { limit };
         let attacker = self.attacker;
         // `into_play` flips the turn, so the hash is the child's.
-        let hash = self
-            .game
-            .into_play(next_move, |g| g.zobrist_hash(next_limit));
-        apply_attacker(hash, attacker)
+        let position = self.game.into_play(next_move, |g| g.position_hash());
+        Key::new(apply_attacker(position, attacker), next_limit)
     }
 
     pub fn sorted_potentials(&self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
@@ -185,10 +183,10 @@ mod tests {
         "H8,I9,J9,H7".parse::<Board>().unwrap()
     }
 
-    /// `next_zobrist_hash` peeks at the child's key without building the
-    /// child, so it has to agree with what the child itself would say.
+    /// `next_key` peeks at the child's key without building the child, so
+    /// it has to agree with what the child itself would say.
     #[test]
-    fn test_next_zobrist_hash_matches_the_child() {
+    fn test_next_key_matches_the_child() {
         let moves: Vec<Point> = ["G7", "K9", "H9"]
             .iter()
             .map(|s| s.parse().unwrap())
@@ -197,8 +195,8 @@ mod tests {
             let mut state = VCTState::init(&board(), attacker, 4);
             // Two plies, so that the turn and the limit have both moved.
             for &first in &moves {
-                let predicted = state.next_zobrist_hash(Some(first));
-                let actual = state.into_play(Some(first), |c| c.zobrist_hash());
+                let predicted = state.next_key(Some(first));
+                let actual = state.into_play(Some(first), |c| c.key());
                 assert_eq!(predicted, actual, "{attacker:?} {first}");
 
                 state.play(Some(first));
@@ -206,8 +204,8 @@ mod tests {
                     if second == first {
                         continue;
                     }
-                    let predicted = state.next_zobrist_hash(Some(second));
-                    let actual = state.into_play(Some(second), |c| c.zobrist_hash());
+                    let predicted = state.next_key(Some(second));
+                    let actual = state.into_play(Some(second), |c| c.key());
                     assert_eq!(predicted, actual, "{attacker:?} {first},{second}");
                 }
                 state.undo();

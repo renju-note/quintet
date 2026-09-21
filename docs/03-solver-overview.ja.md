@@ -109,7 +109,7 @@ for board in candidates {
 `solve` / `solve_limited` は、ソルバーを作って 1 回使って捨てる。関連する問いを何度も投げる側（対局エンジン、解析画面）は、ソルバーを持ち続けるべきである。埋まった表こそがソルバーの価値のほとんどだからだ。そのためにソルバー、状態、`Game` はいずれも公開されている:
 
 - そのまま問い続けてよい。すべてのメモが局面だけでなく攻め方もキーに含むので、1 つのソルバーで両者について問うても答えが混ざらない。また `solve` は毎回新しい世代を開くので、何回問おうとメモはおよそ探索 2 回分に落ち着く（`mate/memo.rs` の `Memo`）。引き継ぐ量は `VCTSolver::with_carry_capacity` で決め、現在の保持数は `memo_len()` でわかる。
-- 使い回しが効くのは**同じ問いの繰り返し**である。2 回目は探索まるごとではなく数ノードで済む。**別の局面どうしは期待ほど共有しない**。残りの `limit` がキーに入っているため、同じ盤面でも根からの深さが違えば別のエントリになるからである。
+- 使い回しが効くのは**同じ問いの繰り返し**である。2 回目は探索まるごとではなく数ノードで済む。**同じ局面を別の `limit` で問う**場合も効く。決着は境界だからである（§2）。limit 4 での証明は 5 でも 6 でも答えになり、limit 3 での反証は 2 でも 1 でも答えになる。1 局面を limit 1〜6 で反復深化すると、新しいソルバー 6 個の約 5 分の 1 で済む。同じ `limit` での**本当に別の局面**どうしは、やはりあまり共有しない。別の局面なのだから当然である。
 - `VCTSolver::clear()` は、2 つの証明数表、2 つの候補手キャッシュ、内部の四追いの `deadends` を捨てる。必須ではない。まっさらな状態でソルバーを渡したいとき、あるいはメモリを返したいときに使う。
 - `VCTState::threat_defences(&threat)` は、見つかった詰みに対して試す価値のある手を返す。詰み手順そのもの、詰め上がりを崩す点、ノリ手、受け方自身が四を作る手である。追い詰め探索が受けの候補を作るのに使っているもの（04 の §3）であり、受け方が試すべきものでもある。
 - `Game::play(None)` はパスである。「この手は追い手か」はこれで問う。手番側にパスさせ、相手に四追いがあるかを見る。`test_threat_after_pass` が 1 手ずつ確かめている。
@@ -178,7 +178,9 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 - したがって `limit` は「攻め方があと何手打てるか」である。受け方のノードでは、直前の攻め手の分がまだ含まれている。
 - フック `after_play` / `after_undo` により、`VCTState` はポテンシャル場を更新する。
 - `attacking()` は `turn == attacker` である。
-- `zobrist_hash()` はソルバー内のすべてのメモ表が使うキーで、石の配置・手番・残りの `limit`・`attacker` の 4 つを含む。前の 3 つは `Game::zobrist_hash(n)`（`Board::zobrist_hash_n(n)` に手番を混ぜたもの）が、`attacker` は `State::zobrist_hash` が加える。よって、同じ局面でも残り予算が違えば別のエントリになり、パスした局面はその前の局面とは別のエントリになり、「黒に詰みがあるか」と「白に詰みがあるか」も別のエントリになる。
+- `key()` はソルバー内のすべてのメモ表が使うキーである。中身は `Key { position, limit }` で、`position` は石の配置と手番（`Game::position_hash`）に攻め方を加えたもの、`limit` は攻め方があと何手使えるかである。パスした局面はその前とは別の `position` になり、「黒に詰みがあるか」と「白に詰みがあるか」も別の `position` になる。
+- この 2 つは覚え方が違う。そこが、ある探索の成果を別の探索が使えるゆえんである。**決着は 1 つの `limit` についての事実ではなく境界**である。`limit` 以内で詰むならそれより多くても詰み、`limit` 以内で詰まないならそれより少なくても詰まない。そこで決着は `position` だけをキーにする（`ProofTable::decided` は「証明できた最小の limit」と「反証できた最大の limit」、`DFSSolver::deadends` は「四追いがないと示せた最大の limit」）。**決着に至らない証明数**は計算した `limit` に属するので、2 つを合わせた `Key::hash()` をキーにする（`ProofTable::estimates` と候補手キャッシュ）。
+- 四追いソルバーではこの境界は厳密である。生成するものが `limit` を一切読まないので、ある `limit` の木は大きい `limit` の木を途中で切ったものだからである。追い詰めでは `transfer_from` から始まる。`VCTState::vcf_state` と `threat_state` が入れ子の四追いを `min(state.limit, depth)` で呼ぶため、その深さより下では生成される手が `limit` とともに動き、2 つの `limit` が別の木について答えることになるからである。`test_verdict_is_monotone_in_limit`（`--ignored`）が、`limit` を増やしたときに判定が「詰み」から「詰みなし」へ戻らないことを実測している。
 - パスは盤面を変えない。したがってパスした局面は、パス前と同じ盤面（`limit` はそのときの値）としてハッシュされる。
 
 ## 3. 四追い（`vcf/`）
@@ -206,7 +208,7 @@ pairs: (H11, H12)  play H11: four H8-H11, White must answer H12
 ```
 solve(state):
     if state.limit == 0: return None
-    if deadends contains state.zobrist_hash(): return None
+    if state.limit <= deadends[state.key().position]: return None
     result = solve_move_pairs(state)
     if result is None: deadends.insert(hash)
     return result
@@ -230,7 +232,7 @@ solve_defence(state, defence):                 # defender to move
 
 補足:
 
-- `deadends: Memo<()>` は四追いのない局面（`limit`・手番・攻め方込み）を記憶する。合流した局面や、追い詰めからの繰り返し呼び出しで同じ計算をしないためである。成功は記憶せず、そのまま返す。
+- `deadends: Memo<u8>` は、四追いのない局面ごとに「四追いがないと示せた最大の `limit`」を記憶する。`limit` 以内で四追いがないならそれより少なくてもないので、そこまでのすべての `limit` を兼ねる。このソルバーが生成するものは `limit` を一切読まないため、この境界は厳密である。合流した局面、追い詰めからの繰り返し呼び出し、`IDDFSSolver` の深化の各段が、同じ計算をやり直さずに済む。成功は記憶せず、そのまま返す。
 - 受け点は、攻め手を打った後の盤面から求め直さない。攻め手がたまたま四を 2 つ作った場合は、`defence` を打つ前に受け方側の `check_event` が `Defeated(Fours(..))` を返す。したがって、保持しているもう片方の眼が意味を持つのは四が 1 つのときだけである。
 - ノリ手は攻め方側の `Forced` で扱う。受け方の止めの後、攻め方も止めを強いられることがある。その止めは四でなければならず（`forced_move_pair`）、そうでなければ手順は失敗する。`test_vcf_counter` と `test_vcf_not_opponent_double_four` がこれを検証している。
 
@@ -288,7 +290,7 @@ solve_defence(state, defence):                 # defender to move
 | なぜ深さ N で探索が止まったか | `limit` は攻め方の着手数を数え、受け方が打つたびに `State::play` で減る。 |
 | 四を作る手が生成されない | `VCFState::move_pairs` は `Sword` の眼しか見ない。黒では `exact` の縁の条件により、長連になる四は除かれる。 |
 | ノリ手の扱いがおかしい | 攻め方側の `Game::check_event` と `VCFState::forced_move_pair`。 |
-| 置換表のメモ | `DFSSolver::deadends`。`State::zobrist_hash()`（局面・手番・`limit`・攻め方）がキーで、失敗だけを記憶する。予算が尽きた後は記憶しない。 |
+| 置換表のメモ | `DFSSolver::deadends`。`key().position` がキーで、四追いがないと示せた最大の `limit` を保持する。失敗だけを記憶し、予算が尽きた後は記憶しない。 |
 | 長すぎる探索を止める | `SolveLimits::with_max_nodes`、またはソルバーに直接 `NodeBudget` を渡す。結果は `SolveResult::Aborted` になる。 |
 | ソルバーを複数の局面で使い回す | `VCTSolver` を持ち続け、毎回新しい `VCTState` を渡す。攻め方はどちらでもよい。表を捨てたいときだけ `clear()`。 |
 | 詰みに対する受けの候補 | `VCTState::threat_defences`。 |

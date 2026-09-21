@@ -44,9 +44,16 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         defender_vcf_depth: u8,
         carry_capacity: usize,
     ) -> Self {
+        // Candidate generation asks the nested VCF solvers with
+        // `min(state.limit, depth)`, so below this the moves generated still
+        // move with the limit and one limit's decision says nothing about
+        // another's. `search_defences` also cuts off at `limit <= 1`.
+        let transfer_from = attacker_vcf_depth
+            .max(defender_vcf_depth.saturating_add(1))
+            .max(2);
         Self {
-            attacker_table: ProofTable::with_carry_capacity(carry_capacity),
-            defender_table: ProofTable::with_carry_capacity(carry_capacity),
+            attacker_table: ProofTable::with_carry_capacity(carry_capacity, transfer_from),
+            defender_table: ProofTable::with_carry_capacity(carry_capacity, transfer_from),
             attacker_vcf_depth,
             defender_vcf_depth,
             attacker_vcf_solver: vcf::IDDFSSolver::with_carry_capacity(
