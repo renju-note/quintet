@@ -20,6 +20,7 @@ Module map:
 | `mate/game.rs` | `Game`: board + move history + side to move, with pass support; `check_event` (four detection); `End`. |
 | `mate/state.rs` | `State` trait: play/undo that also tracks the remaining `limit`, and the transposition key. |
 | `mate/mate.rs` | `Mate`: the result (`End` + move path). |
+| `mate/memo.rs` | `Memo`: what the solvers remember between searches, and the generations that bound it. |
 | `mate/vcf/` | VCF solver: `VCFState` (four-making move pairs), `DFSSolver`, `IDDFSSolver`. |
 | `mate/vct/` | VCT solvers (`DFSVCTSolver`, `PNSVCTSolver`, `DFPNSVCTSolver`); see 04. |
 | `analysis/field.rs` | `PotentialField`, move ordering for VCT; see 04, §9. |
@@ -125,9 +126,20 @@ that asks many related questions — a game engine, an analysis view — should
 keep one instead, because the tables it fills are most of its value. The
 solvers, the states and `Game` are all public for that:
 
+- Just keep asking. Every memo is keyed by the attacker as well as the
+  position, so one solver can answer about both sides without its answers
+  being confused, and `solve` opens a new generation each time so the memos
+  settle at about two searches' worth however many searches are asked
+  (`Memo` in `mate/memo.rs`). `VCTSolver::with_carry_capacity` sets how much
+  is carried; `memo_len()` reports what is held.
+- Repeated questions are what reuse makes cheap: asking the same thing again
+  costs a few nodes rather than the whole search. Two *different* positions
+  share much less than one might hope, because the remaining `limit` is part
+  of the key, so the same board reached from two roots is two entries unless
+  the roots are the same depth apart from it.
 - `VCTSolver::clear()` throws away both proof tables, both candidate caches
-  and the nested VCF deadends. Call it when moving to a position that is not
-  a descendant of the last one; skip it to let the tables carry over.
+  and the nested VCF deadends. Nothing requires it — use it to hand a solver
+  on with a clean slate, or to give the memory back.
 - `VCTState::threat_defences(&threat)` lists the moves worth trying against
   a mate that was found — the threat's own path, the points that break its
   end, counter-fours and the defender's own four-making moves. It is what
@@ -214,11 +226,14 @@ same as a double-four.
   it still includes the attack that was just played. A hook `after_play` /
   `after_undo` lets `VCTState` refresh its potential field.
 - `attacking()` is `turn == attacker`.
-- `zobrist_hash()` is `Board::zobrist_hash_n(limit)`: the position combined
-  with the remaining depth. Every memo table in the solvers is keyed by this
-  value, so the same position reached with a different budget is a
-  different entry. A pass does not change the board, so a passed position
-  hashes like the position before the pass (with its own `limit`).
+- `zobrist_hash()` is the key every memo table in the solvers uses, and it
+  carries four things: the stones, whose turn it is, the remaining `limit`
+  and the `attacker`. `Game::zobrist_hash(n)` supplies the first three
+  (`Board::zobrist_hash_n(n)` plus the turn) and `State::zobrist_hash` adds
+  the attacker. So the same position reached with a different budget is a
+  different entry, a pass is a different entry from the position before it,
+  and a question about Black's mate is a different entry from the same
+  question about White's.
 
 ## 3. VCF (`vcf/`)
 
@@ -356,7 +371,7 @@ needs `limit >= 3`, whether from the CLI or in a test.
 | A counter-four is mishandled | `Game::check_event` on the attacker's side and `VCFState::forced_move_pair`. |
 | Transposition memo | `DFSSolver::deadends`, keyed by `zobrist_hash_n(limit)`; only failures are stored, and never after the budget ran out. |
 | Stop a search that is taking too long | `SolveLimits::with_max_nodes`, or pass a `NodeBudget` to the solver directly; the answer is then `SolveResult::Aborted`. |
-| Reuse a solver across positions | Keep the `VCTSolver` and pass it a fresh `VCTState` each time; `clear()` to forget the tables. |
+| Reuse a solver across positions | Keep the `VCTSolver` and pass it a fresh `VCTState` each time, for either attacker. `clear()` only to forget the tables. |
 | Which moves defend against a mate | `VCTState::threat_defences`. |
 | Adding a regression case | ASCII board + expected path string in `solve.rs` tests, one assertion per relevant `SolveMode`. |
 | VCT-specific questions | See the cheat sheet in [04-solver-algorithm-vct.en.md](04-solver-algorithm-vct.en.md). |

@@ -1,24 +1,38 @@
 use super::state::VCTState;
 use crate::board::Point;
+use crate::mate::memo::Memo;
 use crate::mate::state::State;
-use std::collections::HashMap;
 use std::fmt;
 
-/// Transposition table of proof numbers, keyed by position hash (which
-/// includes the remaining `limit`).
+/// How many entries a table carries into a new search before it starts
+/// dropping what older searches left behind. See [`Memo`].
+pub const DEFAULT_CARRY_CAPACITY: usize = 1 << 16;
+
+/// Transposition table of proof numbers, keyed by
+/// [`State::zobrist_hash`] — the position, the turn, the remaining `limit`
+/// and the attacker.
 pub struct ProofTable {
-    table: HashMap<u64, Node>,
+    table: Memo<Node>,
 }
 
 impl ProofTable {
-    pub fn new() -> Self {
+    pub fn with_carry_capacity(carry_capacity: usize) -> Self {
         Self {
-            table: HashMap::new(),
+            table: Memo::new(carry_capacity),
         }
     }
 
     pub fn clear(&mut self) {
         self.table.clear();
+    }
+
+    /// See [`Memo::advance_generation`]: once per search, not per node.
+    pub fn advance_generation(&mut self) {
+        self.table.advance_generation();
+    }
+
+    pub fn len(&self) -> usize {
+        self.table.len()
     }
 
     pub fn insert(&mut self, state: &VCTState, node: Node) {
@@ -28,7 +42,7 @@ impl ProofTable {
 
     pub fn lookup_next(&self, state: &mut VCTState, next_move: Option<Point>) -> Option<Node> {
         let key = state.next_zobrist_hash(next_move);
-        self.table.get(&key).copied()
+        self.table.get(key).copied()
     }
 }
 

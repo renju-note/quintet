@@ -14,7 +14,12 @@
 //!   [`VCTState::threat_defences`] lists the moves worth trying against a
 //!   threat that was found.
 //! - [`DFSSolver`], [`IDDFSSolver`] and [`VCTSolver`] are the solvers. They
-//!   memoize across calls; [`VCTSolver::clear`] throws that away.
+//!   memoize across calls, keyed by the position, the turn, the remaining
+//!   limit *and* the attacker, so one solver can be asked about both sides
+//!   without its answers being confused. Each [`VCTSolver::solve`] opens a
+//!   new generation, which settles the memos at about two searches' worth
+//!   however many searches are asked; [`VCTSolver::clear`] throws the lot
+//!   away, which nothing requires.
 //! - [`NodeBudget`] bounds how much work a search may do, in nodes. There is
 //!   no clock: everything here compiles for `wasm32-unknown-unknown`, so a
 //!   caller with a time control converts it into a number of nodes itself.
@@ -23,6 +28,7 @@ mod budget;
 mod game;
 #[allow(clippy::module_inception)]
 mod mate;
+mod memo;
 mod solve;
 mod state;
 mod vcf;

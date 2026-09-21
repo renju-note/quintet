@@ -174,7 +174,7 @@ pub const INF: u32 = u32::MAX;
 
 `limit` は子の最小値として一緒に運ばれる。部分木が決着した時点で、予算がどれだけ残っていたかを記録するためである。復元処理はこれを使って、最も粘り強い受けを選ぶ（§6）。
 
-ソルバーは 2 つの置換表（`ProofTable`、中身は `HashMap<u64, Node>`）を持つ:
+ソルバーは 2 つの置換表（`ProofTable`、中身は世代付きの `Memo<Node>`。`mate/memo.rs` を参照）を持つ:
 
 - `attacker_table`: 攻め手で到達した局面（受け方の手番）の値
 - `defender_table`: 受け手で到達した局面（攻め方の手番）の値
@@ -259,8 +259,11 @@ expand_attacks(state, attacks, threshold):
 メソッドは段階ごとに `searcher.rs`、`selector.rs`、`generator.rs`、`nested_vcf.rs`、`extractor.rs` に分かれている。`VCTSolver::solve` は次のとおりである:
 
 ```rust
+self.advance_generation();
 if self.search(state) { self.extract(state) } else { None }
 ```
+
+`advance_generation` は 2 つの証明数表と 2 つの四追いソルバーの `deadends` に新しい世代を開く。これにより、ソルバーは何度問われても膨らまない。各メモは直前の探索が作ったものを残し、それより前のものを捨てる（`carry_capacity` を超えたときだけ）。生成器のキャッシュは `LruCache` なのですでに有界である。**探索の途中では何も捨てない**。df-pn のノードは子の証明数が表に入って初めて前に進むので、探索中に追い出すと `expand_attacks` が同じ子でループを回り直しかねないからである。探索 1 回の中ではノード予算が上限になる。
 
 ## 6. 手順の復元（`extractor.rs`）
 
@@ -377,6 +380,6 @@ if self.search(state) { self.extract(state) } else { None }
 | 受けが足りない | `VCTState::threat_defences`（手順、`end_breakers`、`counter_defences`、`four_moves`）。 |
 | 逆襲による反証が見つからない | `solve_defender_vcf` は `defender_vcf_depth`（既定は 2）に制限される。より深い逆襲の四追いは、ノリ手が `threat_defences` に現れる場合にしか見つからない。`SolveLimits::with_defender_vcf_depth` で深くできる。 |
 | 手の並べ替え | `PotentialField`（`analysis/field.rs`）、`min = 2`、候補は合計 `>= 3` が必要。 |
-| 置換表 | `VCTSolver::attacker_table` / `defender_table`、`VCTSolver::*_cache`、`DFSSolver::deadends`。すべて `zobrist_hash_n(limit)` がキー。 |
+| 置換表 | `VCTSolver::attacker_table` / `defender_table`、`VCTSolver::*_cache`、`DFSSolver::deadends`。すべて `State::zobrist_hash()`（局面・手番・`limit`・攻め方）がキー。 |
 | 詰み手順の復元 | `extract`（`extractor.rs`）。`End::Unknown` は、表にたどれる証明済みの子がなかったことを意味する。 |
 | 回帰テストの追加 | `solve.rs` のテストに ASCII 盤面と期待する詰み手順の文字列を追加し、関係する `SolveMode` ごとに 1 つずつ assert する（03 の §4 を参照）。 |

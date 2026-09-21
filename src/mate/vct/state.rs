@@ -55,12 +55,18 @@ impl VCTState {
         self.game().check_event()
     }
 
+    /// The key the child after `next_move` would have, without building it.
+    /// Must stay in step with [`State::zobrist_hash`].
     pub fn next_zobrist_hash(&mut self, next_move: Option<Point>) -> u64 {
         // Update only game in order not to cause updating state.field (which costs high)
         let limit = self.limit;
         let next_limit = if !self.attacking() { limit - 1 } else { limit };
-        self.game
-            .into_play(next_move, |g| g.zobrist_hash(next_limit))
+        let attacker = self.attacker;
+        // `into_play` flips the turn, so the hash is the child's.
+        let hash = self
+            .game
+            .into_play(next_move, |g| g.zobrist_hash(next_limit));
+        apply_attacker(hash, attacker)
     }
 
     pub fn sorted_potentials(&self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
@@ -167,5 +173,73 @@ impl State for VCTState {
         if let Some(last_move) = maybe_last_move {
             self.field.update_along(last_move, self.game.board());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::Player::{Black, White};
+
+    fn board() -> Board {
+        "H8,I9,J9,H7".parse::<Board>().unwrap()
+    }
+
+    /// `next_zobrist_hash` peeks at the child's key without building the
+    /// child, so it has to agree with what the child itself would say.
+    #[test]
+    fn test_next_zobrist_hash_matches_the_child() {
+        let moves: Vec<Point> = ["G7", "K9", "H9"]
+            .iter()
+            .map(|s| s.parse().unwrap())
+            .collect();
+        for attacker in [Black, White] {
+            let mut state = VCTState::init(&board(), attacker, 4);
+            // Two plies, so that the turn and the limit have both moved.
+            for &first in &moves {
+                let predicted = state.next_zobrist_hash(Some(first));
+                let actual = state.into_play(Some(first), |c| c.zobrist_hash());
+                assert_eq!(predicted, actual, "{attacker:?} {first}");
+
+                state.play(Some(first));
+                for &second in &moves {
+                    if second == first {
+                        continue;
+                    }
+                    let predicted = state.next_zobrist_hash(Some(second));
+                    let actual = state.into_play(Some(second), |c| c.zobrist_hash());
+                    assert_eq!(predicted, actual, "{attacker:?} {first},{second}");
+                }
+                state.undo();
+            }
+        }
+    }
+
+    /// The same position is a win for one attacker and not the other, so the
+    /// two must not share a memo entry.
+    #[test]
+    fn test_zobrist_hash_separates_the_attacker() {
+        let board = board();
+        let as_black = VCTState::init(&board, Black, 4).zobrist_hash();
+        let as_white = VCTState::init(&board, White, 4).zobrist_hash();
+        assert_ne!(as_black, as_white);
+
+        // Those two also differ in whose turn it is, so pin the attacker on
+        // its own: build one state that reaches the same board, turn and
+        // limit while attacking as the other colour.
+        let next: Point = "G7".parse().unwrap();
+        let mut attacking_black = VCTState::init(&board, Black, 4);
+        attacking_black.play(Some(next));
+        let attacking_white = VCTState::init(&board.put(Black, next), White, 4);
+        assert_eq!(attacking_black.game().turn, attacking_white.game().turn);
+        assert_eq!(attacking_black.limit, attacking_white.limit);
+        assert_eq!(
+            attacking_black.game().board().zobrist_hash(),
+            attacking_white.game().board().zobrist_hash()
+        );
+        assert_ne!(
+            attacking_black.zobrist_hash(),
+            attacking_white.zobrist_hash()
+        );
     }
 }

@@ -3,23 +3,45 @@ use crate::board::*;
 use crate::mate::budget::NodeBudget;
 use crate::mate::game::*;
 use crate::mate::mate::*;
+use crate::mate::memo::Memo;
 use crate::mate::state::State;
-use std::collections::HashSet;
+
+/// How many deadends a solver carries into a new search before it starts
+/// dropping what older searches left behind. See [`Memo`].
+pub const DEFAULT_CARRY_CAPACITY: usize = 1 << 16;
 
 pub struct DFSSolver {
-    deadends: HashSet<u64>,
+    /// Positions already shown to have no VCF within their limit, keyed by
+    /// [`State::zobrist_hash`]. `solve` is only ever called with the
+    /// attacker to move, so the attacker in the key pins the turn as well.
+    deadends: Memo<()>,
 }
 
 impl DFSSolver {
     pub fn init() -> Self {
+        Self::with_carry_capacity(DEFAULT_CARRY_CAPACITY)
+    }
+
+    pub fn with_carry_capacity(carry_capacity: usize) -> Self {
         Self {
-            deadends: HashSet::new(),
+            deadends: Memo::new(carry_capacity),
         }
     }
 
     /// Forgets the deadends memoized so far.
     pub fn clear(&mut self) {
         self.deadends.clear();
+    }
+
+    /// See [`Memo::advance_generation`]. `solve` recurses into itself, so it
+    /// cannot do this on its own: a caller driving the solver over a series
+    /// of positions calls it once per question.
+    pub fn advance_generation(&mut self) {
+        self.deadends.advance_generation();
+    }
+
+    pub fn deadends_len(&self) -> usize {
+        self.deadends.len()
     }
 
     /// Searches for a VCF. `None` means either "no VCF within `state.limit`"
@@ -33,13 +55,13 @@ impl DFSSolver {
         }
 
         let hash = state.zobrist_hash();
-        if self.deadends.contains(&hash) {
+        if self.deadends.contains(hash) {
             return None;
         }
         let result = self.solve_move_pairs(state, budget);
         // A search that gave up proves nothing, so it must not be memoized.
         if result.is_none() && !budget.is_exhausted() {
-            self.deadends.insert(hash);
+            self.deadends.insert(hash, ());
         }
         result
     }

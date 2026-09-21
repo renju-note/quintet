@@ -896,6 +896,118 @@ mod tests {
         assert_eq!(third, first);
     }
 
+    /// Both attackers on one solver. Every memo is keyed by the attacker, so
+    /// what the Black searches leave behind must not reach the White ones.
+    #[test]
+    fn test_reused_solver_both_attackers() {
+        let board = vct_board();
+        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+
+        for round in 0..3 {
+            for attacker in [Black, White] {
+                let state = &mut VCTState::init(&board, attacker, 4);
+                let got = reused.solve(state, budget).is_some();
+
+                let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+                let state = &mut VCTState::init(&board, attacker, 4);
+                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+
+                assert_eq!(got, want, "round {round}, {attacker:?} attacking");
+            }
+        }
+        // Black wins here and White does not, so the two answers differ and a
+        // key that ignored the attacker would have had to get one of them
+        // wrong.
+        let state = &mut VCTState::init(&board, Black, 4);
+        assert!(reused.solve(state, budget).is_some());
+        let state = &mut VCTState::init(&board, White, 4);
+        assert!(reused.solve(state, budget).is_none());
+    }
+
+    /// The reuse this is for: one move's worth of questions — does Black have
+    /// a VCT, and does each candidate defence stop it — asked of a single
+    /// solver. Every answer has to be the one a fresh solver gives.
+    #[test]
+    fn test_reused_solver_matches_fresh_over_a_move() {
+        let board = vct_board();
+        let limits = SolveLimits::new(4).with_threat_limit(1);
+
+        let threat = solve_limited(VCTDFPNS, &board, Black, limits)
+            .into_mate()
+            .expect("Black has a VCT");
+        let defences = VCTState::init(&board, White, 4).threat_defences(&threat);
+
+        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+        let mut seen = std::collections::HashSet::new();
+        let mut checked = 0;
+        for p in defences {
+            if !seen.insert(p) || board.forbidden(p).is_some() {
+                continue;
+            }
+            let next = board.put(White, p);
+
+            let state = &mut VCTState::init(&next, Black, 4);
+            let got = reused.solve(state, budget).is_some();
+
+            let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+            let state = &mut VCTState::init(&next, Black, 4);
+            let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+
+            assert_eq!(got, want, "after White {p}");
+            checked += 1;
+        }
+        assert!(checked > 1, "expected several defences to check");
+    }
+
+    /// A reused solver must not grow with the number of searches. One search
+    /// is held down by its node budget; a series of them is held down by the
+    /// generations, which settle the memos at about two searches' worth.
+    #[test]
+    fn test_reused_solver_memo_stays_bounded() {
+        let board = vct_board();
+        let budget = &mut NodeBudget::unlimited();
+        let positions: Vec<_> = board
+            .empties()
+            .take(24)
+            .enumerate()
+            .filter(|(_, p)| board.forbidden(*p).is_none())
+            .map(|(i, p)| board.put(if i % 2 == 0 { White } else { Black }, p))
+            .collect();
+        assert!(positions.len() > 20);
+
+        // Small enough that every search drops what the ones before it left.
+        let mut solver = DFPNSVCTSolver::with_carry_capacity(1, DEFAULT_DEFENDER_VCF_DEPTH, 0);
+        let mut early = 0;
+        let mut total_alone = 0;
+        for (i, b) in positions.iter().enumerate() {
+            solver.solve(&mut VCTState::init(b, Black, 4), budget);
+            if i == 3 {
+                early = solver.memo_len();
+            }
+            let mut alone = DFPNSVCTSolver::with_carry_capacity(1, DEFAULT_DEFENDER_VCF_DEPTH, 0);
+            alone.solve(
+                &mut VCTState::init(b, Black, 4),
+                &mut NodeBudget::unlimited(),
+            );
+            total_alone += alone.memo_len();
+        }
+        let late = solver.memo_len();
+
+        assert!(early > 0, "nothing was memoized");
+        // Flat, not cumulative: keeping every search would reach `total_alone`.
+        assert!(
+            late < 2 * early,
+            "grew from {early} after 4 searches to {late} after {}",
+            positions.len()
+        );
+        assert!(
+            late * 4 < total_alone,
+            "{late} is not far enough below the {total_alone} of keeping everything"
+        );
+    }
+
     /// The defender's side of a threat: find the attacker's mate, ask which
     /// moves are worth trying against it, and check that one of them really
     /// makes it go away.

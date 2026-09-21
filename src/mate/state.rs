@@ -44,7 +44,15 @@ pub trait State {
         self.game().turn == self.attacker()
     }
 
+    /// The key every memo in the solvers is stored under: the position, the
+    /// turn and the remaining limit (all from [`Game::zobrist_hash`]), plus
+    /// the attacker.
+    ///
+    /// The attacker is what lets one solver answer questions about both
+    /// sides without forgetting what it learned in between: the same
+    /// position is a win for one of them and not the other, so an entry made
+    /// while attacking as Black must not be read while attacking as White.
     fn zobrist_hash(&self) -> u64 {
-        self.game().zobrist_hash(self.limit())
+        apply_attacker(self.game().zobrist_hash(self.limit()), self.attacker())
     }
 }
