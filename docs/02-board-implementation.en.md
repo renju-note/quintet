@@ -193,6 +193,10 @@ Main queries:
 - `structures_on(p, r, kind)` — only the structures whose 5-window contains
   point `p` (just the four lines through `p` are examined). This is the hot
   path for "what does playing `p` create?".
+- `line(d, i)` / `line_on(p, d)` — the stored `Line` itself, `None` for the
+  short diagonals. `lines()` and `lines_on(p)` iterate them as
+  `(Direction, i, &Line)`. Consumers that keep their own per-point tables can
+  read these lines instead of maintaining a second copy of all 72.
 - `potentials(...)` / `potentials_along(...)` — see §7.
 
 Parsing from text (`FromStr for Square`, reused by `Board`) accepts three

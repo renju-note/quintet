@@ -139,6 +139,7 @@ pub struct Square {
 - `stone(p)`、`stones(player)`、`empties()`、`neighbors(p, distance, only_empty)` — 石や空点の取得。
 - `structures(r, kind)` — 盤全体にあるプレイヤー `r` の種別 `kind` の `Structure` をすべて返す。
 - `structures_on(p, r, kind)` — 5 マス窓が点 `p` を含む構造だけを返す（`p` を通る 4 本の線のみ調べる）。「`p` に打つと何ができるか」を調べるホットパス。
+- `line(d, i)` / `line_on(p, d)` — 格納されている `Line` そのもの。短い斜めでは `None`。`lines()` と `lines_on(p)` は `(Direction, i, &Line)` として列挙する。点ごとの表を自前で持つ利用側が、72 本の線をもう 1 組持たずに済むようにするためのもの。
 - `potentials(...)` / `potentials_along(...)` — §7 参照。
 
 文字列からのパース（`FromStr for Square`、`Board` でも利用）は次の 3 形式を受け付ける:

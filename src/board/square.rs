@@ -139,6 +139,34 @@ impl Square {
         })
     }
 
+    /// The `i`-th line in direction `d`, or `None` for the diagonals shorter
+    /// than five, which are not stored.
+    pub fn line(&self, d: Direction, i: u8) -> Option<&Line> {
+        let index = Index::new(d, i, 0);
+        Self::line_idx(index).map(|k| match d {
+            Vertical => &self.vlines[k],
+            Horizontal => &self.hlines[k],
+            Ascending => &self.alines[k],
+            Descending => &self.dlines[k],
+        })
+    }
+
+    /// The line through `p` in direction `d`. `p` itself is at cell
+    /// `p.to_index(d).j` of it.
+    pub fn line_on(&self, p: Point, d: Direction) -> Option<&Line> {
+        self.line(d, p.to_index(d).i)
+    }
+
+    /// Every stored line, as `(direction, i, line)`.
+    pub fn lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
+        self.iter_lines()
+    }
+
+    /// The (at most four) stored lines through `p`.
+    pub fn lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
+        self.iter_lines_on(p)
+    }
+
     pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
         let (sk, n, exact) = k.to_sequence(r);
         self.iter_lines()
@@ -636,6 +664,50 @@ mod tests {
             [Point(7, 7), Point(9, 8)]
         );
         assert_eq!(square.stones(White).collect::<Vec<_>>(), [Point(8, 8)]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lines() -> Result<(), String> {
+        let square = "H8,I9,J9".parse::<Square>()?;
+        let directions = [Vertical, Horizontal, Ascending, Descending];
+
+        // A stone shows up at cell `to_index(d).j` of line `to_index(d).i`.
+        for (p, r) in [
+            (Point(7, 7), Black),
+            (Point(8, 8), White),
+            (Point(9, 8), Black),
+        ] {
+            for d in directions {
+                let index = p.to_index(d);
+                let line = square.line(d, index.i).expect("stored line");
+                assert_eq!(line.stone(index.j), Some(r), "{p} {d:?}");
+                assert_eq!(square.line_on(p, d), Some(line));
+            }
+        }
+
+        // The diagonals shorter than a five are not stored.
+        assert!(square.line(Ascending, D_LINE_OMIT).is_some());
+        assert!(square.line(Ascending, D_LINE_OMIT - 1).is_none());
+        assert!(square.line(Descending, D_LINE_OMIT - 1).is_none());
+        assert!(square.line_on(Point(0, 0), Descending).is_none());
+
+        // `lines` and `lines_on` agree with `line`.
+        assert_eq!(
+            square.lines().count(),
+            (RANGE as usize + D_LINE_NUM as usize) * 2
+        );
+        for (d, i, line) in square.lines() {
+            assert_eq!(square.line(d, i), Some(line));
+        }
+        assert_eq!(square.lines_on(Point(7, 7)).count(), 4);
+        assert_eq!(square.lines_on(Point(0, 0)).count(), 3);
+        for (d, i, line) in square.lines_on(Point(7, 7)) {
+            let index = Point(7, 7).to_index(d);
+            assert_eq!(i, index.i);
+            assert_eq!(line.stone(index.j), Some(Black));
+        }
+
         Ok(())
     }
 
