@@ -36,35 +36,50 @@ impl VCFState {
         self.game
             .board()
             .structures_on(forced_move, self.game.turn, Sword)
-            .flat_map(Self::sword_eyes_pairs)
-            .find(|&(e1, _)| e1 == forced_move)
+            .find_map(|sword| match Self::sword_eyes(&sword) {
+                (e1, e2) if e1 == forced_move => Some((e1, e2)),
+                (e1, e2) if e2 == forced_move => Some((e2, e1)),
+                _ => None,
+            })
     }
 
     pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
+        let mut result = vec![];
         if let Some(last2_move) = self.game.last2_move() {
-            self.game
+            let swords = self
+                .game
                 .board()
-                .structures_on(last2_move, self.game.turn, Sword)
-                .flat_map(Self::sword_eyes_pairs)
-                .collect()
-        } else {
-            vec![]
+                .structures_on(last2_move, self.game.turn, Sword);
+            Self::push_eyes_pairs(swords, &mut result);
         }
+        result
     }
 
     pub fn move_pairs(&self) -> Vec<(Point, Point)> {
-        self.game
-            .board()
-            .structures(self.game.turn, Sword)
-            .flat_map(Self::sword_eyes_pairs)
-            .collect()
+        let mut result = vec![];
+        let swords = self.game.board().structures(self.game.turn, Sword);
+        Self::push_eyes_pairs(swords, &mut result);
+        result
     }
 
-    fn sword_eyes_pairs(sword: Structure) -> [(Point, Point); 2] {
+    /// Both ways round for each sword, written as a loop rather than
+    /// `flat_map(..).collect()`: this runs at every node, and driving the
+    /// nested iterator costs more than the two pushes it ends in.
+    fn push_eyes_pairs(swords: impl Iterator<Item = Structure>, out: &mut Vec<(Point, Point)>) {
+        for sword in swords {
+            let (e1, e2) = Self::sword_eyes(&sword);
+            out.push((e1, e2));
+            out.push((e2, e1));
+        }
+    }
+
+    fn sword_eyes(sword: &Structure) -> (Point, Point) {
         let mut eyes = sword.eyes();
+        // A `Sword` is three stones in five cells with no opponent stone, so
+        // it has exactly two eyes.
         let e1 = eyes.next().unwrap();
         let e2 = eyes.next().unwrap();
-        [(e1, e2), (e2, e1)]
+        (e1, e2)
     }
 }
 
