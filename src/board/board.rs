@@ -35,7 +35,14 @@ impl Board {
     }
 
     pub fn put_mut(&mut self, r: Player, p: Point) {
-        self.remove_mut(p);
+        // Only the hash has to be told about a stone that was already here:
+        // `Square::put_mut` sets this player's bit and clears the other's, so
+        // it overwrites whatever was there by itself. Taking the stone off
+        // first meant writing all four lines twice, at every move a search
+        // makes.
+        if let Some(previous) = self.stone(p) {
+            self.update_z_hash(previous, p);
+        }
         self.square.put_mut(r, p);
         self.update_z_hash(r, p);
     }

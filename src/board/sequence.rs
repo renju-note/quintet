@@ -85,52 +85,54 @@ impl Sequences {
 impl Iterator for Sequences {
     type Item = (u8, Sequence);
 
+    // Windows that do not match are stepped over in this loop rather than by
+    // calling `next` again: the recursion was real, not a tail call the
+    // compiler folded away, and a skipped window is the common case.
     fn next(&mut self) -> Option<Self::Item> {
-        if self.i > self.limit {
-            return None;
-        }
-        let i = self.i;
-        self.i += 1;
+        while self.i <= self.limit {
+            let i = self.i;
+            self.i += 1;
 
-        let op_ = (self.op >> i) as u8;
-        let my_ = (self.my >> i) as u8;
+            let op_ = (self.op >> i) as u8;
+            let my_ = (self.my >> i) as u8;
 
-        if op_ & TARGET_MASK != 0b0 || self.exact && my_ & MARGIN_MASK != 0b0 {
-            if self.k != Single {
-                self.prev_ok = false;
+            if op_ & TARGET_MASK != 0b0 || self.exact && my_ & MARGIN_MASK != 0b0 {
+                if self.k != Single {
+                    self.prev_ok = false;
+                }
+                continue;
             }
-            return self.next();
-        }
 
-        let my = my_ & TARGET_MASK;
-        let ok = my.count_ones() as u8 == self.n;
-        match self.k {
-            Single => {
-                if ok {
-                    return Some((i, Sequence(my >> 1)));
+            let my = my_ & TARGET_MASK;
+            let ok = my.count_ones() as u8 == self.n;
+            match self.k {
+                Single => {
+                    if ok {
+                        return Some((i, Sequence(my >> 1)));
+                    }
+                }
+                Double => {
+                    let prev_ok = self.prev_ok;
+                    self.prev_ok = ok;
+                    if prev_ok && ok {
+                        return Some((i, Sequence(my >> 1)));
+                    }
+                }
+                Open => {
+                    let prev_ok = self.prev_ok;
+                    self.prev_ok = (my & REST_MASK).count_ones() as u8 == self.n;
+                    if ok && prev_ok && (my & HEAD_MASK).count_ones() as u8 == self.n {
+                        // discard non-eye
+                        // I know '& HEAD_MASK' is not necessary,
+                        // but I found removing it makes VCF solver slower for 5-10%.
+                        // It'a mistery...
+                        return Some((i, Sequence((my & HEAD_MASK | LAST_MASK) >> 1)));
+                    }
                 }
             }
-            Double => {
-                let prev_ok = self.prev_ok;
-                self.prev_ok = ok;
-                if prev_ok && ok {
-                    return Some((i, Sequence(my >> 1)));
-                }
-            }
-            Open => {
-                let prev_ok = self.prev_ok;
-                self.prev_ok = (my & REST_MASK).count_ones() as u8 == self.n;
-                if ok && prev_ok && (my & HEAD_MASK).count_ones() as u8 == self.n {
-                    // discard non-eye
-                    // I know '& HEAD_MASK' is not necessary,
-                    // but I found removing it makes VCF solver slower for 5-10%.
-                    // It'a mistery...
-                    return Some((i, Sequence((my & HEAD_MASK | LAST_MASK) >> 1)));
-                }
-            }
         }
 
-        self.next()
+        None
     }
 }
 
