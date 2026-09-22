@@ -18,7 +18,7 @@ pub struct Selection {
 
 /// Choosing the most-proving child. Expands nothing; only reads the tables.
 impl<P: ThresholdPolicy> VCTSolver<P> {
-    pub fn select_attack(&mut self, state: &mut VCTState, attacks: &[Point]) -> Selection {
+    pub fn select_attack(&self, state: &mut VCTState, attacks: &[Point]) -> Selection {
         let limit = state.limit;
         let mut best: Option<Point> = Some(attacks[0]);
         let mut node = Node::disproven(limit);
@@ -49,7 +49,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
     }
 
-    pub fn select_defence(&mut self, state: &mut VCTState, defences: &[Point]) -> Selection {
+    pub fn select_defence(&self, state: &mut VCTState, defences: &[Point]) -> Selection {
         let limit = state.limit;
         let mut best: Option<Point> = Some(defences[0]);
         let mut node = Node::proven(limit - 1);

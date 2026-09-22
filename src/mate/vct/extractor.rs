@@ -36,7 +36,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             }
         }
 
-        self.solve_attacker_vcf(state, budget)
+        self.attacker_vcf.vcf(state, budget)
     }
 
     fn extract_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
@@ -49,7 +49,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             };
         }
 
-        let threat = self.solve_attacker_threat(state, budget).unwrap();
+        let threat = self.attacker_vcf.threat(state, budget).unwrap();
         let defences = state.sort_by_potential(state.threat_defences(&threat));
         let mut min_limit = u8::MAX;
         let mut best = None;

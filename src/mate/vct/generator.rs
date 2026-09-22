@@ -41,12 +41,12 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
     fn compute_attacks(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
         // This is not necessary but improves speed
-        if self.solve_attacker_vcf(state, budget).is_some() {
+        if self.attacker_vcf.vcf(state, budget).is_some() {
             return Terminal(Node::proven(state.limit));
         }
 
         // This is not necessary but narrows candidates
-        let maybe_threat = self.solve_defender_threat(state, budget);
+        let maybe_threat = self.defender_vcf.threat(state, budget);
         let maybe_threat_defences = maybe_threat.map(|t| state.threat_defences(&t));
         let mut result = state.sorted_potentials(3, maybe_threat_defences);
         result.retain(|&x| !state.is_forbidden_move(x.0));
@@ -78,13 +78,13 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     }
 
     fn compute_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
-        let maybe_threat = self.solve_attacker_threat(state, budget);
+        let maybe_threat = self.attacker_vcf.threat(state, budget);
         if maybe_threat.is_none() {
             return Terminal(Node::disproven(state.limit));
         }
 
         // This is not necessary but improves speed
-        if self.solve_defender_vcf(state, budget).is_some() {
+        if self.defender_vcf.vcf(state, budget).is_some() {
             return Terminal(Node::disproven(state.limit));
         }
 

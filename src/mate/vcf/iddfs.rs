@@ -2,7 +2,15 @@ use super::dfs::DFSSolver;
 use super::state::VCFState;
 use crate::mate::budget::NodeBudget;
 use crate::mate::mate::*;
+use crate::mate::solver::Solver;
 
+/// Iterative-deepening VCF search: a [`DFSSolver`] run at each of `limits`
+/// in turn, then at the state's own limit.
+///
+/// Shallow passes find short VCFs without exploring the whole tree, and
+/// what they memoize is keyed by the limit, so the deeper passes lose
+/// nothing to them. The VCT solver uses `limits = [1]`: "check for a
+/// one-move win first".
 pub struct IDDFSSolver {
     solver: DFSSolver,
     limits: Vec<u8>,
@@ -17,7 +25,7 @@ impl IDDFSSolver {
     }
 
     /// Like [`Self::init`], but bounding what the deadend memo carries from
-    /// one search into the next (see [`DFSSolver::advance_generation`]).
+    /// one search into the next (see [`Solver::advance_generation`]).
     pub fn with_carry_capacity(limits: Vec<u8>, carry_capacity: usize) -> Self {
         Self {
             solver: DFSSolver::with_carry_capacity(carry_capacity),
@@ -25,39 +33,45 @@ impl IDDFSSolver {
         }
     }
 
-    /// Forgets the deadends memoized so far.
-    pub fn clear(&mut self) {
-        self.solver.clear();
-    }
-
-    /// See [`DFSSolver::advance_generation`]. `solve` is called many times
-    /// within one VCT search, so this is not done per call: the outermost
-    /// caller decides where one question ends and the next begins.
-    pub fn advance_generation(&mut self) {
-        self.solver.advance_generation();
-    }
-
-    pub fn deadends_len(&self) -> usize {
-        self.solver.deadends_len()
-    }
-
-    /// Searches for a VCF, deepening the limit step by step. `None` means
-    /// either "no VCF within `state.limit`" or "gave up"; the two are told
-    /// apart by `budget.is_exhausted()`.
-    pub fn solve(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
+    /// The search itself, deepening the limit step by step. Unlike
+    /// [`Solver::solve`] it opens no generation: the VCT solver calls it many
+    /// times within one question, and the outermost caller decides where one
+    /// question ends and the next begins.
+    pub fn search(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
         let max_limit = state.limit;
         for &limit in &self.limits {
             if limit >= max_limit {
                 break;
             }
             state.limit = limit;
-            let result = self.solver.solve(state, budget);
+            let result = self.solver.search(state, budget);
             if result.is_some() || budget.is_exhausted() {
                 state.limit = max_limit;
                 return result;
             }
         }
         state.limit = max_limit;
-        self.solver.solve(state, budget)
+        self.solver.search(state, budget)
+    }
+}
+
+impl Solver for IDDFSSolver {
+    type State = VCFState;
+
+    fn solve(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
+        self.advance_generation();
+        self.search(state, budget)
+    }
+
+    fn clear(&mut self) {
+        self.solver.clear();
+    }
+
+    fn advance_generation(&mut self) {
+        self.solver.advance_generation();
+    }
+
+    fn memo_len(&self) -> usize {
+        self.solver.memo_len()
     }
 }

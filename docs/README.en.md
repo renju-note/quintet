@@ -12,17 +12,21 @@ Japanese index: [README.ja.md](README.ja.md).
 | --- | --- |
 | [01-renju-rules.en.md](01-renju-rules.en.md) / [ja](01-renju-rules.ja.md) | The RIF International Rules of Renju (board, terminology, win conditions, forbidden moves, opening rules) restated in Markdown. |
 | [02-board-implementation.en.md](02-board-implementation.en.md) / [ja](02-board-implementation.ja.md) | How `src/board/` represents the board and implements the rules above: line encoding, sequence/structure detection, forbidden-move detection, hashing. |
-| [03-solver-overview.en.md](03-solver-overview.en.md) / [ja](03-solver-overview.ja.md) | Overview of `src/mate/`: `solve` and its parameters (`limit`, `threat_limit`, `SolveMode`), the shared search state (`Game`, `State`, `check_event`), and the VCF depth-first search. |
-| [04-solver-algorithm-vct.en.md](04-solver-algorithm-vct.en.md) / [ja](04-solver-algorithm-vct.ja.md) | The VCT solvers in `src/mate/vct/`: threats, move generation, proof numbers, the DFS / PNS / df-pn traversals, path extraction, and the `PotentialField` used for move ordering. |
+| [03-solver-api.en.md](03-solver-api.en.md) / [ja](03-solver-api.ja.md) | Using the solvers: `solve` / `solve_limited`, `SolveMode`, `SolveLimits`, `SolveResult`, `NodeBudget`, keeping a solver across questions with the `Solver` trait, `Mate` / `End`. |
+| [04-solver-framework.en.md](04-solver-framework.en.md) / [ja](04-solver-framework.ja.md) | Inside `src/mate/`: the layout and the pieces every solver shares — `Game` and `check_event`, `State` and `Key`, `Memo` generations, the `Solver` trait, node budgets. |
+| [05-solver-vcf.en.md](05-solver-vcf.en.md) / [ja](05-solver-vcf.ja.md) | The VCF search in `src/mate/vcf/`: four-making move pairs, `DFSSolver` and its deadend memo, `IDDFSSolver`, a worked example. |
+| [06-solver-vct.en.md](06-solver-vct.en.md) / [ja](06-solver-vct.ja.md) | The VCT search in `src/mate/vct/`: threats, nested VCF searches, move generation, proof numbers, the DFS / PNS / df-pn threshold policies, path extraction, a worked example, and the `PotentialField` used for move ordering. |
 
 Where to start:
 
 - New to Renju? Read 01 first; the solver documents assume its vocabulary
   (four, straight four, three, forbidden move).
 - Changing rule logic in `src/board/` (structures, forbidden moves)? Read 02.
-- Changing the search in `src/mate/` or `src/analysis/`? Read 03, then 04.
+- Calling the solvers from the app, the CLI or your own Rust? Read 03.
+- Changing the search in `src/mate/` or `src/analysis/`? Read 04, then 05
+  and 06.
 - Looking for one specific thing? Each document ends with a cheat sheet that
-  maps questions to identifiers (02 §9, 03 §4, 04 §10).
+  maps questions to identifiers (02 §9, 03 §7, 04 §7, 05 §5, 06 §9).
 
 Conventions for adding documents:
 
