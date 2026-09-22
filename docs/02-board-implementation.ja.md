@@ -139,6 +139,7 @@ pub struct Square {
 - `stone(p)`、`stones(player)`、`empties()`、`neighbors(p, distance, only_empty)` — 石や空点の取得。
 - `structures(r, kind)` — 盤全体にあるプレイヤー `r` の種別 `kind` の `Structure` をすべて返す。
 - `structures_on(p, r, kind)` — 5 マス窓が点 `p` を含む構造だけを返す（`p` を通る 4 本の線のみ調べる）。「`p` に打つと何ができるか」を調べるホットパス。
+- `structures_between(d, i, from, to, r, kind)` — 線 `(d, i)` のうち、5 マス窓の *開始位置* が `from..=to` にある構造だけを返す。`Sequences` が 1 つの窓を判定するのに読むのは、その 5 マスと両隣のマージン 2 マスだけなので、マス `j` の石が変えうる窓は `j - 5 ..= j + 1` から始まるものに限られる。点ごとの表を自前で持つ利用側が、一手ごとにその表を更新するために使うクエリであり、`potentials` に対する `potentials_along` に当たる。`structures` と共通の `potential_cap` による事前フィルタは、その種別の構造を 1 つも持たない線しか落とさないので、`from..=to` の外の窓はそのままで正しい。
 - `line(d, i)` / `line_on(p, d)` — 格納されている `Line` そのもの。短い斜めでは `None`。`lines()` と `lines_on(p)` は `(Direction, i, &Line)` として列挙する。点ごとの表を自前で持つ利用側が、72 本の線をもう 1 組持たずに済むようにするためのもの。
 - `potentials(...)` / `potentials_along(...)` — §7 参照。
 

@@ -49,8 +49,13 @@ pub struct Sequences {
     k: SequenceKind,
     n: u8,
     exact: bool,
+    /// The last window to look at.
     limit: u8,
+    /// The window to look at next.
     i: u8,
+    /// The first window to report. Windows before it are still walked, so
+    /// that `prev_ok` is what it would have been, but not yielded.
+    first: u8,
     prev_ok: bool,
 }
 
@@ -64,11 +69,13 @@ impl Sequences {
             exact,
             limit: size - VICTORY,
             i: 0,
+            first: 0,
             prev_ok: false,
         }
     }
 
     pub fn new_on(i: u8, size: u8, my: u16, op: u16, k: SequenceKind, n: u8, exact: bool) -> Self {
+        let start = i.max(VICTORY - 1) - (VICTORY - 1);
         Self {
             my: my << 1,
             op: op << 1,
@@ -76,7 +83,37 @@ impl Sequences {
             n,
             exact,
             limit: i.min(size - VICTORY),
-            i: i.max(VICTORY - 1) - (VICTORY - 1),
+            i: start,
+            first: start,
+            prev_ok: false,
+        }
+    }
+
+    /// The windows starting in `from..=to`, clamped to the line.
+    ///
+    /// Unlike [`Self::new_on`] this primes `prev_ok` off the window before
+    /// `from`, so `Double` and `Open` come out the same as they do from
+    /// [`Self::new`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_between(
+        from: u8,
+        to: u8,
+        size: u8,
+        my: u16,
+        op: u16,
+        k: SequenceKind,
+        n: u8,
+        exact: bool,
+    ) -> Self {
+        Self {
+            my: my << 1,
+            op: op << 1,
+            k,
+            n,
+            exact,
+            limit: to.min(size - VICTORY),
+            i: from.saturating_sub(1),
+            first: from,
             prev_ok: false,
         }
     }
@@ -104,23 +141,24 @@ impl Iterator for Sequences {
 
         let my = my_ & TARGET_MASK;
         let ok = my.count_ones() as u8 == self.n;
+        let reported = i >= self.first;
         match self.k {
             Single => {
-                if ok {
+                if ok && reported {
                     return Some((i, Sequence(my >> 1)));
                 }
             }
             Double => {
                 let prev_ok = self.prev_ok;
                 self.prev_ok = ok;
-                if prev_ok && ok {
+                if prev_ok && ok && reported {
                     return Some((i, Sequence(my >> 1)));
                 }
             }
             Open => {
                 let prev_ok = self.prev_ok;
                 self.prev_ok = (my & REST_MASK).count_ones() as u8 == self.n;
-                if ok && prev_ok && (my & HEAD_MASK).count_ones() as u8 == self.n {
+                if ok && prev_ok && reported && (my & HEAD_MASK).count_ones() as u8 == self.n {
                     // discard non-eye
                     // I know '& HEAD_MASK' is not necessary,
                     // but I found removing it makes VCF solver slower for 5-10%.

@@ -10,18 +10,19 @@ src/mate/vcf/
 ├── state.rs            VCFState: Game + 攻め方 + limit。四を作る手のペア         (§1)
 ├── dfs.rs              DFSSolver: 深さ優先探索と行き止まりメモ                  (§2)
 └── iddfs.rs            IDDFSSolver: limit を増やしながら DFSSolver を走らせる    (§3)
+src/analysis/sword.rs   SwordEyeCache: 攻め方が四を打てる点                       (§1.1)
 ```
 
 ## 1. `VCFState`: 四を作る手
 
 ```rust
-pub struct VCFState { game: Game, pub attacker: Player, pub limit: u8 }
+pub struct VCFState { game: Game, pub attacker: Player, pub limit: u8, sword_eyes: SwordEyeCache }
 ```
 
 - `VCFState::init(&board, attacker, limit)`: 攻め方の手番から始める。
 - `VCFState::new(game, limit)`: 既存の `Game` から作る。攻め方は `game` の手番側。追い詰めソルバーが内部の四追い状態を作るときに使う。
 
-四は **`Sword`**（5 マスの窓に自分の石 3 つと空の**眼** 2 つ）に打つことで作る。片方の眼に打つと、残る勝ち点がもう片方の眼の `Four` ができる。1 つの剣から `(攻め, 受け)` ペアが 2 つ得られる（`sword_eyes_pairs`）。
+四は **`Sword`**（5 マスの窓に自分の石 3 つと空の**眼** 2 つ）に打つことで作る。片方の眼に打つと、残る勝ち点がもう片方の眼の `Four` ができる。1 つの剣から `(攻め, 受け)` ペアが 2 つ得られる。
 
 ```
 H 列:  H7 = x（白）、H8 H9 H10 = o（黒）、H11 H12 = 空
@@ -39,6 +40,35 @@ H 列:  H7 = x（白）、H8 H9 H10 = o（黒）、H11 H12 = 空
 | `move_pairs()` | 手番側のすべての剣 | 次に試す |
 
 止めの点は剣から取り、攻め手を打った後の盤面から求め直さない。攻め手がたまたま四を 2 つ作った場合は、止めを打つ前に受け方の `check_event` が `Defeated(Fours(..))` を返す。したがって保持している止めが使われるのは四が 1 つのときだけ。
+
+### 1.1 `SwordEyeCache`（`src/analysis/sword.rs`）
+
+3 つの生成器はいずれも盤を直接読まない。読むのは状態が持つ攻め方用の `SwordEyeCache`、`sword_eyes` である。これは四についての `PotentialField`（06 §8）であり、剣を線ごと・5 マス窓ごとに保持して、`State::after_play` / `after_undo` で着手を追う。
+
+攻め方のぶんだけで足りる。生成器が呼ばれるのは必ず攻め方の手番のノード（`DFSSolver::search` は攻め方の手番で再帰する）であり、`VCFState` の攻め方は最後まで変わらないためである。
+
+```
+play_along(p)                  # after_play も after_undo も同じ
+    p を通る 4 本の線それぞれについて:
+        stale_windows[線] |= windows_around(p のマス)   # or 4 回。盤は読まない
+
+extend_eye_pairs(board, out)   # extend_eye_pairs_on、eye_partner も同様
+    refresh(board) の後、ビットマップから剣を取り出す
+
+refresh(board)
+    まだ一度も読んでいなければ: 盤全体を 1 回だけ読む
+    そうでなければ、印の付いた線の、印の付いた窓だけ:
+        structures_between(d, i, from, to, 攻め方, Sword)
+```
+
+毎回盤に問い合わせるより安いのは、次の 2 点による。
+
+- **着手は印を付けるだけで、盤を読むのは次の問い合わせのとき。** 探索が打つ手は、問い合わせる手よりはるかに多い。`limit == 0` から下のすべてと、呼び出し側が作って何も訊かずに捨てる状態がそれで、これらは or 4 回しかかからない。同じ理由で盤全体を走査するのはコンストラクタではなく最初の問い合わせである。追い詰めソルバーはほぼ全ノードで `VCFState` を作る（`vcf_state` / `threat_state`、06 §2）が、その大半は何も訊かれない。
+- **変わりうる窓だけを読み直す。** `Sequences` が 1 つの窓を判定するのに使うのは、その 5 マスと両隣のマージン 2 マスだけなので（02 §4）、マス `j` の石が変えうるのは `j - 5 ..= j + 1` から始まる窓に限られる。`Board::structures_between`（02 §5）がちょうどそのクエリである。
+
+手を戻すときの呼び出しは、打つときとまったく同じである。どちらも同じ窓に印を付け、答えは改めて盤から読み直される。探索が絶え間なく繰り返す着手と取り消しに対してキャッシュが嘘をつかないのはこのためで、歩調を合わせるべき undo スタックを持たずに済む。
+
+ペアが出てくる順序は `Board::structures` と `structures_on` が剣を報告する順序（`Square` の線順、線の中では窓順）と同じなので、探索が手を試す順序は盤を直接読んでいたときとまったく変わらない。
 
 ## 2. `DFSSolver`
 
@@ -133,6 +163,7 @@ search_defence(state, defence):                # 受け方の手番
 | 知りたいこと | 見る場所 |
 | --- | --- |
 | 四を作る手が生成されない | `VCFState::move_pairs` は `Sword` の眼しか見ない。黒では `exact` の余白判定が長連になる四を除く |
+| 生成された手が古い | `SwordEyeCache`（§1.1）。`after_play`/`after_undo` はどちらの手番の着手についても *必ず* `play_along` を呼ぶ必要がある。呼ばないと、その線だけ盤と食い違った答えを返し続ける |
 | ノリ手の扱いがおかしい | 攻め方のノードの `Game::check_event` → `Forced(p)`、次に `VCFState::forced_move_pair` |
 | どの四が先に試されるか | `neighbor_move_pairs`（攻め方の直前の石を通るもの）→ `move_pairs` |
 | メモ | `DFSSolver::deadends`: 四追いのない最大 limit。キーは `Key::position`。予算切れ後は書かない |

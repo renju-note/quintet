@@ -193,6 +193,15 @@ Main queries:
 - `structures_on(p, r, kind)` — only the structures whose 5-window contains
   point `p` (just the four lines through `p` are examined). This is the hot
   path for "what does playing `p` create?".
+- `structures_between(d, i, from, to, r, kind)` — only the structures on line
+  `(d, i)` whose 5-window *starts* in `from..=to`. `Sequences` reads a window
+  from its own five cells plus the two margins next to them, so a stone on
+  cell `j` can only have changed the windows starting in `j - 5 ..= j + 1`:
+  this is the query a consumer that keeps its own per-point tables refreshes
+  them with after a move, the way `potentials_along` is for potentials. The
+  `potential_cap` prefilter it shares with `structures` only ever rejects a
+  line that holds no such structure at all, so the windows outside
+  `from..=to` stay as they were.
 - `line(d, i)` / `line_on(p, d)` — the stored `Line` itself, `None` for the
   short diagonals. `lines()` and `lines_on(p)` iterate them as
   `(Direction, i, &Line)`. Consumers that keep their own per-point tables can

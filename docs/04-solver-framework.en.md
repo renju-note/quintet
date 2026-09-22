@@ -25,6 +25,7 @@ src/mate/
 ├── vcf.rs, vcf/     the VCF solver                    (05)
 └── vct.rs, vct/     the VCT solver                    (06)
 src/analysis/field.rs   PotentialField: move ordering for VCT (06, §8)
+src/analysis/sword.rs   SwordEyeCache: four-making moves for VCF (05, §1.1)
 ```
 
 How they fit together, from the bottom up:

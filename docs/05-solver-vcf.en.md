@@ -16,12 +16,13 @@ src/mate/vcf/
 ├── state.rs            VCFState: Game + attacker + limit; four-making move pairs   (§1)
 ├── dfs.rs              DFSSolver: the depth-first search and its deadend memo      (§2)
 └── iddfs.rs            IDDFSSolver: DFSSolver at increasing limits                (§3)
+src/analysis/sword.rs   SwordEyeCache: where the attacker's fours are               (§1.1)
 ```
 
 ## 1. `VCFState`: where the fours are
 
 ```rust
-pub struct VCFState { game: Game, pub attacker: Player, pub limit: u8 }
+pub struct VCFState { game: Game, pub attacker: Player, pub limit: u8, sword_eyes: SwordEyeCache }
 ```
 
 `VCFState::init(&board, attacker, limit)` starts with the attacker to move;
@@ -32,7 +33,7 @@ in `game`).
 A four is made by playing into a **`Sword`**: three own stones in a
 five-window with two empty *eyes*. Playing one eye makes a `Four` whose
 remaining winning point is the other eye, so each sword yields two
-`(attack, defence)` pairs (`sword_eyes_pairs`):
+`(attack, defence)` pairs:
 
 ```
 column H:  H7 = x (White),  H8 H9 H10 = o (Black),  H11 H12 = empty
@@ -53,6 +54,57 @@ Note that the block is taken from the sword, not re-derived from the board
 after the attack. If the attack happens to make *two* fours, the defender's
 `check_event` reports `Defeated(Fours(..))` before the stored block is ever
 played, so the stored eye only matters for a single four.
+
+### 1.1 `SwordEyeCache` (`src/analysis/sword.rs`)
+
+None of the three reads the board directly. They read `sword_eyes`, a
+`SwordEyeCache` for the attacker held in the state, which is
+`PotentialField` (06, §8) for fours: the swords, kept per line and per
+five-cell window, with `State::after_play` / `after_undo` following the
+moves.
+
+The attacker's alone is enough, because a generator is only ever asked at an
+attacker node — `DFSSolver::search` recurses with the attacker to move — and
+a `VCFState`'s attacker never changes.
+
+```
+play_along(p)                  # after_play and after_undo alike
+    for each of the 4 lines through p:
+        stale_windows[line] |= windows_around(p's cell)   # 4 ors, no board read
+
+extend_eye_pairs(board, out)   # and extend_eye_pairs_on, eye_partner
+    refresh(board); then walk the swords out of the bitmaps
+
+refresh(board)
+    if never read in:  read the whole board once
+    else for each stale line, for its stale windows only:
+        structures_between(d, i, from, to, attacker, Sword)
+```
+
+Two things make it cheaper than asking the board every time:
+
+- **A move only marks; the board is read on the next question.** A search
+  plays far more moves than it asks about — everything below `limit == 0`,
+  and every state a caller builds and drops unread — and those cost four
+  `or`s and nothing else. For the same reason the first question, not the
+  constructor, is what scans the whole board: the VCT solver builds a
+  `VCFState` at nearly every node (`vcf_state` / `threat_state`, 06 §2) and
+  most of them are never asked anything.
+- **Only the windows that can have changed are read again.** `Sequences`
+  decides a window from its own five cells and the two margins beside them
+  (02, §4), so a stone on cell `j` can only have changed the windows
+  starting in `j - 5 ..= j + 1` — `Board::structures_between` (02, §5) is
+  exactly that query.
+
+Taking a move back is the same call as playing one: both mark the same
+windows, and the answer is read off the board again. That is what keeps the
+cache honest through the search's constant play/undo, with no undo stack to
+keep in step.
+
+The order pairs come out in is the order `Board::structures` and
+`structures_on` report swords in — line by line in `Square`'s order, window
+by window within a line — so the search tries its moves in exactly the order
+it did when it read the board.
 
 ## 2. `DFSSolver`
 
@@ -161,6 +213,7 @@ and `search` stops before `J9` is tried. Three fours need `limit >= 3`.
 | Question | Where to look |
 | --- | --- |
 | A four-making move is not generated | `VCFState::move_pairs` sees only `Sword` eyes; for Black, the `exact` margins exclude fours that would be overlines |
+| A generated move is stale | `SwordEyeCache` (§1.1): `after_play`/`after_undo` must call `play_along` for *every* move, by either side, or a line keeps an answer the board no longer gives |
 | A counter-four is mishandled | `Game::check_event` at the attacker's node → `Forced(p)`, then `VCFState::forced_move_pair` |
 | Which fours are tried first? | `neighbor_move_pairs` (through the attacker's last stone), then `move_pairs` |
 | The memo | `DFSSolver::deadends`: largest limit with no VCF, keyed by `Key::position`; never written after the budget ran out |

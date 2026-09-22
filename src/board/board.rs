@@ -109,6 +109,20 @@ impl Board {
         self.square.structures_on(p, r, k)
     }
 
+    /// Every structure of kind `k` on line `(d, i)` whose window starts in
+    /// `from..=to`; see [`Square::structures_between`].
+    pub fn structures_between(
+        &self,
+        d: Direction,
+        i: u8,
+        from: u8,
+        to: u8,
+        r: Player,
+        k: StructureKind,
+    ) -> impl Iterator<Item = Structure> + '_ {
+        self.square.structures_between(d, i, from, to, r, k)
+    }
+
     pub fn potentials(
         &self,
         r: Player,

@@ -82,6 +82,24 @@ impl Line {
         Sequences::new_on(i, self.size, my, op, k, n, exact)
     }
 
+    /// [`Self::sequences`] restricted to the windows starting in `from..=to`.
+    pub fn sequences_between(
+        &self,
+        from: u8,
+        to: u8,
+        r: Player,
+        k: SequenceKind,
+        n: u8,
+        exact: bool,
+    ) -> Sequences {
+        let (my, op) = if r.is_black() {
+            (self.blacks, self.whites)
+        } else {
+            (self.whites, self.blacks)
+        };
+        Sequences::new_between(from, to, self.size, my, op, k, n, exact)
+    }
+
     pub fn potentials(&self, r: Player, min: u8, exact: bool) -> Potentials {
         let (my, op) = if r.is_black() {
             (self.blacks, self.whites)

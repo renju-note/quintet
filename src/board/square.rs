@@ -193,6 +193,39 @@ impl Square {
             })
     }
 
+    /// Every structure of kind `k` on line `(d, i)` whose five-cell window
+    /// starts in `from..=to`, or nothing if that line is not stored.
+    ///
+    /// A window's fate is decided by the six-or-seven cells `Sequences`
+    /// reads for it — its own five, plus the two margins that for Black
+    /// decide whether it is exact — so a move on cell `j` can only have
+    /// changed the windows starting in `j - 5 ..= j + 1`. That makes this
+    /// the query an incremental cache refreshes itself with, the way
+    /// [`Self::potentials_along`] is for [`Potentials`].
+    ///
+    /// The [`Line::potential_cap`] prefilter is the one [`Self::structures`]
+    /// uses, and it only ever rejects a line with no structure of kind `k`
+    /// on it at all, so a cache may still trust the windows outside
+    /// `from..=to` that it is not told about here.
+    pub fn structures_between(
+        &self,
+        d: Direction,
+        i: u8,
+        from: u8,
+        to: u8,
+        r: Player,
+        k: StructureKind,
+    ) -> impl Iterator<Item = Structure> + '_ {
+        let (sk, n, exact) = k.to_sequence(r);
+        self.line(d, i)
+            .filter(|l| l.potential_cap(r) > n)
+            .into_iter()
+            .flat_map(move |l| {
+                l.sequences_between(from, to, r, sk, n, exact)
+                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
+            })
+    }
+
     pub fn potentials(
         &self,
         r: Player,

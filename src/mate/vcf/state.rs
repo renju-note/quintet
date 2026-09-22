@@ -1,4 +1,4 @@
-use crate::board::StructureKind::*;
+use crate::analysis::sword::SwordEyeCache;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::state::State;
@@ -8,14 +8,24 @@ pub struct VCFState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
+    /// Where the attacker can make a four. Every generator below reads it
+    /// instead of the board; `after_play` / `after_undo` keep it in step.
+    ///
+    /// It is the attacker's alone, and that is enough: the three generators
+    /// are only ever asked at an attacker node (`DFSSolver::search` recurses
+    /// with the attacker to move), and the attacker of a `VCFState` never
+    /// changes.
+    sword_eyes: SwordEyeCache,
 }
 
 impl VCFState {
     pub fn new(game: Game, limit: u8) -> Self {
+        let sword_eyes = SwordEyeCache::new(game.turn);
         Self {
             attacker: game.turn,
             game,
             limit,
+            sword_eyes,
         }
     }
 
@@ -32,39 +42,26 @@ impl VCFState {
         self.game().check_event()
     }
 
-    pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
-        self.game
-            .board()
-            .structures_on(forced_move, self.game.turn, Sword)
-            .flat_map(Self::sword_eyes_pairs)
-            .find(|&(e1, _)| e1 == forced_move)
+    pub fn forced_move_pair(&mut self, forced_move: Point) -> Option<(Point, Point)> {
+        self.sword_eyes
+            .eye_partner(forced_move, self.game.board())
+            .map(|defence| (forced_move, defence))
     }
 
-    pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
+    pub fn neighbor_move_pairs(&mut self) -> Vec<(Point, Point)> {
+        let mut result = vec![];
         if let Some(last2_move) = self.game.last2_move() {
-            self.game
-                .board()
-                .structures_on(last2_move, self.game.turn, Sword)
-                .flat_map(Self::sword_eyes_pairs)
-                .collect()
-        } else {
-            vec![]
+            self.sword_eyes
+                .extend_eye_pairs_on(last2_move, self.game.board(), &mut result);
         }
+        result
     }
 
-    pub fn move_pairs(&self) -> Vec<(Point, Point)> {
-        self.game
-            .board()
-            .structures(self.game.turn, Sword)
-            .flat_map(Self::sword_eyes_pairs)
-            .collect()
-    }
-
-    fn sword_eyes_pairs(sword: Structure) -> [(Point, Point); 2] {
-        let mut eyes = sword.eyes();
-        let e1 = eyes.next().unwrap();
-        let e2 = eyes.next().unwrap();
-        [(e1, e2), (e2, e1)]
+    pub fn move_pairs(&mut self) -> Vec<(Point, Point)> {
+        let mut result = vec![];
+        self.sword_eyes
+            .extend_eye_pairs(self.game.board(), &mut result);
+        result
     }
 }
 
@@ -87,5 +84,17 @@ impl State for VCFState {
 
     fn set_limit(&mut self, limit: u8) {
         self.limit = limit
+    }
+
+    fn after_play(&mut self, next_move: Option<Point>) {
+        if let Some(next_move) = next_move {
+            self.sword_eyes.play_along(next_move);
+        }
+    }
+
+    fn after_undo(&mut self, maybe_last_move: Option<Point>) {
+        if let Some(last_move) = maybe_last_move {
+            self.sword_eyes.play_along(last_move);
+        }
     }
 }
