@@ -8,15 +8,18 @@
 | --- | --- |
 | [01-renju-rules.ja.md](01-renju-rules.ja.md) / [en](01-renju-rules.en.md) | RIF 連珠国際ルール（盤、用語定義、勝敗、禁手、開局規定）の Markdown 版。 |
 | [02-board-implementation.ja.md](02-board-implementation.ja.md) / [en](02-board-implementation.en.md) | `src/board/` が盤面をどう表現し、上のルールをどう実装しているか: 線のビット表現、連（sequence/structure）の検出、禁手判定、ハッシュ。 |
-| [03-solver-overview.ja.md](03-solver-overview.ja.md) / [en](03-solver-overview.en.md) | `src/mate/` の全体像: `solve` とその引数（`limit`、`threat_limit`、`SolveMode`）、共通の探索状態（`Game`、`State`、`check_event`）、四追い（VCF）の深さ優先探索。 |
-| [04-solver-algorithm-vct.ja.md](04-solver-algorithm-vct.ja.md) / [en](04-solver-algorithm-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）ソルバー: 追い手、手の生成、証明数、DFS / PNS / df-pn の探索、手順の復元、手の並べ替えに使う `PotentialField`。 |
+| [03-solver-api.ja.md](03-solver-api.ja.md) / [en](03-solver-api.en.md) | ソルバーの使い方: `solve` / `solve_limited`、`SolveMode`、`SolveLimits`、`SolveResult`、`NodeBudget`、`Solver` トレイトでソルバーを問いをまたいで保持する方法、`Mate` / `End`。 |
+| [04-solver-framework.ja.md](04-solver-framework.ja.md) / [en](04-solver-framework.en.md) | `src/mate/` の内側: 構成と、すべてのソルバーが共有する部品 — `Game` と `check_event`、`State` と `Key`、`Memo` の世代、`Solver` トレイト、ノード予算。 |
+| [05-solver-vcf.ja.md](05-solver-vcf.ja.md) / [en](05-solver-vcf.en.md) | `src/mate/vcf/` の四追い（VCF）探索: 四を作る手のペア、`DFSSolver` と行き止まりメモ、`IDDFSSolver`、手順を追う例。 |
+| [06-solver-vct.ja.md](06-solver-vct.ja.md) / [en](06-solver-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）探索: 追い手、内部の四追い探索、手の生成、証明数、DFS / PNS / df-pn の閾値ポリシー、手順の復元、手順を追う例、手の並べ替えに使う `PotentialField`。 |
 
 どこから読むか:
 
 - 連珠を知らない場合はまず 01 を読む。ソルバーのドキュメントはその用語（四、棒四、三、禁手）を前提にしている。
 - `src/board/` のルール周り（連の構造、禁手）を変更するなら 02 を読む。
-- `src/mate/` や `src/analysis/` の探索を変更するなら 03、続いて 04 を読む。
-- 特定のことだけ知りたい場合は、各ドキュメント末尾のチートシート（02 §9、03 §4、04 §10）が「知りたいこと」から識別子への対応表になっている。
+- アプリや CLI、自分の Rust コードからソルバーを呼ぶなら 03 を読む。
+- `src/mate/` や `src/analysis/` の探索を変更するなら 04、続いて 05 と 06 を読む。
+- 特定のことだけ知りたい場合は、各ドキュメント末尾のチートシート（02 §9、03 §7、04 §7、05 §5、06 §9）が「知りたいこと」から識別子への対応表になっている。
 
 ドキュメント追加時の規約:
 

@@ -1,6 +1,7 @@
 use super::budget::NodeBudget;
 use super::game::*;
 use super::mate::*;
+use super::solver::Solver;
 use super::vcf::*;
 use super::vct::*;
 use crate::board::Player::*;
@@ -202,23 +203,19 @@ pub fn solve_limited(
     let maybe_mate = match mode {
         VCFDFS => {
             let state = &mut VCFState::init(board, attacker, limit);
-            let mut solver = DFSSolver::init();
-            solver.solve(state, budget)
+            DFSSolver::init().solve(state, budget)
         }
         VCTDFS => {
             let state = &mut VCTState::init(board, attacker, limit);
-            let mut solver = DFSVCTSolver::init(threat_limit, defender_vcf_depth);
-            solver.solve(state, budget)
+            DFSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
         }
         VCTPNS => {
             let state = &mut VCTState::init(board, attacker, limit);
-            let mut solver = PNSVCTSolver::init(threat_limit, defender_vcf_depth);
-            solver.solve(state, budget)
+            PNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
         }
         VCTDFPNS => {
             let state = &mut VCTState::init(board, attacker, limit);
-            let mut solver = DFPNSVCTSolver::init(threat_limit, defender_vcf_depth);
-            solver.solve(state, budget)
+            DFPNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
         }
         // VCFIDDFS and VCTIDDFS have no solver of their own here.
         _ => None,

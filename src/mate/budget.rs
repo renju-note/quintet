@@ -10,7 +10,7 @@
 ///
 /// ```
 /// use quintet::board::{Board, Player};
-/// use quintet::mate::{DFSSolver, NodeBudget, VCFState};
+/// use quintet::mate::{DFSSolver, NodeBudget, Solver, VCFState};
 ///
 /// let board = Board::new();
 /// let mut budget = NodeBudget::new(1_000);

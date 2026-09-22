@@ -39,25 +39,30 @@ slower and some cases time out.
 - `src/analysis/` — `field.rs`, per-point potential evaluation used for move
   ordering.
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
-  `SolveMode`) and also holds the integration tests. `game.rs`/`state.rs`/
-  `mate.rs` are shared search-state types, and `memo.rs` is the generational
-  memo the solvers keep between searches.
-  - `vcf/` — Victory by Continuous Fours (DFS and IDDFS).
+  `SolveMode`) and also holds the integration tests. `solver.rs` is the
+  `Solver` trait every solver implements (`solve` / `clear` /
+  `advance_generation` / `memo_len`), `game.rs`/`state.rs`/`mate.rs` are
+  shared search-state types, and `memo.rs` is the generational memo the
+  solvers keep between searches.
+  - `vcf/` — Victory by Continuous Fours (DFS and IDDFS). Each solver's
+    `search` is the raw recursion; `Solver::solve` wraps it in a generation.
   - `vct/` — Victory by Continuous Threats: one `VCTSolver<P>` (`solver`)
     whose DFS / PNS / df-pn variants differ only in the `threshold` policy;
     its methods are split across `searcher`, `selector`, `generator` (move
-    generation), `nested_vcf`, `extractor` (path recovery) and `proof`
-    (proof/disproof numbers).
+    generation) and `extractor` (path recovery), with `nested_vcf`
+    (`NestedVCF`, the per-side VCF sub-search) and `proof` (proof/disproof
+    numbers) as the things they use.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
   `solve_vct`, `solve_vct_dfpn`, `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`.
 - `docs/` — reference documentation for humans and AI agents: the Renju
   rules (`docs/01-renju-rules.en.md`), how `src/board/` implements them
-  (`docs/02-board-implementation.en.md`) and how the solvers in `src/mate/`
-  and `src/analysis/` work (`docs/03-solver-overview.en.md`,
-  `docs/04-solver-algorithm-vct.en.md`). Read these
-  before touching rule logic (structures, forbidden moves) or the search
-  code, and keep them in sync when changing it.
+  (`docs/02-board-implementation.en.md`), how to call the solvers
+  (`docs/03-solver-api.en.md`), and how `src/mate/` and `src/analysis/`
+  work inside (`docs/04-solver-framework.en.md` for the shared pieces,
+  `docs/05-solver-vcf.en.md` and `docs/06-solver-vct.en.md` for the two
+  searches). Read these before touching rule logic (structures, forbidden
+  moves) or the search code, and keep them in sync when changing it.
   Every document has an English `*.en.md` and a Japanese `*.ja.md` version;
   always add or edit both together.
 
