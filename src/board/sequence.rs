@@ -88,6 +88,14 @@ impl Iterator for Sequences {
     // Windows that do not match are stepped over in this loop rather than by
     // calling `next` again: the recursion was real, not a tail call the
     // compiler folded away, and a skipped window is the common case.
+    //
+    // `self.i` is stepped by hand because a `for` over a range measured
+    // slower, and this loop runs once per five-cell window of every line the
+    // solvers look at — most of their time. `for i in self.i..=self.limit`
+    // costs a VCF search 8%: `RangeInclusive` carries an extra flag for the
+    // `end == u8::MAX` case, which cannot arise here because `limit` is at
+    // most `RANGE - VICTORY`. Keeping the bound exclusive to get a plain
+    // `Range` still costs 2%.
     fn next(&mut self) -> Option<Self::Item> {
         while self.i <= self.limit {
             let i = self.i;
