@@ -79,7 +79,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
 
         let threat = maybe_threat.unwrap();
-        let mut result = state.sort_by_potential(state.threat_defences(&threat));
+        let threat_defences = state.threat_defences(&threat);
+        let mut result = state.sort_by_potential(threat_defences);
         result.retain(|&x| !state.is_forbidden_move(x.0));
 
         if result.is_empty() {

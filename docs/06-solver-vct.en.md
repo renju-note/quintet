@@ -84,10 +84,13 @@ pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: Po
 ```
 
 The field is the attacker's `PotentialField` (§8), built with
-`PotentialField::init(attacker, 2, board)` and refreshed along the four
-lines of each move in `after_play` / `after_undo`. `next_key(m)` is `key()`
-of the child after `m` computed *without* touching the field, which is what
-keeps table lookups for unexpanded children cheap.
+`PotentialField::init(attacker, 2, board)`. `after_play` / `after_undo` only
+mark the move's point stale; the field is refreshed along the four lines of
+each stale point when it is next read (`sorted_potentials` /
+`sort_by_potential`), which happens only on a candidate-cache miss. `next_key(m)`
+is `key()` of the child after `m`, computed from the board's Zobrist hash by
+XOR without playing `m`, which is what keeps table lookups for unexpanded
+children cheap.
 
 ### Two derived `VCFState`s
 
@@ -434,8 +437,10 @@ scores.
 
 **Keeping it current.** `init(player, min, board)` fills the field;
 `update_along(p, board)` zeroes the four lines through `p` (`reset_along`)
-and recomputes them (`potentials_along`). `VCTState` calls it after every
-play and undo — four line scans per move instead of a board pass.
+and recomputes them (`potentials_along`). `VCTState` calls it for every
+point played or taken back since the field was last read — four line scans
+per such point instead of a board pass, and none for the many nodes whose
+candidates come from the cache.
 
 **Querying.** `get(p)` is the sum over the four directions; `collect(min)`
 lists every point whose sum is at least `min`. `VCTState::sorted_potentials`

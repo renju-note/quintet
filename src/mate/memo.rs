@@ -1,4 +1,26 @@
 use std::collections::HashMap;
+use std::hash::{BuildHasherDefault, Hasher};
+
+/// The keys are Zobrist hashes, already uniformly distributed, so hashing
+/// them again (std's default is SipHash) is pure cost.
+#[derive(Default)]
+pub struct ZobristHasher(u64);
+
+impl Hasher for ZobristHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        unreachable!("only u64 keys are hashed")
+    }
+
+    fn write_u64(&mut self, n: u64) {
+        self.0 = n;
+    }
+}
+
+pub type ZobristBuildHasher = BuildHasherDefault<ZobristHasher>;
 
 /// What the solvers remember between searches, keyed by
 /// [`State::zobrist_hash`](crate::mate::State::zobrist_hash).
@@ -28,7 +50,7 @@ use std::collections::HashMap;
 /// send `expand_attacks` round its loop again on the same child — a spin
 /// with an unlimited budget. Within one search the node budget is the bound.
 pub struct Memo<V> {
-    entries: HashMap<u64, Entry<V>>,
+    entries: HashMap<u64, Entry<V>, ZobristBuildHasher>,
     generation: u32,
     carry_capacity: usize,
 }
@@ -36,7 +58,7 @@ pub struct Memo<V> {
 impl<V> Memo<V> {
     pub fn new(carry_capacity: usize) -> Self {
         Self {
-            entries: HashMap::new(),
+            entries: HashMap::default(),
             generation: 0,
             carry_capacity,
         }

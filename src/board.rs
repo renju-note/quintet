@@ -20,4 +20,4 @@ pub use square::Square;
 pub use structure::{Structure, StructureKind};
 // Search-key helpers: the turn and a search's attacker are not properties of
 // the board, so the mate solvers mix them into the position hash themselves.
-pub(crate) use zobrist::{apply_attacker, apply_n, apply_turn};
+pub(crate) use zobrist::{apply_attacker, apply_move, apply_n, apply_turn};

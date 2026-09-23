@@ -5,6 +5,7 @@ use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
 use crate::mate::budget::NodeBudget;
 use crate::mate::mate::Mate;
+use crate::mate::memo::ZobristBuildHasher;
 use crate::mate::solver::Solver;
 use lru::LruCache;
 use std::marker::PhantomData;
@@ -27,8 +28,8 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     pub(super) attacker_vcf: NestedVCF,
     /// The defender's nested VCF search, `defender_vcf_depth` deep.
     pub(super) defender_vcf: NestedVCF,
-    pub(super) attacks_cache: LruCache<u64, Candidates>,
-    pub(super) defences_cache: LruCache<u64, Candidates>,
+    pub(super) attacks_cache: LruCache<u64, Candidates, ZobristBuildHasher>,
+    pub(super) defences_cache: LruCache<u64, Candidates, ZobristBuildHasher>,
     policy: PhantomData<P>,
 }
 
@@ -60,8 +61,14 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             defender_table: ProofTable::with_carry_capacity(carry_capacity, transfer_from),
             attacker_vcf: NestedVCF::new(true, attacker_vcf_depth, carry_capacity),
             defender_vcf: NestedVCF::new(false, defender_vcf_depth, carry_capacity),
-            attacks_cache: LruCache::new(NonZeroUsize::new(1000).unwrap()),
-            defences_cache: LruCache::new(NonZeroUsize::new(1000).unwrap()),
+            attacks_cache: LruCache::with_hasher(
+                NonZeroUsize::new(1000).unwrap(),
+                ZobristBuildHasher::default(),
+            ),
+            defences_cache: LruCache::with_hasher(
+                NonZeroUsize::new(1000).unwrap(),
+                ZobristBuildHasher::default(),
+            ),
             policy: PhantomData,
         }
     }

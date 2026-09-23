@@ -50,7 +50,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
 
         let threat = self.attacker_vcf.threat(state, budget).unwrap();
-        let defences = state.sort_by_potential(state.threat_defences(&threat));
+        let threat_defences = state.threat_defences(&threat);
+        let defences = state.sort_by_potential(threat_defences);
         let mut min_limit = u8::MAX;
         let mut best = None;
         for (defence, _) in defences {
