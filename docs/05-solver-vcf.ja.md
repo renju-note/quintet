@@ -114,7 +114,7 @@ search_defence(state, defence):                # 受け方の手番
  . . . . . . . . . . . . . . .
 ```
 
-`solve(VCFDFS, 3, &board, Black, 0)` は `I8,G8,I10,I9,J9`、詰め上がり `Fours(H11, M6)` を返す。
+`solve(VCFDFS, &board, Black, SolveLimits::new(3))` は手順 `I8,G8,I10,I9,J9`、詰め上がり `Fours(H11, M6)` で証明する。
 
 | 手 | 作るもの | その後の `limit` |
 | --- | --- | --- |

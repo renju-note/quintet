@@ -1,5 +1,4 @@
 use super::generator::Candidates::*;
-use super::selector::Selection;
 use super::solver::VCTSolver;
 use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
@@ -16,7 +15,8 @@ use crate::mate::vct::proof::*;
 /// `search_attacks` / `search_defences` evaluate one node (OR / AND
 /// respectively); `expand_attacks` / `expand_defences` are the loop that keeps
 /// descending into the most-proving child until the node's numbers reach the
-/// threshold handed down by the parent.
+/// threshold handed down by the parent; `select_attack` / `select_defence`
+/// pick that child, expanding nothing and only reading the tables.
 impl<P: ThresholdPolicy> VCTSolver<P> {
     /// Runs the search and reports whether the attacker wins. `false` also
     /// covers "gave up": the caller tells the two apart by
@@ -150,7 +150,81 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
     }
 
+    fn select_attack(&self, state: &mut VCTState, attacks: &[Point]) -> Selection {
+        let limit = state.limit;
+        let mut best: Option<Point> = Some(attacks[0]);
+        let mut node = Node::disproven(limit);
+        let mut best_child = Node::disproven(limit);
+        let mut second_child = Node::disproven(limit);
+        let init = Node::unexpanded_defence(attacks.len() as u32, limit); // trick
+        for &attack in attacks {
+            let maybe_child = self.attacker_table.lookup_next(state, Some(attack));
+            let child = maybe_child.unwrap_or(init);
+            node = node.min_pn_sum_dn(child);
+            if child.pn < best_child.pn {
+                best.replace(attack);
+                second_child = best_child;
+                best_child = child;
+            } else if child.pn < second_child.pn {
+                second_child = child;
+            }
+            if node.pn == 0 {
+                node.dn = INF;
+                break;
+            }
+        }
+        Selection {
+            best,
+            node,
+            best_child,
+            second_child,
+        }
+    }
+
+    fn select_defence(&self, state: &mut VCTState, defences: &[Point]) -> Selection {
+        let limit = state.limit;
+        let mut best: Option<Point> = Some(defences[0]);
+        let mut node = Node::proven(limit - 1);
+        let mut best_child = Node::proven(limit - 1);
+        let mut second_child = Node::proven(limit - 1);
+        let init = Node::unexpanded_attack(defences.len() as u32, limit - 1); // trick
+        for &defence in defences {
+            let maybe_child = self.defender_table.lookup_next(state, Some(defence));
+            let child = maybe_child.unwrap_or(init);
+            node = node.min_dn_sum_pn(child);
+            if child.dn < best_child.dn {
+                best.replace(defence);
+                second_child = best_child;
+                best_child = child;
+            } else if child.dn < second_child.dn {
+                second_child = child;
+            }
+            if node.dn == 0 {
+                node.pn = INF;
+                break;
+            }
+        }
+        Selection {
+            best,
+            node,
+            best_child,
+            second_child,
+        }
+    }
+
     fn exceeds_threshold(node: Node, threshold: Node) -> bool {
         node.pn >= threshold.pn || node.dn >= threshold.dn
     }
+}
+
+/// Result of evaluating a node from its children's table entries.
+pub struct Selection {
+    /// The most-proving child (the move to search next).
+    pub best: Option<Point>,
+    /// The parent's own numbers, aggregated from the children.
+    pub node: Node,
+    /// The numbers of `best`.
+    pub best_child: Node,
+    /// The numbers of the second-most-proving child.
+    pub second_child: Node,
 }

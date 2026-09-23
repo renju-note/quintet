@@ -14,12 +14,6 @@ pub struct Board {
     z_hash: u64,
 }
 
-impl Default for Board {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Board {
     pub fn new() -> Self {
         Self {
@@ -161,6 +155,12 @@ impl Board {
 
     fn update_z_hash(&mut self, r: Player, p: Point) {
         self.z_hash = zobrist::apply_move(self.z_hash, r, p);
+    }
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

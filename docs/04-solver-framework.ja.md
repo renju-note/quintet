@@ -11,7 +11,7 @@
 ```
 src/mate.rs          モジュールルート: 再エクスポート、全体像のドキュメントコメント
 src/mate/
-├── solve.rs         solve / solve_limited、SolveMode、SolveLimits、SolveResult、validate
+├── solve.rs         solve、SolveMode、SolveLimits、SolveResult、validate
 │                    + ソルバーの回帰テスト
 ├── solver.rs        trait Solver                      (§4)
 ├── game.rs          Game、Event、End                  (§2)
@@ -130,7 +130,7 @@ pub trait Solver {
 | --- | --- | --- |
 | 何か | 1 つの問いの全体 | 探索そのもの |
 | すること | `advance_generation()` → `search`（追い詰めはさらに `extract`） | 再帰。メモの管理はしない |
-| 誰が呼ぶか | 外部（`solve_limited`、エンジン） | 他のソルバー（`IDDFSSolver` → `DFSSolver::search`、追い詰め → 内部四追いの `search`） |
+| 誰が呼ぶか | 外部（`mate::solve`、エンジン） | 他のソルバー（`IDDFSSolver` → `DFSSolver::search`、追い詰め → 内部四追いの `search`） |
 
 分ける理由: ソルバーは別のソルバーの中に入ることがある。追い詰めソルバーは 1 回の探索で内部の四追いソルバーを何百回も呼ぶ。そのたびに世代が変わると、内部のメモが絶えず捨てられてしまう。世代の区切りは一番外側の問いだけが決める。
 

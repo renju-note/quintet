@@ -48,10 +48,10 @@ slower and some cases time out.
     `search` is the raw recursion; `Solver::solve` wraps it in a generation.
   - `vct/` — Victory by Continuous Threats: one `VCTSolver<P>` (`solver`)
     whose DFS / PNS / df-pn variants differ only in the `threshold` policy;
-    its methods are split across `searcher`, `selector`, `generator` (move
-    generation) and `extractor` (path recovery), with `nested_vcf`
-    (`NestedVCF`, the per-side VCF sub-search) and `proof` (proof/disproof
-    numbers) as the things they use.
+    its methods are split across `searcher` (search and child selection),
+    `generator` (move generation) and `extractor` (path recovery), with
+    `nested_vcf` (`NestedVCF`, the per-side VCF sub-search) and `proof`
+    (proof/disproof numbers) as the things they use.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
   `solve_vct`, `solve_vct_dfpn`, `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`.

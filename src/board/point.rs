@@ -4,26 +4,8 @@ use std::str::FromStr;
 
 pub const RANGE: u8 = 15;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Direction {
-    Vertical,
-    Horizontal,
-    Ascending,
-    Descending,
-}
-
-pub use Direction::*;
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Point(pub u8, pub u8);
-
-impl fmt::Display for Point {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let x = char::from_u32((b'A' + self.0) as u32).unwrap();
-        let y = self.1 + 1;
-        write!(f, "{}{}", x, y)
-    }
-}
 
 impl Point {
     pub fn to_index(&self, d: Direction) -> Index {
@@ -43,6 +25,14 @@ impl Point {
                 Index::new(Descending, i, j)
             }
         }
+    }
+}
+
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let x = char::from_u32((b'A' + self.0) as u32).unwrap();
+        let y = self.1 + 1;
+        write!(f, "{}{}", x, y)
     }
 }
 
@@ -92,6 +82,58 @@ impl TryFrom<u8> for Point {
 impl From<Point> for u8 {
     fn from(value: Point) -> u8 {
         value.0 * RANGE + value.1
+    }
+}
+
+#[derive(Debug)]
+pub struct Points(pub Vec<Point>);
+
+impl Points {
+    pub fn into_vec(self) -> Vec<Point> {
+        self.0
+    }
+}
+
+impl fmt::Display for Points {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let result = self
+            .0
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        f.write_str(&result)
+    }
+}
+
+impl FromStr for Points {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let ps = s
+            .trim()
+            .split(",")
+            .map(|m| m.parse::<Point>())
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Points(ps))
+    }
+}
+
+impl TryFrom<&[u8]> for Points {
+    type Error = &'static str;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let ps = value
+            .iter()
+            .map(|c| Point::try_from(*c))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Points(ps))
+    }
+}
+
+impl From<Points> for Vec<u8> {
+    fn from(value: Points) -> Vec<u8> {
+        value.0.into_iter().map(u8::from).collect()
     }
 }
 
@@ -166,57 +208,15 @@ impl fmt::Debug for Index {
     }
 }
 
-#[derive(Debug)]
-pub struct Points(pub Vec<Point>);
-
-impl Points {
-    pub fn into_vec(self) -> Vec<Point> {
-        self.0
-    }
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Direction {
+    Vertical,
+    Horizontal,
+    Ascending,
+    Descending,
 }
 
-impl fmt::Display for Points {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let result = self
-            .0
-            .iter()
-            .map(|p| p.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-        f.write_str(&result)
-    }
-}
-
-impl FromStr for Points {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let ps = s
-            .trim()
-            .split(",")
-            .map(|m| m.parse::<Point>())
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Points(ps))
-    }
-}
-
-impl TryFrom<&[u8]> for Points {
-    type Error = &'static str;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let ps = value
-            .iter()
-            .map(|c| Point::try_from(*c))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Points(ps))
-    }
-}
-
-impl From<Points> for Vec<u8> {
-    fn from(value: Points) -> Vec<u8> {
-        value.0.into_iter().map(u8::from).collect()
-    }
-}
+pub use Direction::*;
 
 #[cfg(test)]
 mod tests {

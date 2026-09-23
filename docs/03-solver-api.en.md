@@ -30,24 +30,23 @@ Every call asks the same thing:
 A positive answer is a [`Mate`](#5-mate-and-end): the winning line and why
 the defender is lost at the end of it.
 
-## 2. One-shot: `solve` and `solve_limited`
+## 2. One-shot: `solve`
 
 ```rust
-pub fn solve(mode: SolveMode, limit: u8, board: &Board, attacker: Player, threat_limit: u8) -> Option<Mate>
-pub fn solve_limited(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
+pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
 ```
 
-Both build a solver, run it once and drop it. `solve` is the short form
-that `wasm.rs` calls; `solve_limited` is the same search with a node budget
-and a three-valued answer, and `solve` is written in terms of it.
+It builds a solver, runs it once and drops it. `limits` carries the depths
+and an optional node budget, and the answer is three-valued. `wasm.rs` calls
+it too, reducing the answer to the winning line or nothing.
 
 ```rust
 use quintet::board::{Board, Player};
-use quintet::mate::{SolveLimits, SolveMode, SolveResult, solve_limited};
+use quintet::mate::{SolveLimits, SolveMode, SolveResult, solve};
 
 let board: Board = "H8,I9,J9,H7".parse().unwrap();
 let limits = SolveLimits::new(5).with_threat_limit(2).with_max_nodes(100_000);
-match solve_limited(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
+match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
     SolveResult::Proven(mate) => { /* mate.path is the winning line */ }
     SolveResult::Disproven => { /* no mate within the limits */ }
     SolveResult::Aborted => { /* out of budget: still unknown */ }
@@ -59,9 +58,9 @@ match solve_limited(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
 | `SolveMode` | Code | CLI name | What it searches |
 | --- | --- | --- | --- |
 | `VCFDFS` | 0 | `vcf` | VCF, depth-first. `threat_limit` is ignored. |
-| `VCFIDDFS` | 1 | `vcf_iddfs` | Reserved; `solve` returns `None`. |
+| `VCFIDDFS` | 1 | `vcf_iddfs` | Reserved; `solve` returns `Disproven`. |
 | `VCTDFS` | 10 | `vct` | VCT, depth-first traversal of the proof-number tree. |
-| `VCTIDDFS` | 11 | `vct_iddfs` | Reserved; `solve` returns `None`. |
+| `VCTIDDFS` | 11 | `vct_iddfs` | Reserved; `solve` returns `Disproven`. |
 | `VCTPNS` | 15 | `vct_pns` | VCT, proof-number search. |
 | `VCTDFPNS` | 16 | `vct_dfpns` | VCT, depth-first proof-number search (df-pn). **The one to use.** |
 
@@ -231,7 +230,7 @@ it. `end` says why the defender is lost after the last move:
 
 ## 6. What is checked before searching: `validate`
 
-`solve_limited` first rejects positions the solvers do not handle:
+`solve` first rejects positions the solvers do not handle:
 
 | Position | Result |
 | --- | --- |
@@ -246,7 +245,7 @@ what it needs itself.
 
 | I want to… | Use |
 | --- | --- |
-| Get a yes/no/line once | `solve` (or `solve_limited` for a budget and a three-valued answer) |
+| Get a yes/no/line once | `solve` |
 | Find only VCFs | `SolveMode::VCFDFS` |
 | Find VCTs | `SolveMode::VCTDFPNS`; `threat_limit` decides what counts as a threat |
 | Stop a search that takes too long | `SolveLimits::with_max_nodes`; treat `Aborted` as unknown, not as safe |
@@ -255,4 +254,4 @@ what it needs itself.
 | Know which defences to try | `VCTState::threat_defences(&mate)` |
 | Know whether the last move was a threat | Pass with `Game::play(None)`, then ask for the opponent's VCF |
 | Read the winning line from JS | `wasm::solve` returns the path as `u8` point codes (02, §1); `decode_x` / `decode_y` |
-| Add a solve mode | `SolveMode`, its `TryFrom<u8>` and `FromStr`, and the `match` in `solve_limited` (`solve.rs`) |
+| Add a solve mode | `SolveMode`, its `TryFrom<u8>` and `FromStr`, and the `match` in `solve` (`solve.rs`) |

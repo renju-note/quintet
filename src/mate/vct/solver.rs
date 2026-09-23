@@ -14,7 +14,7 @@ use std::num::NonZeroUsize;
 /// except how child thresholds are chosen, which is supplied by `P`.
 ///
 /// The methods are split by phase across sibling modules:
-/// `searcher.rs` (AND/OR search), `selector.rs` (most-proving child),
+/// `searcher.rs` (AND/OR search and choosing the most-proving child),
 /// `generator.rs` (candidate moves) and `extractor.rs` (recovering the
 /// winning line after a proof); `nested_vcf.rs` is the VCF sub-search the
 /// generator and the extractor ask.

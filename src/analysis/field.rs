@@ -2,35 +2,9 @@ use crate::board::Direction::*;
 use crate::board::Player::*;
 use crate::board::*;
 
-#[derive(Default, Clone)]
-pub struct Potential {
-    v: u8,
-    h: u8,
-    a: u8,
-    d: u8,
-}
-
-impl Potential {
-    fn set(&mut self, d: Direction, o: u8) {
-        match d {
-            Vertical => self.v = o,
-            Horizontal => self.h = o,
-            Ascending => self.a = o,
-            Descending => self.d = o,
-        }
-    }
-
-    fn sum(&self) -> u8 {
-        // TODO: faster computation
-        self.v + self.h + self.a + self.d
-    }
-}
-
-type Potentials = [[Potential; RANGE as usize]; RANGE as usize];
-
 #[derive(Clone)]
 pub struct PotentialField {
-    potentials: Potentials,
+    potentials: PotentialGrid,
     player: Player,
     min: u8,
 }
@@ -38,7 +12,7 @@ pub struct PotentialField {
 impl PotentialField {
     pub fn new(player: Player, min: u8) -> Self {
         Self {
-            potentials: Potentials::default(),
+            potentials: PotentialGrid::default(),
             player,
             min,
         }
@@ -77,7 +51,6 @@ impl PotentialField {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub fn overlay(&self, board: &Board) -> String {
         (0..RANGE)
             .rev()
@@ -128,6 +101,32 @@ impl PotentialField {
     fn set(&mut self, i: Index, o: u8) {
         let p = i.to_point();
         self.potentials[p.0 as usize][p.1 as usize].set(i.d, o)
+    }
+}
+
+type PotentialGrid = [[Potential; RANGE as usize]; RANGE as usize];
+
+#[derive(Default, Clone)]
+struct Potential {
+    v: u8,
+    h: u8,
+    a: u8,
+    d: u8,
+}
+
+impl Potential {
+    fn set(&mut self, d: Direction, o: u8) {
+        match d {
+            Vertical => self.v = o,
+            Horizontal => self.h = o,
+            Ascending => self.a = o,
+            Descending => self.d = o,
+        }
+    }
+
+    fn sum(&self) -> u8 {
+        // TODO: faster computation
+        self.v + self.h + self.a + self.d
     }
 }
 

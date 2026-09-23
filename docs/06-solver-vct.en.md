@@ -17,8 +17,8 @@ src/mate/vct/
 ├── nested_vcf.rs       NestedVCF: one side's VCF sub-search                                  (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                     (§3)
 ├── proof.rs            Node (proof numbers), ProofTable (transposition table)                (§4)
-├── searcher.rs         search_attacks / search_defences, expand_attacks / expand_defences    (§5)
-├── selector.rs         select_attack / select_defence → Selection                            (§5)
+├── searcher.rs         search_attacks / search_defences, expand_attacks / expand_defences,   (§5)
+│                       select_attack / select_defence → Selection
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 └── extractor.rs        extract: the winning line from the tables                             (§6)
@@ -246,7 +246,7 @@ different trees. `VCTSolver::with_carry_capacity` sets it to
 `max(attacker_vcf_depth, defender_vcf_depth + 1, 2)`; nothing is recorded
 in or read from `decided` below it.
 
-## 5. Search (`searcher.rs`, `selector.rs`, `threshold.rs`, `solver.rs`)
+## 5. Search (`searcher.rs`, `threshold.rs`, `solver.rs`)
 
 ### Node functions
 
@@ -384,9 +384,10 @@ move:
  . . . . . . . . . . . . . . .
 ```
 
-`solve(VCTDFS, 4, &board, Black, 1)` — and likewise `VCTPNS`, `VCTDFPNS` —
-returns `F10,G9,I10,G10,H11,H12,G12` with end `Fours(F13, K8)`; `limit = 3`
-returns `None`.
+`solve(VCTDFS, &board, Black, SolveLimits::new(4).with_threat_limit(1))` —
+and likewise `VCTPNS`, `VCTDFPNS` — proves it with the line
+`F10,G9,I10,G10,H11,H12,G12` and end `Fours(F13, K8)`; `limit = 3` is
+`Disproven`.
 
 | Move | Why it is a threat / forced | `limit` after |
 | --- | --- | --- |

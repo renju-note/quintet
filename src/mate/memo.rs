@@ -33,11 +33,6 @@ pub struct Memo<V> {
     carry_capacity: usize,
 }
 
-struct Entry<V> {
-    value: V,
-    generation: u32,
-}
-
 impl<V> Memo<V> {
     pub fn new(carry_capacity: usize) -> Self {
         Self {
@@ -81,6 +76,11 @@ impl<V> Memo<V> {
             },
         );
     }
+}
+
+struct Entry<V> {
+    value: V,
+    generation: u32,
 }
 
 #[cfg(test)]

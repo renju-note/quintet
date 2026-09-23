@@ -140,7 +140,7 @@ The board from `test_vcf_counter`, Black to move:
  . . . . . . . . . . . . . . .
 ```
 
-`solve(VCFDFS, 3, &board, Black, 0)` returns `I8,G8,I10,I9,J9` with end
+`solve(VCFDFS, &board, Black, SolveLimits::new(3))` proves it with the line `I8,G8,I10,I9,J9` with end
 `Fours(H11, M6)`:
 
 | Move | What it makes | `limit` after it |

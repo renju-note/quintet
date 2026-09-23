@@ -65,45 +65,34 @@ impl Line {
     }
 
     pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
-        let (my, op) = if r.is_black() {
-            (self.blacks, self.whites)
-        } else {
-            (self.whites, self.blacks)
-        };
+        let (my, op) = self.my_op(r);
         Sequences::new(self.size, my, op, k, n, exact)
     }
 
     pub fn sequences_on(&self, i: u8, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
-        let (my, op) = if r.is_black() {
-            (self.blacks, self.whites)
-        } else {
-            (self.whites, self.blacks)
-        };
+        let (my, op) = self.my_op(r);
         Sequences::new_on(i, self.size, my, op, k, n, exact)
     }
 
     pub fn potentials(&self, r: Player, min: u8, exact: bool) -> Potentials {
-        let (my, op) = if r.is_black() {
-            (self.blacks, self.whites)
-        } else {
-            (self.whites, self.blacks)
-        };
+        let (my, op) = self.my_op(r);
         Potentials::new(self.size, my, op, min, exact)
     }
 
     pub fn potential_cap(&self, r: Player) -> u8 {
-        let nstones_opponent = match r {
-            Black => self.whites.count_ones(),
-            White => self.blacks.count_ones(),
-        } as u8;
-        if self.size < nstones_opponent + 5 {
+        let (my, op) = self.my_op(r);
+        if self.size < op.count_ones() as u8 + 5 {
             return 0;
         }
-        let nstones = match r {
-            Black => self.blacks.count_ones(),
-            White => self.whites.count_ones(),
-        } as u8;
-        nstones + 1
+        my.count_ones() as u8 + 1
+    }
+
+    /// `r`'s stones and the opponent's, in that order.
+    fn my_op(&self, r: Player) -> (u16, u16) {
+        match r {
+            Black => (self.blacks, self.whites),
+            White => (self.whites, self.blacks),
+        }
     }
 }
 

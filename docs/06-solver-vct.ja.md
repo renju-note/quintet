@@ -11,8 +11,8 @@ src/mate/vct/
 ├── nested_vcf.rs       NestedVCF: 片側の内部四追い探索                                          (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                        (§3)
 ├── proof.rs            Node（証明数）、ProofTable（置換表）                                      (§4)
-├── searcher.rs         search_attacks / search_defences、expand_attacks / expand_defences       (§5)
-├── selector.rs         select_attack / select_defence → Selection                               (§5)
+├── searcher.rs         search_attacks / search_defences、expand_attacks / expand_defences、     (§5)
+│                       select_attack / select_defence → Selection
 ├── threshold.rs        ThresholdPolicy: DFSThreshold、PNSThreshold、DFPNSThreshold              (§5)
 ├── solver.rs           VCTSolver<P>: 構造体、Solver の実装                                      (§5)
 └── extractor.rs        extract: 表から詰み手順を復元する                                        (§6)
@@ -194,7 +194,7 @@ pub const INF: u32 = u32::MAX;
 - `lookup_next(state, m)`: `m` の後の子を `next_key` で引く。まず `estimates`、次に `decided`。`decided` では、より小さい limit での証明や、より大きい limit での反証も答えになる（04 §3）。これにより limit 5 の探索は limit 4 の結果を再利用でき、ある根で見つけた証明は別の根でも使える。
 - `transfer_from`: `decided` が効き始める深さ。生成器は内部四追いに `min(limit, depth)` で問うので、それより浅いと候補リストが limit で変わり、別の木になる。`VCTSolver::with_carry_capacity` が `max(attacker_vcf_depth, defender_vcf_depth + 1, 2)` に設定する。これより浅い limit では `decided` に書きも読みもしない。
 
-## 5. 探索（`searcher.rs`、`selector.rs`、`threshold.rs`、`solver.rs`）
+## 5. 探索（`searcher.rs`、`threshold.rs`、`solver.rs`）
 
 ### ノード関数
 
@@ -317,7 +317,7 @@ extract_defences(state):                       # 受け方の手番
  . . . . . . . . . . . . . . .
 ```
 
-`solve(VCTDFS, 4, &board, Black, 1)`（`VCTPNS`、`VCTDFPNS` も同じ）は `F10,G9,I10,G10,H11,H12,G12`、詰め上がり `Fours(F13, K8)` を返す。`limit = 3` では `None`。
+`solve(VCTDFS, &board, Black, SolveLimits::new(4).with_threat_limit(1))`（`VCTPNS`、`VCTDFPNS` も同じ）は手順 `F10,G9,I10,G10,H11,H12,G12`、詰め上がり `Fours(F13, K8)` で証明する。`limit = 3` では `Disproven`。
 
 | 手 | なぜ追い手 / 強制か | その後の `limit` |
 | --- | --- | --- |

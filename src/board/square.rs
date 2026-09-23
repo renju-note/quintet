@@ -1,7 +1,7 @@
 use super::line::*;
 use super::player::*;
 use super::point::*;
-use super::sequence::*;
+use super::potential::VICTORY;
 use super::structure::*;
 use std::fmt;
 use std::str::FromStr;
@@ -18,12 +18,6 @@ pub struct Square {
     hlines: OrthogonalLines,
     alines: DiagonalLines,
     dlines: DiagonalLines,
-}
-
-impl Default for Square {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl Square {
@@ -58,47 +52,11 @@ impl Square {
     }
 
     pub fn put_mut(&mut self, player: Player, p: Point) {
-        let vidx = p.to_index(Vertical);
-        if let Some(i) = Self::line_idx(vidx) {
-            self.vlines[i].put_mut(player, vidx.j)
-        }
-
-        let hidx = p.to_index(Horizontal);
-        if let Some(i) = Self::line_idx(hidx) {
-            self.hlines[i].put_mut(player, hidx.j)
-        }
-
-        let aidx = p.to_index(Ascending);
-        if let Some(i) = Self::line_idx(aidx) {
-            self.alines[i].put_mut(player, aidx.j)
-        }
-
-        let didx = p.to_index(Descending);
-        if let Some(i) = Self::line_idx(didx) {
-            self.dlines[i].put_mut(player, didx.j)
-        }
+        self.update_lines_on(p, |line, j| line.put_mut(player, j));
     }
 
     pub fn remove_mut(&mut self, p: Point) {
-        let vidx = p.to_index(Vertical);
-        if let Some(i) = Self::line_idx(vidx) {
-            self.vlines[i].remove_mut(vidx.j)
-        }
-
-        let hidx = p.to_index(Horizontal);
-        if let Some(i) = Self::line_idx(hidx) {
-            self.hlines[i].remove_mut(hidx.j)
-        }
-
-        let aidx = p.to_index(Ascending);
-        if let Some(i) = Self::line_idx(aidx) {
-            self.alines[i].remove_mut(aidx.j)
-        }
-
-        let didx = p.to_index(Descending);
-        if let Some(i) = Self::line_idx(didx) {
-            self.dlines[i].remove_mut(didx.j)
-        }
+        self.update_lines_on(p, |line, j| line.remove_mut(j));
     }
 
     pub fn stone(&self, p: Point) -> Option<Player> {
@@ -159,80 +117,6 @@ impl Square {
 
     /// Every stored line, as `(direction, i, line)`.
     pub fn lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
-        self.iter_lines()
-    }
-
-    /// The (at most four) stored lines through `p`.
-    pub fn lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
-        self.iter_lines_on(p)
-    }
-
-    pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
-        let (sk, n, exact) = k.to_sequence(r);
-        self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(r) > n)
-            .flat_map(move |(d, i, l)| {
-                l.sequences(r, sk, n, exact)
-                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
-            })
-    }
-
-    pub fn structures_on(
-        &self,
-        p: Point,
-        r: Player,
-        k: StructureKind,
-    ) -> impl Iterator<Item = Structure> + '_ {
-        let (sk, n, exact) = k.to_sequence(r);
-        self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(r) > n)
-            .flat_map(move |(d, i, l)| {
-                let j = p.to_index(d).j;
-                l.sequences_on(j, r, sk, n, exact)
-                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
-            })
-    }
-
-    pub fn potentials(
-        &self,
-        r: Player,
-        min: u8,
-        exact: bool,
-    ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.iter_lines()
-            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
-            .flat_map(move |(d, i, l)| {
-                l.potentials(r, min, exact)
-                    .map(move |(j, p)| (Index::new(d, i, j), p))
-            })
-    }
-
-    pub fn potentials_along(
-        &self,
-        p: Point,
-        r: Player,
-        min: u8,
-        exact: bool,
-    ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.iter_lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
-            .flat_map(move |(d, i, l)| {
-                l.potentials(r, min, exact)
-                    .map(move |(j, p)| (Index::new(d, i, j), p))
-            })
-    }
-
-    pub fn to_pretty_string(&self) -> String {
-        let mut result = String::new();
-        for (i, l) in self.hlines.iter().enumerate().rev() {
-            result.push_str(&format!("{: >2}{}\n", i + 1, l));
-        }
-        let xindices = ('A'..='O').map(|c| c.to_string()).collect::<Vec<_>>();
-        result.push_str(&format!("   {}", xindices.join(" ")));
-        result
-    }
-
-    fn iter_lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let viter = self
             .vlines
             .iter()
@@ -260,7 +144,8 @@ impl Square {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    fn iter_lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
+    /// The (at most four) stored lines through `p`.
+    pub fn lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
         let vidx = p.to_index(Vertical);
         let viter = Self::line_idx(vidx)
             .map(|i| (Vertical, vidx.i, &self.vlines[i]))
@@ -284,6 +169,94 @@ impl Square {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
+    pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
+        let (sk, n, exact) = k.to_sequence(r);
+        self.lines()
+            .filter(move |(_, _, l)| l.potential_cap(r) > n)
+            .flat_map(move |(d, i, l)| {
+                l.sequences(r, sk, n, exact)
+                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
+            })
+    }
+
+    pub fn structures_on(
+        &self,
+        p: Point,
+        r: Player,
+        k: StructureKind,
+    ) -> impl Iterator<Item = Structure> + '_ {
+        let (sk, n, exact) = k.to_sequence(r);
+        self.lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(r) > n)
+            .flat_map(move |(d, i, l)| {
+                let j = p.to_index(d).j;
+                l.sequences_on(j, r, sk, n, exact)
+                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
+            })
+    }
+
+    pub fn potentials(
+        &self,
+        r: Player,
+        min: u8,
+        exact: bool,
+    ) -> impl Iterator<Item = (Index, u8)> + '_ {
+        self.lines()
+            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
+            .flat_map(move |(d, i, l)| {
+                l.potentials(r, min, exact)
+                    .map(move |(j, p)| (Index::new(d, i, j), p))
+            })
+    }
+
+    pub fn potentials_along(
+        &self,
+        p: Point,
+        r: Player,
+        min: u8,
+        exact: bool,
+    ) -> impl Iterator<Item = (Index, u8)> + '_ {
+        self.lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
+            .flat_map(move |(d, i, l)| {
+                l.potentials(r, min, exact)
+                    .map(move |(j, p)| (Index::new(d, i, j), p))
+            })
+    }
+
+    pub fn to_pretty_string(&self) -> String {
+        let mut result = String::new();
+        for (i, l) in self.hlines.iter().enumerate().rev() {
+            result.push_str(&format!("{: >2}{}\n", i + 1, l));
+        }
+        let xindices = ('A'..='O').map(|c| c.to_string()).collect::<Vec<_>>();
+        result.push_str(&format!("   {}", xindices.join(" ")));
+        result
+    }
+
+    /// Applies `f` to each stored line through `p`, with `p`'s cell on it.
+    fn update_lines_on(&mut self, p: Point, mut f: impl FnMut(&mut Line, u8)) {
+        let vidx = p.to_index(Vertical);
+        if let Some(i) = Self::line_idx(vidx) {
+            f(&mut self.vlines[i], vidx.j)
+        }
+
+        let hidx = p.to_index(Horizontal);
+        if let Some(i) = Self::line_idx(hidx) {
+            f(&mut self.hlines[i], hidx.j)
+        }
+
+        let aidx = p.to_index(Ascending);
+        if let Some(i) = Self::line_idx(aidx) {
+            f(&mut self.alines[i], aidx.j)
+        }
+
+        let didx = p.to_index(Descending);
+        if let Some(i) = Self::line_idx(didx) {
+            f(&mut self.dlines[i], didx.j)
+        }
+    }
+
     fn line_idx(index: Index) -> Option<usize> {
         let i = index.i;
         match index.d {
@@ -300,20 +273,23 @@ impl Square {
     }
 }
 
-impl fmt::Display for Square {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let rev_hlines: Vec<_> = self.hlines.iter().rev().collect();
-        let s = lines_to_string(&rev_hlines);
-        f.write_str(&s)
+impl Default for Square {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-fn lines_to_string(lines: &[&Line]) -> String {
-    lines
-        .iter()
-        .map(|l| l.to_string())
-        .collect::<Vec<_>>()
-        .join("\n")
+impl fmt::Display for Square {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = self
+            .hlines
+            .iter()
+            .rev()
+            .map(|l| l.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        f.write_str(&s)
+    }
 }
 
 impl FromStr for Square {
@@ -330,11 +306,6 @@ impl FromStr for Square {
     }
 }
 
-fn from_str_moves(s: &str) -> Result<Square, &'static str> {
-    let moves = s.trim().parse::<Points>()?;
-    Ok(Square::from_moves(&moves))
-}
-
 fn from_str_stones(s: &str) -> Result<Square, &'static str> {
     let mut codes = s.trim().split("/");
     let blacks_str = codes.next().ok_or("Wrong format.")?;
@@ -342,6 +313,11 @@ fn from_str_stones(s: &str) -> Result<Square, &'static str> {
     let blacks = blacks_str.parse::<Points>()?;
     let whites = whites_str.parse::<Points>()?;
     Ok(Square::from_stones(&blacks, &whites))
+}
+
+fn from_str_moves(s: &str) -> Result<Square, &'static str> {
+    let moves = s.trim().parse::<Points>()?;
+    Ok(Square::from_moves(&moves))
 }
 
 fn from_str_display(s: &str) -> Result<Square, &'static str> {
@@ -417,6 +393,15 @@ fn diagonal_lines() -> DiagonalLines {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::board::sequence::Sequence;
+
+    fn lines_to_string(lines: &[&Line]) -> String {
+        lines
+            .iter()
+            .map(|l| l.to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 
     #[test]
     fn test_put_remove() {

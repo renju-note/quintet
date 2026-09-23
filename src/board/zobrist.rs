@@ -17,7 +17,7 @@ pub fn new() -> u64 {
 }
 
 pub fn apply_move(current: u64, player: Player, p: Point) -> u64 {
-    let idx = 2 * (u8::from(p) as usize) + if player.is_black() { 0 } else { 1 };
+    let idx = 2 * (u8::from(p) as usize) + player_index(player);
     let code = CODE_TABLE[idx];
     current ^ code
 }

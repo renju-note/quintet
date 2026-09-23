@@ -3,20 +3,9 @@ use super::point::*;
 use super::square::*;
 use super::structure::*;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ForbiddenKind {
-    DoubleThree,
-    DoubleFour,
-    Overline,
-}
-
-pub use ForbiddenKind::*;
-
 pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)> {
     q.empties()
-        .map(|p| (forbidden_strict(q, p), p))
-        .filter(|(k, _)| k.is_some())
-        .map(|(k, p)| (k.unwrap(), p))
+        .filter_map(|p| forbidden_strict(q, p).map(|k| (k, p)))
         .collect()
 }
 
@@ -42,6 +31,15 @@ pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind> {
         None
     }
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ForbiddenKind {
+    DoubleThree,
+    DoubleFour,
+    Overline,
+}
+
+pub use ForbiddenKind::*;
 
 fn overline(q: &Square, p: Point) -> bool {
     let mut overlinings = q.structures_on(p, Black, Overlining);
