@@ -93,3 +93,38 @@ impl Key {
         apply_n(self.position, self.limit)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::Player::{Black, White};
+    use crate::mate::vcf::VCFState;
+
+    /// `limit` is how many attacker moves are left. One is spent each time
+    /// the turn comes back to the attacker, i.e. per attack-defence pair,
+    /// and undo gives it back.
+    #[test]
+    fn test_play_and_undo_count_the_attackers_moves() -> Result<(), String> {
+        let board = "H8/I9".parse::<Board>()?;
+        let mut state = VCFState::init(&board, Black, 3);
+        let before = state.key();
+
+        state.play(Some("J10".parse()?)); // Black, the attacker
+        assert_eq!((state.game().turn, state.limit()), (White, 3));
+        state.play(None); // White passes
+        assert_eq!((state.game().turn, state.limit()), (Black, 2));
+        state.play(Some("K11".parse()?));
+        assert_eq!(state.limit(), 2);
+
+        let limit = state.into_play(Some("L12".parse()?), |s| s.limit());
+        assert_eq!(limit, 1);
+        assert_eq!(state.limit(), 2);
+
+        state.undo();
+        state.undo();
+        state.undo();
+        assert_eq!(state.limit(), 3);
+        assert_eq!(state.key(), before);
+        Ok(())
+    }
+}

@@ -393,283 +393,71 @@ fn diagonal_lines() -> DiagonalLines {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::sequence::Sequence;
 
-    fn lines_to_string(lines: &[&Line]) -> String {
-        lines
-            .iter()
-            .map(|l| l.to_string())
-            .collect::<Vec<_>>()
-            .join("\n")
+    const ALL_DIRECTIONS: [Direction; 4] = [Vertical, Horizontal, Ascending, Descending];
+
+    fn points(it: impl Iterator<Item = Point>) -> String {
+        Points(it.collect()).to_string()
+    }
+
+    /// Every point is stored once per direction; all four copies must agree
+    /// with `expected` after any sequence of puts and removes.
+    fn assert_lines_agree(square: &Square, expected: &[(Point, Player)]) {
+        for x in 0..RANGE {
+            for y in 0..RANGE {
+                let p = Point(x, y);
+                let want = expected.iter().find(|(q, _)| *q == p).map(|&(_, r)| r);
+                for d in ALL_DIRECTIONS {
+                    if let Some(line) = square.line_on(p, d) {
+                        assert_eq!(line.stone(p.to_index(d).j), want, "{p} {d:?}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
-    fn test_put_remove() {
+    fn test_put_and_remove() {
         let mut square = Square::new();
-        square.put_mut(Black, Point(7, 7));
-        square.put_mut(White, Point(8, 8));
-        square.put_mut(Black, Point(9, 8));
-        square.put_mut(Black, Point(1, 1));
-        square.put_mut(White, Point(1, 13));
-        square.put_mut(Black, Point(13, 1));
-        square.put_mut(White, Point(13, 13));
+        // The centre, and a stone near each corner, where the diagonals are
+        // short or not stored at all.
+        let stones = [
+            (Point(7, 7), Black),
+            (Point(8, 8), White),
+            (Point(9, 8), Black),
+            (Point(1, 1), Black),
+            (Point(1, 13), White),
+            (Point(13, 1), Black),
+            (Point(13, 13), White),
+            (Point(0, 0), White),
+        ];
+        for (p, r) in stones {
+            square.put_mut(r, p);
+        }
+        assert_lines_agree(&square, &stones);
 
-        let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . o . . . . . . . . . . . o .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . o . . . . . . .
-             . . . . . . . . x o . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . x . . . . . . . . . . . x .
-             . . . . . . . . . . . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . o . . . . . . . . . . . x .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . o . . . . . . .
-             . . . . . . . . x . . . . . .
-             . . . . . . . . o . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . o . . . . . . . . . . . x .
-             . . . . . . . . . . . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . .
-             . . . . . .
-             . . . . . . .
-             . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . . . .
-             . . . . . . . . . . . . .
-             . . . . . . . . . . . . . .
-             . o . . . . . o x . . . . x .
-             . . . . . . . . o . . . . .
-             . . . . . . . . . . . . .
-             . . . . . . . . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . .
-             . . . . . . .
-             . . . . . .
-             . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . .
-             . . . . . .
-             . . . . . . .
-             . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . . . .
-             . . . . . . . . . . . . .
-             . . . . . . . . . . . . . .
-             . x . . . . . o . . . . . o .
-             . . . . . . . . . . . . . .
-             . . . . . . x . . . . . .
-             . . . . . . o . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . .
-             . . . . . . .
-             . . . . . .
-             . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
+        // Replacing a stone, removing two, and removing from an empty point.
+        square.put_mut(Black, Point(1, 13));
         square.remove_mut(Point(7, 7));
         square.remove_mut(Point(8, 8));
         square.remove_mut(Point(9, 9));
-
-        let result = lines_to_string(&square.hlines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . o . . . . . . . . . . . o .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . o . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . x . . . . . . . . . . . x .
-             . . . . . . . . . . . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let result = lines_to_string(&square.vlines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . o . . . . . . . . . . . x .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . o . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . o . . . . . . . . . . . x .
-             . . . . . . . . . . . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let result = lines_to_string(&square.alines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . .
-             . . . . . .
-             . . . . . . .
-             . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . . . .
-             . . . . . . . . . . . . .
-             . . . . . . . . . . . . . .
-             . o . . . . . . . . . . . x .
-             . . . . . . . . o . . . . .
-             . . . . . . . . . . . . .
-             . . . . . . . . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . .
-             . . . . . . .
-             . . . . . .
-             . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let result = lines_to_string(&square.dlines.iter().collect::<Vec<_>>());
-        let expected = trim_lines_string(
-            "
-             . . . . .
-             . . . . . .
-             . . . . . . .
-             . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . . . .
-             . . . . . . . . . . . . .
-             . . . . . . . . . . . . . .
-             . x . . . . . . . . . . . o .
-             . . . . . . . . . . . . . .
-             . . . . . . . . . . . . .
-             . . . . . . o . . . . .
-             . . . . . . . . . . .
-             . . . . . . . . . .
-             . . . . . . . . .
-             . . . . . . . .
-             . . . . . . .
-             . . . . . .
-             . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_stone_and_stones() -> Result<(), String> {
-        let square = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . x o . . . . .
-         . . . . . . . o . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Square>()?;
-
-        assert_eq!(square.stone(Point(7, 7)), Some(Black));
-        assert_eq!(square.stone(Point(8, 8)), Some(White));
-        assert_eq!(square.stone(Point(9, 9)), None);
-
-        assert_eq!(
-            square.stones(Black).collect::<Vec<_>>(),
-            [Point(7, 7), Point(9, 8)]
-        );
-        assert_eq!(square.stones(White).collect::<Vec<_>>(), [Point(8, 8)]);
-        Ok(())
+        let stones = [
+            (Point(9, 8), Black),
+            (Point(1, 1), Black),
+            (Point(1, 13), Black),
+            (Point(13, 1), Black),
+            (Point(13, 13), White),
+            (Point(0, 0), White),
+        ];
+        assert_lines_agree(&square, &stones);
+        assert_eq!(points(square.stones(Black)), "B2,B14,J9,N2");
+        assert_eq!(points(square.stones(White)), "A1,N14");
+        assert_eq!(square.empties().count(), 225 - 6);
     }
 
     #[test]
     fn test_lines() -> Result<(), String> {
         let square = "H8,I9,J9".parse::<Square>()?;
-        let directions = [Vertical, Horizontal, Ascending, Descending];
-
-        // A stone shows up at cell `to_index(d).j` of line `to_index(d).i`.
-        for (p, r) in [
-            (Point(7, 7), Black),
-            (Point(8, 8), White),
-            (Point(9, 8), Black),
-        ] {
-            for d in directions {
-                let index = p.to_index(d);
-                let line = square.line(d, index.i).expect("stored line");
-                assert_eq!(line.stone(index.j), Some(r), "{p} {d:?}");
-                assert_eq!(square.line_on(p, d), Some(line));
-            }
-        }
 
         // The diagonals shorter than a five are not stored.
         assert!(square.line(Ascending, D_LINE_OMIT).is_some());
@@ -697,7 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sequences() -> Result<(), String> {
+    fn test_structures() -> Result<(), String> {
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -716,18 +504,25 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
-        let result: Vec<_> = square.structures(Black, Two).collect();
-        let expected = [Structure::new(
-            Index::new(Ascending, 16, 5),
-            Sequence(0b00011001),
-        )];
-        assert_eq!(result, expected);
-        let result: Vec<_> = square.structures(White, Sword).collect();
-        let expected = [Structure::new(
-            Index::new(Horizontal, 8, 5),
-            Sequence(0b00011100),
-        )];
-        assert_eq!(result, expected);
+
+        // Black's only open two is H6-K9 on the diagonal: H6-H8 is closed
+        // by White's H9.
+        let twos: Vec<_> = square.structures(Black, Two).collect();
+        assert_eq!(twos.len(), 1);
+        assert_eq!(points(twos[0].eyes()), "I7,J8");
+
+        // White's H9-J9 is closed by K9, so it is a sword (three stones that
+        // can only become a closed four), not a three.
+        assert_eq!(square.structures(White, Three).count(), 0);
+        let swords: Vec<_> = square.structures(White, Sword).collect();
+        assert_eq!(swords.len(), 1);
+        assert_eq!(points(swords[0].stones()), "H9,I9,J9");
+        assert_eq!(points(swords[0].eyes()), "F9,G9");
+
+        // `structures_on` is the same search, limited to one point's lines.
+        let on_h9: Vec<_> = square.structures_on(Point(7, 8), White, Sword).collect();
+        assert_eq!(on_h9, swords);
+        assert_eq!(square.structures_on(Point(7, 8), Black, Two).count(), 0);
 
         Ok(())
     }
@@ -752,78 +547,57 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Square>()?;
-        let result: Vec<_> = square.potentials(Black, 3, true).collect();
+        let potentials = |r, min, exact| -> Vec<(Direction, String, u8)> {
+            square
+                .potentials(r, min, exact)
+                .map(|(i, o)| (i.d, i.to_point().to_string(), o))
+                .collect()
+        };
+
+        // Line by line, the empty points and what `Line::potentials` gives
+        // them: see `potential.rs`.
         let expected = [
-            (Index::new(Vertical, 7, 3), 3),
-            (Index::new(Vertical, 7, 4), 3),
-            (Index::new(Vertical, 7, 6), 3),
-            (Index::new(Ascending, 16, 4), 3),
-            (Index::new(Ascending, 16, 6), 6),
-            (Index::new(Ascending, 16, 7), 6),
-            (Index::new(Ascending, 16, 9), 3),
+            (Vertical, "H4".to_string(), 3),
+            (Vertical, "H5".to_string(), 3),
+            (Vertical, "H7".to_string(), 3),
+            (Ascending, "G5".to_string(), 3),
+            (Ascending, "I7".to_string(), 6),
+            (Ascending, "J8".to_string(), 6),
+            (Ascending, "L10".to_string(), 3),
         ];
-        assert_eq!(result, expected);
-        let result: Vec<_> = square.potentials(White, 3, false).collect();
+        assert_eq!(potentials(Black, 3, true), expected);
+
         let expected = [
-            (Index::new(Horizontal, 8, 4), 3),
-            (Index::new(Horizontal, 8, 5), 4),
-            (Index::new(Horizontal, 8, 6), 4),
+            (Horizontal, "E9".to_string(), 3),
+            (Horizontal, "F9".to_string(), 4),
+            (Horizontal, "G9".to_string(), 4),
         ];
-        assert_eq!(result, expected);
+        assert_eq!(potentials(White, 3, false), expected);
+
+        // `potentials_along` is the same, limited to one point's lines.
+        let along: Vec<_> = square
+            .potentials_along(Point(7, 8), White, 3, false)
+            .collect();
+        let all: Vec<_> = square.potentials(White, 3, false).collect();
+        assert_eq!(along, all);
 
         Ok(())
     }
 
     #[test]
-    fn test_to_pretty_string() {
-        let mut square = Square::new();
-        square.put_mut(Black, Point(7, 7));
-        square.put_mut(White, Point(8, 8));
-        square.put_mut(Black, Point(9, 8));
-        square.put_mut(Black, Point(0, 0));
-        square.put_mut(White, Point(0, 14));
-        square.put_mut(Black, Point(14, 0));
-        square.put_mut(White, Point(14, 14));
-        let expected = "
-15 x . . . . . . . . . . . . . x
-14 . . . . . . . . . . . . . . .
-13 . . . . . . . . . . . . . . .
-12 . . . . . . . . . . . . . . .
-11 . . . . . . . . . . . . . . .
-10 . . . . . . . . . . . . . . .
- 9 . . . . . . . . x o . . . . .
- 8 . . . . . . . o . . . . . . .
- 7 . . . . . . . . . . . . . . .
- 6 . . . . . . . . . . . . . . .
- 5 . . . . . . . . . . . . . . .
- 4 . . . . . . . . . . . . . . .
- 3 . . . . . . . . . . . . . . .
- 2 . . . . . . . . . . . . . . .
- 1 o . . . . . . . . . . . . . o
-   A B C D E F G H I J K L M N O
-        "
-        .trim();
-        assert_eq!(square.to_pretty_string(), expected);
-    }
-
-    #[test]
     fn test_parse() -> Result<(), String> {
-        let result = "H8,I9,J9".parse::<Square>()?;
         let mut expected = Square::new();
         expected.put_mut(Black, Point(7, 7));
         expected.put_mut(White, Point(8, 8));
         expected.put_mut(Black, Point(9, 8));
-        assert_eq!(result, expected);
 
-        let result = "H8,J9/I9".parse::<Square>()?;
-        let mut expected = Square::new();
-        expected.put_mut(Black, Point(7, 7));
-        expected.put_mut(White, Point(8, 8));
-        expected.put_mut(Black, Point(9, 8));
-        assert_eq!(result, expected);
-
-        let result = "
-         x . . . . . . . . . . . . . x
+        // Moves, alternating from Black.
+        assert_eq!("H8,I9,J9".parse::<Square>()?, expected);
+        // Black stones / White stones.
+        assert_eq!("H8,J9/I9".parse::<Square>()?, expected);
+        // The board as `Display` writes it, row 15 first.
+        let s = "
+         . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -837,59 +611,41 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
-         o . . . . . . . . . . . . . o
-        "
-        .parse::<Square>()?;
-        let mut expected = Square::new();
-        expected.put_mut(Black, Point(7, 7));
-        expected.put_mut(White, Point(8, 8));
-        expected.put_mut(Black, Point(9, 8));
-        expected.put_mut(Black, Point(0, 0));
-        expected.put_mut(White, Point(0, 14));
-        expected.put_mut(Black, Point(14, 0));
-        expected.put_mut(White, Point(14, 14));
-        assert_eq!(result, expected);
+         . . . . . . . . . . . . . . .
+        ";
+        assert_eq!(s.parse::<Square>()?, expected);
+        assert_eq!(expected.to_string().parse::<Square>()?, expected);
 
+        assert!(". . .\n. . .".parse::<Square>().is_err());
         Ok(())
     }
 
     #[test]
-    fn test_to_string() {
+    fn test_to_pretty_string() {
         let mut square = Square::new();
         square.put_mut(Black, Point(7, 7));
         square.put_mut(White, Point(8, 8));
-        square.put_mut(Black, Point(9, 8));
         square.put_mut(Black, Point(0, 0));
-        square.put_mut(White, Point(0, 14));
-        square.put_mut(Black, Point(14, 0));
         square.put_mut(White, Point(14, 14));
-        let expected = trim_lines_string(
-            "
-             x . . . . . . . . . . . . . x
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . x o . . . . .
-             . . . . . . . o . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             o . . . . . . . . . . . . . o
-            ",
-        );
-        assert_eq!(square.to_string(), expected);
-    }
-
-    fn trim_lines_string(s: &str) -> String {
-        s.trim()
-            .split("\n")
-            .map(|ls| " ".to_string() + ls.trim())
-            .collect::<Vec<_>>()
-            .join("\n")
+        let expected = "
+15 . . . . . . . . . . . . . . x
+14 . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . .
+ 9 . . . . . . . . x . . . . . .
+ 8 . . . . . . . o . . . . . . .
+ 7 . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . .
+ 4 . . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . .
+ 2 . . . . . . . . . . . . . . .
+ 1 o . . . . . . . . . . . . . .
+   A B C D E F G H I J K L M N O
+        "
+        .trim();
+        assert_eq!(square.to_pretty_string(), expected);
     }
 }

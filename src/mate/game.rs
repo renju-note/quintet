@@ -185,4 +185,52 @@ mod tests {
 
         Ok(())
     }
+
+    fn point(s: &str) -> Point {
+        s.parse().unwrap()
+    }
+
+    /// The event after `turn` plays `m` on `board`.
+    fn event_after(board: &str, turn: Player, m: &str) -> Option<Event> {
+        let mut game = Game::init(&board.parse::<Board>().unwrap(), turn);
+        game.play(Some(point(m)));
+        game.check_event()
+    }
+
+    #[test]
+    fn test_check_event() {
+        // A four with one way to five: the reply is forced.
+        let event = event_after("H8,I8,J8/G8", Black, "K8");
+        assert_eq!(event, Some(Forced(point("L8"))));
+
+        // Two ways: the defender cannot stop both.
+        let event = event_after("H8,I8,J8/A1", Black, "K8");
+        assert_eq!(event, Some(Defeated(Fours(point("G8"), point("L8")))));
+
+        // Two fours, D8-H8 and E8-I8, but one eye G8 blocks both.
+        let event = event_after("A1/E8,F8,H8,I8", White, "D8");
+        assert_eq!(event, Some(Forced(point("G8"))));
+
+        // The only block, H8, is a double-three, so Black may not play it.
+        let event = event_after("H9,G8,I8,H7,C3/E5,F6,G7", White, "D4");
+        assert_eq!(event, Some(Defeated(Forbidden(point("H8")))));
+
+        // No four, nothing forced.
+        assert_eq!(event_after("H8,I8/A1", Black, "J8"), None);
+    }
+
+    #[test]
+    fn test_check_event_without_a_last_move() -> Result<(), String> {
+        // At the root there is no last move to look around, so every four
+        // of the side that just moved counts.
+        let board = "H8,I8,J8,K8/G8".parse::<Board>()?;
+        let mut game = Game::init(&board, White);
+        assert_eq!(game.check_event(), Some(Forced(point("L8"))));
+
+        // The same after a pass, which leaves no last move either.
+        game.play(Some(point("A1")));
+        game.play(None);
+        assert_eq!(game.check_event(), Some(Forced(point("L8"))));
+        Ok(())
+    }
 }

@@ -79,37 +79,56 @@ impl Iterator for Potentials {
 mod tests {
     use super::*;
 
+    /// Potentials of the empty cells of a line written like `"-o-ox"`, cell
+    /// 0 first: `o` is an own stone, `x` an opponent's.
+    fn potentials(line: &str, min: u8, exact: bool) -> Vec<(u8, u8)> {
+        let (mut my, mut op) = (0, 0);
+        for (i, c) in line.chars().enumerate() {
+            match c {
+                'o' => my |= 1 << i,
+                'x' => op |= 1 << i,
+                _ => {}
+            }
+        }
+        Potentials::new(line.len() as u8, my, op, min, exact).collect()
+    }
+
     #[test]
     fn test_potentials() {
-        let my = 0b011100010010100;
-        let op = 0b000000001000000;
-
-        let result = Potentials::new(15, my, op, 3, false).collect::<Vec<_>>();
-        let expected = [
-            (0, 3),
-            (1, 6),
-            (3, 6),
-            (5, 3),
-            (8, 6),
-            (9, 4),
-            (10, 8),
-            (14, 4),
-        ];
-        assert_eq!(result, expected);
-
-        let result = Potentials::new(15, my, op, 3, true).collect::<Vec<_>>();
-        let expected = [(0, 3), (1, 6), (3, 6), (5, 3), (9, 4), (10, 8), (14, 4)];
-        assert_eq!(result, expected);
-
-        let my = 0b000001100000000;
-        let op = 0b000000000000000;
-
-        let result = Potentials::new(15, my, op, 3, false).collect::<Vec<_>>();
+        // A window free of opponent stones is worth its own stones + 1. An
+        // empty cell scores the best window through it, times how many
+        // windows reach that best; below `min` it is not reported.
+        //
+        // Cell 7 is in three windows holding both stones (3 each): 9. Cell
+        // 5 is in one of them: 3. The same holds mirrored on the right.
+        let line = "--------oo-----";
         let expected = [(5, 3), (6, 6), (7, 9), (10, 9), (11, 6), (12, 3)];
-        assert_eq!(result, expected);
+        assert_eq!(potentials(line, 3, false), expected);
+        // Nothing here can become an overline, so `exact` changes nothing.
+        assert_eq!(potentials(line, 3, true), expected);
 
-        let result = Potentials::new(15, my, op, 3, true).collect::<Vec<_>>();
-        let expected = [(5, 3), (6, 6), (7, 9), (10, 9), (11, 6), (12, 3)];
-        assert_eq!(result, expected);
+        // Windows through the `x` at cell 6 are worth nothing, so cell 5
+        // only sees window 1 (two stones).
+        let line = "--o-o-xo---ooo-";
+        assert_eq!(
+            potentials(line, 3, false),
+            [
+                (0, 3),
+                (1, 6),
+                (3, 6),
+                (5, 3),
+                (8, 6),
+                (9, 4),
+                (10, 8),
+                (14, 4)
+            ]
+        );
+        // With `exact`, windows 7 (cells 7-11) and 8 (cells 8-12) have an
+        // own stone just outside them, at 12 and at 7, and would make an
+        // overline; that leaves cell 8 with nothing.
+        assert_eq!(
+            potentials(line, 3, true),
+            [(0, 3), (1, 6), (3, 6), (5, 3), (9, 4), (10, 8), (14, 4)]
+        );
     }
 }

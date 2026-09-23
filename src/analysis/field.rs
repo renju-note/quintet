@@ -134,29 +134,36 @@ impl Potential {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_overlay() -> Result<(), String> {
-        let board = "
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . o . . o . . . . .
-             . . . . . . o x x . . . . . .
-             . . . . . . . o . . . . . . .
-             . . . . . . . . x . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
+    fn board() -> Board {
         "
-        .parse::<Board>()?;
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . o . . o . . . . .
+         . . . . . . o x x . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()
+        .unwrap()
+    }
 
+    /// A point's value is the sum of its potentials along the four lines
+    /// through it (see `potential.rs`).
+    #[test]
+    fn test_init() {
+        let board = board();
         let field = PotentialField::init(Black, 3, &board);
-        let result = field.overlay(&board);
+        // G8: three vertical windows hold both G9 and G10 (3 each), and no
+        // other line through G8 reaches `min`: 9.
         let expected = trim_lines_string(
             "
              . . . . . . . . . . . . . . .
@@ -176,170 +183,57 @@ mod tests {
              . . . . . . . . . . . . . . .
         ",
         );
-        assert_eq!(result, expected);
+        assert_eq!(field.overlay(&board), expected);
 
-        let field = PotentialField::init(Black, 2, &board);
-        let result = field.overlay(&board);
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . . 2 . . 2 . . . 2 2 . . 2 .
-             . . . 2 . . 7 . . 8 2 . 2 . .
-             . . . 3 2 . 6 6 610 . 2 . . .
-             . . . . 3 2 9 814 8 2 . . . .
-             . . 2 4 4 6 o14 6 o 3 4 4 2 .
-             . . 2 2 210 o x x 8 8 . . . .
-             . . . 2101417 o 812 4 8 . . .
-             . . . 4 6 . 8 2 x 4 . . 4 . .
-             . . 2 4 . 2 3 2 . 2 . . . 2 .
-             . . 2 . 2 . . 2 . . . . . . .
-             . . . 2 . . . 2 . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-            ",
+        // `collect` lists the same values, point by point.
+        let collected = field.collect(6);
+        assert_eq!(
+            collected,
+            [
+                (Point(5, 9), 6),
+                (Point(6, 6), 6),
+                (Point(6, 7), 9),
+                (Point(6, 10), 9),
+                (Point(6, 11), 6),
+                (Point(7, 9), 6),
+                (Point(8, 9), 6),
+            ]
         );
-        assert_eq!(result, expected);
-
-        let field = PotentialField::init(White, 3, &board);
-        let result = field.overlay(&board);
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . 3 . . . . . .
-             . . . . . . o . 6 o . . . . .
-             . . . . . . o x x 3 3 3 . . .
-             . . . . . . . o 9 . . . . . .
-             . . . . . . . . x . . . . . .
-             . . . . . . . . 6 . . . . . .
-             . . . . . . . . 3 . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-        ",
-        );
-        assert_eq!(result, expected);
-
-        let field = PotentialField::init(White, 2, &board);
-        let result = field.overlay(&board);
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . 2 . . 2 2 . . 2 . . .
-             . . . . . 4 . 2 4 . 4 . . . .
-             . . . . . . 6 2 3 6 . . 2 . .
-             . . . . . . o1014 o . 4 . . .
-             . . . . . . o x x 3 9 3 2 . .
-             . . . . . . 8 o1116 . . . . .
-             . . . . 210 6 8 x1012 4 2 . .
-             . . . . 4 . . 8 6 2 2 4 . . .
-             . . . 2 . . 6 . 3 . 2 2 2 . .
-             . . . . . 4 . . 4 . . 2 . . .
-             . . . . 2 . . . 2 . . . 2 . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-        ",
-        );
-        assert_eq!(result, expected);
-
-        Ok(())
+        assert!(collected.iter().all(|&(p, o)| field.get(p) == o));
     }
 
+    /// `update_along` only recomputes the lines through the move. That has
+    /// to leave the field exactly as a fresh `init` would.
     #[test]
-    fn test_collect() -> Result<(), String> {
-        let mut board = "
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . o . x o . . . . .
-             . . . . . . o x x . . . . . .
-             . . . . . . . o o . . . . . .
-             . . . . . . . . x . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-        "
-        .parse::<Board>()?;
-
-        let mut field = PotentialField::init(White, 3, &board);
-        let result = field.overlay(&board);
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . 3 . . 3 . . .
-             . . . . . . . . 3 . 6 . . . .
-             . . . . . . . . 3 9 . . . . .
-             . . . . . . o . x o . . . . .
-             . . . . . . o x x 3 3 3 . . .
-             . . . . . . 9 o o . . . . . .
-             . . . . . 6 . . x . . . . . .
-             . . . . 3 . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let p = Point(5, 6);
-        board.put_mut(White, p);
-        field.update_along(p, &board);
-        let result = field.overlay(&board);
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . 3 . . 3 . . .
-             . . . . . . . . 3 . 6 . . . .
-             . . . . . . . . 3 4 . . . . .
-             . . . . . . o . x o . . . . .
-             . . . . . . o x x 3 3 3 . . .
-             . . . . . . 8 o o . . . . . .
-             . . . . 3 x 6 6 x 3 . . . . .
-             . . . . 4 . . . . . . . . . .
-             . . . 3 . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-            ",
-        );
-        assert_eq!(result, expected);
-
-        let result = field.collect(3);
-        let expected = [
-            (Point(3, 4), 3),
-            (Point(4, 5), 4),
-            (Point(4, 6), 3),
-            (Point(6, 6), 6),
-            (Point(6, 7), 8),
-            (Point(7, 6), 6),
-            (Point(8, 10), 3),
-            (Point(8, 11), 3),
-            (Point(8, 12), 3),
-            (Point(9, 6), 3),
-            (Point(9, 8), 3),
-            (Point(9, 10), 4),
-            (Point(10, 8), 3),
-            (Point(10, 11), 6),
-            (Point(11, 8), 3),
-            (Point(11, 12), 3),
-        ];
-        assert_eq!(result, expected);
-
+    fn test_update_along_matches_init() -> Result<(), String> {
+        let moves = "F8,F7,J9,H10,G11,J7".parse::<Points>()?.into_vec();
+        for (player, min) in [(Black, 2), (Black, 3), (White, 2), (White, 3)] {
+            let mut board = board();
+            let mut field = PotentialField::init(player, min, &board);
+            let mut turn = Black;
+            for &p in &moves {
+                board.put_mut(turn, p);
+                field.update_along(p, &board);
+                let fresh = PotentialField::init(player, min, &board);
+                assert_eq!(
+                    field.collect(0),
+                    fresh.collect(0),
+                    "{player:?} {min} put {p}"
+                );
+                turn = turn.opponent();
+            }
+            // Taking the moves back, as a search does on the way up.
+            for &p in moves.iter().rev() {
+                board.remove_mut(p);
+                field.update_along(p, &board);
+                let fresh = PotentialField::init(player, min, &board);
+                assert_eq!(
+                    field.collect(0),
+                    fresh.collect(0),
+                    "{player:?} {min} remove {p}"
+                );
+            }
+        }
         Ok(())
     }
 

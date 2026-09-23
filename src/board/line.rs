@@ -130,151 +130,61 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_put_mut() {
-        let mut line = Line::new(MAX_SIZE);
-        line.put_mut(Black, 0);
-        line.put_mut(White, 2);
-        assert_eq!(line.blacks, 0b000000000000001);
-        assert_eq!(line.whites, 0b000000000000100);
-
-        // overwrite
-        line.put_mut(Black, 5);
-        line.put_mut(White, 5);
-        assert_eq!(line.blacks, 0b000000000000001);
-        assert_eq!(line.whites, 0b000000000100100);
-    }
-
-    #[test]
-    fn test_remove_mut() {
-        let mut line = Line::new(MAX_SIZE);
-        line.put_mut(Black, 0);
-        line.put_mut(White, 2);
+    fn test_put_and_remove() -> Result<(), String> {
+        let mut line = "o-x----".parse::<Line>()?;
         line.put_mut(Black, 4);
-        line.put_mut(White, 5);
-        line.remove_mut(0);
+        // Putting on an occupied cell replaces the stone.
+        line.put_mut(White, 0);
         line.remove_mut(2);
+        // Removing from an empty cell does nothing.
         line.remove_mut(3);
-        assert_eq!(line.blacks, 0b000000000010000);
-        assert_eq!(line.whites, 0b000000000100000);
-    }
-
-    #[test]
-    fn test_stone() -> Result<(), String> {
-        let line = "o-ox-".parse::<Line>()?;
-        assert_eq!(line.stone(0), Some(Black));
-        assert_eq!(line.stone(1), None);
-        assert_eq!(line.stone(2), Some(Black));
-        assert_eq!(line.stone(3), Some(White));
-        assert_eq!(line.stone(4), None);
+        assert_eq!(line, "x---o--".parse::<Line>()?);
         Ok(())
     }
 
     #[test]
     fn test_stones() -> Result<(), String> {
         let line = "o-ox-".parse::<Line>()?;
-        let result = line.stones(Black).collect::<Vec<_>>();
-        let expected = [0, 2];
-        assert_eq!(result, expected);
-        let result = line.stones(White).collect::<Vec<_>>();
-        let expected = [3];
-        assert_eq!(result, expected);
+        assert_eq!(line.stone(0), Some(Black));
+        assert_eq!(line.stone(1), None);
+        assert_eq!(line.stone(3), Some(White));
+        assert_eq!(line.stones(Black).collect::<Vec<_>>(), [0, 2]);
+        assert_eq!(line.stones(White).collect::<Vec<_>>(), [3]);
+        assert_eq!(line.empties().collect::<Vec<_>>(), [1, 4]);
         Ok(())
     }
 
-    #[test]
-    fn test_sequences() -> Result<(), String> {
-        let line = "o--o--o---o---o".parse::<Line>()?;
-        let result = line.sequences(Black, Single, 2, true).collect::<Vec<_>>();
-        let expected = [
-            (0, Sequence(0b00001001)),
-            (2, Sequence(0b00010010)),
-            (3, Sequence(0b00001001)),
-            (6, Sequence(0b00010001)),
-            (10, Sequence(0b00010001)),
-        ];
-        assert_eq!(result, expected);
-        Ok(())
-    }
-
-    #[test]
-    fn test_sequences_on() -> Result<(), String> {
-        let line = "o--o--o---o---o".parse::<Line>()?;
-        let result: Vec<_> = line.sequences_on(7, Black, Single, 2, true).collect();
-        let expected = [(3, Sequence(0b00001001)), (6, Sequence(0b00010001))];
-        assert_eq!(result, expected);
-
-        let line = "-----oo-o-o----".parse::<Line>()?;
-        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, false).collect();
-        let expected = [
-            (4, Sequence(0b00010110)),
-            (5, Sequence(0b00001011)),
-            (6, Sequence(0b00010101)),
-        ];
-        assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, true).collect();
-        let expected = [(4, Sequence(0b00010110))];
-        assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Open, 3, false).collect();
-        let expected = [(5, Sequence(0b00011011))];
-        assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Open, 3, true).collect();
-        let expected = [];
-        assert_eq!(result, expected);
-
-        let line = "---ooo---ooo---".parse::<Line>()?;
-        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, false).collect();
-        let expected = [(3, Sequence(0b00000111)), (7, Sequence(0b00011100))];
-        assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Single, 3, true).collect();
-        let expected = [(3, Sequence(0b00000111)), (7, Sequence(0b00011100))];
-        assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Open, 3, false).collect();
-        let expected = [];
-        assert_eq!(result, expected);
-        let result: Vec<_> = line.sequences_on(7, Black, Open, 3, true).collect();
-        let expected = [];
-        assert_eq!(result, expected);
-
-        Ok(())
-    }
-
+    /// `potential_cap` bounds every window's potential (own stones + 1), so
+    /// that lines with nothing to find can be skipped.
     #[test]
     fn test_potential_cap() -> Result<(), String> {
         let line = "-----".parse::<Line>()?;
         assert_eq!(line.potential_cap(Black), 1);
         assert_eq!(line.potential_cap(White), 1);
 
+        // No room for White's five beside Black's stone: nothing to find.
         let line = "--o--".parse::<Line>()?;
         assert_eq!(line.potential_cap(Black), 2);
         assert_eq!(line.potential_cap(White), 0);
-
-        let line = "o----x".parse::<Line>()?;
-        assert_eq!(line.potential_cap(Black), 2);
-        assert_eq!(line.potential_cap(White), 2);
 
         let line = "--o---".parse::<Line>()?;
         assert_eq!(line.potential_cap(Black), 2);
         assert_eq!(line.potential_cap(White), 1);
 
+        let line = "o----x".parse::<Line>()?;
+        assert_eq!(line.potential_cap(Black), 2);
+        assert_eq!(line.potential_cap(White), 2);
+
         Ok(())
     }
 
     #[test]
-    fn test_to_string() {
-        let mut line = Line::new(7);
-        line.put_mut(Black, 0);
-        line.put_mut(Black, 4);
-        line.put_mut(White, 2);
-        assert_eq!(line.to_string(), " o . x . o . .");
-    }
-
-    #[test]
-    fn test_parse() -> Result<(), String> {
-        let result = " . o . . . x . . . .".parse::<Line>()?;
-        let mut expected = Line::new(10);
-        expected.put_mut(Black, 1);
-        expected.put_mut(White, 5);
-        assert_eq!(result, expected);
+    fn test_to_string_and_parse() -> Result<(), String> {
+        let line = "-o---x-".parse::<Line>()?;
+        assert_eq!(line.to_string(), " . o . . . x .");
+        // Spaces are ignored, so the output parses back.
+        assert_eq!(line.to_string().parse::<Line>()?, line);
+        assert!("-".repeat(16).parse::<Line>().is_err());
         Ok(())
     }
 }

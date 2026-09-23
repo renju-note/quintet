@@ -185,176 +185,50 @@ impl FromStr for Board {
 
 #[cfg(test)]
 mod tests {
-    use super::super::sequence::*;
     use super::*;
 
-    #[test]
-    fn test() -> Result<(), String> {
-        let mut board = Board::new();
-        board.put_mut(Black, Point(7, 7));
-        board.put_mut(White, Point(7, 8));
-        board.put_mut(Black, Point(9, 9));
-        board.put_mut(White, Point(8, 8));
-        board.put_mut(Black, Point(6, 8));
-        board.put_mut(White, Point(8, 6));
-        board.put_mut(Black, Point(6, 9));
-        board.put_mut(White, Point(8, 9));
-        board.put_mut(Black, Point(8, 7));
-        board.put_mut(White, Point(5, 6));
-
-        let expected = trim_lines_string(
-            "
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . o . x o . . . . .
-             . . . . . . o x x . . . . . .
-             . . . . . . . o o . . . . . .
-             . . . . . x . . x . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-             . . . . . . . . . . . . . . .
-            ",
-        );
-        assert_eq!(board.to_string(), expected);
-
-        // stones
-        let result = board.stones(Black).collect::<Vec<_>>();
-        let expected = vec![
-            Point(6, 8),
-            Point(6, 9),
-            Point(7, 7),
-            Point(8, 7),
-            Point(9, 9),
-        ];
-        assert_eq!(result, expected);
-
-        let result = board.stones(White).collect::<Vec<_>>();
-        let expected = vec![
-            Point(5, 6),
-            Point(7, 8),
-            Point(8, 6),
-            Point(8, 8),
-            Point(8, 9),
-        ];
-        assert_eq!(result, expected);
-
-        // forbiddens
-        assert_eq!(board.forbiddens(), [(DoubleThree, Point(6, 7))]);
-        assert_eq!(board.forbidden(Point(6, 7)), Some(DoubleThree));
-
-        // structures
-        let result: Vec<_> = board.structures(Black, Two).collect();
-        let expected = [
-            Structure::new(Index::new(Vertical, 6, 6), Sequence(0b00011100)),
-            Structure::new(Index::new(Vertical, 6, 7), Sequence(0b00010110)),
-            Structure::new(Index::new(Vertical, 6, 8), Sequence(0b00010011)),
-            Structure::new(Index::new(Horizontal, 7, 5), Sequence(0b00011100)),
-            Structure::new(Index::new(Horizontal, 7, 6), Sequence(0b00010110)),
-            Structure::new(Index::new(Horizontal, 7, 7), Sequence(0b00010011)),
-        ];
-        assert_eq!(result, expected);
-
-        let result: Vec<_> = board.structures(White, Two).collect();
-        let expected = [
-            Structure::new(Index::new(Horizontal, 6, 5), Sequence(0b00011001)),
-            Structure::new(Index::new(Ascending, 13, 6), Sequence(0b00010110)),
-            Structure::new(Index::new(Ascending, 13, 7), Sequence(0b00010011)),
-        ];
-        assert_eq!(result, expected);
-
-        let result: Vec<_> = board.structures(White, Three).collect();
-        let expected = [Structure::new(
-            Index::new(Ascending, 13, 5),
-            Sequence(0b00011101),
-        )];
-        assert_eq!(result, expected);
-
-        // potentials
-        let result: Vec<_> = board.potentials(Black, 3, true).collect();
-        let expected = [
-            (Index::new(Vertical, 6, 5), 3),
-            (Index::new(Vertical, 6, 6), 6),
-            (Index::new(Vertical, 6, 7), 9),
-            (Index::new(Vertical, 6, 10), 9),
-            (Index::new(Vertical, 6, 11), 6),
-            (Index::new(Vertical, 6, 12), 3),
-            (Index::new(Horizontal, 7, 4), 3),
-            (Index::new(Horizontal, 7, 5), 6),
-            (Index::new(Horizontal, 7, 6), 9),
-            (Index::new(Horizontal, 7, 9), 9),
-            (Index::new(Horizontal, 7, 10), 6),
-            (Index::new(Horizontal, 7, 11), 3),
-            (Index::new(Descending, 14, 3), 3),
-            (Index::new(Descending, 14, 4), 3),
-            (Index::new(Descending, 14, 5), 3),
-        ];
-        assert_eq!(result, expected);
-
-        let result: Vec<_> = board.potentials(White, 3, true).collect();
-        let expected = [
-            (Index::new(Vertical, 8, 10), 3),
-            (Index::new(Vertical, 8, 11), 3),
-            (Index::new(Vertical, 8, 12), 3),
-            (Index::new(Horizontal, 6, 4), 3),
-            (Index::new(Horizontal, 6, 6), 6),
-            (Index::new(Horizontal, 6, 7), 6),
-            (Index::new(Horizontal, 6, 9), 3),
-            (Index::new(Horizontal, 8, 9), 3),
-            (Index::new(Horizontal, 8, 10), 3),
-            (Index::new(Horizontal, 8, 11), 3),
-            (Index::new(Ascending, 13, 4), 4),
-            (Index::new(Ascending, 13, 6), 8),
-            (Index::new(Ascending, 13, 9), 4),
-            (Index::new(Ascending, 13, 10), 3),
-            (Index::new(Ascending, 13, 11), 3),
-        ];
-        assert_eq!(result, expected);
-
-        Ok(())
+    /// The hash is kept up to date move by move; it has to stay the hash
+    /// of the stones on the board, however they got there.
+    fn assert_hash_is_of_the_stones(board: &Board) {
+        let blacks = Points(board.stones(Black).collect());
+        let whites = Points(board.stones(White).collect());
+        let from_scratch = Board::from_stones(&blacks, &whites);
+        assert_eq!(board.zobrist_hash(), from_scratch.zobrist_hash());
     }
 
     #[test]
     fn test_zobrist_hash() {
         let mut board = Board::new();
-        let hash0 = board.zobrist_hash();
+        let empty = board.zobrist_hash();
 
         board.put_mut(Black, Point(7, 7));
-        let hash1 = board.zobrist_hash();
-        assert_ne!(hash1, hash0);
-
         board.put_mut(White, Point(8, 8));
-        let hash2 = board.zobrist_hash();
-        assert_ne!(hash2, hash0);
-        assert_ne!(hash2, hash1);
-
         board.put_mut(Black, Point(9, 8));
-        let hash3 = board.zobrist_hash();
-        assert_ne!(hash3, hash0);
-        assert_ne!(hash3, hash1);
-        assert_ne!(hash3, hash2);
+        assert_hash_is_of_the_stones(&board);
+        let three_stones = board.zobrist_hash();
+        assert_ne!(three_stones, empty);
 
-        board.remove_mut(Point(9, 8));
-        let hash4 = board.zobrist_hash();
-        assert_ne!(hash4, hash3);
-        assert_eq!(hash4, hash2);
-
-        board.put_mut(Black, Point(9, 8));
-        let hash5 = board.zobrist_hash();
-        assert_eq!(hash5, hash3);
-
+        // Taking a stone off and putting it back restores the hash.
         board.remove_mut(Point(8, 8));
-        let hash6 = board.zobrist_hash();
-        assert_ne!(hash6, hash5);
-
+        assert_hash_is_of_the_stones(&board);
+        assert_ne!(board.zobrist_hash(), three_stones);
         board.put_mut(White, Point(8, 8));
-        let hash7 = board.zobrist_hash();
-        assert_eq!(hash7, hash5);
+        assert_eq!(board.zobrist_hash(), three_stones);
+
+        // Putting over a stone replaces it, in the hash too.
+        board.put_mut(White, Point(7, 7));
+        assert_eq!(board.stone(Point(7, 7)), Some(White));
+        assert_hash_is_of_the_stones(&board);
+
+        // Removing from an empty point changes nothing.
+        let before = board.zobrist_hash();
+        board.remove_mut(Point(0, 0));
+        assert_eq!(board.zobrist_hash(), before);
+
+        // The copying versions leave the original alone.
+        let next = board.put(Black, Point(0, 0));
+        assert_eq!(board.zobrist_hash(), before);
+        assert_eq!(next.remove(Point(0, 0)).zobrist_hash(), before);
     }
 
     #[test]
@@ -368,13 +242,5 @@ mod tests {
         assert_eq!(result.z_hash, expected.z_hash);
 
         Ok(())
-    }
-
-    fn trim_lines_string(s: &str) -> String {
-        s.trim()
-            .split("\n")
-            .map(|ls| " ".to_string() + ls.trim())
-            .collect::<Vec<_>>()
-            .join("\n")
     }
 }

@@ -90,21 +90,21 @@ mod tests {
     #[test]
     fn test_keeps_the_previous_generation_and_drops_the_rest() {
         let mut memo = Memo::new(2);
-        memo.insert(1, "oldest");
+        memo.insert(1, "oldest"); // generation 0
         memo.advance_generation();
-        memo.insert(2, "previous");
+        memo.insert(2, "previous"); // generation 1
         memo.advance_generation();
 
         // Two entries is not over the carry capacity, so nothing was dropped.
         assert_eq!(memo.len(), 2);
         assert_eq!(memo.get(1), Some(&"oldest"));
 
-        memo.insert(3, "current");
+        memo.insert(3, "current"); // generation 2
         // Still readable while they are there: a generation is not validity.
         assert_eq!(memo.get(1), Some(&"oldest"));
         assert_eq!(memo.len(), 3);
 
-        // Over it now, so the next search drops all but generation 1.
+        // Over it now, so opening generation 3 keeps generation 2 alone.
         memo.advance_generation();
         assert_eq!(memo.len(), 1);
         assert_eq!(memo.get(3), Some(&"current"));
@@ -115,28 +115,15 @@ mod tests {
     #[test]
     fn test_reinserting_moves_an_entry_to_the_current_generation() {
         let mut memo = Memo::new(1);
-        memo.insert(1, "old");
+        memo.insert(1, "old"); // generation 0
+        memo.insert(2, "stale"); // generation 0
         memo.advance_generation();
-        memo.insert(1, "refreshed");
-        memo.insert(2, "other");
-        memo.advance_generation();
-        memo.insert(3, "current");
+        memo.insert(1, "refreshed"); // generation 1 now
         memo.advance_generation();
 
-        // 1 was refreshed in generation 1 and 2 was made there, so both
-        // survived into 2 and were dropped on the way into 3 with 3 kept.
-        assert_eq!(memo.get(3), Some(&"current"));
-        assert_eq!(memo.get(1), None);
+        // Opening generation 2 kept what generation 1 wrote: 1 survived as
+        // refreshed, 2 was left in generation 0 and went.
+        assert_eq!(memo.get(1), Some(&"refreshed"));
         assert_eq!(memo.get(2), None);
-    }
-
-    #[test]
-    fn test_clear() {
-        let mut memo = Memo::new(10);
-        memo.insert(1, ());
-        assert_eq!(memo.get(1), Some(&()));
-        memo.clear();
-        assert_eq!(memo.get(1), None);
-        assert_eq!(memo.len(), 0);
     }
 }

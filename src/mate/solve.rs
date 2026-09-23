@@ -356,6 +356,9 @@ mod tests {
         Ok(())
     }
 
+    /// White's forced block K9 makes two fours, K5-K9 and K9-K12, but both
+    /// are completed only at K8, so one block stops them: it is not a
+    /// double-four, and Black's K8 is both that block and a new four.
     #[test]
     fn test_vcf_not_opponent_double_four() -> Result<(), String> {
         let board = "
@@ -385,11 +388,14 @@ mod tests {
         Ok(())
     }
 
+    /// Black's fours G8 and I8 are the two ends of one sword. G8 first
+    /// loses: White's block at I8 makes a double-four. The line has to
+    /// start with I8.
     #[test]
     fn test_vcf_counter() -> Result<(), String> {
         let board = "
-        . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -481,8 +487,6 @@ mod tests {
 
         let result = solve_mate(VCTDFS, 3, &board, White, 1);
         assert!(result.is_none());
-
-        let solution = "I10,I6,I11,I8,J11,J8,G8";
 
         let result = solve_mate(VCTPNS, 4, &board, White, 1);
         assert_eq!(path_string(result), solution);
@@ -804,7 +808,7 @@ mod tests {
     const VCT_SOLUTION: &str = "F10,G9,I10,G10,H11,H12,G12";
 
     #[test]
-    fn test_solve_three_values() {
+    fn test_solve_result() {
         let board = vct_board();
         let limits = SolveLimits::new(4).with_threat_limit(1);
 
@@ -827,6 +831,54 @@ mod tests {
         // One node is not enough to decide anything.
         let result = solve(VCTDFPNS, &board, Black, limits.with_max_nodes(1));
         assert_eq!(result, SolveResult::Aborted);
+    }
+
+    /// Positions that are decided before any search.
+    #[test]
+    fn test_solve_decided_positions() -> Result<(), String> {
+        let limits = SolveLimits::new(3);
+        let result = |board: &str, attacker| -> Result<SolveResult, String> {
+            Ok(solve(VCFDFS, &board.parse::<Board>()?, attacker, limits))
+        };
+
+        // The game is already over: there is nothing to win.
+        for board in [
+            "H8,I8,J8,K8,L8/A1",       // Black five
+            "A1,A2/H8,I8,J8,K8,L8",    // White five
+            "G8,H8,I8,J8,K8,L8/A1,A2", // Black overline
+        ] {
+            assert_eq!(result(board, Black)?, SolveResult::Disproven, "{board}");
+            assert_eq!(result(board, White)?, SolveResult::Disproven, "{board}");
+        }
+
+        // The attacker has a four already and wins next move, which has no
+        // line worth showing.
+        let four = "H8,I8,J8,K8/G8";
+        assert_eq!(
+            result(four, Black)?,
+            SolveResult::Proven(Mate::new(Unknown, vec![]))
+        );
+        Ok(())
+    }
+
+    /// The numeric codes and names are what callers pass in: see
+    /// `src/wasm.rs` and `examples/solve.rs`.
+    #[test]
+    fn test_solve_mode_codes() {
+        let modes = [
+            (0, "vcf", VCFDFS),
+            (1, "vcf_iddfs", VCFIDDFS),
+            (10, "vct", VCTDFS),
+            (11, "vct_iddfs", VCTIDDFS),
+            (15, "vct_pns", VCTPNS),
+            (16, "vct_dfpns", VCTDFPNS),
+        ];
+        for (code, name, mode) in modes {
+            assert_eq!(SolveMode::try_from(code), Ok(mode));
+            assert_eq!(name.parse::<SolveMode>(), Ok(mode));
+        }
+        assert!(SolveMode::try_from(2).is_err());
+        assert!("dfpn".parse::<SolveMode>().is_err());
     }
 
     /// A search that gave up must not leave anything behind that hides the
