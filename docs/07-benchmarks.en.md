@@ -62,7 +62,7 @@ benchmark is also a test, of positions too slow for `cargo test`.
 Typical uses:
 
 ```sh
-cargo bench --bench solvers -- --tag quick          # a second; CI runs this with --runs 1
+cargo bench --bench solvers -- --tag quick          # about a second
 cargo bench --bench solvers                         # everything but `heavy`: a few minutes
 cargo bench --bench solvers -- --tag vct --tag disproven
 cargo bench --bench solvers -- --mode vct_pns --tag vct   # the same positions with PNS
@@ -91,6 +91,16 @@ cargo bench --bench solvers -- --save base.tsv
 git stash pop
 cargo bench --bench solvers -- --baseline base.tsv
 ```
+
+On GitHub, the **Bench** workflow (`.github/workflows/bench.yml`) does this
+for every pull request: it runs `scripts/bench-compare.sh` against the PR's
+base with `--runs 1` over the default set, and puts the table in the job
+summary. On a push to `main`, or when the base predates the benchmark, it
+runs the benchmark without comparing. It is separate from the CI workflow
+and is not a required check, so it never blocks a merge, whether it is still
+running or has failed. It does fail, and show red, when a case gets a wrong
+answer. Its times come from a shared runner and are rough; its node counts
+are exact.
 
 When a PR changes a solver, paste the comparison into its description. For
 an algorithmic change the node column is what reviewers look at. For a
@@ -134,7 +144,7 @@ Tags in use:
 | --- | --- |
 | `vcf` / `vct` | Which search the case exercises. |
 | `proven` / `disproven` | The expected verdict. Disproofs matter as much as proofs: most of what an engine asks has no mate, and a disproof has to search the whole tree. |
-| `quick` | Well under a second. The set CI runs, and the one to run on every change. |
+| `quick` | Well under a second. The set to run on every change. |
 | `slow` | Seconds to tens of seconds. |
 | `heavy` | A minute or more. Left out unless asked for. |
 
@@ -148,7 +158,8 @@ Adding a case:
   file, saying so in the PR.
 - Take positions whose origin is known, and write the origin in a comment:
   a puzzle's author and number, or a link.
-- Keep `quick` quick: CI runs it on every push.
+- Keep `quick` quick, and the default set (everything but `heavy`) within a
+  few minutes: the Bench workflow runs it on every pull request.
 
 ## 5. Cheat sheet
 

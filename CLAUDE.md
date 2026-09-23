@@ -21,7 +21,7 @@ cargo build --target wasm32-unknown-unknown   # verify the wasm target still com
 wasm-pack build --scope renju-note            # what CI runs on release
 
 # Solver benchmark (benches/solvers.rs, cases in benches/cases/)
-cargo bench --bench solvers -- --tag quick        # seconds; what CI runs
+cargo bench --bench solvers -- --tag quick        # about a second
 cargo bench --bench solvers                       # everything but `heavy`
 cargo bench --bench solvers -- --save base.tsv    # then --baseline base.tsv
 scripts/bench-compare.sh main                     # this tree vs. a git ref
@@ -64,6 +64,8 @@ slower and some cases time out.
 - `benches/` — the solver benchmark: `solvers.rs` (runner, `harness = false`)
   over the positions in `cases/*.txt`, which it also checks the answers of.
   `scripts/bench-compare.sh` runs it on a git ref and on the working tree.
+  `.github/workflows/bench.yml` runs that against every PR's base; it is
+  separate from CI and not a required check, so it never blocks a merge.
 - `docs/` — reference documentation for humans and AI agents: the Renju
   rules (`docs/01-renju-rules.en.md`), how `src/board/` implements them
   (`docs/02-board-implementation.en.md`), how to call the solvers
