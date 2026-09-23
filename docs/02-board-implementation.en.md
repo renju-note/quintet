@@ -391,7 +391,7 @@ cell of a line, `Potentials` computes a score as follows:
    the cell.
 
 `Square::potentials` / `potentials_along` expose this per `Index`, and
-`src/analysis/field.rs` aggregates it per point for move ordering.
+`src/analysis/potential.rs` aggregates it per point for move ordering.
 `VICTORY = 5` is the score of a window that becomes a five.
 
 ## 8. Zobrist hashing (`zobrist.rs`) and `Board`

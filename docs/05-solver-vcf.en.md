@@ -13,7 +13,7 @@ Assumes [04](04-solver-framework.en.md): `Game`, `State`, `Key`, `Memo`,
 ```
 src/mate/vcf.rs         module doc, re-exports
 src/mate/vcf/
-├── state.rs            VCFState: Game + attacker + limit; four-making move pairs   (§1)
+├── state.rs            VCFState: Game + attacker + limit + SwordField; move pairs   (§1)
 ├── dfs.rs              DFSSolver: the depth-first search and its deadend memo      (§2)
 └── iddfs.rs            IDDFSSolver: DFSSolver at increasing limits                (§3)
 ```
@@ -53,6 +53,23 @@ Note that the block is taken from the sword, not re-derived from the board
 after the attack. If the attack happens to make *two* fours, the defender's
 `check_event` reports `Defeated(Fours(..))` before the stored block is ever
 played, so the stored eye only matters for a single four.
+
+### `SwordField`: the swords, kept per line
+
+`neighbor_move_pairs` and `move_pairs` do not scan the board. `VCFState`
+keeps the attacker's `SwordField` (`src/analysis/sword.rs`): for each of the
+72 stored lines, a bitmask of the cells where a sword's window starts and
+each sword's stone pattern. A move changes at most the four lines through
+it, so `after_play` / `after_undo` only mark those lines stale, and the two
+generators `sync` the stale lines from the board before reading. The pairs
+come out in exactly the order `Board::structures` / `structures_on` would
+list the swords (lines vertical, horizontal, ascending, descending; windows
+left to right), so the tree searched is the one a full scan gives.
+
+`VCFState::new` builds the field from the board. `VCFState::with_swords`
+takes one someone else already keeps: the VCT solver hands its nested
+searches a copy of its own (06, §2), so a nested VCF does not start by
+scanning the board either.
 
 ## 2. `DFSSolver`
 

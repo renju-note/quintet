@@ -274,7 +274,7 @@ fn truthy_double_three(next, p) -> bool {
 2. 有効な窓ごとに「自分の石数 + 1」（そこに打った後に窓が持つ石数）を点数とする。
 3. 「最大点数 × 最大点数を達成した窓の数」をその空点の値として返す。
 
-`Square::potentials` / `potentials_along` がこれを `Index` ごとに公開し、`src/analysis/field.rs` が点ごとに集約して手の順序付けに使う。`VICTORY = 5` は五になる窓の点数である。
+`Square::potentials` / `potentials_along` がこれを `Index` ごとに公開し、`src/analysis/potential.rs` が点ごとに集約して手の順序付けに使う。`VICTORY = 5` は五になる窓の点数である。
 
 ## 8. Zobrist ハッシュ（`zobrist.rs`）と `Board`
 

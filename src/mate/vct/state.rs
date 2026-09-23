@@ -1,4 +1,6 @@
-use crate::analysis::field::PotentialField;
+use crate::analysis::potential::PotentialField;
+use crate::analysis::sword::SwordField;
+use crate::board::Player::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
@@ -10,20 +12,26 @@ pub struct VCTState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
+    /// The attacker's potentials, for move ordering.
     field: PotentialField,
-    /// Points played or taken back since `field` was last brought up to
-    /// date, one bit per point.
-    stale: [u64; 4],
+    /// Each side's swords, handed to the nested VCF searches: Black's and
+    /// White's, in that order.
+    swords: [SwordField; 2],
 }
 
 impl VCTState {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
+        let board = game.board();
+        let swords = [
+            SwordField::init(Black, board),
+            SwordField::init(White, board),
+        ];
         Self {
             attacker: game.turn,
             game,
             limit,
             field,
-            stale: [0; 4],
+            swords,
         }
     }
 
@@ -33,13 +41,16 @@ impl VCTState {
         Self::new(game, limit, field)
     }
 
-    pub fn vcf_state(&self, max_limit: u8) -> VCFState {
+    /// A VCF search for the side to move, here.
+    pub fn vcf_state(&mut self, max_limit: u8) -> VCFState {
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);
-        VCFState::new(game, limit)
+        let swords = self.synced_swords(game.turn);
+        VCFState::with_swords(game, limit, swords)
     }
 
-    pub fn threat_state(&self, max_limit: u8) -> VCFState {
+    /// A VCF search for the side not to move, after the side to move passes.
+    pub fn threat_state(&mut self, max_limit: u8) -> VCFState {
         let mut game = self.game.clone();
         game.play(None);
         let limit = if self.attacking() {
@@ -48,7 +59,15 @@ impl VCTState {
             self.limit
         }
         .min(max_limit);
-        VCFState::new(game, limit)
+        let swords = self.synced_swords(game.turn);
+        VCFState::with_swords(game, limit, swords)
+    }
+
+    /// A copy of `player`'s swords, brought up to date with the board.
+    fn synced_swords(&mut self, player: Player) -> SwordField {
+        let swords = &mut self.swords[if player.is_black() { 0 } else { 1 }];
+        swords.sync(self.game.board());
+        swords.clone()
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -76,27 +95,16 @@ impl VCTState {
         Key::new(apply_attacker(position, attacker), next_limit)
     }
 
-    /// Brings `field` up to date with the board. The field is only read on
-    /// a candidate-cache miss, so updating it at every move is wasted work.
-    fn sync_field(&mut self) {
-        for (w, bits) in self.stale.iter_mut().enumerate() {
-            while *bits != 0 {
-                let b = bits.trailing_zeros() as usize;
-                *bits &= *bits - 1;
-                let i = (w * 64 + b) as u8;
-                let p = Point(i / RANGE, i % RANGE);
-                self.field.update_along(p, self.game.board());
-            }
+    /// Moves only note what they touched; the fields catch up when read.
+    fn mark_stale(&mut self, p: Point) {
+        self.field.mark_stale(p);
+        for swords in &mut self.swords {
+            swords.mark_stale(p);
         }
     }
 
-    fn mark_stale(&mut self, p: Point) {
-        let i = u8::from(p) as usize;
-        self.stale[i / 64] |= 1 << (i % 64);
-    }
-
     pub fn sorted_potentials(&mut self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
-        self.sync_field();
+        self.field.sync(self.game.board());
         let mut result = if let Some(only) = only {
             let potentials = only.into_iter().map(|p| (p, self.field.get(p)));
             potentials.filter(|&(_, o)| o >= min).collect()
@@ -109,7 +117,7 @@ impl VCTState {
     }
 
     pub fn sort_by_potential(&mut self, points: Vec<Point>) -> Vec<(Point, u8)> {
-        self.sync_field();
+        self.field.sync(self.game.board());
         let mut result: Vec<_> = points.into_iter().map(|p| (p, self.field.get(p))).collect();
         result.sort_by_key(|&a| std::cmp::Reverse(a.1));
         result.dedup();

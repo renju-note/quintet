@@ -7,7 +7,7 @@
 ```
 src/mate/vcf.rs         モジュールドキュメント、再エクスポート
 src/mate/vcf/
-├── state.rs            VCFState: Game + 攻め方 + limit。四を作る手のペア         (§1)
+├── state.rs            VCFState: Game + 攻め方 + limit + SwordField。四を作る手のペア (§1)
 ├── dfs.rs              DFSSolver: 深さ優先探索と行き止まりメモ                  (§2)
 └── iddfs.rs            IDDFSSolver: limit を増やしながら DFSSolver を走らせる    (§3)
 ```
@@ -39,6 +39,12 @@ H 列:  H7 = x（白）、H8 H9 H10 = o（黒）、H11 H12 = 空
 | `move_pairs()` | 手番側のすべての剣 | 次に試す |
 
 止めの点は剣から取り、攻め手を打った後の盤面から求め直さない。攻め手がたまたま四を 2 つ作った場合は、止めを打つ前に受け方の `check_event` が `Defeated(Fours(..))` を返す。したがって保持している止めが使われるのは四が 1 つのときだけ。
+
+### `SwordField`: 剣を線ごとに保持する
+
+`neighbor_move_pairs` と `move_pairs` は盤面を走査しない。`VCFState` は攻め方の `SwordField`（`src/analysis/sword.rs`）を持つ。保存された 72 本の線それぞれについて、剣の窓が始まるセルのビットマスクと、各剣の石の並びを保持する。1 手で変わるのはその点を通る高々 4 本の線なので、`after_play` / `after_undo` はそれらの線に「古い」印を付けるだけで、2 つの生成器は読む前に古い線だけを盤面から `sync` する。ペアの順序は `Board::structures` / `structures_on` が剣を列挙する順（線は縦・横・右上がり・右下がり、窓は左から右）とまったく同じなので、探索する木は盤面を全走査した場合と変わらない。
+
+`VCFState::new` は盤面から場を作る。`VCFState::with_swords` は、他で保持している場を受け取る。追い詰めソルバーは内部の四追い探索に自分の場のコピーを渡す（06 §2）ので、内部の四追いも盤面の走査から始めずに済む。
 
 ## 2. `DFSSolver`
 

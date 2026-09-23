@@ -1,3 +1,4 @@
+use crate::analysis::sword::SwordField;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
@@ -8,14 +9,26 @@ pub struct VCFState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
+    /// The attacker's swords, where the moves come from.
+    swords: SwordField,
 }
 
 impl VCFState {
     pub fn new(game: Game, limit: u8) -> Self {
+        let swords = SwordField::init(game.turn, game.board());
+        Self::with_swords(game, limit, swords)
+    }
+
+    /// Like [`Self::new`], reusing swords someone already keeps for the side
+    /// to move — the VCT solver does, for its nested searches. They need not
+    /// be in sync with the board yet.
+    pub fn with_swords(game: Game, limit: u8, swords: SwordField) -> Self {
+        assert_eq!(swords.player(), game.turn);
         Self {
             attacker: game.turn,
             game,
             limit,
+            swords,
         }
     }
 
@@ -43,34 +56,25 @@ impl VCFState {
             })
     }
 
-    pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
-        let mut result = vec![];
-        if let Some(last2_move) = self.game.last2_move() {
-            let swords = self
-                .game
-                .board()
-                .structures_on(last2_move, self.game.turn, Sword);
-            Self::push_eyes_pairs(swords, &mut result);
+    /// The swords through the attacker's previous stone, both ways round.
+    /// Called with the attacker to move.
+    pub fn neighbor_move_pairs(&mut self) -> Vec<(Point, Point)> {
+        match self.game.last2_move() {
+            Some(last2_move) => self.synced_swords().move_pairs_on(last2_move),
+            None => vec![],
         }
-        result
     }
 
-    pub fn move_pairs(&self) -> Vec<(Point, Point)> {
-        let mut result = vec![];
-        let swords = self.game.board().structures(self.game.turn, Sword);
-        Self::push_eyes_pairs(swords, &mut result);
-        result
+    /// Every sword of the attacker, both ways round. Called with the
+    /// attacker to move.
+    pub fn move_pairs(&mut self) -> Vec<(Point, Point)> {
+        self.synced_swords().move_pairs()
     }
 
-    /// Both ways round for each sword, written as a loop rather than
-    /// `flat_map(..).collect()`: this runs at every node, and driving the
-    /// nested iterator costs more than the two pushes it ends in.
-    fn push_eyes_pairs(swords: impl Iterator<Item = Structure>, out: &mut Vec<(Point, Point)>) {
-        for sword in swords {
-            let (e1, e2) = Self::sword_eyes(&sword);
-            out.push((e1, e2));
-            out.push((e2, e1));
-        }
+    fn synced_swords(&mut self) -> &SwordField {
+        debug_assert_eq!(self.game.turn, self.attacker);
+        self.swords.sync(self.game.board());
+        &self.swords
     }
 
     fn sword_eyes(sword: &Structure) -> (Point, Point) {
@@ -103,6 +107,18 @@ impl State for VCFState {
     fn set_limit(&mut self, limit: u8) {
         self.limit = limit
     }
+
+    fn after_play(&mut self, next_move: Option<Point>) {
+        if let Some(next_move) = next_move {
+            self.swords.mark_stale(next_move);
+        }
+    }
+
+    fn after_undo(&mut self, maybe_last_move: Option<Point>) {
+        if let Some(last_move) = maybe_last_move {
+            self.swords.mark_stale(last_move);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -129,7 +145,7 @@ mod tests {
     fn test_move_pairs() {
         // Each sword gives a four at either eye; the other eye is the
         // forced defence.
-        let state = VCFState::init(&board(), Black, 5);
+        let mut state = VCFState::init(&board(), Black, 5);
         let expected = pairs(&[("C6", "C7"), ("C7", "C6"), ("K8", "L8"), ("L8", "K8")]);
         assert_eq!(state.move_pairs(), expected);
 

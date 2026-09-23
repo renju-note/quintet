@@ -13,7 +13,8 @@ particular `State`, `Key`, `Memo`, the `Solver` trait and `DFSSolver`.
 ```
 src/mate/vct.rs         module doc: the algorithm in one page, re-exports, the three aliases
 src/mate/vct/
-├── state.rs            VCTState: Game + attacker + limit + PotentialField; threat_defences   (§2, §3)
+├── state.rs            VCTState: Game + attacker + limit + PotentialField + SwordFields;    (§2, §3)
+│                       threat_defences
 ├── nested_vcf.rs       NestedVCF: one side's VCF sub-search                                  (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                     (§3)
 ├── proof.rs            Node (proof numbers), ProofTable (transposition table)                (§4)
@@ -22,7 +23,8 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 └── extractor.rs        extract: the winning line from the tables                             (§6)
-src/analysis/field.rs   PotentialField                                                        (§8)
+src/analysis/potential.rs  PotentialField                                                     (§8)
+src/analysis/sword.rs      SwordField (05, §1)                                                (§2)
 ```
 
 The whole search on one screen — `solve` proves the root, then walks the
@@ -80,14 +82,19 @@ The tree alternates two kinds of node:
 ## 2. `VCTState` and the nested VCF searches
 
 ```rust
-pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField }
+pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField, swords: [SwordField; 2] }
 ```
 
 The field is the attacker's `PotentialField` (§8), built with
 `PotentialField::init(attacker, 2, board)`. `after_play` / `after_undo` only
 mark the move's point stale; the field is refreshed along the four lines of
 each stale point when it is next read (`sorted_potentials` /
-`sort_by_potential`), which happens only on a candidate-cache miss. `next_key(m)`
+`sort_by_potential`), which happens only on a candidate-cache miss.
+
+`swords` are Black's and White's `SwordField`s (05, §1), updated the same
+lazy way. `vcf_state` / `threat_state` sync the one of the side the nested
+VCF is for and hand it a copy (`VCFState::with_swords`), which the nested
+search then keeps up to date as it plays. `next_key(m)`
 is `key()` of the child after `m`, computed from the board's Zobrist hash by
 XOR without playing `m`, which is what keeps table lookups for unexpanded
 children cheap.
@@ -110,8 +117,8 @@ belongs to:
 ```rust
 pub struct NestedVCF { solver: IDDFSSolver, depth: u8, for_attacker: bool }
 impl NestedVCF {
-    pub fn vcf(&mut self, state: &VCTState, budget) -> Option<Mate>;     // this side, to move, has a VCF?
-    pub fn threat(&mut self, state: &VCTState, budget) -> Option<Mate>;  // this side would have one if the other passed?
+    pub fn vcf(&mut self, state: &mut VCTState, budget) -> Option<Mate>;     // this side, to move, has a VCF?
+    pub fn threat(&mut self, state: &mut VCTState, budget) -> Option<Mate>;  // this side would have one if the other passed?
 }
 ```
 
@@ -420,7 +427,7 @@ no one-move VCF and `compute_defences` returns `Terminal(disproven)`. The
 refutation goes into `attacker_table`, `select_attack` moves on, and `F10`
 is eventually proven.
 
-## 8. `PotentialField` (`src/analysis/field.rs`)
+## 8. `PotentialField` (`src/analysis/potential.rs`)
 
 The generators need "how useful is a stone here for the attacker?" for
 every empty point, cheaply and always current. `PotentialField` keeps one
@@ -437,8 +444,10 @@ scores.
 
 **Keeping it current.** `init(player, min, board)` fills the field;
 `update_along(p, board)` zeroes the four lines through `p` (`reset_along`)
-and recomputes them (`potentials_along`). `VCTState` calls it for every
-point played or taken back since the field was last read — four line scans
+and recomputes them (`potentials_along`). For lazy use, `mark_stale(p)`
+only notes the point and `sync(board)` runs `update_along` on every point
+noted since. `VCTState` marks each point played or taken back and syncs
+before reading the field — four line scans
 per such point instead of a board pass, and none for the many nodes whose
 candidates come from the cache.
 
