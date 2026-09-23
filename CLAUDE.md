@@ -14,11 +14,17 @@ WebAssembly (`cdylib` via `wasm-bindgen`) and published to npm as
 
 ```bash
 cargo test --release          # run all tests (release: solvers are too slow in debug)
-cargo test --release -- --ignored   # also run the slow bench cases in src/mate/solve.rs
+cargo test --release -- --ignored   # also run the slow tests
 cargo fmt --check
 cargo clippy --all-targets
 cargo build --target wasm32-unknown-unknown   # verify the wasm target still compiles
 wasm-pack build --scope renju-note            # what CI runs on release
+
+# Solver benchmark (benches/solvers.rs, cases in benches/cases/)
+cargo bench --bench solvers -- --tag quick        # seconds; what CI runs
+cargo bench --bench solvers                       # everything but `heavy`
+cargo bench --bench solvers -- --save base.tsv    # then --baseline base.tsv
+scripts/bench-compare.sh main                     # this tree vs. a git ref
 
 # CLI for manual experiments (examples/solve.rs)
 cargo run --release --example solve <mode> <limit> <threat_limit> <x|o> <moves>
@@ -55,6 +61,9 @@ slower and some cases time out.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
   `solve_vct`, `solve_vct_dfpn`, `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`.
+- `benches/` — the solver benchmark: `solvers.rs` (runner, `harness = false`)
+  over the positions in `cases/*.txt`, which it also checks the answers of.
+  `scripts/bench-compare.sh` runs it on a git ref and on the working tree.
 - `docs/` — reference documentation for humans and AI agents: the Renju
   rules (`docs/01-renju-rules.en.md`), how `src/board/` implements them
   (`docs/02-board-implementation.en.md`), how to call the solvers
@@ -82,6 +91,11 @@ slower and some cases time out.
   tests use ASCII boards parsed with `.parse::<Board>()` and assert the exact
   solution path string. When fixing a solver bug, add such a case to
   `src/mate/solve.rs`.
+- When changing a solver, run the benchmark before and after
+  (`scripts/bench-compare.sh main`) and report the node counts: they are
+  deterministic, so any change in them is caused by the change in code. Time
+  is only comparable between runs on the same machine. A position that is
+  slow or that a change is about goes into `benches/cases/`.
 - Formatting is `rustfmt` default. Keep `cargo fmt --check` clean.
 - Commit messages and PR titles are short English imperative phrases
   (e.g. `Fix VCF bug`, `Refactor VCT solver`). Squash-merged PRs get `(#N)`

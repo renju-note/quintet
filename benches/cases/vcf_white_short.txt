@@ -1,0 +1,23 @@
+# https://renjuportal.com/puzzle/2990/
+# One move short of vcf_white.
+mode: vcf
+attacker: x
+limit: 4
+tags: vcf disproven quick
+expect: disproven
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . x . . .
+. . . . . . . . . . o . . . .
+. . . . . . . . . x . x o . .
+. . . . . . . . x . . . o . .
+. . . . . . . x x o . x . . .
+. . . . . . o x o o . . o . .
+. . . . . x o o . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

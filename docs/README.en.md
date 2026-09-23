@@ -16,6 +16,7 @@ Japanese index: [README.ja.md](README.ja.md).
 | [04-solver-framework.en.md](04-solver-framework.en.md) / [ja](04-solver-framework.ja.md) | Inside `src/mate/`: the layout and the pieces every solver shares — `Game` and `check_event`, `State` and `Key`, `Memo` generations, the `Solver` trait, node budgets. |
 | [05-solver-vcf.en.md](05-solver-vcf.en.md) / [ja](05-solver-vcf.ja.md) | The VCF search in `src/mate/vcf/`: four-making move pairs, `DFSSolver` and its deadend memo, `IDDFSSolver`, a worked example. |
 | [06-solver-vct.en.md](06-solver-vct.en.md) / [ja](06-solver-vct.ja.md) | The VCT search in `src/mate/vct/`: threats, nested VCF searches, move generation, proof numbers, the DFS / PNS / df-pn threshold policies, path extraction, a worked example, and the `PotentialField` used for move ordering. |
+| [07-benchmarks.en.md](07-benchmarks.en.md) / [ja](07-benchmarks.ja.md) | The solver benchmark in `benches/`: what it measures (nodes, memo entries, time), running it, comparing two versions, and adding cases. |
 
 Where to start:
 
@@ -24,7 +25,7 @@ Where to start:
 - Changing rule logic in `src/board/` (structures, forbidden moves)? Read 02.
 - Calling the solvers from the app, the CLI or your own Rust? Read 03.
 - Changing the search in `src/mate/` or `src/analysis/`? Read 04, then 05
-  and 06.
+  and 06, and measure the change with the benchmark in 07.
 - Looking for one specific thing? Each document ends with a cheat sheet that
   maps questions to identifiers (02 §9, 03 §7, 04 §7, 05 §5, 06 §9).
 

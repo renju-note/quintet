@@ -160,7 +160,8 @@ and how the solvers work.
 
 ```sh
 cargo test --release                      # always test in release; the solvers are slow in debug
-cargo test --release -- --ignored         # also run the slow benchmark cases
+cargo test --release -- --ignored         # also run the slow tests
+cargo bench --bench solvers               # solver benchmark (see docs/07-benchmarks.en.md)
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo build --target wasm32-unknown-unknown

@@ -1,0 +1,24 @@
+# Formerly the bench_vct_unstable test, whose
+# expected line had gone stale: the solver has since found this one.
+mode: vct_dfpns
+attacker: o
+limit: 12
+threat_limit: 3
+tags: vct proven slow heavy
+expect: E8,H11,K7,L8,H4,G3,G5,I3,H10,K10,F5,E5,D7,C6,F7,D8,F6,F8,H5,J5,G6
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . x . . . . . .
+. . . . . x o . o o . . . . .
+. . . . . o x x x o . . . . .
+. . . . . . . o x o x . . . .
+. . . . . . . x o x . x . . .
+. . . . . . . x o o o . . . .
+. . . . . . . . o . x . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

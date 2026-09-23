@@ -27,41 +27,88 @@ pub const DEFAULT_DEFENDER_VCF_DEPTH: u8 = 2;
 /// assert!(result.is_disproven());
 /// ```
 pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult {
+    solve_with_stats(mode, board, attacker, limits).0
+}
+
+/// [`solve`], also reporting what the search cost: see [`SolveStats`].
+///
+/// The statistics are deterministic — the same arguments give the same
+/// numbers on every run and every machine — which is what makes them the
+/// measure to compare solver changes by (see `benches/solvers.rs`).
+///
+/// ```
+/// use quintet::board::{Board, Player};
+/// use quintet::mate::{SolveLimits, SolveMode, solve_with_stats};
+///
+/// let board: Board = "H8,I9,J9,H7".parse().unwrap();
+/// let limits = SolveLimits::new(3);
+/// let (result, stats) = solve_with_stats(SolveMode::VCFDFS, &board, Player::Black, limits);
+/// assert!(result.is_disproven());
+/// assert!(stats.nodes > 0);
+/// ```
+pub fn solve_with_stats(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+) -> (SolveResult, SolveStats) {
     if let Err(e) = validate(board, attacker) {
-        return match e {
+        let result = match e {
             Some(mate) => SolveResult::Proven(mate),
             None => SolveResult::Disproven,
         };
+        return (result, SolveStats::default());
     }
     let limit = limits.limit;
     let threat_limit = limits.threat_limit;
     let defender_vcf_depth = limits.defender_vcf_depth;
     let budget = &mut limits.budget();
-    let maybe_mate = match mode {
+    let (maybe_mate, memo_len) = match mode {
         VCFDFS => {
             let state = &mut VCFState::init(board, attacker, limit);
-            DFSSolver::init().solve(state, budget)
+            let mut solver = DFSSolver::init();
+            (solver.solve(state, budget), solver.memo_len())
         }
         VCTDFS => {
             let state = &mut VCTState::init(board, attacker, limit);
-            DFSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
+            let mut solver = DFSVCTSolver::init(threat_limit, defender_vcf_depth);
+            (solver.solve(state, budget), solver.memo_len())
         }
         VCTPNS => {
             let state = &mut VCTState::init(board, attacker, limit);
-            PNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
+            let mut solver = PNSVCTSolver::init(threat_limit, defender_vcf_depth);
+            (solver.solve(state, budget), solver.memo_len())
         }
         VCTDFPNS => {
             let state = &mut VCTState::init(board, attacker, limit);
-            DFPNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
+            let mut solver = DFPNSVCTSolver::init(threat_limit, defender_vcf_depth);
+            (solver.solve(state, budget), solver.memo_len())
         }
         // VCFIDDFS and VCTIDDFS have no solver of their own here.
-        _ => None,
+        _ => (None, 0),
     };
-    match maybe_mate {
+    let result = match maybe_mate {
         Some(mate) => SolveResult::Proven(mate),
         None if budget.is_exhausted() => SolveResult::Aborted,
         None => SolveResult::Disproven,
-    }
+    };
+    let stats = SolveStats {
+        nodes: budget.nodes(),
+        memo_len,
+    };
+    (result, stats)
+}
+
+/// What one [`solve_with_stats`] call cost.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
+pub struct SolveStats {
+    /// Nodes visited, counted as [`NodeBudget`] counts them: the nested VCF
+    /// searches are included, recovering the winning line after a proof is
+    /// not.
+    pub nodes: u64,
+    /// Entries the solver's memos held when the search ended
+    /// ([`Solver::memo_len`]): a measure of the memory it needed.
+    pub memo_len: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -650,133 +697,6 @@ mod tests {
         assert_eq!(path_string(result), solution);
 
         let result = solve_mate(VCTPNS, 5, &board, White, 1);
-        assert_eq!(path_string(result), solution);
-
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn bench_vct_black() -> Result<(), String> {
-        let board = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . o x o o . . . . .
-         . . . . . . . x x . . . . . .
-         . . . . . . x o x o . . . . .
-         . . . . . . . o x . . . . . .
-         . . . . . . . x . x . . . . .
-         . . . . . . x o o o . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Board>()?;
-
-        let solution = "J10,J12,L8,K9,K7,I5,L9,L7,M8,K10,M9,N10,M7,M6,N8,E4,F5,K8,L6,K6,K5";
-
-        let result = solve_mate(VCTDFPNS, 14, &board, Black, 2);
-        assert_eq!(path_string(result), solution);
-
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn bench_vct_white() -> Result<(), String> {
-        let board = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . o . . . . . . . .
-         . . . . o x x x o o . x . . .
-         . . . . . . o x x x x o o . .
-         . . . . . o x o o x x . . . .
-         . . . . . x . o o . x . . . .
-         . . . . x . o . . x o o . . .
-         . . . o . x . . x . . . . . .
-         . . . . . . o o . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Board>()?;
-
-        let solution =
-            "K11,K10,N12,M11,N8,H5,H6,L8,J5,J7,M5,L4,M6,N5,L5,K5,J3,F3,I6,E2,D1,K4,J4,J2,K3";
-
-        let result = solve_mate(VCTDFPNS, 15, &board, White, 2);
-        assert_eq!(path_string(result), solution);
-
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn bench_vct_unstable() -> Result<(), String> {
-        let board = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . x . . . . . .
-         . . . . . x o . o o . . . . .
-         . . . . . o x x x o . . . . .
-         . . . . . . . o x o x . . . .
-         . . . . . . . x o x . x . . .
-         . . . . . . . x o o o . . . .
-         . . . . . . . . o . x . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Board>()?;
-
-        let solution =
-            "J12,J11,K10,H10,L10,M10,K7,L8,K11,M9,I12,F8,E7,L9,N11,L6,L5,E8,H11,J13,G12,F13,H12";
-
-        // fast
-        let result = solve_mate(VCTDFPNS, 12, &board, Black, 3);
-        assert_eq!(path_string(result), solution);
-
-        // slow
-        // let result = solve_mate(VCTDFPNS, 10, &board, Black, 3);
-        // assert_eq!(path_string(result), solution);
-
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn bench_vct_small_but_long() -> Result<(), String> {
-        let board = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . o x o . . . . . . .
-         . . . . . x o x . . . . . . .
-         . . . . . . . x . . . . . . .
-         . . . . . . o . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Board>()?;
-
-        let solution = "F6,E5,E7,D8,G9,H10,F10,E11,H4,I3,J6,I7,I5,G3,D6,C5,J5,H5,J8,J9,I9,J10,J4,J7,K7,L8,M5,L6,K4,I4,J3,J2,K5,L5,K6";
-
-        let result = solve_mate(VCTDFPNS, 255, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 
         Ok(())

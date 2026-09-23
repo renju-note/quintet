@@ -1,0 +1,23 @@
+# No. 63 from 5-moves-to-end problems by Hiroshi Okabe
+mode: vct_dfpns
+attacker: x
+limit: 4
+threat_limit: 1
+tags: vct proven quick
+expect: F7,E8,G8,E6,G5,G7,H6
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . o . . . . .
+. . . . . . . o x . . . . . .
+. . . x x o . x o . . . . . .
+. . . . . o . o o x . . . . .
+. . . . . . . o x . . . . . .
+. . . . . . x . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

@@ -41,6 +41,16 @@ match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
 }
 ```
 
+`solve_with_stats` は同じ呼び出しで、探索にかかったコストも返す。
+
+```rust
+let (result, stats) = solve_with_stats(SolveMode::VCTDFPNS, &board, Player::Black, limits);
+stats.nodes      // 訪れたノード数。NodeBudget と同じ数え方（§3）
+stats.memo_len   // 探索後にソルバーのメモに残っているエントリ数（Solver::memo_len、§4）
+```
+
+どちらの数も決定的で、同じ引数なら実行ごと・マシンごとに同じ値になる。そのためソルバーの変更を比べる尺度として使え、ベンチマーク（07）はこれを使っている。
+
 ### `SolveMode`
 
 | `SolveMode` | コード | CLI 名 | 探索 |
@@ -193,6 +203,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | したいこと | 使うもの |
 | --- | --- |
 | 1 回だけ問う | `solve` |
+| 探索のコストを知る | `solve_with_stats`。`SolveStats::nodes` と `memo_len` |
 | 四追いだけ探す | `SolveMode::VCFDFS` |
 | 追い詰めを探す | `SolveMode::VCTDFPNS`。追い手の範囲は `threat_limit` |
 | 長すぎる探索を止める | `SolveLimits::with_max_nodes`。`Aborted` は「不明」であって「安全」ではない |
