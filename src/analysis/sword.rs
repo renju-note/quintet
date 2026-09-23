@@ -20,10 +20,22 @@ const WINDOWS: usize = (RANGE - VICTORY + 1) as usize;
 /// per line instead, so that a move only costs the (at most four) lines
 /// through it.
 ///
-/// Updates are lazy: [`Self::mark_stale`] only notes which lines a move
-/// touched, and [`Self::sync`] recomputes those lines from the board. Read
-/// the pairs ([`Self::move_pairs`], [`Self::move_pairs_on`]) only when the
-/// field is in sync with the board.
+/// Updates are lazy, in one of two ways:
+///
+/// - [`Self::mark_stale`] only notes which lines a change touched, and
+///   [`Self::sync`] recomputes those lines from the board. Taking a move back
+///   is another change to mark.
+/// - [`Self::play`] does the same and opens a frame that [`Self::undo`]
+///   closes without recomputing anything: `sync` saves each line it
+///   overwrites into the latest frame, and `undo` writes those back and
+///   restores the stale lines as they were before the move. A search that
+///   syncs at nearly every node — VCF — thus pays for each line once per
+///   move, not twice. One that syncs rarely — VCT — is better off marking:
+///   `undo` would also forget the lines synced deep in a subtree, which the
+///   next subtree may well have used.
+///
+/// Mark only while no frame is open. Read the pairs ([`Self::move_pairs`],
+/// [`Self::move_pairs_on`]) only when the field is in sync with the board.
 ///
 /// The pairs come out in the order [`Board::structures`] /
 /// [`Board::structures_on`] would list the swords, so a search that switches
@@ -40,6 +52,27 @@ pub struct SwordField {
     patterns: [[u8; WINDOWS]; LINE_NUM],
     /// Lines that moves have touched since the last [`Self::sync`].
     stale: u128,
+    /// One frame per move played and not yet taken back, oldest first.
+    frames: Vec<Frame>,
+    /// Lines overwritten by `sync`, grouped by frame (see [`Frame::saved`]).
+    saved: Vec<SavedLine>,
+}
+
+/// What [`SwordField::undo`] needs to take one move back.
+#[derive(Clone)]
+struct Frame {
+    /// `stale` before the move.
+    stale: u128,
+    /// Where this frame's lines start in `saved`.
+    saved: usize,
+}
+
+/// A line as it was before `sync` overwrote it.
+#[derive(Clone)]
+struct SavedLine {
+    k: u8,
+    starts: u16,
+    patterns: [u8; WINDOWS],
 }
 
 impl SwordField {
@@ -51,6 +84,8 @@ impl SwordField {
             starts: [0; LINE_NUM],
             patterns: [[0; WINDOWS]; LINE_NUM],
             stale: (1 << LINE_NUM) - 1,
+            frames: vec![],
+            saved: vec![],
         }
     }
 
@@ -64,11 +99,57 @@ impl SwordField {
         self.player
     }
 
+    /// The same swords with no moves to take back: what to hand to a search
+    /// that starts from this position. Cheaper than a clone, which copies
+    /// the history too.
+    pub fn fork(&self) -> Self {
+        Self {
+            player: self.player,
+            occupied: self.occupied,
+            starts: self.starts,
+            patterns: self.patterns,
+            stale: self.stale,
+            // Room for a typical nested VCF, so that the history does not
+            // reallocate as it grows.
+            frames: Vec::with_capacity(32),
+            saved: Vec::with_capacity(128),
+        }
+    }
+
     /// Notes that a stone was put on or taken off `p`.
     pub fn mark_stale(&mut self, p: Point) {
+        debug_assert!(self.frames.is_empty(), "mark while a frame is open");
         for k in lines_through(p).into_iter().flatten() {
             self.stale |= 1 << k;
         }
+    }
+
+    /// Notes that a move was played at `p` (`None` for a pass). Call it after
+    /// the board has changed, and pair it with [`Self::undo`].
+    pub fn play(&mut self, p: Option<Point>) {
+        self.frames.push(Frame {
+            stale: self.stale,
+            saved: self.saved.len(),
+        });
+        if let Some(p) = p {
+            for k in lines_through(p).into_iter().flatten() {
+                self.stale |= 1 << k;
+            }
+        }
+    }
+
+    /// Takes back the latest [`Self::play`], leaving the field as it was
+    /// before it.
+    pub fn undo(&mut self) {
+        let frame = self.frames.pop().expect("no move to take back");
+        while self.saved.len() > frame.saved {
+            let line = self.saved.pop().unwrap();
+            let k = line.k as usize;
+            self.starts[k] = line.starts;
+            self.patterns[k] = line.patterns;
+            self.set_occupied(k);
+        }
+        self.stale = frame.stale;
     }
 
     pub fn is_synced(&self) -> bool {
@@ -80,6 +161,15 @@ impl SwordField {
         while self.stale != 0 {
             let k = self.stale.trailing_zeros() as usize;
             self.stale &= self.stale - 1;
+            // A line is stale at most once per frame, so it is saved at most
+            // once per frame: what `undo` restores is what the move found.
+            if !self.frames.is_empty() {
+                self.saved.push(SavedLine {
+                    k: k as u8,
+                    starts: self.starts[k],
+                    patterns: self.patterns[k],
+                });
+            }
             self.update_line(k, board);
         }
     }
@@ -146,7 +236,11 @@ impl SwordField {
             }
         }
         self.starts[k] = starts;
-        if starts != 0 {
+        self.set_occupied(k);
+    }
+
+    fn set_occupied(&mut self, k: usize) {
+        if self.starts[k] != 0 {
             self.occupied |= 1 << k;
         } else {
             self.occupied &= !(1 << k);
@@ -234,10 +328,36 @@ mod tests {
         }
     }
 
-    /// Only the lines through each move are recomputed, lazily; that has to
-    /// leave the field exactly as a full scan of the board sees it.
+    /// Marking is the same laziness without the history.
     #[test]
-    fn test_sync_matches_a_scan() -> Result<(), String> {
+    fn test_mark_stale_matches_a_scan() -> Result<(), String> {
+        let moves = "H10,G9,J10,H7,I8,E4".parse::<Points>()?.into_vec();
+        for r in [Black, White] {
+            let mut board = board();
+            let mut field = SwordField::init(r, &board);
+            let mut turn = Black;
+            for &p in &moves {
+                board.put_mut(turn, p);
+                field.mark_stale(p);
+                turn = turn.opponent();
+            }
+            field.sync(&board);
+            assert_matches_scan(&field, &board);
+            for &p in moves.iter().rev().take(3) {
+                board.remove_mut(p);
+                field.mark_stale(p);
+            }
+            field.sync(&board);
+            assert_matches_scan(&field, &board);
+        }
+        Ok(())
+    }
+
+    /// Only the lines through each move are recomputed, lazily, and taking
+    /// a move back restores what the move overwrote. Both have to leave the
+    /// field exactly as a full scan of the board sees it.
+    #[test]
+    fn test_play_and_undo_match_a_scan() -> Result<(), String> {
         let moves = "H10,G9,J10,H7,I8,E4,C14,A15".parse::<Points>()?.into_vec();
         for r in [Black, White] {
             let mut board = board();
@@ -245,19 +365,36 @@ mod tests {
             let mut turn = Black;
             for (n, &p) in moves.iter().enumerate() {
                 board.put_mut(turn, p);
-                field.mark_stale(p);
+                field.play(Some(p));
                 turn = turn.opponent();
                 // Sync every other move, so that several moves are stale at
-                // once.
+                // once and some are taken back without ever being synced.
                 if n % 2 == 1 {
                     assert!(!field.is_synced());
                     field.sync(&board);
                     assert_matches_scan(&field, &board);
                 }
             }
-            for &p in moves.iter().rev() {
+            // A pass changes nothing, and takes nothing back but itself.
+            field.play(None);
+            field.sync(&board);
+            assert_matches_scan(&field, &board);
+            field.undo();
+
+            // A fork starts from the same swords, with nothing to take back.
+            let mut fork = field.fork();
+            fork.sync(&board);
+            assert_matches_scan(&fork, &board);
+
+            for (n, &p) in moves.iter().enumerate().rev() {
                 board.remove_mut(p);
-                field.mark_stale(p);
+                field.undo();
+                // Sync at other points than on the way in: a sync after an
+                // undo is saved into the frame below it.
+                if n % 3 == 0 {
+                    field.sync(&board);
+                    assert_matches_scan(&field, &board);
+                }
             }
             field.sync(&board);
             assert_matches_scan(&field, &board);

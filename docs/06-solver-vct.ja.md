@@ -75,7 +75,7 @@ pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: Po
 ```
 
 - `field` は攻め方の `PotentialField`（§8）。`PotentialField::init(attacker, 2, board)` で作る。`after_play` / `after_undo` は手の点を「古い」と印すだけで、場は次に読まれるとき（`sorted_potentials` / `sort_by_potential`）に、古い点それぞれの 4 本の線だけ更新する。読まれるのは候補キャッシュを外したときだけ。
-- `swords` は黒と白の `SwordField`（05 §1）で、同じく遅延更新する。`vcf_state` / `threat_state` は内部の四追いの攻め方にあたる側の場を `sync` し、そのコピーを渡す（`VCFState::with_swords`）。内部の四追い探索は手を打ちながらそれを更新していく。
+- `swords` は黒と白の `SwordField`（05 §1）で、同じく遅延更新する（`mark_stale`）。`vcf_state` / `threat_state` は内部の四追いの攻め方にあたる側の場を `sync` し、そのコピーを渡す（`fork`、`VCFState::with_swords`）。内部の四追い探索は手を打ちながらそれを更新していく。追い詰め側で `play` / `undo` を使わず印を付けるだけにしているのは、`sync` するのが間隔の空いた内部の四追いのときだけだから。`undo` を使うと、ある部分木で `sync` した線を捨ててしまい、次の部分木でほとんど計算し直すことになる。
 - `next_key(m)` は `m` を打った後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
 
 ### 派生する 2 つの `VCFState`

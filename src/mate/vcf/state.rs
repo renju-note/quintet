@@ -109,15 +109,11 @@ impl State for VCFState {
     }
 
     fn after_play(&mut self, next_move: Option<Point>) {
-        if let Some(next_move) = next_move {
-            self.swords.mark_stale(next_move);
-        }
+        self.swords.play(next_move);
     }
 
-    fn after_undo(&mut self, maybe_last_move: Option<Point>) {
-        if let Some(last_move) = maybe_last_move {
-            self.swords.mark_stale(last_move);
-        }
+    fn after_undo(&mut self, _maybe_last_move: Option<Point>) {
+        self.swords.undo();
     }
 }
 

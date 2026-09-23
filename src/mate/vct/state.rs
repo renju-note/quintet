@@ -67,7 +67,7 @@ impl VCTState {
     fn synced_swords(&mut self, player: Player) -> SwordField {
         let swords = &mut self.swords[if player.is_black() { 0 } else { 1 }];
         swords.sync(self.game.board());
-        swords.clone()
+        swords.fork()
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {

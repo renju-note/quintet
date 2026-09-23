@@ -92,9 +92,12 @@ each stale point when it is next read (`sorted_potentials` /
 `sort_by_potential`), which happens only on a candidate-cache miss.
 
 `swords` are Black's and White's `SwordField`s (05, §1), updated the same
-lazy way. `vcf_state` / `threat_state` sync the one of the side the nested
-VCF is for and hand it a copy (`VCFState::with_swords`), which the nested
-search then keeps up to date as it plays. `next_key(m)`
+lazy way (`mark_stale`). `vcf_state` / `threat_state` sync the one of the
+side the nested VCF is for and hand it a copy (`fork`,
+`VCFState::with_swords`), which the nested search then keeps up to date as
+it plays. The VCT side marks rather than using `play` / `undo`: it syncs
+only at nested searches, far apart, and `undo` would throw away the lines a
+subtree synced, which the next subtree mostly needs again. `next_key(m)`
 is `key()` of the child after `m`, computed from the board's Zobrist hash by
 XOR without playing `m`, which is what keeps table lookups for unexpanded
 children cheap.

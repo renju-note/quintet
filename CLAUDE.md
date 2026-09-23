@@ -46,7 +46,8 @@ slower and some cases time out.
   `potential.rs` (`PotentialField`, per-point potential used for VCT move
   ordering) and `sword.rs` (`SwordField`, each line's swords, the source of
   VCF's four-making move pairs). Both can be updated lazily
-  (`mark_stale` on each move, `sync` before reading).
+  (`mark_stale` on each move, `sync` before reading); `SwordField` also has
+  `play` / `undo`, which take a move back without recomputing.
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
   `SolveMode`) and also holds the integration tests. `solver.rs` is the
   `Solver` trait every solver implements (`solve` / `clear` /
