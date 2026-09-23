@@ -22,7 +22,6 @@ src/mate/
 ├── vcf.rs, vcf/     四追いソルバー                    (05)
 └── vct.rs, vct/     追い詰めソルバー                  (06)
 src/analysis/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
-src/analysis/sword.rs       SwordField: 四追いが打つ剣 (05 §1)
 ```
 
 部品の関係（下から上へ）:

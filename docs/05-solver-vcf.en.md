@@ -13,7 +13,7 @@ Assumes [04](04-solver-framework.en.md): `Game`, `State`, `Key`, `Memo`,
 ```
 src/mate/vcf.rs         module doc, re-exports
 src/mate/vcf/
-├── state.rs            VCFState: Game + attacker + limit + SwordField; move pairs   (§1)
+├── state.rs            VCFState: Game + attacker + limit; four-making move pairs   (§1)
 ├── dfs.rs              DFSSolver: the depth-first search and its deadend memo      (§2)
 └── iddfs.rs            IDDFSSolver: DFSSolver at increasing limits                (§3)
 ```
@@ -54,26 +54,13 @@ after the attack. If the attack happens to make *two* fours, the defender's
 `check_event` reports `Defeated(Fours(..))` before the stored block is ever
 played, so the stored eye only matters for a single four.
 
-### `SwordField`: the swords, kept per line
-
-`neighbor_move_pairs` and `move_pairs` do not scan the board. `VCFState`
-keeps the attacker's `SwordField` (`src/analysis/sword.rs`): for each of the
-72 stored lines, a bitmask of the cells where a sword's window starts and
-each sword's stone pattern. A move changes at most the four lines through
-it, so `after_play` only marks those lines stale (`SwordField::play`), and
-the two generators `sync` the stale lines from the board before reading.
-`sync` saves each line it overwrites into a frame opened by `play`, and
-`after_undo` (`SwordField::undo`) writes them back and restores the stale
-set, so taking a move back recomputes nothing: each line is computed once
-per move, not once more on the way back. The pairs
-come out in exactly the order `Board::structures` / `structures_on` would
-list the swords (lines vertical, horizontal, ascending, descending; windows
-left to right), so the tree searched is the one a full scan gives.
-
-`VCFState::new` builds the field from the board. `VCFState::with_swords`
-takes one someone else already keeps: the VCT solver hands its nested
-searches a copy of its own (`SwordField::fork`, 06, §2), so a nested VCF
-does not start by scanning the board either.
+None of the three scans the board: they read the swords `Board` caches
+(`Board::swords` / `swords_on`, 02 §8) through `Game::synced_board`, which
+first recomputes the lines the moves since the last read have touched.
+The order is exactly that of `structures` / `structures_on`, so the tree
+searched is the one a full scan gives. A nested VCF inside the VCT search
+starts from a clone of the VCT's board, which `VCTState` syncs before
+cloning, so it starts with nothing stale.
 
 ## 2. `DFSSolver`
 

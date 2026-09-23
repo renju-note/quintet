@@ -1,6 +1,4 @@
 use crate::analysis::potential::PotentialField;
-use crate::analysis::sword::SwordField;
-use crate::board::Player::*;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
@@ -12,26 +10,16 @@ pub struct VCTState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
-    /// The attacker's potentials, for move ordering.
     field: PotentialField,
-    /// Each side's swords, handed to the nested VCF searches: Black's and
-    /// White's, in that order.
-    swords: [SwordField; 2],
 }
 
 impl VCTState {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
-        let board = game.board();
-        let swords = [
-            SwordField::init(Black, board),
-            SwordField::init(White, board),
-        ];
         Self {
             attacker: game.turn,
             game,
             limit,
             field,
-            swords,
         }
     }
 
@@ -41,16 +29,17 @@ impl VCTState {
         Self::new(game, limit, field)
     }
 
-    /// A VCF search for the side to move, here.
     pub fn vcf_state(&mut self, max_limit: u8) -> VCFState {
+        // Synced here rather than in the copy, so that the next copy starts
+        // from what this one computed.
+        self.game.synced_board();
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);
-        let swords = self.synced_swords(game.turn);
-        VCFState::with_swords(game, limit, swords)
+        VCFState::new(game, limit)
     }
 
-    /// A VCF search for the side not to move, after the side to move passes.
     pub fn threat_state(&mut self, max_limit: u8) -> VCFState {
+        self.game.synced_board();
         let mut game = self.game.clone();
         game.play(None);
         let limit = if self.attacking() {
@@ -59,15 +48,7 @@ impl VCTState {
             self.limit
         }
         .min(max_limit);
-        let swords = self.synced_swords(game.turn);
-        VCFState::with_swords(game, limit, swords)
-    }
-
-    /// A copy of `player`'s swords, brought up to date with the board.
-    fn synced_swords(&mut self, player: Player) -> SwordField {
-        let swords = &mut self.swords[if player.is_black() { 0 } else { 1 }];
-        swords.sync(self.game.board());
-        swords.fork()
+        VCFState::new(game, limit)
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -93,14 +74,6 @@ impl VCTState {
         // The child has the other side to move.
         let position = apply_turn(stones, turn.opponent());
         Key::new(apply_attacker(position, attacker), next_limit)
-    }
-
-    /// Moves only note what they touched; the fields catch up when read.
-    fn mark_stale(&mut self, p: Point) {
-        self.field.mark_stale(p);
-        for swords in &mut self.swords {
-            swords.mark_stale(p);
-        }
     }
 
     pub fn sorted_potentials(&mut self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
@@ -201,13 +174,13 @@ impl State for VCTState {
 
     fn after_play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
-            self.mark_stale(next_move);
+            self.field.mark_stale(next_move);
         }
     }
 
     fn after_undo(&mut self, maybe_last_move: Option<Point>) {
         if let Some(last_move) = maybe_last_move {
-            self.mark_stale(last_move);
+            self.field.mark_stale(last_move);
         }
     }
 }

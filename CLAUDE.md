@@ -41,13 +41,10 @@ slower and some cases time out.
   encoded to a single `u8` for the wasm boundary), `Line`/`Square` (bit-packed
   rows and 4 line directions), `Structure`/`StructureKind` (three, four, five,
   overline...), `forbidden.rs` (Renju forbidden-move detection for Black),
-  `potential.rs`, `zobrist.rs` (hashing for transposition tables).
-- `src/analysis/` — incrementally updated evaluations of a position:
-  `potential.rs` (`PotentialField`, per-point potential used for VCT move
-  ordering) and `sword.rs` (`SwordField`, each line's swords, the source of
-  VCF's four-making move pairs). Both can be updated lazily
-  (`mark_stale` on each move, `sync` before reading); `SwordField` also has
-  `play` / `undo`, which take a move back without recomputing.
+  `potential.rs`, `zobrist.rs` (hashing for transposition tables); `Board`
+  also caches each line's swords for VCF (`sync_swords`, `swords`).
+- `src/analysis/` — `potential.rs`, per-point potential evaluation used for move
+  ordering.
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
   `SolveMode`) and also holds the integration tests. `solver.rs` is the
   `Solver` trait every solver implements (`solve` / `clear` /

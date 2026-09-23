@@ -1,5 +1,3 @@
-use crate::analysis::sword::SwordField;
-use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::state::State;
@@ -9,26 +7,14 @@ pub struct VCFState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
-    /// The attacker's swords, where the moves come from.
-    swords: SwordField,
 }
 
 impl VCFState {
     pub fn new(game: Game, limit: u8) -> Self {
-        let swords = SwordField::init(game.turn, game.board());
-        Self::with_swords(game, limit, swords)
-    }
-
-    /// Like [`Self::new`], reusing swords someone already keeps for the side
-    /// to move — the VCT solver does, for its nested searches. They need not
-    /// be in sync with the board yet.
-    pub fn with_swords(game: Game, limit: u8, swords: SwordField) -> Self {
-        assert_eq!(swords.player(), game.turn);
         Self {
             attacker: game.turn,
             game,
             limit,
-            swords,
         }
     }
 
@@ -45,10 +31,11 @@ impl VCFState {
         self.game().check_event()
     }
 
-    pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
+    pub fn forced_move_pair(&mut self, forced_move: Point) -> Option<(Point, Point)> {
+        let turn = self.game.turn;
         self.game
-            .board()
-            .structures_on(forced_move, self.game.turn, Sword)
+            .synced_board()
+            .swords_on(forced_move, turn)
             .find_map(|sword| match Self::sword_eyes(&sword) {
                 (e1, e2) if e1 == forced_move => Some((e1, e2)),
                 (e1, e2) if e2 == forced_move => Some((e2, e1)),
@@ -56,25 +43,33 @@ impl VCFState {
             })
     }
 
-    /// The swords through the attacker's previous stone, both ways round.
-    /// Called with the attacker to move.
     pub fn neighbor_move_pairs(&mut self) -> Vec<(Point, Point)> {
-        match self.game.last2_move() {
-            Some(last2_move) => self.synced_swords().move_pairs_on(last2_move),
-            None => vec![],
+        let mut result = vec![];
+        if let Some(last2_move) = self.game.last2_move() {
+            let turn = self.game.turn;
+            let swords = self.game.synced_board().swords_on(last2_move, turn);
+            Self::push_eyes_pairs(swords, &mut result);
         }
+        result
     }
 
-    /// Every sword of the attacker, both ways round. Called with the
-    /// attacker to move.
     pub fn move_pairs(&mut self) -> Vec<(Point, Point)> {
-        self.synced_swords().move_pairs()
+        let mut result = vec![];
+        let turn = self.game.turn;
+        let swords = self.game.synced_board().swords(turn);
+        Self::push_eyes_pairs(swords, &mut result);
+        result
     }
 
-    fn synced_swords(&mut self) -> &SwordField {
-        debug_assert_eq!(self.game.turn, self.attacker);
-        self.swords.sync(self.game.board());
-        &self.swords
+    /// Both ways round for each sword, written as a loop rather than
+    /// `flat_map(..).collect()`: this runs at every node, and driving the
+    /// nested iterator costs more than the two pushes it ends in.
+    fn push_eyes_pairs(swords: impl Iterator<Item = Structure>, out: &mut Vec<(Point, Point)>) {
+        for sword in swords {
+            let (e1, e2) = Self::sword_eyes(&sword);
+            out.push((e1, e2));
+            out.push((e2, e1));
+        }
     }
 
     fn sword_eyes(sword: &Structure) -> (Point, Point) {
@@ -106,14 +101,6 @@ impl State for VCFState {
 
     fn set_limit(&mut self, limit: u8) {
         self.limit = limit
-    }
-
-    fn after_play(&mut self, next_move: Option<Point>) {
-        self.swords.play(next_move);
-    }
-
-    fn after_undo(&mut self, _maybe_last_move: Option<Point>) {
-        self.swords.undo();
     }
 }
 
@@ -153,7 +140,7 @@ mod tests {
     fn test_forced_move_pair() {
         // When the attacker has to block at `p`, the VCF only goes on if
         // `p` also makes a four: an eye of one of its swords.
-        let state = VCFState::init(&board(), Black, 5);
+        let mut state = VCFState::init(&board(), Black, 5);
         assert_eq!(
             state.forced_move_pair(point("L8")),
             Some((point("L8"), point("K8")))

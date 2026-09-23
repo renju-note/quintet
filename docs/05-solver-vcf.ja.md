@@ -7,7 +7,7 @@
 ```
 src/mate/vcf.rs         モジュールドキュメント、再エクスポート
 src/mate/vcf/
-├── state.rs            VCFState: Game + 攻め方 + limit + SwordField。四を作る手のペア (§1)
+├── state.rs            VCFState: Game + 攻め方 + limit。四を作る手のペア         (§1)
 ├── dfs.rs              DFSSolver: 深さ優先探索と行き止まりメモ                  (§2)
 └── iddfs.rs            IDDFSSolver: limit を増やしながら DFSSolver を走らせる    (§3)
 ```
@@ -40,11 +40,7 @@ H 列:  H7 = x（白）、H8 H9 H10 = o（黒）、H11 H12 = 空
 
 止めの点は剣から取り、攻め手を打った後の盤面から求め直さない。攻め手がたまたま四を 2 つ作った場合は、止めを打つ前に受け方の `check_event` が `Defeated(Fours(..))` を返す。したがって保持している止めが使われるのは四が 1 つのときだけ。
 
-### `SwordField`: 剣を線ごとに保持する
-
-`neighbor_move_pairs` と `move_pairs` は盤面を走査しない。`VCFState` は攻め方の `SwordField`（`src/analysis/sword.rs`）を持つ。保存された 72 本の線それぞれについて、剣の窓が始まるセルのビットマスクと、各剣の石の並びを保持する。1 手で変わるのはその点を通る高々 4 本の線なので、`after_play` はそれらの線に「古い」印を付けるだけで（`SwordField::play`）、2 つの生成器は読む前に古い線だけを盤面から `sync` する。`sync` は上書きする線を `play` が開いたフレームに退避し、`after_undo`（`SwordField::undo`）はそれを書き戻して古い線の集合も元に戻す。したがって手を戻すときは何も計算し直さない。各線の計算は 1 手につき 1 回で、戻るときにもう 1 回かかることはない。ペアの順序は `Board::structures` / `structures_on` が剣を列挙する順（線は縦・横・右上がり・右下がり、窓は左から右）とまったく同じなので、探索する木は盤面を全走査した場合と変わらない。
-
-`VCFState::new` は盤面から場を作る。`VCFState::with_swords` は、他で保持している場を受け取る。追い詰めソルバーは内部の四追い探索に自分の場のコピーを渡す（`SwordField::fork`、06 §2）ので、内部の四追いも盤面の走査から始めずに済む。
+3 つとも盤面を走査しない。`Board` がキャッシュしている剣（`Board::swords` / `swords_on`、02 §8）を `Game::synced_board` 経由で読む。`synced_board` は、前回読んでから打たれた手が触れた線だけを先に計算し直す。順序は `structures` / `structures_on` とまったく同じなので、探索する木は全走査した場合と変わらない。追い詰め探索の中の四追いは追い詰め側の盤面のクローンから始まるが、`VCTState` がクローンの前に同期するので、古い線のない状態で始まる。
 
 ## 2. `DFSSolver`
 

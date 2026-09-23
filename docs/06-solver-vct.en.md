@@ -13,8 +13,7 @@ particular `State`, `Key`, `Memo`, the `Solver` trait and `DFSSolver`.
 ```
 src/mate/vct.rs         module doc: the algorithm in one page, re-exports, the three aliases
 src/mate/vct/
-├── state.rs            VCTState: Game + attacker + limit + PotentialField + SwordFields;    (§2, §3)
-│                       threat_defences
+├── state.rs            VCTState: Game + attacker + limit + PotentialField; threat_defences   (§2, §3)
 ├── nested_vcf.rs       NestedVCF: one side's VCF sub-search                                  (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                     (§3)
 ├── proof.rs            Node (proof numbers), ProofTable (transposition table)                (§4)
@@ -23,8 +22,7 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 └── extractor.rs        extract: the winning line from the tables                             (§6)
-src/analysis/potential.rs  PotentialField                                                     (§8)
-src/analysis/sword.rs      SwordField (05, §1)                                                (§2)
+src/analysis/potential.rs   PotentialField                                                        (§8)
 ```
 
 The whole search on one screen — `solve` proves the root, then walks the
@@ -82,25 +80,19 @@ The tree alternates two kinds of node:
 ## 2. `VCTState` and the nested VCF searches
 
 ```rust
-pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField, swords: [SwordField; 2] }
+pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField }
 ```
 
 The field is the attacker's `PotentialField` (§8), built with
 `PotentialField::init(attacker, 2, board)`. `after_play` / `after_undo` only
 mark the move's point stale; the field is refreshed along the four lines of
 each stale point when it is next read (`sorted_potentials` /
-`sort_by_potential`), which happens only on a candidate-cache miss.
-
-`swords` are Black's and White's `SwordField`s (05, §1), updated the same
-lazy way (`mark_stale`). `vcf_state` / `threat_state` sync the one of the
-side the nested VCF is for and hand it a copy (`fork`,
-`VCFState::with_swords`), which the nested search then keeps up to date as
-it plays. The VCT side marks rather than using `play` / `undo`: it syncs
-only at nested searches, far apart, and `undo` would throw away the lines a
-subtree synced, which the next subtree mostly needs again. `next_key(m)`
+`sort_by_potential`), which happens only on a candidate-cache miss. `next_key(m)`
 is `key()` of the child after `m`, computed from the board's Zobrist hash by
 XOR without playing `m`, which is what keeps table lookups for unexpanded
-children cheap.
+children cheap. `vcf_state` / `threat_state` sync the board's swords
+(02 §8) before cloning the game, so that each nested VCF starts in sync and
+the next one reuses what this one computed.
 
 ### Two derived `VCFState`s
 

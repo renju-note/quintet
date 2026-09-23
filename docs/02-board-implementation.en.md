@@ -408,6 +408,24 @@ cell of a line, `Potentials` computes a score as follows:
 - `Board::put` / `remove` return copies; the solvers use the `_mut`
   variants to avoid cloning in the search loop.
 
+`Board` also caches each player's swords (`Sword`, §5), which the VCF
+search asks for at nearly every node:
+
+- Per player and per line (by `Square::line_key`, the line's position in
+  `Square::lines`), a `u16` with bit `j` set if a sword's window starts at
+  cell `j`, and a `u128` of the lines that have any.
+- `put_mut` / `remove_mut` only mark the (at most four) lines through the
+  point stale; `sync_swords` recomputes the stale lines. The searches move
+  far more often than they read, so recomputing at every move would cost
+  more than the scan it replaces.
+- A line is recomputed by `Line::sword_starts`, which checks every window
+  at once with bit operations (no opponent stone, exactly three own stones
+  by a bit-sliced sum, and for Black no own stone just outside) instead of
+  stepping through `Sequences`.
+- `swords(r)` / `swords_on(p, r)` read the cache and return what
+  `structures(r, Sword)` / `structures_on(p, r, Sword)` would, in the same
+  order. They require `sync_swords` first; `Game::synced_board` does both.
+
 ## 9. Cheat sheet: rule → code
 
 | Rule | Code |

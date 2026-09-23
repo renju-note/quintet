@@ -7,8 +7,7 @@
 ```
 src/mate/vct.rs         モジュールドキュメント: アルゴリズムの 1 ページ要約、再エクスポート、3 つのエイリアス
 src/mate/vct/
-├── state.rs            VCTState: Game + 攻め方 + limit + PotentialField + SwordField。         (§2, §3)
-│                       threat_defences
+├── state.rs            VCTState: Game + 攻め方 + limit + PotentialField。threat_defences        (§2, §3)
 ├── nested_vcf.rs       NestedVCF: 片側の内部四追い探索                                          (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                        (§3)
 ├── proof.rs            Node（証明数）、ProofTable（置換表）                                      (§4)
@@ -17,8 +16,7 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold、PNSThreshold、DFPNSThreshold              (§5)
 ├── solver.rs           VCTSolver<P>: 構造体、Solver の実装                                      (§5)
 └── extractor.rs        extract: 表から詰み手順を復元する                                        (§6)
-src/analysis/potential.rs  PotentialField                                                        (§8)
-src/analysis/sword.rs      SwordField（05 §1）                                                   (§2)
+src/analysis/potential.rs   PotentialField                                                           (§8)
 ```
 
 探索の全体像。`solve` は根を証明し、次に証明をたどって手順を読み取る。
@@ -71,11 +69,11 @@ VCTSolver::solve = advance_generation; search; extract
 ## 2. `VCTState` と内部の四追い探索
 
 ```rust
-pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField, swords: [SwordField; 2] }
+pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField }
 ```
 
 - `field` は攻め方の `PotentialField`（§8）。`PotentialField::init(attacker, 2, board)` で作る。`after_play` / `after_undo` は手の点を「古い」と印すだけで、場は次に読まれるとき（`sorted_potentials` / `sort_by_potential`）に、古い点それぞれの 4 本の線だけ更新する。読まれるのは候補キャッシュを外したときだけ。
-- `swords` は黒と白の `SwordField`（05 §1）で、同じく遅延更新する（`mark_stale`）。`vcf_state` / `threat_state` は内部の四追いの攻め方にあたる側の場を `sync` し、そのコピーを渡す（`fork`、`VCFState::with_swords`）。内部の四追い探索は手を打ちながらそれを更新していく。追い詰め側で `play` / `undo` を使わず印を付けるだけにしているのは、`sync` するのが間隔の空いた内部の四追いのときだけだから。`undo` を使うと、ある部分木で `sync` した線を捨ててしまい、次の部分木でほとんど計算し直すことになる。
+- `vcf_state` / `threat_state` は、ゲームをクローンする前に盤面の剣（02 §8）を同期する。内部の四追いは同期済みの状態から始まり、次の四追いもこの計算を再利用できる。
 - `next_key(m)` は `m` を打った後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
 
 ### 派生する 2 つの `VCFState`
