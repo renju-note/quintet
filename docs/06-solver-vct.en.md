@@ -310,6 +310,16 @@ its most-proving child until its own numbers cross the threshold its parent
 handed down. The root's threshold is `no_threshold`, so the root loops until
 decided.
 
+The threshold is checked before the first expansion too. A node whose seeded
+numbers already cross it returns at once, having only generated its moves,
+and its parent learns its numbers that way. From #108 to #110 (2022)
+`expand_attacks` skipped that first check and always expanded its best
+attack once. Whether that pays depends a lot on the position. On the
+benchmark (07) it makes `vct_unstable` 345 times cheaper (119.5M nodes →
+346k), but the default set 39% dearer (24.4M → 34.0M) and
+`vct_black_long_short` 53% dearer (17.4M → 26.7M). So it stays out (issue
+#148).
+
 ### Threshold policies
 
 `P: ThresholdPolicy` is the type parameter of `VCTSolver<P>`; the three
