@@ -1,5 +1,7 @@
-# Formerly the bench_vct_white test, whose
-# expected line had gone stale: the solver has since found this one.
+# Formerly the bench_vct_white test. Its expected line changed in #110, when
+# expand_attacks stopped always expanding its best attack once (#108). The
+# line below is a mate: every defence along it was tried and refuted
+# (issue #148).
 mode: vct_dfpns
 attacker: x
 limit: 15

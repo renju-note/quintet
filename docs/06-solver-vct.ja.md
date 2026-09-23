@@ -249,6 +249,8 @@ expand_attacks(state, attacks, threshold):
 
 `expand_defences` は `select_defence`、`defender_table`、`P::next_threshold_defence`、`search_attacks` で同じことをする。ノードは、自分の数値が親から渡された閾値を超えるまで、最有望の子を展開し続ける。根の閾値は `no_threshold` なので、根は決着するまでループする。
 
+閾値は最初の展開の前にも確かめる。初期値の時点で閾値を超えているノードは、手を生成しただけで何も展開せずに戻り、親はそれで自分の数値を知る。#108 から #110 まで（2022 年）の `expand_attacks` はこの最初の確認を飛ばし、最有望の攻め手を必ず 1 回展開していた。これが得かどうかは局面によって大きく違う。ベンチマーク（07）では、`vct_unstable` が 345 分の 1（119.5M ノード → 346k）になる一方、既定の集合は 39%（24.4M → 34.0M）、`vct_black_long_short` は 53%（17.4M → 26.7M）重くなる。そのため入れていない（issue #148）。
+
 ### 閾値ポリシー
 
 `P: ThresholdPolicy` は `VCTSolver<P>` の型パラメータ。3 つのポリシーはサイズ 0 の型で、`DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver` がそのエイリアス。

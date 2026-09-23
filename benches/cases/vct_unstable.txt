@@ -1,5 +1,10 @@
-# Formerly the bench_vct_unstable test, whose
-# expected line had gone stale: the solver has since found this one.
+# Formerly the bench_vct_unstable test. It expected
+# J12,J11,K10,H10,L10,M10,K7,L8,K11,M9,I12,F8,E7,L9,N11,L6,L5,E8,H11,J13,G12,F13,H12
+# (12 attacks), found in about 0.35M nodes while expand_attacks always
+# expanded its best attack once (#108). #110 removed that, and since then the
+# solver takes about 120M nodes and finds the line below (11 attacks). Both
+# lines are mates: every defence along each was tried and refuted. See
+# docs/06-solver-vct.en.md §5 and issue #148.
 mode: vct_dfpns
 attacker: o
 limit: 12
