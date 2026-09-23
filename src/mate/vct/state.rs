@@ -98,7 +98,7 @@ impl VCTState {
         result
     }
 
-    pub fn end_breakers(&self, end: End) -> Vec<Point> {
+    fn end_breakers(&self, end: End) -> Vec<Point> {
         match end {
             Fours(p1, p2) => {
                 vec![p1, p2]
@@ -110,14 +110,6 @@ impl VCTState {
             }
             _ => vec![],
         }
-    }
-
-    pub fn four_moves(&self) -> Vec<Point> {
-        self.game()
-            .board()
-            .structures(self.game().turn, Sword)
-            .flat_map(|s| s.eyes())
-            .collect()
     }
 
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
@@ -137,6 +129,14 @@ impl VCTState {
             }
         }
         result
+    }
+
+    fn four_moves(&self) -> Vec<Point> {
+        self.game()
+            .board()
+            .structures(self.game().turn, Sword)
+            .flat_map(|s| s.eyes())
+            .collect()
     }
 }
 

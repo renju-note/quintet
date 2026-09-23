@@ -8,16 +8,7 @@ use std::fmt;
 /// dropping what older searches left behind. See [`Memo`].
 pub const DEFAULT_CARRY_CAPACITY: usize = 1 << 16;
 
-/// What a search has settled about a position, whatever limit it was asked
-/// at. A mate within `limit` is a mate within more, and no mate within
-/// `limit` is no mate within less, so one decision bounds a whole range.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-struct Decided {
-    /// Proven at this limit, hence at every limit at least this large.
-    min_proven: Option<u8>,
-    /// Disproven at this limit, hence at every limit at most this large.
-    max_disproven: Option<u8>,
-}
+pub const INF: u32 = u32::MAX;
 
 /// Transposition table of proof numbers, in two halves.
 ///
@@ -68,6 +59,14 @@ impl ProofTable {
         self.record(state.key(), node);
     }
 
+    pub fn lookup_next(&self, state: &mut VCTState, next_move: Option<Point>) -> Option<Node> {
+        let key = state.next_key(next_move);
+        if let Some(&node) = self.estimates.get(key.hash()) {
+            return Some(node);
+        }
+        self.decided_at(key)
+    }
+
     fn record(&mut self, key: Key, node: Node) {
         self.estimates.insert(key.hash(), node);
         if key.limit < self.transfer_from {
@@ -85,14 +84,6 @@ impl ProofTable {
             return;
         }
         self.decided.insert(key.position, decided);
-    }
-
-    pub fn lookup_next(&self, state: &mut VCTState, next_move: Option<Point>) -> Option<Node> {
-        let key = state.next_key(next_move);
-        if let Some(&node) = self.estimates.get(key.hash()) {
-            return Some(node);
-        }
-        self.decided_at(key)
     }
 
     fn decided_at(&self, key: Key) -> Option<Node> {
@@ -113,8 +104,6 @@ impl ProofTable {
         None
     }
 }
-
-pub const INF: u32 = u32::MAX;
 
 /// Proof and disproof numbers of a position, plus the smallest `limit` at
 /// which the numbers were established.
@@ -199,6 +188,17 @@ impl fmt::Display for Node {
         };
         write!(f, "(pn: {}, dn: {})", pn, dn)
     }
+}
+
+/// What a search has settled about a position, whatever limit it was asked
+/// at. A mate within `limit` is a mate within more, and no mate within
+/// `limit` is no mate within less, so one decision bounds a whole range.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct Decided {
+    /// Proven at this limit, hence at every limit at least this large.
+    min_proven: Option<u8>,
+    /// Disproven at this limit, hence at every limit at most this large.
+    max_disproven: Option<u8>,
 }
 
 #[cfg(test)]

@@ -14,8 +14,7 @@
 //!
 //! | phase | module | what it does |
 //! | --- | --- | --- |
-//! | search | `searcher.rs` | `search_attacks` / `search_defences` evaluate an OR / AND node; `expand_*` loop into the most-proving child until the threshold is exceeded |
-//! | select | `selector.rs` | `select_attack` / `select_defence` read the children's table entries, aggregate them into the node's own numbers and pick the most-proving child |
+//! | search | `searcher.rs` | `search_attacks` / `search_defences` evaluate an OR / AND node; `expand_*` loop into the most-proving child until the threshold is exceeded; `select_*` read the children's table entries, aggregate them into the node's own numbers and pick that child |
 //! | generate | `generator.rs` | `generate_attacks` / `generate_defences` list a node's candidate moves, best first, or decide the node outright ([`Candidates`]) |
 //! | nested VCF | `nested_vcf.rs` | [`NestedVCF`]: the VCF sub-searches the generator asks — has a side a VCF now, would it have one after a pass (a threat) |
 //! | extract | `extractor.rs` | `extract` walks the tables after a proof and recovers the winning line |
@@ -37,7 +36,6 @@ mod generator;
 mod nested_vcf;
 mod proof;
 mod searcher;
-mod selector;
 mod solver;
 mod state;
 mod threshold;

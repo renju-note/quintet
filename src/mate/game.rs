@@ -2,34 +2,6 @@ use crate::board::StructureKind::*;
 use crate::board::*;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum End {
-    Fours(Point, Point),
-    Forbidden(Point),
-    Unknown,
-}
-
-impl fmt::Display for End {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            Fours(p1, p2) => format!("Fours({}, {})", p1, p2),
-            Forbidden(p) => format!("Forbidden({})", p),
-            Unknown => "Unknown".to_string(),
-        };
-        write!(f, "{}", s)
-    }
-}
-
-pub use End::*;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Event {
-    Forced(Point),
-    Defeated(End),
-}
-
-pub use Event::*;
-
 #[derive(Clone)]
 pub struct Game {
     board: Board,
@@ -118,6 +90,17 @@ impl Game {
         }
     }
 
+    pub fn moves_to_string(&self) -> String {
+        self.moves
+            .iter()
+            .map(|m| match m {
+                Some(p) => p.to_string(),
+                None => "PASS".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
     fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let opponent = self.turn.opponent();
         if let Some(last_move) = self.last_move() {
@@ -144,17 +127,33 @@ impl Game {
         }
         (ret, None)
     }
+}
 
-    #[allow(dead_code)]
-    pub fn moves_to_string(&self) -> String {
-        self.moves
-            .iter()
-            .map(|m| match m {
-                Some(p) => p.to_string(),
-                None => "PASS".to_string(),
-            })
-            .collect::<Vec<_>>()
-            .join(",")
+#[derive(Debug, PartialEq, Eq)]
+pub enum Event {
+    Forced(Point),
+    Defeated(End),
+}
+
+pub use Event::*;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum End {
+    Fours(Point, Point),
+    Forbidden(Point),
+    Unknown,
+}
+
+pub use End::*;
+
+impl fmt::Display for End {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            Fours(p1, p2) => format!("Fours({}, {})", p1, p2),
+            Forbidden(p) => format!("Forbidden({})", p),
+            Unknown => "Unknown".to_string(),
+        };
+        write!(f, "{}", s)
     }
 }
 

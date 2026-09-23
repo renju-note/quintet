@@ -1,47 +1,11 @@
+use super::potential::VICTORY;
 use std::fmt;
-
-pub const VICTORY: u8 = 5;
 
 const TARGET_MASK: u8 = 0b00111110;
 const MARGIN_MASK: u8 = 0b01000001;
 const HEAD_MASK: u8 = 0b00011110;
 const REST_MASK: u8 = 0b00111100;
 const LAST_MASK: u8 = 0b00100000;
-
-/// How `Sequences` matches a 5-cell window `i` holding exactly `n` own stones.
-///
-/// - `Single`: window `i` alone.
-/// - `Double`: windows `i-1` and `i` both match, i.e. a 6-cell span.
-///   Both ends are either stones (`n + 1` stones in 6 cells) or empty (`Open`).
-/// - `Open`: the `Double` case whose ends `i-1` and `i+4` are both empty,
-///   so the `n` stones lie in the middle 4 cells with open ends on both sides.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum SequenceKind {
-    Single,
-    Double,
-    Open,
-}
-
-pub use SequenceKind::*;
-
-#[derive(PartialEq, Eq, Clone)]
-pub struct Sequence(pub u8);
-
-impl Sequence {
-    pub fn stones(&self) -> &'static [u8] {
-        STONES_DATA[self.0 as usize]
-    }
-
-    pub fn eyes(&self) -> &'static [u8] {
-        EYES_DATA[self.0 as usize]
-    }
-}
-
-impl fmt::Debug for Sequence {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Sequence({:#010b})", self.0)
-    }
-}
 
 pub struct Sequences {
     my: u16,
@@ -143,6 +107,41 @@ impl Iterator for Sequences {
         None
     }
 }
+
+#[derive(PartialEq, Eq, Clone)]
+pub struct Sequence(pub u8);
+
+impl Sequence {
+    pub fn stones(&self) -> &'static [u8] {
+        STONES_DATA[self.0 as usize]
+    }
+
+    pub fn eyes(&self) -> &'static [u8] {
+        EYES_DATA[self.0 as usize]
+    }
+}
+
+impl fmt::Debug for Sequence {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Sequence({:#010b})", self.0)
+    }
+}
+
+/// How `Sequences` matches a 5-cell window `i` holding exactly `n` own stones.
+///
+/// - `Single`: window `i` alone.
+/// - `Double`: windows `i-1` and `i` both match, i.e. a 6-cell span.
+///   Both ends are either stones (`n + 1` stones in 6 cells) or empty (`Open`).
+/// - `Open`: the `Double` case whose ends `i-1` and `i+4` are both empty,
+///   so the `n` stones lie in the middle 4 cells with open ends on both sides.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SequenceKind {
+    Single,
+    Double,
+    Open,
+}
+
+pub use SequenceKind::*;
 
 const STONES_DATA: [&[u8]; 32] = [
     &[],

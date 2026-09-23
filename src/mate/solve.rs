@@ -10,6 +10,77 @@ use crate::board::*;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
+/// What `defender_vcf_depth` was fixed at before it could be given.
+pub const DEFAULT_DEFENDER_VCF_DEPTH: u8 = 2;
+
+/// Searches `board` for a mate by `attacker`. `None` means no mate within
+/// the limits; use [`solve_limited`] to bound the work.
+pub fn solve(
+    mode: SolveMode,
+    limit: u8,
+    board: &Board,
+    attacker: Player,
+    threat_limit: u8,
+) -> Option<Mate> {
+    let limits = SolveLimits::new(limit).with_threat_limit(threat_limit);
+    solve_limited(mode, board, attacker, limits).into_mate()
+}
+
+/// Like [`solve`], but with a node budget and a result that tells "no mate"
+/// apart from "gave up".
+///
+/// ```
+/// use quintet::board::{Board, Player};
+/// use quintet::mate::{SolveLimits, SolveMode, solve_limited};
+///
+/// let board = Board::new();
+/// let limits = SolveLimits::new(5).with_max_nodes(1_000);
+/// let result = solve_limited(SolveMode::VCFDFS, &board, Player::Black, limits);
+/// assert!(result.is_disproven());
+/// ```
+pub fn solve_limited(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+) -> SolveResult {
+    if let Err(e) = validate(board, attacker) {
+        return match e {
+            Some(mate) => SolveResult::Proven(mate),
+            None => SolveResult::Disproven,
+        };
+    }
+    let limit = limits.limit;
+    let threat_limit = limits.threat_limit;
+    let defender_vcf_depth = limits.defender_vcf_depth;
+    let budget = &mut limits.budget();
+    let maybe_mate = match mode {
+        VCFDFS => {
+            let state = &mut VCFState::init(board, attacker, limit);
+            DFSSolver::init().solve(state, budget)
+        }
+        VCTDFS => {
+            let state = &mut VCTState::init(board, attacker, limit);
+            DFSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
+        }
+        VCTPNS => {
+            let state = &mut VCTState::init(board, attacker, limit);
+            PNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
+        }
+        VCTDFPNS => {
+            let state = &mut VCTState::init(board, attacker, limit);
+            DFPNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
+        }
+        // VCFIDDFS and VCTIDDFS have no solver of their own here.
+        _ => None,
+    };
+    match maybe_mate {
+        Some(mate) => SolveResult::Proven(mate),
+        None if budget.is_exhausted() => SolveResult::Aborted,
+        None => SolveResult::Disproven,
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SolveMode {
     VCFDFS,
@@ -155,75 +226,6 @@ impl SolveResult {
             Self::Proven(mate) => Some(mate),
             _ => None,
         }
-    }
-}
-
-/// What `defender_vcf_depth` was fixed at before it could be given.
-pub const DEFAULT_DEFENDER_VCF_DEPTH: u8 = 2;
-
-pub fn solve(
-    mode: SolveMode,
-    limit: u8,
-    board: &Board,
-    attacker: Player,
-    threat_limit: u8,
-) -> Option<Mate> {
-    let limits = SolveLimits::new(limit).with_threat_limit(threat_limit);
-    solve_limited(mode, board, attacker, limits).into_mate()
-}
-
-/// Like [`solve`], but with a node budget and a result that tells "no mate"
-/// apart from "gave up".
-///
-/// ```
-/// use quintet::board::{Board, Player};
-/// use quintet::mate::{SolveLimits, SolveMode, solve_limited};
-///
-/// let board = Board::new();
-/// let limits = SolveLimits::new(5).with_max_nodes(1_000);
-/// let result = solve_limited(SolveMode::VCFDFS, &board, Player::Black, limits);
-/// assert!(result.is_disproven());
-/// ```
-pub fn solve_limited(
-    mode: SolveMode,
-    board: &Board,
-    attacker: Player,
-    limits: SolveLimits,
-) -> SolveResult {
-    if let Err(e) = validate(board, attacker) {
-        return match e {
-            Some(mate) => SolveResult::Proven(mate),
-            None => SolveResult::Disproven,
-        };
-    }
-    let limit = limits.limit;
-    let threat_limit = limits.threat_limit;
-    let defender_vcf_depth = limits.defender_vcf_depth;
-    let budget = &mut limits.budget();
-    let maybe_mate = match mode {
-        VCFDFS => {
-            let state = &mut VCFState::init(board, attacker, limit);
-            DFSSolver::init().solve(state, budget)
-        }
-        VCTDFS => {
-            let state = &mut VCTState::init(board, attacker, limit);
-            DFSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
-        }
-        VCTPNS => {
-            let state = &mut VCTState::init(board, attacker, limit);
-            PNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
-        }
-        VCTDFPNS => {
-            let state = &mut VCTState::init(board, attacker, limit);
-            DFPNSVCTSolver::init(threat_limit, defender_vcf_depth).solve(state, budget)
-        }
-        // VCFIDDFS and VCTIDDFS have no solver of their own here.
-        _ => None,
-    };
-    match maybe_mate {
-        Some(mate) => SolveResult::Proven(mate),
-        None if budget.is_exhausted() => SolveResult::Aborted,
-        None => SolveResult::Disproven,
     }
 }
 

@@ -1,4 +1,4 @@
-use super::selector::Selection;
+use super::searcher::Selection;
 use crate::mate::vct::proof::*;
 
 /// How far a child may be searched before control returns to its parent.

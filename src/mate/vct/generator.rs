@@ -6,16 +6,6 @@ use crate::mate::state::State;
 use crate::mate::vct::proof::*;
 use crate::mate::vct::state::VCTState;
 
-/// What move generation found for a node.
-#[derive(Clone)]
-pub enum Candidates {
-    /// The moves to expand, best first.
-    Moves(Vec<Point>),
-    /// The node is decided without expansion (e.g. the attacker has a VCF, or
-    /// there is no move at all); this is its value.
-    Terminal(Node),
-}
-
 use Candidates::*;
 
 /// Candidate move generation, cached by position.
@@ -34,6 +24,25 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             // produced must not be cached.
             if !budget.is_exhausted() {
                 self.attacks_cache.put(key, result.clone());
+            }
+            result
+        }
+    }
+
+    pub fn generate_defences(
+        &mut self,
+        state: &mut VCTState,
+        budget: &mut NodeBudget,
+    ) -> Candidates {
+        let key = state.zobrist_hash();
+        if let Some(hit) = self.defences_cache.get(&key) {
+            hit.clone()
+        } else {
+            let result = self.compute_defences(state, budget);
+            // A nested search that gave up may have missed a threat, so what
+            // it produced must not be cached.
+            if !budget.is_exhausted() {
+                self.defences_cache.put(key, result.clone());
             }
             result
         }
@@ -58,25 +67,6 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         Moves(result.into_iter().map(|x| x.0).collect())
     }
 
-    pub fn generate_defences(
-        &mut self,
-        state: &mut VCTState,
-        budget: &mut NodeBudget,
-    ) -> Candidates {
-        let key = state.zobrist_hash();
-        if let Some(hit) = self.defences_cache.get(&key) {
-            hit.clone()
-        } else {
-            let result = self.compute_defences(state, budget);
-            // A nested search that gave up may have missed a threat, so what
-            // it produced must not be cached.
-            if !budget.is_exhausted() {
-                self.defences_cache.put(key, result.clone());
-            }
-            result
-        }
-    }
-
     fn compute_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
         let maybe_threat = self.attacker_vcf.threat(state, budget);
         if maybe_threat.is_none() {
@@ -98,4 +88,14 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
         Moves(result.into_iter().map(|x| x.0).collect())
     }
+}
+
+/// What move generation found for a node.
+#[derive(Clone)]
+pub enum Candidates {
+    /// The moves to expand, best first.
+    Moves(Vec<Point>),
+    /// The node is decided without expansion (e.g. the attacker has a VCF, or
+    /// there is no move at all); this is its value.
+    Terminal(Node),
 }
