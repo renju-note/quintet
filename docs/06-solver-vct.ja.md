@@ -317,7 +317,7 @@ extract_defences(state):                       # 受け方の手番
  . . . . . . . . . . . . . . .
 ```
 
-`solve(VCTDFS, 4, &board, Black, 1)`（`VCTPNS`、`VCTDFPNS` も同じ）は `F10,G9,I10,G10,H11,H12,G12`、詰め上がり `Fours(F13, K8)` を返す。`limit = 3` では `None`。
+`solve(VCTDFS, &board, Black, SolveLimits::new(4).with_threat_limit(1))`（`VCTPNS`、`VCTDFPNS` も同じ）は手順 `F10,G9,I10,G10,H11,H12,G12`、詰め上がり `Fours(F13, K8)` で証明する。`limit = 3` では `Disproven`。
 
 | 手 | なぜ追い手 / 強制か | その後の `limit` |
 | --- | --- | --- |

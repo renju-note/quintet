@@ -29,10 +29,11 @@ fn main() -> Result<(), &'static str> {
 fn solve_print(mode: SolveMode, limit: u8, board: Board, attacker: Player, threat_limit: u8) {
     println!("Solving...\n");
     let start = Instant::now();
-    let solution = solve(mode, limit, &board, attacker, threat_limit);
+    let limits = SolveLimits::new(limit).with_threat_limit(threat_limit);
+    let result = solve(mode, &board, attacker, limits);
     let elapsed = start.elapsed();
     println!("Elapsed: {:?}", elapsed);
-    match solution {
+    match result.into_mate() {
         Some(m) => {
             println!("End: {}", m.end);
             println!("Times (Length): {} ({})", m.n_times(), m.n_moves());

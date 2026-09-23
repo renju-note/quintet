@@ -72,8 +72,9 @@ use quintet::board::*;
 use quintet::mate::*;
 
 let board: Board = "H8,H7,F6".parse()?; // moves alternating Black, White, ...
-let mate = solve(SolveMode::VCTDFPNS, 10, &board, Player::Black, 3);
-if let Some(m) = mate {
+let limits = SolveLimits::new(10).with_threat_limit(3);
+let result = solve(SolveMode::VCTDFPNS, &board, Player::Black, limits);
+if let Some(m) = result.into_mate() {
     println!("{}", Points(m.path));
 }
 ```

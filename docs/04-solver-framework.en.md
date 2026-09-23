@@ -14,7 +14,7 @@ It assumes [03](03-solver-api.en.md) (what a solver is asked, `limit`,
 ```
 src/mate.rs          module root: re-exports, the overview doc comment
 src/mate/
-├── solve.rs         solve / solve_limited, SolveMode, SolveLimits, SolveResult, validate
+├── solve.rs         solve, SolveMode, SolveLimits, SolveResult, validate
 │                    + the solver regression tests
 ├── solver.rs        trait Solver                      (§4)
 ├── game.rs          Game, Event, End                  (§2)
@@ -160,7 +160,7 @@ Every solver has two entry points, and the split is the same in all three:
 | --- | --- | --- |
 | Is | one whole question | the search itself |
 | Does | `advance_generation()`, then `search` (VCT: then `extract`) | the recursion; no memo housekeeping |
-| Called by | the outside world: `solve_limited`, an engine | other solvers: `IDDFSSolver` over `DFSSolver::search`, the VCT solver over its nested VCF solvers' `search` |
+| Called by | the outside world: `mate::solve`, an engine | other solvers: `IDDFSSolver` over `DFSSolver::search`, the VCT solver over its nested VCF solvers' `search` |
 
 The point of the split: a solver can sit inside another one. The VCT solver
 asks its nested VCF solvers hundreds of times per search; if each of those

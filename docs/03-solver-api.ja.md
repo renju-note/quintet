@@ -20,25 +20,21 @@
 
 答えが「あり」なら [`Mate`](#5-mate-と-end) が返る。詰み手順と、最後に受け方がなぜ負けているかを持つ。
 
-## 2. 使い捨てで呼ぶ: `solve` と `solve_limited`
+## 2. 使い捨てで呼ぶ: `solve`
 
 ```rust
-pub fn solve(mode: SolveMode, limit: u8, board: &Board, attacker: Player, threat_limit: u8) -> Option<Mate>
-pub fn solve_limited(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
+pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
 ```
 
-どちらもソルバーを作って 1 回走らせ、捨てる。
-
-- `solve`: 短い形。`wasm.rs` が呼ぶ。内部では `solve_limited` を使っている。
-- `solve_limited`: ノード予算を付けられ、答えが 3 値になる。
+ソルバーを作って 1 回走らせ、捨てる。`limits` で深さと（任意で）ノード予算を指定し、答えは 3 値になる。`wasm.rs` もこれを呼び、答えを詰み手順か「なし」に落とす。
 
 ```rust
 use quintet::board::{Board, Player};
-use quintet::mate::{SolveLimits, SolveMode, SolveResult, solve_limited};
+use quintet::mate::{SolveLimits, SolveMode, SolveResult, solve};
 
 let board: Board = "H8,I9,J9,H7".parse().unwrap();
 let limits = SolveLimits::new(5).with_threat_limit(2).with_max_nodes(100_000);
-match solve_limited(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
+match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
     SolveResult::Proven(mate) => { /* mate.path が詰み手順 */ }
     SolveResult::Disproven => { /* この limit では詰みなし */ }
     SolveResult::Aborted => { /* 予算切れ。不明 */ }
@@ -50,9 +46,9 @@ match solve_limited(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
 | `SolveMode` | コード | CLI 名 | 探索 |
 | --- | --- | --- | --- |
 | `VCFDFS` | 0 | `vcf` | 四追い、深さ優先。`threat_limit` は無視。 |
-| `VCFIDDFS` | 1 | `vcf_iddfs` | 予約。`None` を返す。 |
+| `VCFIDDFS` | 1 | `vcf_iddfs` | 予約。`solve` は `Disproven` を返す。 |
 | `VCTDFS` | 10 | `vct` | 追い詰め。証明数木を深さ優先でたどる。 |
-| `VCTIDDFS` | 11 | `vct_iddfs` | 予約。`None` を返す。 |
+| `VCTIDDFS` | 11 | `vct_iddfs` | 予約。`solve` は `Disproven` を返す。 |
 | `VCTPNS` | 15 | `vct_pns` | 追い詰め、証明数探索。 |
 | `VCTDFPNS` | 16 | `vct_dfpns` | 追い詰め、df-pn。**通常はこれ。** |
 
@@ -182,7 +178,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 
 ## 6. 探索前の検査: `validate`
 
-`solve_limited` は最初に、ソルバーが扱えない局面を弾く。
+`solve` は最初に、ソルバーが扱えない局面を弾く。
 
 | 局面 | 結果 |
 | --- | --- |
@@ -196,7 +192,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 
 | したいこと | 使うもの |
 | --- | --- |
-| 1 回だけ問う | `solve`。予算や 3 値の答えが欲しければ `solve_limited` |
+| 1 回だけ問う | `solve` |
 | 四追いだけ探す | `SolveMode::VCFDFS` |
 | 追い詰めを探す | `SolveMode::VCTDFPNS`。追い手の範囲は `threat_limit` |
 | 長すぎる探索を止める | `SolveLimits::with_max_nodes`。`Aborted` は「不明」であって「安全」ではない |
@@ -205,4 +201,4 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | 受けの候補を知る | `VCTState::threat_defences(&mate)` |
 | 直前の手が追い手か知る | `Game::play(None)` でパスし、相手の四追いを問う |
 | JS から詰み手順を読む | `wasm::solve` は手順を `u8` の点コード（02 §1）で返す。`decode_x` / `decode_y` |
-| モードを追加する | `SolveMode` と `TryFrom<u8>`、`FromStr`、`solve_limited` の `match`（`solve.rs`） |
+| モードを追加する | `SolveMode` と `TryFrom<u8>`、`FromStr`、`solve` の `match`（`solve.rs`） |

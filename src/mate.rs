@@ -1,8 +1,8 @@
 //! The mate solvers: VCF (victory by continuous fours) and VCT (victory by
 //! continuous threats).
 //!
-//! [`solve`] and [`solve_limited`] answer "does `attacker` have a mate on this
-//! board" in one call. The pieces they are built from are public too, so that
+//! [`solve`] answers "does `attacker` have a mate on this board" in one
+//! call. The pieces it is built from are public too, so that
 //! a caller that asks many related questions can keep one solver — and the
 //! tables it has filled — alive across them. They fit together like this:
 //!
@@ -43,9 +43,7 @@ mod vct;
 pub use budget::NodeBudget;
 pub use game::{End, Event, Game};
 pub use mate::Mate;
-pub use solve::{
-    DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, solve, solve_limited,
-};
+pub use solve::{DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, solve};
 pub use solver::Solver;
 pub use state::{Key, State};
 pub use vcf::{DFSSolver, IDDFSSolver, VCFState};

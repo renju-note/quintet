@@ -384,9 +384,10 @@ move:
  . . . . . . . . . . . . . . .
 ```
 
-`solve(VCTDFS, 4, &board, Black, 1)` — and likewise `VCTPNS`, `VCTDFPNS` —
-returns `F10,G9,I10,G10,H11,H12,G12` with end `Fours(F13, K8)`; `limit = 3`
-returns `None`.
+`solve(VCTDFS, &board, Black, SolveLimits::new(4).with_threat_limit(1))` —
+and likewise `VCTPNS`, `VCTDFPNS` — proves it with the line
+`F10,G9,I10,G10,H11,H12,G12` and end `Fours(F13, K8)`; `limit = 3` is
+`Disproven`.
 
 | Move | Why it is a threat / forced | `limit` after |
 | --- | --- | --- |

@@ -20,7 +20,8 @@ pub fn solve(
     }
     let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
     let player = Player::from(black);
-    let solution = mate::solve(mode.unwrap(), limit, &board, player, threat_limit);
+    let limits = mate::SolveLimits::new(limit).with_threat_limit(threat_limit);
+    let solution = mate::solve(mode.unwrap(), &board, player, limits).into_mate();
     solution.map(|s| <Vec<u8>>::from(Points(s.path)).into_boxed_slice())
 }
 
