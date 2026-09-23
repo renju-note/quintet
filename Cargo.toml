@@ -13,3 +13,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 lru = "0.18"
 wasm-bindgen = "0.2"
+
+[[bench]]
+name = "solvers"
+harness = false

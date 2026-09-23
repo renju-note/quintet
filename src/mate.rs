@@ -43,7 +43,10 @@ mod vct;
 pub use budget::NodeBudget;
 pub use game::{End, Event, Game};
 pub use mate::Mate;
-pub use solve::{DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, solve};
+pub use solve::{
+    DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, SolveStats, solve,
+    solve_with_stats,
+};
 pub use solver::Solver;
 pub use state::{Key, State};
 pub use vcf::{DFSSolver, IDDFSSolver, VCFState};

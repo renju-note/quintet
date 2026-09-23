@@ -1,0 +1,23 @@
+# https://renjuportal.com/puzzle/3040/
+# One move short of vcf_black.
+mode: vcf
+attacker: o
+limit: 11
+tags: vcf disproven quick
+expect: disproven
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . x . . o . . .
+. . . . o . x o . . . . . . .
+. . . . . . . o . . x . . . .
+. . . . . . . x o . . x . . .
+. . . . . . o o x . o . . . .
+. . . . . x . x x o . x . . .
+. . . . . . . o o x . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

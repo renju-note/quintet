@@ -53,6 +53,18 @@ match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
 }
 ```
 
+`solve_with_stats` is the same call that also reports what the search cost:
+
+```rust
+let (result, stats) = solve_with_stats(SolveMode::VCTDFPNS, &board, Player::Black, limits);
+stats.nodes      // nodes visited, as NodeBudget counts them (§3)
+stats.memo_len   // entries left in the solver's memos (Solver::memo_len, §4)
+```
+
+Both numbers are deterministic: the same arguments give the same numbers on
+every run and every machine. That makes them the measure to compare solver
+changes by, which is what the benchmark does (07).
+
 ### `SolveMode`
 
 | `SolveMode` | Code | CLI name | What it searches |
@@ -246,6 +258,7 @@ what it needs itself.
 | I want to… | Use |
 | --- | --- |
 | Get a yes/no/line once | `solve` |
+| Know what a search cost | `solve_with_stats`; `SolveStats::nodes` and `memo_len` |
 | Find only VCFs | `SolveMode::VCFDFS` |
 | Find VCTs | `SolveMode::VCTDFPNS`; `threat_limit` decides what counts as a threat |
 | Stop a search that takes too long | `SolveLimits::with_max_nodes`; treat `Aborted` as unknown, not as safe |

@@ -1,0 +1,24 @@
+# No. 02 from 5-moves-to-end problems by Hiroshi Okabe
+# One move short of vct_black.
+mode: vct_dfpns
+attacker: o
+limit: 3
+threat_limit: 1
+tags: vct disproven quick
+expect: disproven
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . x . . . . . .
+. . . . . . . o . . . . . . .
+. . . . . . . o x o . . . . .
+. . . . . . x o . x . . . . .
+. . . . . . . x o . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

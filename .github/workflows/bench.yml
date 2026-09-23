@@ -1,0 +1,41 @@
+# The solver benchmark (docs/07-benchmarks.en.md), kept apart from CI so that
+# it never blocks a merge: do not make its check required in branch
+# protection. It still fails, and shows red, when a case gets a wrong answer.
+name: Bench
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+    - name: Run the benchmark
+      env:
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        set -o pipefail
+        base="origin/$BASE_REF"
+        {
+          # Keep going on failure, to close the code block before exiting.
+          set +e
+          echo '```'
+          # Compare with the PR's base when it has the benchmark; otherwise
+          # (a push, or a base from before it) just run it.
+          if [ -n "$BASE_REF" ] && git grep -q solve_with_stats "$base" -- src; then
+            scripts/bench-compare.sh "$base" --runs 1 2>&1
+          else
+            cargo bench --quiet --bench solvers -- --runs 1 2>&1
+          fi
+          status=$?
+          echo '```'
+          exit $status
+        } | tee -a "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,23 @@
+# vct_white_long one move short: no VCT within 14.
+mode: vct_dfpns
+attacker: x
+limit: 14
+threat_limit: 2
+tags: vct disproven slow
+expect: disproven
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . o . . . . . . . .
+. . . . o x x x o o . x . . .
+. . . . . . o x x x x o o . .
+. . . . . o x o o x x . . . .
+. . . . . x . o o . x . . . .
+. . . . x . o . . x o o . . .
+. . . o . x . . x . . . . . .
+. . . . . . o o . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
