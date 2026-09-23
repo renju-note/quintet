@@ -11,6 +11,9 @@ pub struct VCTState {
     pub attacker: Player,
     pub limit: u8,
     field: PotentialField,
+    /// Points played or taken back since `field` was last brought up to
+    /// date, one bit per point.
+    stale: [u64; 4],
 }
 
 impl VCTState {
@@ -20,6 +23,7 @@ impl VCTState {
             game,
             limit,
             field,
+            stale: [0; 4],
         }
     }
 
@@ -56,18 +60,43 @@ impl VCTState {
     }
 
     /// The key the child after `next_move` would have, without building it.
-    /// Must stay in step with [`State::key`].
+    /// Must stay in step with [`State::key`]. `next_move` must be an empty
+    /// point: the stone is XORed into the board's hash, not played.
     pub fn next_key(&mut self, next_move: Option<Point>) -> Key {
-        // Update only game in order not to cause updating state.field (which costs high)
         let limit = self.limit;
         let next_limit = if !self.attacking() { limit - 1 } else { limit };
         let attacker = self.attacker;
-        // `into_play` flips the turn, so the hash is the child's.
-        let position = self.game.into_play(next_move, |g| g.position_hash());
+        let turn = self.game.turn;
+        let stones = match next_move {
+            Some(p) => apply_move(self.game.board().zobrist_hash(), turn, p),
+            None => self.game.board().zobrist_hash(),
+        };
+        // The child has the other side to move.
+        let position = apply_turn(stones, turn.opponent());
         Key::new(apply_attacker(position, attacker), next_limit)
     }
 
-    pub fn sorted_potentials(&self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
+    /// Brings `field` up to date with the board. The field is only read on
+    /// a candidate-cache miss, so updating it at every move is wasted work.
+    fn sync_field(&mut self) {
+        for (w, bits) in self.stale.iter_mut().enumerate() {
+            while *bits != 0 {
+                let b = bits.trailing_zeros() as usize;
+                *bits &= *bits - 1;
+                let i = (w * 64 + b) as u8;
+                let p = Point(i / RANGE, i % RANGE);
+                self.field.update_along(p, self.game.board());
+            }
+        }
+    }
+
+    fn mark_stale(&mut self, p: Point) {
+        let i = u8::from(p) as usize;
+        self.stale[i / 64] |= 1 << (i % 64);
+    }
+
+    pub fn sorted_potentials(&mut self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
+        self.sync_field();
         let mut result = if let Some(only) = only {
             let potentials = only.into_iter().map(|p| (p, self.field.get(p)));
             potentials.filter(|&(_, o)| o >= min).collect()
@@ -79,7 +108,8 @@ impl VCTState {
         result
     }
 
-    pub fn sort_by_potential(&self, points: Vec<Point>) -> Vec<(Point, u8)> {
+    pub fn sort_by_potential(&mut self, points: Vec<Point>) -> Vec<(Point, u8)> {
+        self.sync_field();
         let mut result: Vec<_> = points.into_iter().map(|p| (p, self.field.get(p))).collect();
         result.sort_by_key(|&a| std::cmp::Reverse(a.1));
         result.dedup();
@@ -163,13 +193,13 @@ impl State for VCTState {
 
     fn after_play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
-            self.field.update_along(next_move, self.game.board());
+            self.mark_stale(next_move);
         }
     }
 
     fn after_undo(&mut self, maybe_last_move: Option<Point>) {
         if let Some(last_move) = maybe_last_move {
-            self.field.update_along(last_move, self.game.board());
+            self.mark_stale(last_move);
         }
     }
 }
@@ -211,6 +241,35 @@ mod tests {
                 state.undo();
             }
         }
+    }
+
+    /// The field is only brought up to date when it is read, so after any
+    /// run of plays and undos it has to read as a fresh one would.
+    #[test]
+    fn test_lazy_field_matches_a_fresh_one() -> Result<(), String> {
+        let moves = "G7,K9,H9,F6".parse::<Points>()?.into_vec();
+        let mut state = VCTState::init(&board(), Black, 4);
+        for (k, &m) in moves.iter().enumerate() {
+            state.play(Some(m));
+            if k % 2 == 1 {
+                // Read only every other move, so that several points are
+                // stale at once.
+                let fresh = &mut VCTState::init(state.game().board(), Black, 4);
+                assert_eq!(
+                    state.sorted_potentials(0, None),
+                    fresh.sorted_potentials(0, None)
+                );
+            }
+        }
+        for _ in &moves {
+            state.undo();
+        }
+        let fresh = &mut VCTState::init(&board(), Black, 4);
+        assert_eq!(
+            state.sorted_potentials(0, None),
+            fresh.sorted_potentials(0, None)
+        );
+        Ok(())
     }
 
     /// The same position is a win for one attacker and not the other, so the

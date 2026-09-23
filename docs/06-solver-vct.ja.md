@@ -72,8 +72,8 @@ VCTSolver::solve = advance_generation; search; extract
 pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField }
 ```
 
-- `field` は攻め方の `PotentialField`（§8）。`PotentialField::init(attacker, 2, board)` で作り、`after_play` / `after_undo` で各手の 4 本の線だけ更新する。
-- `next_key(m)` は `m` を打った後の子の `key()` を、場を更新せずに計算する。未展開の子の表引きが安いのはこのため。
+- `field` は攻め方の `PotentialField`（§8）。`PotentialField::init(attacker, 2, board)` で作る。`after_play` / `after_undo` は手の点を「古い」と印すだけで、場は次に読まれるとき（`sorted_potentials` / `sort_by_potential`）に、古い点それぞれの 4 本の線だけ更新する。読まれるのは候補キャッシュを外したときだけ。
+- `next_key(m)` は `m` を打った後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
 
 ### 派生する 2 つの `VCFState`
 
@@ -350,7 +350,7 @@ extract_defences(state):                       # 受け方の手番
 **更新**:
 
 - `init(player, min, board)` が場全体を埋める。
-- `update_along(p, board)` は `p` を通る 4 本の線をゼロにし（`reset_along`）、再計算する（`potentials_along`）。`VCTState` は play / undo のたびにこれを呼ぶ。盤面全体ではなく、1 手あたり 4 本の線だけ走査する。
+- `update_along(p, board)` は `p` を通る 4 本の線をゼロにし（`reset_along`）、再計算する（`potentials_along`）。`VCTState` は、場を最後に読んでから打たれた・戻された点ごとにこれを呼ぶ。盤面全体ではなく 1 点あたり 4 本の線だけ走査し、候補をキャッシュから得る大多数のノードでは何もしない。
 
 **問い合わせ**:
 
