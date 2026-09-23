@@ -75,3 +75,36 @@ impl Solver for IDDFSSolver {
         self.solver.memo_len()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::Player::Black;
+    use crate::board::{Board, Points};
+
+    /// Black wins at once with G8 (an open four, G8-G11), but a plain DFS
+    /// comes across a longer VCF first and stops there.
+    fn board() -> Board {
+        "F10,G9,G10,G11,H5,H8,J10,K5,L5/D7,D9,D10,E11,I8,J6,J11,L4,L7"
+            .parse()
+            .unwrap()
+    }
+
+    fn path(mate: Option<Mate>) -> String {
+        Points(mate.unwrap().path).to_string()
+    }
+
+    #[test]
+    fn test_finds_the_shortest_vcf_first() {
+        let budget = &mut NodeBudget::unlimited();
+
+        let state = &mut VCFState::init(&board(), Black, 5);
+        assert_eq!(path(DFSSolver::init().solve(state, budget)), "G7,G8,I9");
+
+        let state = &mut VCFState::init(&board(), Black, 5);
+        let mut solver = IDDFSSolver::init(vec![1, 2, 3]);
+        assert_eq!(path(solver.solve(state, budget)), "G8");
+        // The limit it deepened through is put back.
+        assert_eq!(state.limit, 5);
+    }
+}

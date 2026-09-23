@@ -60,17 +60,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_encode_xy() {
+    fn test_encode_decode() {
+        // E6: `x * 15 + y`, the same code as `u8::from(Point)`.
         assert_eq!(encode_xy(4, 5), 65);
+        assert_eq!((decode_x(65), decode_y(65)), (4, 5));
     }
 
     #[test]
-    fn test_decode_x() {
-        assert_eq!(decode_x(65), 4);
-    }
+    fn test_solve() {
+        // Black H8-I8-J8 with White far away: Black has a VCF.
+        let blacks = [encode_xy(7, 7), encode_xy(8, 7), encode_xy(9, 7)];
+        let whites = [encode_xy(0, 0), encode_xy(0, 1)];
 
-    #[test]
-    fn test_decode_y() {
-        assert_eq!(decode_y(65), 5);
+        // The path comes back as point codes, the same as `mate::solve`'s.
+        let board = Board::from_stones(
+            &Points::try_from(&blacks[..]).unwrap(),
+            &Points::try_from(&whites[..]).unwrap(),
+        );
+        let limits = mate::SolveLimits::new(3).with_threat_limit(3);
+        let expected = mate::solve(mate::SolveMode::VCFDFS, &board, Player::Black, limits)
+            .into_mate()
+            .unwrap();
+        let expected = <Vec<u8>>::from(Points(expected.path));
+        let result = solve_vcf(&blacks, &whites, true, 3).unwrap();
+        assert_eq!(result.to_vec(), expected);
+        assert_eq!(solve(0, 3, &blacks, &whites, true, 3), Some(result));
+
+        // No mate for White.
+        assert_eq!(solve_vcf(&blacks, &whites, false, 3), None);
+
+        // Bad input is `None` rather than a panic.
+        assert_eq!(solve(2, 3, &blacks, &whites, true, 3), None);
+        assert_eq!(solve(0, 3, &[225], &whites, true, 3), None);
+        assert_eq!(solve(0, 3, &blacks, &[255], true, 3), None);
     }
 }

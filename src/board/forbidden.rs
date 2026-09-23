@@ -107,11 +107,13 @@ mod tests {
          . o o . o o o . . . o o o o .
         "
         .parse::<Square>()?;
+        // M13 would be a double-three, but it also completes the five
+        // K11-O15, which wins, so it is not reported.
         let result = forbiddens(&square);
         let expected = [
-            (DoubleThree, Point(2, 12)),
-            (Overline, Point(3, 0)),
-            (DoubleFour, Point(4, 4)),
+            (DoubleThree, Point(2, 12)), // C13
+            (Overline, Point(3, 0)),     // D1
+            (DoubleFour, Point(4, 4)),   // E5
         ];
         assert_eq!(result, expected);
 
@@ -198,6 +200,7 @@ mod tests {
 
     #[test]
     fn test_double_three() -> Result<(), String> {
+        // H8 makes two open threes, H7-H9 and G8-I8.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -219,6 +222,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, Some(DoubleThree));
 
+        // Split threes count too: H5-H6-_-H8 and E5-F6-_-H8.
         let square = "
         . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . .
@@ -240,6 +244,8 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, Some(DoubleThree));
 
+        // White's E8 and K8 leave G8-I8 no way to an open four, so H8 only
+        // makes one three.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -261,6 +267,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // H8 completes the five F8-J8: nothing else is looked at.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -282,6 +289,8 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // E8-F8-_-H8-_-J8-K8: every four H8 could lead to is an overline, so
+        // there is no three.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -303,6 +312,10 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // A three only counts if its open-four point is legal. H8 and I7 each
+        // make two threes, but one of them (H7-H10, I6-I10) can only be
+        // completed at a double-four (H6, I8), so both moves are legal. J7
+        // makes two real threes.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -329,6 +342,11 @@ mod tests {
         assert_eq!(result, Some(DoubleThree));
 
         // following examples are from https://twitter.com/tanaseY/status/944521796585373696
+        //
+        // The two positions differ only in White's O6, which decides three
+        // levels down whether G8 is a double-three. With O6, K6 only makes
+        // one real three (K6-N6 needs J6, a double-four), so K6 is legal, I8
+        // is a double-three, and G8's horizontal three (via I8) is fake.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -350,6 +368,8 @@ mod tests {
         let result = forbidden(&square, Point(6, 7));
         assert_eq!(result, None);
 
+        // Without O6, K6-O6 is a second real three: K6 is a double-three, so
+        // I8 is legal and G8 makes two real threes.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -376,6 +396,7 @@ mod tests {
 
     #[test]
     fn test_double_four() -> Result<(), String> {
+        // H8 makes fours in two directions, F8-I8 and F10-I7.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -397,6 +418,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
+        // Two fours on one line: E8-_-G8-H8-I8-_-K8.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -418,6 +440,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
+        // Two fours on one line: E8-F8-_-H8-I8-_-K8-L8.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -439,6 +462,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
+        // Two fours on one line: D8-F8 and J8-L8, eyes G8 and I8.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -460,6 +484,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
+        // G8 or I8 would each make six, so H8 makes no four at all.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -481,6 +506,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // The same in two directions: both fours would complete as overlines.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -502,6 +528,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // H8 is too far from either three to make a four.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -523,6 +550,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // H8 is next to neither four.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -544,6 +572,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // A single four is fine.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -565,6 +594,8 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, None);
 
+        // The first position with D12 and White's J6: the diagonal four could
+        // only be completed as an overline (D12-I7), leaving one four.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -591,6 +622,7 @@ mod tests {
 
     #[test]
     fn test_overline() -> Result<(), String> {
+        // H8 fills E8-J8, six in a row.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -612,6 +644,7 @@ mod tests {
         let result = forbidden(&square, Point(7, 7));
         assert_eq!(result, Some(Overline));
 
+        // Only E8-H8 would be connected: no six.
         let square = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .

@@ -104,3 +104,65 @@ impl State for VCFState {
         self.limit = limit
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::Player::{Black, White};
+
+    fn point(s: &str) -> Point {
+        s.parse().unwrap()
+    }
+
+    fn pairs(ps: &[(&str, &str)]) -> Vec<(Point, Point)> {
+        ps.iter().map(|&(a, d)| (point(a), point(d))).collect()
+    }
+
+    /// Two swords for Black, each blocked on one side by White, so each has
+    /// exactly one five-cell window: C3-C5 (eyes C6, C7) and H8-J8 (eyes
+    /// K8, L8).
+    fn board() -> Board {
+        "C3,C4,C5,H8,I8,J8/C2,G8".parse().unwrap()
+    }
+
+    #[test]
+    fn test_move_pairs() {
+        // Each sword gives a four at either eye; the other eye is the
+        // forced defence.
+        let state = VCFState::init(&board(), Black, 5);
+        let expected = pairs(&[("C6", "C7"), ("C7", "C6"), ("K8", "L8"), ("L8", "K8")]);
+        assert_eq!(state.move_pairs(), expected);
+
+        // White has no sword.
+        assert_eq!(VCFState::init(&board(), White, 5).move_pairs(), []);
+    }
+
+    #[test]
+    fn test_forced_move_pair() {
+        // When the attacker has to block at `p`, the VCF only goes on if
+        // `p` also makes a four: an eye of one of its swords.
+        let state = VCFState::init(&board(), Black, 5);
+        assert_eq!(
+            state.forced_move_pair(point("L8")),
+            Some((point("L8"), point("K8")))
+        );
+        assert_eq!(
+            state.forced_move_pair(point("C6")),
+            Some((point("C6"), point("C7")))
+        );
+        assert_eq!(state.forced_move_pair(point("M8")), None);
+    }
+
+    #[test]
+    fn test_neighbor_move_pairs() {
+        // Only the swords through the attacker's previous move, which is
+        // where a continuation is most likely.
+        let mut state = VCFState::init(&"C3,C4,C5,H8,I8/C2,G8".parse().unwrap(), Black, 5);
+        assert_eq!(state.neighbor_move_pairs(), []);
+        state.play(Some(point("J8")));
+        state.play(Some(point("A1")));
+        let expected = pairs(&[("K8", "L8"), ("L8", "K8")]);
+        assert_eq!(state.neighbor_move_pairs(), expected);
+        assert_eq!(state.move_pairs().len(), 4);
+    }
+}

@@ -268,42 +268,67 @@ mod tests {
         assert_eq_point_index(p, iv, ih, ia, id);
     }
 
+    /// Every cell of every line maps back to the point it came from.
     #[test]
-    fn test_to_string() {
-        let result = Point(3, 5).to_string();
-        assert_eq!(result, "D6");
-
-        let result = Point(11, 10).to_string();
-        assert_eq!(result, "L11");
+    fn test_to_index_round_trips_everywhere() {
+        for x in 0..RANGE {
+            for y in 0..RANGE {
+                let p = Point(x, y);
+                for d in [Vertical, Horizontal, Ascending, Descending] {
+                    let index = p.to_index(d);
+                    assert!(index.j <= index.maxj(), "{p} {d:?}");
+                    assert_eq!(index.to_point(), p, "{p} {d:?}");
+                }
+            }
+        }
     }
 
     #[test]
-    fn test_parse() -> Result<(), String> {
-        let result = "E2".parse::<Point>()?;
-        assert_eq!(result, Point(4, 1));
+    fn test_walk_checked_stays_on_the_line() {
+        // The ascending diagonal from A11 to E15 has five cells.
+        let start = Point(0, 10).to_index(Ascending);
+        assert_eq!(start.maxj(), 4);
+        assert_eq!(start.walk_checked(-1), None);
+        assert_eq!(
+            start.walk_checked(4).map(|i| i.to_point()),
+            Some(Point(4, 14))
+        );
+        assert_eq!(start.walk_checked(5), None);
+    }
 
-        let result = "M15".parse::<Point>()?;
-        assert_eq!(result, Point(12, 14));
+    #[test]
+    fn test_to_string_and_parse() -> Result<(), String> {
+        assert_eq!(Point(3, 5).to_string(), "D6");
+        assert_eq!(Point(12, 14).to_string(), "M15");
+        assert_eq!("D6".parse::<Point>()?, Point(3, 5));
+        assert_eq!("m15".parse::<Point>()?, Point(12, 14));
+        for wrong in ["", "P1", "A0", "A16", "1A"] {
+            assert!(wrong.parse::<Point>().is_err(), "{wrong:?}");
+        }
 
+        let points = "H8,H9,I9".parse::<Points>()?;
+        assert_eq!(points.0, [Point(7, 7), Point(7, 8), Point(8, 8)]);
+        assert_eq!(points.to_string(), "H8,H9,I9");
         Ok(())
     }
 
+    /// The `u8` code is the wasm/JS representation of a point.
     #[test]
-    fn test_try_from_u8() -> Result<(), String> {
-        let result = Point::try_from(72)?;
-        assert_eq!(result, Point(4, 12));
+    fn test_u8_code() -> Result<(), String> {
+        assert_eq!(u8::from(Point(4, 12)), 72);
+        assert_eq!(Point::try_from(72)?, Point(4, 12));
+        for code in 0..RANGE * RANGE {
+            assert_eq!(u8::from(Point::try_from(code)?), code);
+        }
+        assert!(Point::try_from(RANGE * RANGE).is_err());
+
+        let codes = Vec::<u8>::from(Points(vec![Point(0, 0), Point(14, 14)]));
+        assert_eq!(codes, [0, 224]);
+        assert_eq!(
+            Points::try_from(&codes[..])?.0,
+            [Point(0, 0), Point(14, 14)]
+        );
+        assert!(Points::try_from(&[0, 225][..]).is_err());
         Ok(())
-    }
-
-    #[test]
-    fn test_into_u8() {
-        let result = u8::from(Point(4, 12));
-        assert_eq!(result, 72);
-    }
-
-    #[test]
-    fn test_points_to_string() {
-        let ps = vec![Point(7, 7), Point(7, 8), Point(8, 8)];
-        assert_eq!(Points(ps).to_string(), "H8,H9,I9");
     }
 }

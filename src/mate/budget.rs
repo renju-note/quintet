@@ -96,6 +96,7 @@ mod tests {
         assert!(!budget.is_exhausted());
         assert_eq!(budget.nodes(), 1000);
         assert_eq!(budget.max_nodes(), None);
+        assert_eq!(NodeBudget::default(), NodeBudget::unlimited());
     }
 
     #[test]
@@ -118,10 +119,5 @@ mod tests {
         assert!(!budget.is_exhausted());
         assert_eq!(budget.nodes(), 0);
         assert!(budget.consume());
-    }
-
-    #[test]
-    fn test_default_is_unlimited() {
-        assert_eq!(NodeBudget::default(), NodeBudget::unlimited());
     }
 }

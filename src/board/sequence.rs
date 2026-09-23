@@ -217,80 +217,140 @@ const EYES_DATA: [&[u8]; 32] = [
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_sequences_single() {
-        let my = 0b011100010010100;
-        let op = 0b000000001000000;
-        let k = Single;
+    /// A line written like `"-o-ox"`, cell 0 first: `o` is an own stone, `x`
+    /// an opponent's. Returns `(size, my, op)`.
+    fn bits(line: &str) -> (u8, u16, u16) {
+        let (mut my, mut op) = (0, 0);
+        for (i, c) in line.chars().enumerate() {
+            match c {
+                'o' => my |= 1 << i,
+                'x' => op |= 1 << i,
+                _ => {}
+            }
+        }
+        (line.len() as u8, my, op)
+    }
 
-        let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
-        let expected = [
-            (0, Sequence(0b00010100)),
-            (1, Sequence(0b00001010)),
-            (7, Sequence(0b00010001)),
-            (8, Sequence(0b00011000)),
-        ];
-        assert_eq!(result, expected);
+    /// Each match as its window's start and the window's five cells, `o`
+    /// where the sequence has a bit.
+    fn show(found: impl Iterator<Item = (u8, Sequence)>) -> Vec<(u8, String)> {
+        found
+            .map(|(i, s)| {
+                let cells = (0..5).map(|j| if s.0 & (1 << j) != 0 { 'o' } else { '-' });
+                (i, cells.collect())
+            })
+            .collect()
+    }
 
-        let result = Sequences::new(11, my, op, k, 2, false).collect::<Vec<_>>();
-        let expected = [(0, Sequence(0b00010100)), (1, Sequence(0b00001010))];
-        assert_eq!(result, expected);
+    fn sequences(line: &str, k: SequenceKind, n: u8, exact: bool) -> Vec<(u8, String)> {
+        let (size, my, op) = bits(line);
+        show(Sequences::new(size, my, op, k, n, exact))
+    }
 
-        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
-        let expected = [(0, Sequence(0b00010100)), (1, Sequence(0b00001010))];
-        assert_eq!(result, expected);
-
-        let result = Sequences::new(15, my, op, k, 3, false).collect::<Vec<_>>();
-        let expected = [(9, Sequence(0b00011100)), (10, Sequence(0b00001110))];
-        assert_eq!(result, expected);
+    fn sequences_on(line: &str, i: u8, k: SequenceKind, n: u8, exact: bool) -> Vec<(u8, String)> {
+        let (size, my, op) = bits(line);
+        show(Sequences::new_on(i, size, my, op, k, n, exact))
     }
 
     #[test]
-    fn test_sequences_double_or_open() {
-        let my = 0b001000110001010;
-        let op = 0b000000001000000;
+    fn test_single() {
+        let line = "--o-o-xo---ooo-";
 
-        let k = Double;
+        // Every window with exactly two own stones and no opponent stone.
+        let expected = [
+            (0, "--o-o".to_string()),
+            (1, "-o-o-".to_string()),
+            (7, "o---o".to_string()),
+            (8, "---oo".to_string()),
+        ];
+        assert_eq!(sequences(line, Single, 2, false), expected);
 
-        let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
-        let expected = [(1, Sequence(0b00000101)), (8, Sequence(0b00010001))];
-        assert_eq!(result, expected);
+        // `exact` also drops the windows with an own stone just outside
+        // them: filling those in would make six or more.
+        assert_eq!(sequences(line, Single, 2, true), expected[..2]);
 
-        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
-        let expected = [(1, Sequence(0b00000101))];
-        assert_eq!(result, expected);
+        // A shorter line has fewer windows.
+        assert_eq!(sequences(&line[..11], Single, 2, false), expected[..2]);
 
-        let k = Open;
+        let expected = [(9, "--ooo".to_string()), (10, "-ooo-".to_string())];
+        assert_eq!(sequences(line, Single, 3, false), expected);
+    }
 
-        let result = Sequences::new(15, my, op, k, 2, false).collect::<Vec<_>>();
-        let expected = [(1, Sequence(0b00010101))];
-        assert_eq!(result, expected);
+    #[test]
+    fn test_double() {
+        // Two overlapping windows that both match: `n + 1` stones in six
+        // cells, reported at the second window. Cells 0-5 here (window 1)
+        // and 7-12 (window 8).
+        let line = "-o-o--xoo---o--";
+        assert_eq!(
+            sequences(line, Double, 2, false),
+            [(1, "o-o--".to_string()), (8, "o---o".to_string())]
+        );
+        // `exact` looks one cell beyond each window, and window 8 (cells
+        // 8-12) has an own stone at cell 7.
+        assert_eq!(sequences(line, Double, 2, true), [(1, "o-o--".to_string())]);
 
-        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
-        let expected = [(1, Sequence(0b00010101))];
-        assert_eq!(result, expected);
+        // Four stones in six cells, the shape that becomes an overline.
+        let line = "ooo-oo---o-oooo";
+        assert_eq!(
+            sequences(line, Double, 4, false),
+            [(1, "oo-oo".to_string()), (10, "-oooo".to_string())]
+        );
+        assert_eq!(sequences(line, Double, 2, true), []);
+    }
 
-        let my = 0b111101000110111;
-        let op = 0b000000000000000;
+    #[test]
+    fn test_open() {
+        // A `Double` whose two ends are both empty: the stones sit in the
+        // middle four cells. The fifth cell is marked too, so that it is not
+        // taken for an eye: it is the far open end, not a cell to play.
+        let line = "-o-o--xoo---o--";
+        let expected = [(1, "o-o-o".to_string())];
+        assert_eq!(sequences(line, Open, 2, false), expected);
+        assert_eq!(sequences(line, Open, 2, true), expected);
 
-        let k = Double;
+        // No six-cell span with both ends empty.
+        let line = "ooo-oo---o-oooo";
+        assert_eq!(sequences(line, Open, 4, false), []);
+        assert_eq!(sequences(line, Open, 2, true), []);
+    }
 
-        let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
-        let expected = [(1, Sequence(0b00011011)), (10, Sequence(0b00011110))];
-        assert_eq!(result, expected);
+    #[test]
+    fn test_sequences_on() {
+        // Only the windows through cell 7.
+        let line = "o--o--o---o---o";
+        assert_eq!(
+            sequences_on(line, 7, Single, 2, true),
+            [(3, "o--o-".to_string()), (6, "o---o".to_string())]
+        );
 
-        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
-        let expected = [];
-        assert_eq!(result, expected);
+        let line = "-----oo-o-o----";
+        assert_eq!(
+            sequences_on(line, 7, Single, 3, false),
+            [
+                (4, "-oo-o".to_string()),
+                (5, "oo-o-".to_string()),
+                (6, "o-o-o".to_string()),
+            ]
+        );
+        // Windows 5 and 6 touch another stone just outside them.
+        assert_eq!(
+            sequences_on(line, 7, Single, 3, true),
+            [(4, "-oo-o".to_string())]
+        );
+        // Cells 4-9: open three with an eye at 7.
+        assert_eq!(
+            sequences_on(line, 7, Open, 3, false),
+            [(5, "oo-oo".to_string())]
+        );
+        // ... but it would become an overline with cell 10.
+        assert_eq!(sequences_on(line, 7, Open, 3, true), []);
 
-        let k = Open;
-
-        let result = Sequences::new(15, my, op, k, 4, false).collect::<Vec<_>>();
-        let expected = [];
-        assert_eq!(result, expected);
-
-        let result = Sequences::new(15, my, op, k, 2, true).collect::<Vec<_>>();
-        let expected = [];
-        assert_eq!(result, expected);
+        // One group on each side of cell 7, both reaching it.
+        let line = "---ooo---ooo---";
+        let expected = [(3, "ooo--".to_string()), (7, "--ooo".to_string())];
+        assert_eq!(sequences_on(line, 7, Single, 3, false), expected);
+        assert_eq!(sequences_on(line, 7, Single, 3, true), expected);
+        assert_eq!(sequences_on(line, 7, Open, 3, false), []);
     }
 }
