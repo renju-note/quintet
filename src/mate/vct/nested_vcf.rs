@@ -38,14 +38,14 @@ impl NestedVCF {
     }
 
     /// Does this side, to move now, have a VCF?
-    pub fn vcf(&mut self, state: &VCTState, budget: &mut NodeBudget) -> Option<Mate> {
+    pub fn vcf(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
         assert_eq!(state.attacking(), self.for_attacker);
         let state = &mut state.vcf_state(self.depth);
         self.solver.search(state, budget)
     }
 
     /// Would this side have a VCF if the other side, to move now, passed?
-    pub fn threat(&mut self, state: &VCTState, budget: &mut NodeBudget) -> Option<Mate> {
+    pub fn threat(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
         assert_ne!(state.attacking(), self.for_attacker);
         let state = &mut state.threat_state(self.depth);
         self.solver.search(state, budget)

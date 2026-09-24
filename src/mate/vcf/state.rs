@@ -1,4 +1,3 @@
-use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
 use crate::mate::state::State;
@@ -32,10 +31,11 @@ impl VCFState {
         self.game().check_event()
     }
 
-    pub fn forced_move_pair(&self, forced_move: Point) -> Option<(Point, Point)> {
+    pub fn forced_move_pair(&mut self, forced_move: Point) -> Option<(Point, Point)> {
+        let turn = self.game.turn;
         self.game
-            .board()
-            .structures_on(forced_move, self.game.turn, Sword)
+            .synced_board()
+            .swords_on(forced_move, turn)
             .find_map(|sword| match Self::sword_eyes(&sword) {
                 (e1, e2) if e1 == forced_move => Some((e1, e2)),
                 (e1, e2) if e2 == forced_move => Some((e2, e1)),
@@ -43,21 +43,20 @@ impl VCFState {
             })
     }
 
-    pub fn neighbor_move_pairs(&self) -> Vec<(Point, Point)> {
+    pub fn neighbor_move_pairs(&mut self) -> Vec<(Point, Point)> {
         let mut result = vec![];
         if let Some(last2_move) = self.game.last2_move() {
-            let swords = self
-                .game
-                .board()
-                .structures_on(last2_move, self.game.turn, Sword);
+            let turn = self.game.turn;
+            let swords = self.game.synced_board().swords_on(last2_move, turn);
             Self::push_eyes_pairs(swords, &mut result);
         }
         result
     }
 
-    pub fn move_pairs(&self) -> Vec<(Point, Point)> {
+    pub fn move_pairs(&mut self) -> Vec<(Point, Point)> {
         let mut result = vec![];
-        let swords = self.game.board().structures(self.game.turn, Sword);
+        let turn = self.game.turn;
+        let swords = self.game.synced_board().swords(turn);
         Self::push_eyes_pairs(swords, &mut result);
         result
     }
@@ -129,7 +128,7 @@ mod tests {
     fn test_move_pairs() {
         // Each sword gives a four at either eye; the other eye is the
         // forced defence.
-        let state = VCFState::init(&board(), Black, 5);
+        let mut state = VCFState::init(&board(), Black, 5);
         let expected = pairs(&[("C6", "C7"), ("C7", "C6"), ("K8", "L8"), ("L8", "K8")]);
         assert_eq!(state.move_pairs(), expected);
 
@@ -141,7 +140,7 @@ mod tests {
     fn test_forced_move_pair() {
         // When the attacker has to block at `p`, the VCF only goes on if
         // `p` also makes a four: an eye of one of its swords.
-        let state = VCFState::init(&board(), Black, 5);
+        let mut state = VCFState::init(&board(), Black, 5);
         assert_eq!(
             state.forced_move_pair(point("L8")),
             Some((point("L8"), point("K8")))

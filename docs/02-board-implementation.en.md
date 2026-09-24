@@ -18,7 +18,8 @@ Module map (`src/board.rs` declares the modules):
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
 | `potential.rs` | Per-point "potential" scoring used for move ordering. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
-| `board.rs` | `Board` = `Square` + Zobrist hash; the public facade used by the solvers. |
+| `map.rs` | `SwordMap`: each player's swords per line, updated lazily (§8). |
+| `board.rs` | `Board` = `Square` + Zobrist hash + `SwordMap`; the public facade used by the solvers. |
 
 The pieces are layered, and the sections below follow the layers from the
 bottom up:
@@ -391,7 +392,7 @@ cell of a line, `Potentials` computes a score as follows:
    the cell.
 
 `Square::potentials` / `potentials_along` expose this per `Index`, and
-`src/analysis/field.rs` aggregates it per point for move ordering.
+`src/analysis/potential.rs` aggregates it per point for move ordering.
 `VICTORY = 5` is the score of a window that becomes a five.
 
 ## 8. Zobrist hashing (`zobrist.rs`) and `Board`
@@ -407,6 +408,27 @@ cell of a line, `Potentials` computes a score as follows:
   the solvers can key transposition tables on (position, remaining depth).
 - `Board::put` / `remove` return copies; the solvers use the `_mut`
   variants to avoid cloning in the search loop.
+
+`Board` also caches each player's swords (`Sword`, §5), which the VCF
+search asks for at nearly every node. The cache is a `SwordMap`
+(`map.rs`), which `Board` only forwards to: it marks the map on
+`put_mut` / `remove_mut`, and `sync_swords` / `swords` / `swords_on` pass
+its `Square` along.
+
+- Per player and per line (by `Square::line_key`, the line's position in
+  `Square::lines`), a `u16` with bit `j` set if a sword's window starts at
+  cell `j`, and a `u128` of the lines that have any.
+- A move only marks the (at most four) lines through the point stale
+  (`SwordMap::mark_stale`); `SwordMap::sync` recomputes the stale lines. The searches move
+  far more often than they read, so recomputing at every move would cost
+  more than the scan it replaces.
+- A line is recomputed by `Line::sword_starts`, which checks every window
+  at once with bit operations (no opponent stone, exactly three own stones
+  by a bit-sliced sum, and for Black no own stone just outside) instead of
+  stepping through `Sequences`.
+- `swords(r)` / `swords_on(p, r)` read the cache and return what
+  `structures(r, Sword)` / `structures_on(p, r, Sword)` would, in the same
+  order. They require `sync_swords` first; `Game::synced_board` does both.
 
 ## 9. Cheat sheet: rule → code
 

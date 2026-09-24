@@ -9,6 +9,10 @@ use std::str::FromStr;
 const D_LINE_OMIT: u8 = VICTORY - 1;
 const D_LINE_NUM: u8 = (RANGE - D_LINE_OMIT) * 2 - 1; // 21
 
+/// How many lines are stored: every row and column, and the diagonals long
+/// enough to hold a five.
+pub const LINE_NUM: usize = (RANGE as usize + D_LINE_NUM as usize) * 2;
+
 type OrthogonalLines = [Line; RANGE as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
 
@@ -107,6 +111,34 @@ impl Square {
             Ascending => &self.alines[k],
             Descending => &self.dlines[k],
         })
+    }
+
+    /// The position of the line `(d, i)` in [`Self::lines`]: a single index
+    /// for it, below [`LINE_NUM`]. `None` for the diagonals shorter than
+    /// five, which are not stored.
+    pub fn line_key(d: Direction, i: u8) -> Option<usize> {
+        let k = Self::line_idx(Index::new(d, i, 0))?;
+        let (r, n) = (RANGE as usize, D_LINE_NUM as usize);
+        Some(match d {
+            Vertical => k,
+            Horizontal => r + k,
+            Ascending => 2 * r + k,
+            Descending => 2 * r + n + k,
+        })
+    }
+
+    /// The inverse of [`Self::line_key`].
+    pub fn line_of_key(k: usize) -> (Direction, u8) {
+        let (r, n) = (RANGE as usize, D_LINE_NUM as usize);
+        if k < r {
+            (Vertical, k as u8)
+        } else if k < 2 * r {
+            (Horizontal, (k - r) as u8)
+        } else if k < 2 * r + n {
+            (Ascending, (k - 2 * r) as u8 + D_LINE_OMIT)
+        } else {
+            (Descending, (k - 2 * r - n) as u8 + D_LINE_OMIT)
+        }
     }
 
     /// The line through `p` in direction `d`. `p` itself is at cell

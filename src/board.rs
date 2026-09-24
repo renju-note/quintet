@@ -2,6 +2,7 @@
 mod board;
 mod forbidden;
 mod line;
+mod map;
 mod player;
 mod point;
 mod potential;
@@ -13,6 +14,7 @@ mod zobrist;
 pub use board::Board;
 pub use forbidden::ForbiddenKind;
 pub use line::Line;
+pub use map::SwordMap;
 pub use player::Player;
 pub use point::{Direction, Index, Point, Points, RANGE};
 pub use potential::{Potentials, VICTORY};

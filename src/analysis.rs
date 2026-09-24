@@ -1,1 +1,1 @@
-pub mod field;
+pub mod potential;

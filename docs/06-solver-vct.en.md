@@ -22,7 +22,7 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 └── extractor.rs        extract: the winning line from the tables                             (§6)
-src/analysis/field.rs   PotentialField                                                        (§8)
+src/analysis/potential.rs   PotentialField                                                        (§8)
 ```
 
 The whole search on one screen — `solve` proves the root, then walks the
@@ -90,7 +90,9 @@ each stale point when it is next read (`sorted_potentials` /
 `sort_by_potential`), which happens only on a candidate-cache miss. `next_key(m)`
 is `key()` of the child after `m`, computed from the board's Zobrist hash by
 XOR without playing `m`, which is what keeps table lookups for unexpanded
-children cheap.
+children cheap. `vcf_state` / `threat_state` sync the board's swords
+(02 §8) before cloning the game, so that each nested VCF starts in sync and
+the next one reuses what this one computed.
 
 ### Two derived `VCFState`s
 
@@ -110,8 +112,8 @@ belongs to:
 ```rust
 pub struct NestedVCF { solver: IDDFSSolver, depth: u8, for_attacker: bool }
 impl NestedVCF {
-    pub fn vcf(&mut self, state: &VCTState, budget) -> Option<Mate>;     // this side, to move, has a VCF?
-    pub fn threat(&mut self, state: &VCTState, budget) -> Option<Mate>;  // this side would have one if the other passed?
+    pub fn vcf(&mut self, state: &mut VCTState, budget) -> Option<Mate>;     // this side, to move, has a VCF?
+    pub fn threat(&mut self, state: &mut VCTState, budget) -> Option<Mate>;  // this side would have one if the other passed?
 }
 ```
 
@@ -420,7 +422,7 @@ no one-move VCF and `compute_defences` returns `Terminal(disproven)`. The
 refutation goes into `attacker_table`, `select_attack` moves on, and `F10`
 is eventually proven.
 
-## 8. `PotentialField` (`src/analysis/field.rs`)
+## 8. `PotentialField` (`src/analysis/potential.rs`)
 
 The generators need "how useful is a stone here for the attacker?" for
 every empty point, cheaply and always current. `PotentialField` keeps one
@@ -437,8 +439,10 @@ scores.
 
 **Keeping it current.** `init(player, min, board)` fills the field;
 `update_along(p, board)` zeroes the four lines through `p` (`reset_along`)
-and recomputes them (`potentials_along`). `VCTState` calls it for every
-point played or taken back since the field was last read — four line scans
+and recomputes them (`potentials_along`). For lazy use, `mark_stale(p)`
+only notes the point and `sync(board)` runs `update_along` on every point
+noted since. `VCTState` marks each point played or taken back and syncs
+before reading the field — four line scans
 per such point instead of a board pass, and none for the many nodes whose
 candidates come from the cache.
 

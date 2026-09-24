@@ -1,4 +1,4 @@
-use crate::analysis::field::PotentialField;
+use crate::analysis::potential::PotentialField;
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::mate::game::*;
@@ -11,9 +11,6 @@ pub struct VCTState {
     pub attacker: Player,
     pub limit: u8,
     field: PotentialField,
-    /// Points played or taken back since `field` was last brought up to
-    /// date, one bit per point.
-    stale: [u64; 4],
 }
 
 impl VCTState {
@@ -23,7 +20,6 @@ impl VCTState {
             game,
             limit,
             field,
-            stale: [0; 4],
         }
     }
 
@@ -33,13 +29,17 @@ impl VCTState {
         Self::new(game, limit, field)
     }
 
-    pub fn vcf_state(&self, max_limit: u8) -> VCFState {
+    pub fn vcf_state(&mut self, max_limit: u8) -> VCFState {
+        // Synced here rather than in the copy, so that the next copy starts
+        // from what this one computed.
+        self.game.synced_board();
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);
         VCFState::new(game, limit)
     }
 
-    pub fn threat_state(&self, max_limit: u8) -> VCFState {
+    pub fn threat_state(&mut self, max_limit: u8) -> VCFState {
+        self.game.synced_board();
         let mut game = self.game.clone();
         game.play(None);
         let limit = if self.attacking() {
@@ -76,27 +76,8 @@ impl VCTState {
         Key::new(apply_attacker(position, attacker), next_limit)
     }
 
-    /// Brings `field` up to date with the board. The field is only read on
-    /// a candidate-cache miss, so updating it at every move is wasted work.
-    fn sync_field(&mut self) {
-        for (w, bits) in self.stale.iter_mut().enumerate() {
-            while *bits != 0 {
-                let b = bits.trailing_zeros() as usize;
-                *bits &= *bits - 1;
-                let i = (w * 64 + b) as u8;
-                let p = Point(i / RANGE, i % RANGE);
-                self.field.update_along(p, self.game.board());
-            }
-        }
-    }
-
-    fn mark_stale(&mut self, p: Point) {
-        let i = u8::from(p) as usize;
-        self.stale[i / 64] |= 1 << (i % 64);
-    }
-
     pub fn sorted_potentials(&mut self, min: u8, only: Option<Vec<Point>>) -> Vec<(Point, u8)> {
-        self.sync_field();
+        self.field.sync(self.game.board());
         let mut result = if let Some(only) = only {
             let potentials = only.into_iter().map(|p| (p, self.field.get(p)));
             potentials.filter(|&(_, o)| o >= min).collect()
@@ -109,7 +90,7 @@ impl VCTState {
     }
 
     pub fn sort_by_potential(&mut self, points: Vec<Point>) -> Vec<(Point, u8)> {
-        self.sync_field();
+        self.field.sync(self.game.board());
         let mut result: Vec<_> = points.into_iter().map(|p| (p, self.field.get(p))).collect();
         result.sort_by_key(|&a| std::cmp::Reverse(a.1));
         result.dedup();
@@ -193,13 +174,13 @@ impl State for VCTState {
 
     fn after_play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
-            self.mark_stale(next_move);
+            self.field.mark_stale(next_move);
         }
     }
 
     fn after_undo(&mut self, maybe_last_move: Option<Point>) {
         if let Some(last_move) = maybe_last_move {
-            self.mark_stale(last_move);
+            self.field.mark_stale(last_move);
         }
     }
 }

@@ -2,11 +2,21 @@ use crate::board::Direction::*;
 use crate::board::Player::*;
 use crate::board::*;
 
+/// How useful a stone at each point would be to one player, for move
+/// ordering.
+///
+/// Updates can be eager ([`Self::update_along`]) or lazy: [`Self::mark_stale`]
+/// only notes the point, and [`Self::sync`] recomputes the lines through
+/// every point noted since. Read the field ([`Self::get`], [`Self::collect`])
+/// only when it is in sync with the board.
 #[derive(Clone)]
 pub struct PotentialField {
     potentials: PotentialGrid,
     player: Player,
     min: u8,
+    /// Points played or taken back since the last [`Self::sync`], one bit
+    /// per point.
+    stale: [u64; 4],
 }
 
 impl PotentialField {
@@ -15,6 +25,7 @@ impl PotentialField {
             potentials: PotentialGrid::default(),
             player,
             min,
+            stale: [0; 4],
         }
     }
 
@@ -35,11 +46,35 @@ impl PotentialField {
         }
     }
 
+    /// Notes that a stone was put on or taken off `p`.
+    pub fn mark_stale(&mut self, p: Point) {
+        let i = u8::from(p) as usize;
+        self.stale[i / 64] |= 1 << (i % 64);
+    }
+
+    pub fn is_synced(&self) -> bool {
+        self.stale == [0; 4]
+    }
+
+    /// Recomputes the lines through every stale point from `board`.
+    pub fn sync(&mut self, board: &Board) {
+        for w in 0..self.stale.len() {
+            while self.stale[w] != 0 {
+                let b = self.stale[w].trailing_zeros() as usize;
+                self.stale[w] &= self.stale[w] - 1;
+                let i = (w * 64 + b) as u8;
+                self.update_along(Point(i / RANGE, i % RANGE), board);
+            }
+        }
+    }
+
     pub fn get(&self, p: Point) -> u8 {
+        debug_assert!(self.is_synced());
         self.sum(p)
     }
 
     pub fn collect(&self, min: u8) -> Vec<(Point, u8)> {
+        debug_assert!(self.is_synced());
         (0..RANGE)
             .flat_map(|x| {
                 (0..RANGE).map(move |y| {

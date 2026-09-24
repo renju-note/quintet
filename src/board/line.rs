@@ -1,6 +1,7 @@
 use super::player::*;
 use super::potential::*;
 use super::sequence::*;
+use super::structure::StructureKind::Sword;
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
@@ -87,6 +88,38 @@ impl Line {
         my.count_ones() as u8 + 1
     }
 
+    /// Bit `j` is set if `r` has a sword in the window starting at cell `j`:
+    /// the windows `sequences` lists for `Sword`, all at once.
+    ///
+    /// Each window's conditions are checked for every window in parallel,
+    /// bit `j` standing for the window at `j`: no opponent stone in it,
+    /// exactly three own stones (a bit-sliced sum of the five cells), and
+    /// for Black no own stone just outside it.
+    pub fn sword_starts(&self, r: Player) -> u16 {
+        let (my, op) = self.my_op(r);
+        let windows = (1u16 << (self.size + 1 - VICTORY)) - 1;
+        let blocked = op | op >> 1 | op >> 2 | op >> 3 | op >> 4;
+        // Add up the five cells of each window: a full adder on the first
+        // three, a half adder on the last two, then the carries.
+        let (a, b, c, d, e) = (my, my >> 1, my >> 2, my >> 3, my >> 4);
+        let (s1, c1) = (a ^ b ^ c, a & b | c & (a ^ b));
+        let (s2, c2) = (d ^ e, d & e);
+        let (ones, c3) = (s1 ^ s2, s1 & s2);
+        let twos = c1 ^ c2 ^ c3;
+        let fours = c1 & c2 | c3 & (c1 ^ c2);
+        let three = ones & twos & !fours;
+        let (_, _, exact) = Sword.to_sequence(r);
+        let overline = if exact { my << 1 | my >> 5 } else { 0 };
+        three & !blocked & !overline & windows
+    }
+
+    /// `r`'s stones in the window starting at cell `j`, as `sequences`
+    /// reports them.
+    pub fn window(&self, r: Player, j: u8) -> Sequence {
+        let (my, _) = self.my_op(r);
+        Sequence((my >> j) as u8 & 0b11111)
+    }
+
     /// `r`'s stones and the opponent's, in that order.
     fn my_op(&self, r: Player) -> (u16, u16) {
         match r {
@@ -128,6 +161,56 @@ impl FromStr for Line {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What `sequences` says, one window at a time.
+    fn sword_starts_by_sequences(line: &Line, r: Player) -> u16 {
+        let (k, n, exact) = Sword.to_sequence(r);
+        let mut starts = 0;
+        for (j, _) in line.sequences(r, k, n, exact) {
+            starts |= 1 << j;
+        }
+        starts
+    }
+
+    #[test]
+    fn test_sword_starts_matches_sequences() {
+        let check = |size: u8, cells: &[u8]| {
+            let mut line = Line::new(size);
+            for (i, &c) in cells.iter().enumerate() {
+                match c {
+                    1 => line.put_mut(Black, i as u8),
+                    2 => line.put_mut(White, i as u8),
+                    _ => {}
+                }
+            }
+            for r in [Black, White] {
+                assert_eq!(
+                    line.sword_starts(r),
+                    sword_starts_by_sequences(&line, r),
+                    "{r:?} {line}"
+                );
+            }
+        };
+        // Every line up to nine cells, which covers the short diagonals and
+        // every window with its margins.
+        for size in 5..=9u8 {
+            for code in 0..3u32.pow(size as u32) {
+                let cells: Vec<u8> = (0..size)
+                    .map(|i| (code / 3u32.pow(i as u32) % 3) as u8)
+                    .collect();
+                check(size, &cells);
+            }
+        }
+        // Full-length lines, pseudo-randomly.
+        let mut x: u64 = 0x2545f4914f6cdd1d;
+        for _ in 0..100_000 {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            let cells: Vec<u8> = (0..15).map(|i| ((x >> (2 * i)) % 3) as u8).collect();
+            check(15, &cells);
+        }
+    }
 
     #[test]
     fn test_put_and_remove() -> Result<(), String> {

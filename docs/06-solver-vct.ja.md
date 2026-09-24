@@ -16,7 +16,7 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold、PNSThreshold、DFPNSThreshold              (§5)
 ├── solver.rs           VCTSolver<P>: 構造体、Solver の実装                                      (§5)
 └── extractor.rs        extract: 表から詰み手順を復元する                                        (§6)
-src/analysis/field.rs   PotentialField                                                           (§8)
+src/analysis/potential.rs   PotentialField                                                           (§8)
 ```
 
 探索の全体像。`solve` は根を証明し、次に証明をたどって手順を読み取る。
@@ -73,6 +73,7 @@ pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: Po
 ```
 
 - `field` は攻め方の `PotentialField`（§8）。`PotentialField::init(attacker, 2, board)` で作る。`after_play` / `after_undo` は手の点を「古い」と印すだけで、場は次に読まれるとき（`sorted_potentials` / `sort_by_potential`）に、古い点それぞれの 4 本の線だけ更新する。読まれるのは候補キャッシュを外したときだけ。
+- `vcf_state` / `threat_state` は、ゲームをクローンする前に盤面の剣（02 §8）を同期する。内部の四追いは同期済みの状態から始まり、次の四追いもこの計算を再利用できる。
 - `next_key(m)` は `m` を打った後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
 
 ### 派生する 2 つの `VCFState`
@@ -91,8 +92,8 @@ pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: Po
 ```rust
 pub struct NestedVCF { solver: IDDFSSolver, depth: u8, for_attacker: bool }
 impl NestedVCF {
-    pub fn vcf(&mut self, state: &VCTState, budget) -> Option<Mate>;     // この側の手番。今すぐ四追いがあるか
-    pub fn threat(&mut self, state: &VCTState, budget) -> Option<Mate>;  // 相手がパスしたら、この側に四追いがあるか
+    pub fn vcf(&mut self, state: &mut VCTState, budget) -> Option<Mate>;     // この側の手番。今すぐ四追いがあるか
+    pub fn threat(&mut self, state: &mut VCTState, budget) -> Option<Mate>;  // 相手がパスしたら、この側に四追いがあるか
 }
 ```
 
@@ -335,7 +336,7 @@ extract_defences(state):                       # 受け方の手番
 
 `I10` は 1 手で反証される。`I10` は三を作らないので、受け方ノードの `attacker_vcf.threat` は 1 手の四追いを見つけられず、`compute_defences` が `Terminal(disproven)` を返す。反証は `attacker_table` に入り、`select_attack` は次の候補に進み、やがて `F10` が証明される。
 
-## 8. `PotentialField`（`src/analysis/field.rs`）
+## 8. `PotentialField`（`src/analysis/potential.rs`）
 
 生成器は「この点に石を置くと攻め方にどれだけ有利か」を、すべての空点について安く、常に最新の状態で知る必要がある。`PotentialField` は点ごと・方向ごとに `u8` を持ち（`Potential { v, h, a, d }`）、その合計を返す。
 
@@ -350,7 +351,7 @@ extract_defences(state):                       # 受け方の手番
 **更新**:
 
 - `init(player, min, board)` が場全体を埋める。
-- `update_along(p, board)` は `p` を通る 4 本の線をゼロにし（`reset_along`）、再計算する（`potentials_along`）。`VCTState` は、場を最後に読んでから打たれた・戻された点ごとにこれを呼ぶ。盤面全体ではなく 1 点あたり 4 本の線だけ走査し、候補をキャッシュから得る大多数のノードでは何もしない。
+- `update_along(p, board)` は `p` を通る 4 本の線をゼロにし（`reset_along`）、再計算する（`potentials_along`）。遅延更新用に、`mark_stale(p)` は点を記録するだけで、`sync(board)` がそれまでに記録された点すべてに `update_along` をかける。`VCTState` は打たれた・戻された点を記録し、場を読む前に `sync` する。盤面全体ではなく 1 点あたり 4 本の線だけ走査し、候補をキャッシュから得る大多数のノードでは何もしない。
 
 **問い合わせ**:
 
