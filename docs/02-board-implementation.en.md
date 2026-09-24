@@ -18,7 +18,8 @@ Module map (`src/board.rs` declares the modules):
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
 | `potential.rs` | Per-point "potential" scoring used for move ordering. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
-| `board.rs` | `Board` = `Square` + Zobrist hash; the public facade used by the solvers. |
+| `map.rs` | `SwordMap`: each player's swords per line, updated lazily (§8). |
+| `board.rs` | `Board` = `Square` + Zobrist hash + `SwordMap`; the public facade used by the solvers. |
 
 The pieces are layered, and the sections below follow the layers from the
 bottom up:
@@ -409,13 +410,16 @@ cell of a line, `Potentials` computes a score as follows:
   variants to avoid cloning in the search loop.
 
 `Board` also caches each player's swords (`Sword`, §5), which the VCF
-search asks for at nearly every node:
+search asks for at nearly every node. The cache is a `SwordMap`
+(`map.rs`), which `Board` only forwards to: it marks the map on
+`put_mut` / `remove_mut`, and `sync_swords` / `swords` / `swords_on` pass
+its `Square` along.
 
 - Per player and per line (by `Square::line_key`, the line's position in
   `Square::lines`), a `u16` with bit `j` set if a sword's window starts at
   cell `j`, and a `u128` of the lines that have any.
-- `put_mut` / `remove_mut` only mark the (at most four) lines through the
-  point stale; `sync_swords` recomputes the stale lines. The searches move
+- A move only marks the (at most four) lines through the point stale
+  (`SwordMap::mark_stale`); `SwordMap::sync` recomputes the stale lines. The searches move
   far more often than they read, so recomputing at every move would cost
   more than the scan it replaces.
 - A line is recomputed by `Line::sword_starts`, which checks every window

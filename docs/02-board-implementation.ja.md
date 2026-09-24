@@ -15,7 +15,8 @@
 | `forbidden.rs` | 黒の禁手判定。 |
 | `potential.rs` | 手の順序付けに使う点ごとの「ポテンシャル」評価。 |
 | `zobrist.rs` | 置換表用の Zobrist ハッシュ。 |
-| `board.rs` | `Board` = `Square` + Zobrist ハッシュ。ソルバーが使う公開のファサード。 |
+| `map.rs` | `SwordMap`: 各プレイヤーの剣を線ごとに持ち、遅延更新する（§8）。 |
+| `board.rs` | `Board` = `Square` + Zobrist ハッシュ + `SwordMap`。ソルバーが使う公開のファサード。 |
 
 各部品は層になっており、以下の章はこの層を下から順にたどる:
 
@@ -285,10 +286,10 @@ fn truthy_double_three(next, p) -> bool {
 - `zobrist_hash_n(n)` は深さごとの値（`N_TABLE`）をさらに XOR し、ソルバーが（局面, 残り深さ）の組で置換表を引けるようにする。
 - `Board::put` / `remove` はコピーを返す。ソルバーは探索ループでのクローンを避けるため `_mut` 版を使う。
 
-`Board` は、四追い探索がほぼ毎ノード問い合わせる各プレイヤーの剣（`Sword`、§5）もキャッシュする。
+`Board` は、四追い探索がほぼ毎ノード問い合わせる各プレイヤーの剣（`Sword`、§5）もキャッシュする。キャッシュ本体は `SwordMap`（`map.rs`）で、`Board` は転送するだけ。`put_mut` / `remove_mut` で印を付け、`sync_swords` / `swords` / `swords_on` では自分の `Square` を渡す。
 
 - プレイヤーごと・線ごと（`Square::line_key` = `Square::lines` での線の位置）に、剣の窓がセル `j` から始まるならビット `j` を立てた `u16` と、剣のある線を表す `u128` を持つ。
-- `put_mut` / `remove_mut` はその点を通る高々 4 本の線に「古い」印を付けるだけで、`sync_swords` が古い線を計算し直す。探索は読むよりずっと頻繁に手を動かすので、毎手計算し直すと置き換えたはずの全走査より高くつく。
+- 手はその点を通る高々 4 本の線に「古い」印を付けるだけで（`SwordMap::mark_stale`）、`SwordMap::sync` が古い線を計算し直す。探索は読むよりずっと頻繁に手を動かすので、毎手計算し直すと置き換えたはずの全走査より高くつく。
 - 線の計算は `Line::sword_starts` が行う。`Sequences` で窓を 1 つずつ見るのではなく、すべての窓をビット演算で一度に調べる（相手の石がない、自分の石がちょうど 3 つ（ビットスライスの加算）、黒なら窓のすぐ外に自分の石がない）。
 - `swords(r)` / `swords_on(p, r)` はキャッシュを読み、`structures(r, Sword)` / `structures_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync_swords` が必要で、`Game::synced_board` が両方を行う。
 

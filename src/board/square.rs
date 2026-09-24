@@ -113,17 +113,18 @@ impl Square {
         })
     }
 
-    /// The position of the stored line `(d, i)` in [`Self::lines`]: a single
-    /// index for it, below [`LINE_NUM`].
-    pub fn line_key(d: Direction, i: u8) -> usize {
-        let (r, n, i) = (RANGE as usize, D_LINE_NUM as usize, i as usize);
-        let omit = D_LINE_OMIT as usize;
-        match d {
-            Vertical => i,
-            Horizontal => r + i,
-            Ascending => 2 * r + i - omit,
-            Descending => 2 * r + n + i - omit,
-        }
+    /// The position of the line `(d, i)` in [`Self::lines`]: a single index
+    /// for it, below [`LINE_NUM`]. `None` for the diagonals shorter than
+    /// five, which are not stored.
+    pub fn line_key(d: Direction, i: u8) -> Option<usize> {
+        let k = Self::line_idx(Index::new(d, i, 0))?;
+        let (r, n) = (RANGE as usize, D_LINE_NUM as usize);
+        Some(match d {
+            Vertical => k,
+            Horizontal => r + k,
+            Ascending => 2 * r + k,
+            Descending => 2 * r + n + k,
+        })
     }
 
     /// The inverse of [`Self::line_key`].

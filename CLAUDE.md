@@ -41,8 +41,9 @@ slower and some cases time out.
   encoded to a single `u8` for the wasm boundary), `Line`/`Square` (bit-packed
   rows and 4 line directions), `Structure`/`StructureKind` (three, four, five,
   overline...), `forbidden.rs` (Renju forbidden-move detection for Black),
-  `potential.rs`, `zobrist.rs` (hashing for transposition tables); `Board`
-  also caches each line's swords for VCF (`sync_swords`, `swords`).
+  `potential.rs`, `zobrist.rs` (hashing for transposition tables),
+  `map.rs` (`SwordMap`, a lazily updated cache of each line's swords for
+  VCF). `Board` is the facade over them (`sync_swords`, `swords`).
 - `src/analysis/` — `potential.rs`, per-point potential evaluation used for move
   ordering.
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
