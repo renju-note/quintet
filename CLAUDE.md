@@ -38,13 +38,13 @@ slower and some cases time out.
 ## Layout
 
 - `src/board/` — board representation. `Point`/`Points` (15x15, `A1`..`O15`,
-  encoded to a single `u8` for the wasm boundary), `Line`/`Square` (bit-packed
+  encoded to a single `u8` for the wasm boundary), `Line`/`Grid` (bit-packed
   rows and 4 line directions), `Structure`/`StructureKind` (three, four, five,
   overline...), `forbidden.rs` (Renju forbidden-move detection for Black),
   `potential.rs`, `zobrist.rs` (hashing for transposition tables),
   `map.rs` (`SwordMap`, a lazily updated cache of each line's swords for
   VCF). `Board` is the facade over them (`sync_swords`, `swords`).
-- `src/analysis/` — `potential.rs`, per-point potential evaluation used for move
+- `src/feature/` — `potential.rs`, per-point potential evaluation used for move
   ordering.
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
   `SolveMode`) and also holds the integration tests. `solver.rs` is the
@@ -71,7 +71,7 @@ slower and some cases time out.
 - `docs/` — reference documentation for humans and AI agents: the Renju
   rules (`docs/01-renju-rules.en.md`), how `src/board/` implements them
   (`docs/02-board-implementation.en.md`), how to call the solvers
-  (`docs/03-solver-api.en.md`), and how `src/mate/` and `src/analysis/`
+  (`docs/03-solver-api.en.md`), and how `src/mate/` and `src/feature/`
   work inside (`docs/04-solver-framework.en.md` for the shared pieces,
   `docs/05-solver-vcf.en.md` and `docs/06-solver-vct.en.md` for the two
   searches). Read these before touching rule logic (structures, forbidden

@@ -21,7 +21,7 @@ src/mate/
 ├── mate.rs          Mate: 結果
 ├── vcf.rs, vcf/     四追いソルバー                    (05)
 └── vct.rs, vct/     追い詰めソルバー                  (06)
-src/analysis/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
+src/feature/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
 ```
 
 部品の関係（下から上へ）:

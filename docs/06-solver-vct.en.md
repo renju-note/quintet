@@ -22,7 +22,7 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 └── extractor.rs        extract: the winning line from the tables                             (§6)
-src/analysis/potential.rs   PotentialField                                                        (§8)
+src/feature/potential.rs   PotentialField                                                        (§8)
 ```
 
 The whole search on one screen — `solve` proves the root, then walks the
@@ -422,7 +422,7 @@ no one-move VCF and `compute_defences` returns `Terminal(disproven)`. The
 refutation goes into `attacker_table`, `select_attack` moves on, and `F10`
 is eventually proven.
 
-## 8. `PotentialField` (`src/analysis/potential.rs`)
+## 8. `PotentialField` (`src/feature/potential.rs`)
 
 The generators need "how useful is a stone here for the attacker?" for
 every empty point, cheaply and always current. `PotentialField` keeps one

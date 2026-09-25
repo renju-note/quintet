@@ -11,7 +11,7 @@ use crate::board::*;
 /// only when it is in sync with the board.
 #[derive(Clone)]
 pub struct PotentialField {
-    potentials: PotentialGrid,
+    potentials: PotentialMatrix,
     player: Player,
     min: u8,
     /// Points played or taken back since the last [`Self::sync`], one bit
@@ -22,7 +22,7 @@ pub struct PotentialField {
 impl PotentialField {
     pub fn new(player: Player, min: u8) -> Self {
         Self {
-            potentials: PotentialGrid::default(),
+            potentials: PotentialMatrix::default(),
             player,
             min,
             stale: [0; 4],
@@ -139,7 +139,7 @@ impl PotentialField {
     }
 }
 
-type PotentialGrid = [[Potential; RANGE as usize]; RANGE as usize];
+type PotentialMatrix = [[Potential; RANGE as usize]; RANGE as usize];
 
 #[derive(Default, Clone)]
 struct Potential {

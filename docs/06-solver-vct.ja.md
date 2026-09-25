@@ -16,7 +16,7 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold、PNSThreshold、DFPNSThreshold              (§5)
 ├── solver.rs           VCTSolver<P>: 構造体、Solver の実装                                      (§5)
 └── extractor.rs        extract: 表から詰み手順を復元する                                        (§6)
-src/analysis/potential.rs   PotentialField                                                           (§8)
+src/feature/potential.rs   PotentialField                                                           (§8)
 ```
 
 探索の全体像。`solve` は根を証明し、次に証明をたどって手順を読み取る。
@@ -336,7 +336,7 @@ extract_defences(state):                       # 受け方の手番
 
 `I10` は 1 手で反証される。`I10` は三を作らないので、受け方ノードの `attacker_vcf.threat` は 1 手の四追いを見つけられず、`compute_defences` が `Terminal(disproven)` を返す。反証は `attacker_table` に入り、`select_attack` は次の候補に進み、やがて `F10` が証明される。
 
-## 8. `PotentialField`（`src/analysis/potential.rs`）
+## 8. `PotentialField`（`src/feature/potential.rs`）
 
 生成器は「この点に石を置くと攻め方にどれだけ有利か」を、すべての空点について安く、常に最新の状態で知る必要がある。`PotentialField` は点ごと・方向ごとに `u8` を持ち（`Potential { v, h, a, d }`）、その合計を返す。
 

@@ -14,12 +14,12 @@ Module map (`src/board.rs` declares the modules):
 | `line.rs` | `Line`: one row/column/diagonal as two bitmasks. |
 | `sequence.rs` | `Sequences`: sliding-window scanner over a `Line` that finds stone patterns. |
 | `structure.rs` | `StructureKind` (Two, Three, Sword, Four, Five, ...) and `Structure` (a pattern located on the board). |
-| `square.rs` | `Square`: the whole 15×15 board as four arrays of `Line`s, plus pattern queries. |
+| `grid.rs` | `Grid`: the whole 15×15 board as four arrays of `Line`s, plus pattern queries. |
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
 | `potential.rs` | Per-point "potential" scoring used for move ordering. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
 | `map.rs` | `SwordMap`: each player's swords per line, updated lazily (§8). |
-| `board.rs` | `Board` = `Square` + Zobrist hash + `SwordMap`; the public facade used by the solvers. |
+| `board.rs` | `Board` = `Grid` + Zobrist hash + `SwordMap`; the public facade used by the solvers. |
 
 The pieces are layered, and the sections below follow the layers from the
 bottom up:
@@ -27,7 +27,7 @@ bottom up:
 1. `Line` stores one line of the board as bitmasks (§2).
 2. `Sequences` slides a 5-cell window over a `Line` and finds the windows
    with a given number of own stones (§3).
-3. `Square` holds all the lines and answers "which patterns are on the
+3. `Grid` holds all the lines and answers "which patterns are on the
    board / through this point?" (§4).
 4. `StructureKind` names those patterns in rule vocabulary — `Five`, `Four`,
    `Three`, ... (§5).
@@ -163,10 +163,10 @@ mask describing the target cells.
 containing position `j`. It is what `structures_on(p, …)` uses to ask
 "which patterns does this move touch?".
 
-## 4. `Square`: the full board
+## 4. `Grid`: the full board
 
 ```rust
-pub struct Square {
+pub struct Grid {
     vlines: [Line; 15],  // columns,   indexed by x
     hlines: [Line; 15],  // rows,      indexed by y
     alines: [Line; 21],  // ascending  diagonals with length >= 5
@@ -200,7 +200,7 @@ Main queries:
   read these lines instead of maintaining a second copy of all 72.
 - `potentials(...)` / `potentials_along(...)` — see §7.
 
-Parsing from text (`FromStr for Square`, reused by `Board`) accepts three
+Parsing from text (`FromStr for Grid`, reused by `Board`) accepts three
 formats:
 
 - A move list such as `H8,H7,F6`, alternating from Black.
@@ -244,9 +244,9 @@ A `Structure` is a pair `(start: Index, sequence: Sequence)`; `stones()` and
 Only Black has forbidden moves. There are three entry points:
 
 ```rust
-pub fn forbidden_strict(q: &Square, p: Point) -> Option<ForbiddenKind>
-pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind>
-pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)>
+pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind>
+pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind>
+pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ```
 
 `ForbiddenKind` is one of `Overline`, `DoubleFour` or `DoubleThree`.
@@ -266,7 +266,7 @@ by the search itself before the forbidden check matters.
 ### Overline (rule 9.2 a)
 
 ```rust
-fn overline(q, p) -> bool { q.structures_on(p, Black, Overlining).next().is_some() }
+fn overline(g, p) -> bool { g.structures_on(p, Black, Overlining).next().is_some() }
 ```
 
 An `Overlining` is two adjacent 5-windows, each holding 4 black stones and
@@ -276,8 +276,8 @@ stones, so playing `p` completes a run of six or more.
 ### Double-four (rule 9.2 b)
 
 ```rust
-fn double_four(q, p) -> bool {
-    distinctive(&mut q.structures_on(p, Black, Sword).map(|s| s.start_index()))
+fn double_four(g, p) -> bool {
+    distinctive(&mut g.structures_on(p, Black, Sword).map(|s| s.start_index()))
 }
 ```
 
@@ -296,10 +296,10 @@ for the following reason:
 ### Double-three (rules 9.2 c and 9.3)
 
 ```rust
-fn double_three(q, p) -> bool {
+fn double_three(g, p) -> bool {
     // cheap pre-filter: at least two "three-to-be" patterns through p
-    if !distinctive(q.structures_on(p, Black, Two)) { return false; }
-    let mut next = q.clone();
+    if !distinctive(g.structures_on(p, Black, Two)) { return false; }
+    let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
 }
@@ -391,13 +391,13 @@ cell of a line, `Potentials` computes a score as follows:
 3. Report "max score × number of windows achieving that max" as the value of
    the cell.
 
-`Square::potentials` / `potentials_along` expose this per `Index`, and
-`src/analysis/potential.rs` aggregates it per point for move ordering.
+`Grid::potentials` / `potentials_along` expose this per `Index`, and
+`src/feature/potential.rs` aggregates it per point for move ordering.
 `VICTORY = 5` is the score of a window that becomes a five.
 
 ## 8. Zobrist hashing (`zobrist.rs`) and `Board`
 
-`Board` wraps a `Square` and a `u64` Zobrist hash, and `put_mut` /
+`Board` wraps a `Grid` and a `u64` Zobrist hash, and `put_mut` /
 `remove_mut` keep the two in sync.
 
 - `CODE_TABLE` holds `2 * 225` random 64-bit codes. The index is
@@ -413,10 +413,10 @@ cell of a line, `Potentials` computes a score as follows:
 search asks for at nearly every node. The cache is a `SwordMap`
 (`map.rs`), which `Board` only forwards to: it marks the map on
 `put_mut` / `remove_mut`, and `sync_swords` / `swords` / `swords_on` pass
-its `Square` along.
+its `Grid` along.
 
-- Per player and per line (by `Square::line_key`, the line's position in
-  `Square::lines`), a `u16` with bit `j` set if a sword's window starts at
+- Per player and per line (by `Grid::line_key`, the line's position in
+  `Grid::lines`), a `u16` with bit `j` set if a sword's window starts at
   cell `j`, and a `u128` of the lines that have any.
 - A move only marks the (at most four) lines through the point stale
   (`SwordMap::mark_stale`); `SwordMap::sync` recomputes the stale lines. The searches move

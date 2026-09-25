@@ -1,9 +1,9 @@
 use super::forbidden::*;
+use super::grid::*;
 use super::line::*;
 use super::map::*;
 use super::player::*;
 use super::point::*;
-use super::square::*;
 use super::structure::*;
 use super::zobrist;
 use std::fmt;
@@ -11,7 +11,7 @@ use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct Board {
-    square: Square,
+    grid: Grid,
     z_hash: u64,
     /// Each player's swords, for the VCF search (see [`SwordMap`]).
     swords: SwordMap,
@@ -19,20 +19,20 @@ pub struct Board {
 
 impl Board {
     pub fn new() -> Self {
-        Self::from_square(Square::new(), zobrist::new())
+        Self::from_grid(Grid::new(), zobrist::new())
     }
 
     pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
-        let square = Square::from_stones(blacks, whites);
+        let grid = Grid::from_stones(blacks, whites);
         let z_hash = zobrist::from_stones(blacks, whites);
-        Self::from_square(square, z_hash)
+        Self::from_grid(grid, z_hash)
     }
 
-    fn from_square(square: Square, z_hash: u64) -> Self {
+    fn from_grid(grid: Grid, z_hash: u64) -> Self {
         let mut swords = SwordMap::new();
-        swords.sync(&square);
+        swords.sync(&grid);
         Self {
-            square,
+            grid,
             z_hash,
             swords,
         }
@@ -40,14 +40,14 @@ impl Board {
 
     pub fn put_mut(&mut self, r: Player, p: Point) {
         // Only the hash has to be told about a stone that was already here:
-        // `Square::put_mut` sets this player's bit and clears the other's, so
+        // `Grid::put_mut` sets this player's bit and clears the other's, so
         // it overwrites whatever was there by itself. Taking the stone off
         // first meant writing all four lines twice, at every move a search
         // makes.
         if let Some(previous) = self.stone(p) {
             self.update_z_hash(previous, p);
         }
-        self.square.put_mut(r, p);
+        self.grid.put_mut(r, p);
         self.update_z_hash(r, p);
         self.swords.mark_stale(p);
     }
@@ -56,7 +56,7 @@ impl Board {
         if let Some(r) = self.stone(p) {
             self.update_z_hash(r, p)
         }
-        self.square.remove_mut(p);
+        self.grid.remove_mut(p);
         self.swords.mark_stale(p);
     }
 
@@ -73,15 +73,15 @@ impl Board {
     }
 
     pub fn stone(&self, p: Point) -> Option<Player> {
-        self.square.stone(p)
+        self.grid.stone(p)
     }
 
     pub fn stones(&self, r: Player) -> impl Iterator<Item = Point> + '_ {
-        self.square.stones(r)
+        self.grid.stones(r)
     }
 
     pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
-        self.square.empties()
+        self.grid.empties()
     }
 
     pub fn neighbors(
@@ -90,27 +90,27 @@ impl Board {
         distance: u8,
         only_empty: bool,
     ) -> impl Iterator<Item = Point> + '_ {
-        self.square.neighbors(p, distance, only_empty)
+        self.grid.neighbors(p, distance, only_empty)
     }
 
     pub fn line(&self, d: Direction, i: u8) -> Option<&Line> {
-        self.square.line(d, i)
+        self.grid.line(d, i)
     }
 
     pub fn line_on(&self, p: Point, d: Direction) -> Option<&Line> {
-        self.square.line_on(p, d)
+        self.grid.line_on(p, d)
     }
 
     pub fn lines(&self) -> impl Iterator<Item = (Direction, u8, &Line)> {
-        self.square.lines()
+        self.grid.lines()
     }
 
     pub fn lines_on(&self, p: Point) -> impl Iterator<Item = (Direction, u8, &Line)> {
-        self.square.lines_on(p)
+        self.grid.lines_on(p)
     }
 
     pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
-        self.square.structures(r, k)
+        self.grid.structures(r, k)
     }
 
     pub fn structures_on(
@@ -119,7 +119,7 @@ impl Board {
         r: Player,
         k: StructureKind,
     ) -> impl Iterator<Item = Structure> + '_ {
-        self.square.structures_on(p, r, k)
+        self.grid.structures_on(p, r, k)
     }
 
     pub fn potentials(
@@ -128,7 +128,7 @@ impl Board {
         min: u8,
         exact: bool,
     ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.square.potentials(r, min, exact)
+        self.grid.potentials(r, min, exact)
     }
 
     pub fn potentials_along(
@@ -138,23 +138,23 @@ impl Board {
         min: u8,
         exact: bool,
     ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.square.potentials_along(p, r, min, exact)
+        self.grid.potentials_along(p, r, min, exact)
     }
 
     pub fn to_pretty_string(&self) -> String {
-        self.square.to_pretty_string()
+        self.grid.to_pretty_string()
     }
 
     pub fn forbiddens(&self) -> Vec<(ForbiddenKind, Point)> {
-        forbiddens(&self.square)
+        forbiddens(&self.grid)
     }
 
     pub fn forbidden_strict(&self, p: Point) -> Option<ForbiddenKind> {
-        forbidden_strict(&self.square, p)
+        forbidden_strict(&self.grid, p)
     }
 
     pub fn forbidden(&self, p: Point) -> Option<ForbiddenKind> {
-        forbidden(&self.square, p)
+        forbidden(&self.grid, p)
     }
 
     pub fn zobrist_hash(&self) -> u64 {
@@ -168,7 +168,7 @@ impl Board {
     /// Brings the swords up to date with the stones. Call it before
     /// [`Self::swords`] or [`Self::swords_on`].
     pub fn sync_swords(&mut self) {
-        self.swords.sync(&self.square);
+        self.swords.sync(&self.grid);
     }
 
     pub fn swords_synced(&self) -> bool {
@@ -178,13 +178,13 @@ impl Board {
     /// The same as `structures(r, Sword)`, in the same order, without
     /// scanning the board. The swords must be in sync.
     pub fn swords(&self, r: Player) -> impl Iterator<Item = Structure> + '_ {
-        self.swords.swords(&self.square, r)
+        self.swords.swords(&self.grid, r)
     }
 
     /// The same as `structures_on(p, r, Sword)`, in the same order, without
     /// scanning the lines. The swords must be in sync.
     pub fn swords_on(&self, p: Point, r: Player) -> impl Iterator<Item = Structure> + '_ {
-        self.swords.swords_on(&self.square, p, r)
+        self.swords.swords_on(&self.grid, p, r)
     }
 
     fn update_z_hash(&mut self, r: Player, p: Point) {
@@ -200,7 +200,7 @@ impl Default for Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.square.to_string())
+        f.write_str(&self.grid.to_string())
     }
 }
 
@@ -208,12 +208,12 @@ impl FromStr for Board {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let square = s.parse::<Square>()?;
-        let blacks = square.stones(Black).collect();
-        let whites = square.stones(White).collect();
+        let grid = s.parse::<Grid>()?;
+        let blacks = grid.stones(Black).collect();
+        let whites = grid.stones(White).collect();
         let z_hash = zobrist::from_stones(&Points(blacks), &Points(whites));
 
-        Ok(Self::from_square(square, z_hash))
+        Ok(Self::from_grid(grid, z_hash))
     }
 }
 
@@ -290,7 +290,7 @@ mod tests {
         expected.put_mut(Black, Point(7, 7));
         expected.put_mut(White, Point(8, 8));
         expected.put_mut(Black, Point(9, 8));
-        assert_eq!(result.square, expected.square);
+        assert_eq!(result.grid, expected.grid);
         assert_eq!(result.z_hash, expected.z_hash);
 
         Ok(())
