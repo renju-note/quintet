@@ -282,9 +282,10 @@ fn double_four(g, p) -> bool {
 ```
 
 Every `Sword` through `p` becomes a `Four` when `p` is played. `distinctive`
-returns true when the indices yielded by the iterator contain at least two
-that are not simply `first` and `first.walk(1)`. That exclusion is needed
-for the following reason:
+returns true as soon as the iterator yields an index other than the first
+window's `first` and its neighbour `first.walk(1)`: it counts two adjacent
+windows as one and asks whether there are at least two windows left. The
+neighbour is excluded for the following reason:
 
 - Two `Sword`s in adjacent windows of the same line are the two halves of
   one straight four (`.oo_o.` → `.oooo.`). That is a single four, so they

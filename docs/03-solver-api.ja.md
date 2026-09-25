@@ -26,7 +26,7 @@
 pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
 ```
 
-ソルバーを作って 1 回走らせ、捨てる。`limits` で深さと（任意で）ノード予算を指定し、答えは 3 値になる。`wasm.rs` もこれを呼び、答えを詰み手順か「なし」に落とす。
+ソルバーを作って 1 回走らせ、捨てる。`limits` で深さと（任意で）ノード予算を指定する。答えは 3 値。`wasm.rs` もこれを呼び、答えを「詰み手順」か「なし」の 2 つにまとめて返す。
 
 ```rust
 use quintet::board::{Board, Player};
@@ -90,7 +90,7 @@ SolveLimits::new(limit)
 pub enum SolveResult { Proven(Mate), Disproven, Aborted }
 ```
 
-`Option<Mate>` は「なぜ詰みがないか」を区別できない。`SolveResult` は区別する。
+`Option<Mate>` では、詰みが返らなかった理由（詰みがないのか、途中で打ち切ったのか）を区別できない。`SolveResult` は区別する。
 
 - `Disproven`: この上限では詰みがない。
 - `Aborted`: 予算が尽きた。詰みの有無は不明。

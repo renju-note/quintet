@@ -54,8 +54,8 @@ VCTSolver::solve = advance_generation; search; extract
 
 | `threat_limit` | 追い手と認識されるもの |
 | --- | --- |
-| 0 | 四だけ。内部四追いの深さが 0 なので、`Forced` の応手だけが通る |
-| 1 | 加えて三。パスの後、棒四になる点が 1 手の四追い |
+| 0 | 四だけ。内部四追いの深さが 0 なので追い手の判定は常に失敗し、受け方が `Forced`（四を止めるしかない）のノードだけが先へ進む |
+| 1 | 加えて三。パスの後に棒四を作る手が、1 手の四追いになる |
 | 2 | 加えて、四 2 つの四追いを準備する手（四三を用意する手など） |
 | 3 以上 | さらに深い含み手。`test_vct_fukumi_move` は 3 が必要 |
 
@@ -72,7 +72,7 @@ VCTSolver::solve = advance_generation; search; extract
 pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: PotentialField }
 ```
 
-- `field` は攻め方の `PotentialField`（§8）。`PotentialField::init(attacker, 2, board)` で作る。`after_play` / `after_undo` は手の点を「古い」と印すだけで、場は次に読まれるとき（`sorted_potentials` / `sort_by_potential`）に、古い点それぞれの 4 本の線だけ更新する。読まれるのは候補キャッシュを外したときだけ。
+- `field` は攻め方の `PotentialField`（§8）で、`PotentialField::init(attacker, 2, board)` で作る。`after_play` / `after_undo` は打った点に「古い」印を付けるだけ。場は次に読まれるとき（`sorted_potentials` / `sort_by_potential`）に、古い点を通る 4 本の線だけを更新する。場が読まれるのは、候補手がキャッシュになかったときだけ。
 - `vcf_state` / `threat_state` は、ゲームをクローンする前に盤面の剣（02 §8）を同期する。内部の四追いは同期済みの状態から始まり、次の四追いもこの計算を再利用できる。
 - `next_key(m)` は `m` を打った後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
 
@@ -175,7 +175,7 @@ pub const INF: u32 = u32::MAX;
 
 根から、OR ノードでは最小の `pn`、AND ノードでは最小の `dn` の子をたどると、結果が根に最も影響する葉（**最有望ノード**）に着く。選択器はこれをたどる（§5）。
 
-`limit` は子の最小値として伝わる。部分木が決着した場所で残っていた最小の予算で、復元器が使う（§6）。
+`limit` は子の最小値として親へ伝わる。部分木の中で決着した地点に残っていた limit の最小値で、手順の復元に使う（§6）。
 
 ### `ProofTable`
 
@@ -186,14 +186,14 @@ pub const INF: u32 = u32::MAX;
 
 それぞれが `ProofTable` で、中身は `Memo` 2 つ。
 
-| 半分 | キー | 持つもの |
+| フィールド | キー | 持つもの |
 | --- | --- | --- |
 | `estimates: Memo<Node>` | `Key::hash()`（局面 + limit） | 挿入されたすべてのノードをそのまま。途中経過の証明数は、それを計算した limit に属する |
 | `decided: Memo<Decided>` | `Key::position` のみ | その局面で証明された最小 limit と、反証された最大 limit |
 
 - `insert(state, node)`: `estimates` には常に書く。ノードが証明済み / 反証済みなら `decided` にも書く。
 - `lookup_next(state, m)`: `m` の後の子を `next_key` で引く。まず `estimates`、次に `decided`。`decided` では、より小さい limit での証明や、より大きい limit での反証も答えになる（04 §3）。これにより limit 5 の探索は limit 4 の結果を再利用でき、ある根で見つけた証明は別の根でも使える。
-- `transfer_from`: `decided` が効き始める深さ。生成器は内部四追いに `min(limit, depth)` で問うので、それより浅いと候補リストが limit で変わり、別の木になる。`VCTSolver::with_carry_capacity` が `max(attacker_vcf_depth, defender_vcf_depth + 1, 2)` に設定する。これより浅い limit では `decided` に書きも読みもしない。
+- `transfer_from`: `decided` を使い始める limit。生成器は内部四追いを `min(limit, depth)` の深さで問うので、limit がそれより小さいと候補リストが limit によって変わり、limit ごとに別の木になる。値は `VCTSolver::with_carry_capacity` が `max(attacker_vcf_depth, defender_vcf_depth + 1, 2)` に設定する。limit がこれより小さいノードは `decided` に書きも読みもしない。
 
 ## 5. 探索（`searcher.rs`、`threshold.rs`、`solver.rs`）
 
@@ -250,7 +250,9 @@ expand_attacks(state, attacks, threshold):
 
 `expand_defences` は `select_defence`、`defender_table`、`P::next_threshold_defence`、`search_attacks` で同じことをする。ノードは、自分の数値が親から渡された閾値を超えるまで、最有望の子を展開し続ける。根の閾値は `no_threshold` なので、根は決着するまでループする。
 
-閾値は最初の展開の前にも確かめる。初期値の時点で閾値を超えているノードは、手を生成しただけで何も展開せずに戻り、親はそれで自分の数値を知る。#108 から #110 まで（2022 年）の `expand_attacks` はこの最初の確認を飛ばし、最有望の攻め手を必ず 1 回展開していた。これが得かどうかは局面によって大きく違う。ベンチマーク（07）では、`vct_unstable` が 345 分の 1（119.5M ノード → 346k）になる一方、既定の集合は 39%（24.4M → 34.0M）、`vct_black_long_short` は 53%（17.4M → 26.7M）重くなる。そのため入れていない（issue #148）。
+閾値は最初の展開の前にも確かめる。初期値の時点で閾値を超えているノードは、手を生成しただけで何も展開せずに戻り、親はそれで自分の数値を知る。
+
+#108 から #110 まで（2022 年）の `expand_attacks` はこの最初の確認を飛ばし、最有望の攻め手を必ず 1 回展開していた。これが得になるかは局面によって大きく違う。ベンチマーク（07）では、`vct_unstable` は 345 分の 1（119.5M ノード → 346k）になるが、既定の集合は 39%（24.4M → 34.0M）、`vct_black_long_short` は 53%（17.4M → 26.7M）重くなる。そのためこの動作は採用していない（issue #148）。
 
 ### 閾値ポリシー
 
@@ -351,7 +353,9 @@ extract_defences(state):                       # 受け方の手番
 **更新**:
 
 - `init(player, min, board)` が場全体を埋める。
-- `update_along(p, board)` は `p` を通る 4 本の線をゼロにし（`reset_along`）、再計算する（`potentials_along`）。遅延更新用に、`mark_stale(p)` は点を記録するだけで、`sync(board)` がそれまでに記録された点すべてに `update_along` をかける。`VCTState` は打たれた・戻された点を記録し、場を読む前に `sync` する。盤面全体ではなく 1 点あたり 4 本の線だけ走査し、候補をキャッシュから得る大多数のノードでは何もしない。
+- `update_along(p, board)` は `p` を通る 4 本の線をゼロにし（`reset_along`）、計算し直す（`potentials_along`）。
+- 遅延更新のため、`mark_stale(p)` は点を記録するだけにしてあり、`sync(board)` が記録済みの点すべてに `update_along` をかける。`VCTState` は打った点・戻した点を記録し、場を読む前に `sync` する。
+- したがって走査するのは盤面全体ではなく 1 点あたり 4 本の線だけで、候補をキャッシュから得る大多数のノードでは何もしない。
 
 **問い合わせ**:
 

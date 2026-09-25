@@ -64,7 +64,7 @@ have a VCF of at most `threat_limit` fours.
 
 | `threat_limit` | Recognised as threats |
 | --- | --- |
-| 0 | fours only — the nested VCF has no depth, so only `Forced` replies get through |
+| 0 | fours only — the nested VCF has no depth, so the threat check always fails and only defender nodes that are `Forced` (must block a four) go on |
 | 1 | also threes: after a pass, the straight-four point is a one-move VCF |
 | 2 | also moves that prepare a two-four VCF, such as one setting up a four-three |
 | 3+ | deeper preparation — `test_vct_fukumi_move` needs 3 |
