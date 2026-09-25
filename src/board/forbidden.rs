@@ -1,31 +1,31 @@
+use super::grid::*;
 use super::player::*;
 use super::point::*;
-use super::square::*;
 use super::structure::*;
 
-pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)> {
-    q.empties()
-        .filter_map(|p| forbidden_strict(q, p).map(|k| (k, p)))
+pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)> {
+    g.empties()
+        .filter_map(|p| forbidden_strict(g, p).map(|k| (k, p)))
         .collect()
 }
 
-pub fn forbidden_strict(q: &Square, p: Point) -> Option<ForbiddenKind> {
-    if q.stone(p).is_some() {
+pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind> {
+    if g.stone(p).is_some() {
         return None;
     }
-    let mut fours = q.structures_on(p, Black, Four);
+    let mut fours = g.structures_on(p, Black, Four);
     if fours.next().is_some() {
         return None;
     }
-    forbidden(q, p)
+    forbidden(g, p)
 }
 
-pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind> {
-    if overline(q, p) {
+pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind> {
+    if overline(g, p) {
         Some(Overline)
-    } else if double_four(q, p) {
+    } else if double_four(g, p) {
         Some(DoubleFour)
-    } else if double_three(q, p) {
+    } else if double_three(g, p) {
         Some(DoubleThree)
     } else {
         None
@@ -41,27 +41,27 @@ pub enum ForbiddenKind {
 
 pub use ForbiddenKind::*;
 
-fn overline(q: &Square, p: Point) -> bool {
-    let mut overlinings = q.structures_on(p, Black, Overlining);
+fn overline(g: &Grid, p: Point) -> bool {
+    let mut overlinings = g.structures_on(p, Black, Overlining);
     overlinings.next().is_some()
 }
 
-fn double_four(q: &Square, p: Point) -> bool {
-    let swords = q.structures_on(p, Black, Sword);
+fn double_four(g: &Grid, p: Point) -> bool {
+    let swords = g.structures_on(p, Black, Sword);
     distinctive(&mut swords.map(|s| s.start_index()))
 }
 
-fn double_three(q: &Square, p: Point) -> bool {
-    let twos = q.structures_on(p, Black, Two);
+fn double_three(g: &Grid, p: Point) -> bool {
+    let twos = g.structures_on(p, Black, Two);
     if !distinctive(&mut twos.map(|s| s.start_index())) {
         return false;
     }
-    let mut next = q.clone();
+    let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
 }
 
-fn truthy_double_three(next: &Square, p: Point) -> bool {
+fn truthy_double_three(next: &Grid, p: Point) -> bool {
     let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();
         forbidden_strict(next, eye).is_none()
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_forbiddens() -> Result<(), String> {
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . o
          . . o . . . . . . . . x o o .
          . o . o . . . . . . . o . o .
@@ -106,10 +106,10 @@ mod tests {
          . . . . . . . . . . . . . . .
          . o o . o o o . . . o o o o .
         "
-        .parse::<Square>()?;
+        .parse::<Grid>()?;
         // M13 would be a double-three, but it also completes the five
         // K11-O15, which wins, so it is not reported.
-        let result = forbiddens(&square);
+        let result = forbiddens(&grid);
         let expected = [
             (DoubleThree, Point(2, 12)), // C13
             (Overline, Point(3, 0)),     // D1
@@ -125,7 +125,7 @@ mod tests {
         // H8 makes two threes. The eye of the horizontal one (G8) is a
         // double-four, but it also completes a five (G4-G8), so it is a legal
         // move and the three counts as a real one (rule 9.2 / 9.3).
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -142,13 +142,13 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let mut next = square.clone();
+        .parse::<Grid>()?;
+        let mut next = grid.clone();
         next.put_mut(Black, Point(7, 7));
         assert_eq!(forbidden(&next, Point(6, 7)), Some(DoubleFour));
         assert_eq!(forbidden_strict(&next, Point(6, 7)), None);
 
-        assert_eq!(forbidden(&square, Point(7, 7)), Some(DoubleThree));
+        assert_eq!(forbidden(&grid, Point(7, 7)), Some(DoubleThree));
 
         Ok(())
     }
@@ -163,7 +163,7 @@ mod tests {
         // three through H8 is fake, and H8 is a legal four-three.
         // Checking I8 with `forbidden` instead of `forbidden_strict` flips
         // every step and wrongly reports H8 as a double-three.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -180,12 +180,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
+        .parse::<Grid>()?;
         let h8 = Point(7, 7);
         let h7 = Point(7, 6);
         let i8 = Point(8, 7);
 
-        let mut after_h8 = square.clone();
+        let mut after_h8 = grid.clone();
         after_h8.put_mut(Black, h8);
         let mut after_h7 = after_h8.clone();
         after_h7.put_mut(Black, h7);
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(forbidden_strict(&after_h7, i8), None);
         assert_eq!(forbidden(&after_h8, h7), Some(DoubleThree));
 
-        assert_eq!(forbidden(&square, h8), None);
+        assert_eq!(forbidden(&grid, h8), None);
 
         Ok(())
     }
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn test_double_three() -> Result<(), String> {
         // H8 makes two open threes, H7-H9 and G8-I8.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -218,12 +218,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, Some(DoubleThree));
 
         // Split threes count too: H5-H6-_-H8 and E5-F6-_-H8.
-        let square = "
+        let grid = "
         . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . .
@@ -240,13 +240,13 @@ mod tests {
         . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, Some(DoubleThree));
 
         // White's E8 and K8 leave G8-I8 no way to an open four, so H8 only
         // makes one three.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -263,12 +263,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // H8 completes the five F8-J8: nothing else is looked at.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -285,13 +285,13 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // E8-F8-_-H8-_-J8-K8: every four H8 could lead to is an overline, so
         // there is no three.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -308,15 +308,15 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // A three only counts if its open-four point is legal. H8 and I7 each
         // make two threes, but one of them (H7-H10, I6-I10) can only be
         // completed at a double-four (H6, I8), so both moves are legal. J7
         // makes two real threes.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -333,12 +333,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
-        let result = forbidden(&square, Point(8, 6));
+        let result = forbidden(&grid, Point(8, 6));
         assert_eq!(result, None);
-        let result = forbidden(&square, Point(9, 6));
+        let result = forbidden(&grid, Point(9, 6));
         assert_eq!(result, Some(DoubleThree));
 
         // following examples are from https://twitter.com/tanaseY/status/944521796585373696
@@ -347,7 +347,7 @@ mod tests {
         // levels down whether G8 is a double-three. With O6, K6 only makes
         // one real three (K6-N6 needs J6, a double-four), so K6 is legal, I8
         // is a double-three, and G8's horizontal three (via I8) is fake.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -364,13 +364,13 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(6, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(6, 7));
         assert_eq!(result, None);
 
         // Without O6, K6-O6 is a second real three: K6 is a double-three, so
         // I8 is legal and G8 makes two real threes.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -387,8 +387,8 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(6, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(6, 7));
         assert_eq!(result, Some(DoubleThree));
 
         Ok(())
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_double_four() -> Result<(), String> {
         // H8 makes fours in two directions, F8-I8 and F10-I7.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -414,12 +414,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
         // Two fours on one line: E8-_-G8-H8-I8-_-K8.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -436,12 +436,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
         // Two fours on one line: E8-F8-_-H8-I8-_-K8-L8.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -458,12 +458,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
         // Two fours on one line: D8-F8 and J8-L8, eyes G8 and I8.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -480,12 +480,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, Some(DoubleFour));
 
         // G8 or I8 would each make six, so H8 makes no four at all.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -502,12 +502,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // The same in two directions: both fours would complete as overlines.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . o . . . . . . .
@@ -524,12 +524,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // H8 is too far from either three to make a four.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -546,12 +546,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // H8 is next to neither four.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -568,12 +568,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // A single four is fine.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -590,13 +590,13 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         // The first position with D12 and White's J6: the diagonal four could
         // only be completed as an overline (D12-I7), leaving one four.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -613,8 +613,8 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         Ok(())
@@ -623,7 +623,7 @@ mod tests {
     #[test]
     fn test_overline() -> Result<(), String> {
         // H8 fills E8-J8, six in a row.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -640,12 +640,12 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, Some(Overline));
 
         // Only E8-H8 would be connected: no six.
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -662,8 +662,8 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
-        let result = forbidden(&square, Point(7, 7));
+        .parse::<Grid>()?;
+        let result = forbidden(&grid, Point(7, 7));
         assert_eq!(result, None);
 
         Ok(())

@@ -17,14 +17,14 @@ type OrthogonalLines = [Line; RANGE as usize];
 type DiagonalLines = [Line; D_LINE_NUM as usize];
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Square {
+pub struct Grid {
     vlines: OrthogonalLines,
     hlines: OrthogonalLines,
     alines: DiagonalLines,
     dlines: DiagonalLines,
 }
 
-impl Square {
+impl Grid {
     pub fn new() -> Self {
         Self {
             vlines: orthogonal_lines(),
@@ -35,24 +35,24 @@ impl Square {
     }
 
     pub fn from_moves(moves: &Points) -> Self {
-        let mut square = Self::new();
+        let mut grid = Self::new();
         let mut player = Black;
         for &m in moves.0.iter() {
-            square.put_mut(player, m);
+            grid.put_mut(player, m);
             player = player.opponent();
         }
-        square
+        grid
     }
 
     pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
-        let mut square = Self::new();
+        let mut grid = Self::new();
         for &p in blacks.0.iter() {
-            square.put_mut(Black, p);
+            grid.put_mut(Black, p);
         }
         for &p in whites.0.iter() {
-            square.put_mut(White, p);
+            grid.put_mut(White, p);
         }
-        square
+        grid
     }
 
     pub fn put_mut(&mut self, player: Player, p: Point) {
@@ -305,13 +305,13 @@ impl Square {
     }
 }
 
-impl Default for Square {
+impl Default for Grid {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl fmt::Display for Square {
+impl fmt::Display for Grid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
             .hlines
@@ -324,7 +324,7 @@ impl fmt::Display for Square {
     }
 }
 
-impl FromStr for Square {
+impl FromStr for Grid {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -338,21 +338,21 @@ impl FromStr for Square {
     }
 }
 
-fn from_str_stones(s: &str) -> Result<Square, &'static str> {
+fn from_str_stones(s: &str) -> Result<Grid, &'static str> {
     let mut codes = s.trim().split("/");
     let blacks_str = codes.next().ok_or("Wrong format.")?;
     let whites_str = codes.next().ok_or("Wrong format.")?;
     let blacks = blacks_str.parse::<Points>()?;
     let whites = whites_str.parse::<Points>()?;
-    Ok(Square::from_stones(&blacks, &whites))
+    Ok(Grid::from_stones(&blacks, &whites))
 }
 
-fn from_str_moves(s: &str) -> Result<Square, &'static str> {
+fn from_str_moves(s: &str) -> Result<Grid, &'static str> {
     let moves = s.trim().parse::<Points>()?;
-    Ok(Square::from_moves(&moves))
+    Ok(Grid::from_moves(&moves))
 }
 
-fn from_str_display(s: &str) -> Result<Square, &'static str> {
+fn from_str_display(s: &str) -> Result<Grid, &'static str> {
     let hlines_rev = s
         .trim()
         .split("\n")
@@ -361,7 +361,7 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
     if hlines_rev.len() != RANGE as usize {
         return Err("Wrong num of lines");
     }
-    let mut square = Square::new();
+    let mut grid = Grid::new();
     for (i, hline) in hlines_rev.iter().rev().enumerate() {
         if hline.size != RANGE {
             return Err("Wrong line size");
@@ -369,11 +369,11 @@ fn from_str_display(s: &str) -> Result<Square, &'static str> {
         for j in 0..hline.size {
             if let Some(player) = hline.stone(j) {
                 let point = Index::new(Horizontal, i as u8, j).to_point();
-                square.put_mut(player, point)
+                grid.put_mut(player, point)
             }
         }
     }
-    Ok(square)
+    Ok(grid)
 }
 
 fn orthogonal_lines() -> OrthogonalLines {
@@ -434,13 +434,13 @@ mod tests {
 
     /// Every point is stored once per direction; all four copies must agree
     /// with `expected` after any sequence of puts and removes.
-    fn assert_lines_agree(square: &Square, expected: &[(Point, Player)]) {
+    fn assert_lines_agree(grid: &Grid, expected: &[(Point, Player)]) {
         for x in 0..RANGE {
             for y in 0..RANGE {
                 let p = Point(x, y);
                 let want = expected.iter().find(|(q, _)| *q == p).map(|&(_, r)| r);
                 for d in ALL_DIRECTIONS {
-                    if let Some(line) = square.line_on(p, d) {
+                    if let Some(line) = grid.line_on(p, d) {
                         assert_eq!(line.stone(p.to_index(d).j), want, "{p} {d:?}");
                     }
                 }
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn test_put_and_remove() {
-        let mut square = Square::new();
+        let mut grid = Grid::new();
         // The centre, and a stone near each corner, where the diagonals are
         // short or not stored at all.
         let stones = [
@@ -464,15 +464,15 @@ mod tests {
             (Point(0, 0), White),
         ];
         for (p, r) in stones {
-            square.put_mut(r, p);
+            grid.put_mut(r, p);
         }
-        assert_lines_agree(&square, &stones);
+        assert_lines_agree(&grid, &stones);
 
         // Replacing a stone, removing two, and removing from an empty point.
-        square.put_mut(Black, Point(1, 13));
-        square.remove_mut(Point(7, 7));
-        square.remove_mut(Point(8, 8));
-        square.remove_mut(Point(9, 9));
+        grid.put_mut(Black, Point(1, 13));
+        grid.remove_mut(Point(7, 7));
+        grid.remove_mut(Point(8, 8));
+        grid.remove_mut(Point(9, 9));
         let stones = [
             (Point(9, 8), Black),
             (Point(1, 1), Black),
@@ -481,33 +481,33 @@ mod tests {
             (Point(13, 13), White),
             (Point(0, 0), White),
         ];
-        assert_lines_agree(&square, &stones);
-        assert_eq!(points(square.stones(Black)), "B2,B14,J9,N2");
-        assert_eq!(points(square.stones(White)), "A1,N14");
-        assert_eq!(square.empties().count(), 225 - 6);
+        assert_lines_agree(&grid, &stones);
+        assert_eq!(points(grid.stones(Black)), "B2,B14,J9,N2");
+        assert_eq!(points(grid.stones(White)), "A1,N14");
+        assert_eq!(grid.empties().count(), 225 - 6);
     }
 
     #[test]
     fn test_lines() -> Result<(), String> {
-        let square = "H8,I9,J9".parse::<Square>()?;
+        let grid = "H8,I9,J9".parse::<Grid>()?;
 
         // The diagonals shorter than a five are not stored.
-        assert!(square.line(Ascending, D_LINE_OMIT).is_some());
-        assert!(square.line(Ascending, D_LINE_OMIT - 1).is_none());
-        assert!(square.line(Descending, D_LINE_OMIT - 1).is_none());
-        assert!(square.line_on(Point(0, 0), Descending).is_none());
+        assert!(grid.line(Ascending, D_LINE_OMIT).is_some());
+        assert!(grid.line(Ascending, D_LINE_OMIT - 1).is_none());
+        assert!(grid.line(Descending, D_LINE_OMIT - 1).is_none());
+        assert!(grid.line_on(Point(0, 0), Descending).is_none());
 
         // `lines` and `lines_on` agree with `line`.
         assert_eq!(
-            square.lines().count(),
+            grid.lines().count(),
             (RANGE as usize + D_LINE_NUM as usize) * 2
         );
-        for (d, i, line) in square.lines() {
-            assert_eq!(square.line(d, i), Some(line));
+        for (d, i, line) in grid.lines() {
+            assert_eq!(grid.line(d, i), Some(line));
         }
-        assert_eq!(square.lines_on(Point(7, 7)).count(), 4);
-        assert_eq!(square.lines_on(Point(0, 0)).count(), 3);
-        for (d, i, line) in square.lines_on(Point(7, 7)) {
+        assert_eq!(grid.lines_on(Point(7, 7)).count(), 4);
+        assert_eq!(grid.lines_on(Point(0, 0)).count(), 3);
+        for (d, i, line) in grid.lines_on(Point(7, 7)) {
             let index = Point(7, 7).to_index(d);
             assert_eq!(i, index.i);
             assert_eq!(line.stone(index.j), Some(Black));
@@ -518,7 +518,7 @@ mod tests {
 
     #[test]
     fn test_structures() -> Result<(), String> {
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -535,33 +535,33 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
+        .parse::<Grid>()?;
 
         // Black's only open two is H6-K9 on the diagonal: H6-H8 is closed
         // by White's H9.
-        let twos: Vec<_> = square.structures(Black, Two).collect();
+        let twos: Vec<_> = grid.structures(Black, Two).collect();
         assert_eq!(twos.len(), 1);
         assert_eq!(points(twos[0].eyes()), "I7,J8");
 
         // White's H9-J9 is closed by K9, so it is a sword (three stones that
         // can only become a closed four), not a three.
-        assert_eq!(square.structures(White, Three).count(), 0);
-        let swords: Vec<_> = square.structures(White, Sword).collect();
+        assert_eq!(grid.structures(White, Three).count(), 0);
+        let swords: Vec<_> = grid.structures(White, Sword).collect();
         assert_eq!(swords.len(), 1);
         assert_eq!(points(swords[0].stones()), "H9,I9,J9");
         assert_eq!(points(swords[0].eyes()), "F9,G9");
 
         // `structures_on` is the same search, limited to one point's lines.
-        let on_h9: Vec<_> = square.structures_on(Point(7, 8), White, Sword).collect();
+        let on_h9: Vec<_> = grid.structures_on(Point(7, 8), White, Sword).collect();
         assert_eq!(on_h9, swords);
-        assert_eq!(square.structures_on(Point(7, 8), Black, Two).count(), 0);
+        assert_eq!(grid.structures_on(Point(7, 8), Black, Two).count(), 0);
 
         Ok(())
     }
 
     #[test]
     fn test_potentials() -> Result<(), String> {
-        let square = "
+        let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -578,10 +578,9 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         "
-        .parse::<Square>()?;
+        .parse::<Grid>()?;
         let potentials = |r, min, exact| -> Vec<(Direction, String, u8)> {
-            square
-                .potentials(r, min, exact)
+            grid.potentials(r, min, exact)
                 .map(|(i, o)| (i.d, i.to_point().to_string(), o))
                 .collect()
         };
@@ -607,10 +606,10 @@ mod tests {
         assert_eq!(potentials(White, 3, false), expected);
 
         // `potentials_along` is the same, limited to one point's lines.
-        let along: Vec<_> = square
+        let along: Vec<_> = grid
             .potentials_along(Point(7, 8), White, 3, false)
             .collect();
-        let all: Vec<_> = square.potentials(White, 3, false).collect();
+        let all: Vec<_> = grid.potentials(White, 3, false).collect();
         assert_eq!(along, all);
 
         Ok(())
@@ -618,15 +617,15 @@ mod tests {
 
     #[test]
     fn test_parse() -> Result<(), String> {
-        let mut expected = Square::new();
+        let mut expected = Grid::new();
         expected.put_mut(Black, Point(7, 7));
         expected.put_mut(White, Point(8, 8));
         expected.put_mut(Black, Point(9, 8));
 
         // Moves, alternating from Black.
-        assert_eq!("H8,I9,J9".parse::<Square>()?, expected);
+        assert_eq!("H8,I9,J9".parse::<Grid>()?, expected);
         // Black stones / White stones.
-        assert_eq!("H8,J9/I9".parse::<Square>()?, expected);
+        assert_eq!("H8,J9/I9".parse::<Grid>()?, expected);
         // The board as `Display` writes it, row 15 first.
         let s = "
          . . . . . . . . . . . . . . .
@@ -645,20 +644,20 @@ mod tests {
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
         ";
-        assert_eq!(s.parse::<Square>()?, expected);
-        assert_eq!(expected.to_string().parse::<Square>()?, expected);
+        assert_eq!(s.parse::<Grid>()?, expected);
+        assert_eq!(expected.to_string().parse::<Grid>()?, expected);
 
-        assert!(". . .\n. . .".parse::<Square>().is_err());
+        assert!(". . .\n. . .".parse::<Grid>().is_err());
         Ok(())
     }
 
     #[test]
     fn test_to_pretty_string() {
-        let mut square = Square::new();
-        square.put_mut(Black, Point(7, 7));
-        square.put_mut(White, Point(8, 8));
-        square.put_mut(Black, Point(0, 0));
-        square.put_mut(White, Point(14, 14));
+        let mut grid = Grid::new();
+        grid.put_mut(Black, Point(7, 7));
+        grid.put_mut(White, Point(8, 8));
+        grid.put_mut(Black, Point(0, 0));
+        grid.put_mut(White, Point(14, 14));
         let expected = "
 15 . . . . . . . . . . . . . . x
 14 . . . . . . . . . . . . . . .
@@ -678,6 +677,6 @@ mod tests {
    A B C D E F G H I J K L M N O
         "
         .trim();
-        assert_eq!(square.to_pretty_string(), expected);
+        assert_eq!(grid.to_pretty_string(), expected);
     }
 }

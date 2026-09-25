@@ -24,7 +24,7 @@ Where to start:
   (four, straight four, three, forbidden move).
 - Changing rule logic in `src/board/` (structures, forbidden moves)? Read 02.
 - Calling the solvers from the app, the CLI or your own Rust? Read 03.
-- Changing the search in `src/mate/` or `src/analysis/`? Read 04, then 05
+- Changing the search in `src/mate/` or `src/feature/`? Read 04, then 05
   and 06, and measure the change with the benchmark in 07.
 - Looking for one specific thing? Each document ends with a cheat sheet that
   maps questions to identifiers (02 §9, 03 §7, 04 §7, 05 §5, 06 §9).
@@ -42,5 +42,5 @@ Conventions for adding documents:
   (`o` = Black, `x` = White, `.` = empty, row 15 at the top) so examples can be
   pasted straight into a `.parse::<Board>()` test.
 - When a document describes code, reference the actual identifiers
-  (`Square::structures_on`, `StructureKind::Sword`, ...) so it can be
+  (`Grid::structures_on`, `StructureKind::Sword`, ...) so it can be
   cross-checked with `grep`.

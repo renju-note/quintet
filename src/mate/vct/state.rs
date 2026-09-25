@@ -1,6 +1,6 @@
-use crate::analysis::potential::PotentialField;
 use crate::board::StructureKind::*;
 use crate::board::*;
+use crate::feature::potential::PotentialField;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
 use crate::mate::state::{Key, State};

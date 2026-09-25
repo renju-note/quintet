@@ -21,7 +21,7 @@ src/mate/
 ├── mate.rs          Mate: 結果
 ├── vcf.rs, vcf/     四追いソルバー                    (05)
 └── vct.rs, vct/     追い詰めソルバー                  (06)
-src/analysis/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
+src/feature/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
 ```
 
 部品の関係（下から上へ）:
@@ -108,9 +108,9 @@ pub struct Key { pub position: u64, pub limit: u8 }
 - **決着**（証明済み / 反証済み）は limit をまたいで有効。`limit` 以内の詰みはそれより大きい limit でも詰み。`limit` 以内で詰みなしなら、それより小さい limit でもなし。だから決着は `position` だけをキーにし、limit はデータとして持つ。
   - `DFSSolver::deadends`: 四追いがないと分かった最大 limit。
   - `ProofTable::decided`: 証明された最小 limit と、反証された最大 limit。
-- **決着に至らないもの**（証明数の途中経過、候補手リスト）は 1 つの limit での木についての情報。両方を合わせた `Key::hash()` をキーにする（`ProofTable::estimates`、候補手キャッシュ）。
+- **決着していない情報**（証明数の途中経過、候補手リスト）は、特定の limit の木についてだけ成り立つ。そのため両方を合わせた `Key::hash()` をキーにする（`ProofTable::estimates`、候補手キャッシュ）。
 
-四追いソルバーでは、手の生成が `limit` を読まないので、この境界は厳密。追い詰めでは `transfer_from` 以上で成り立つ（06 §4）。`test_verdict_is_monotone_in_limit`（`--ignored`）が、limit を増やしても「詰み」が「詰みなし」に戻らないことを確認している。
+四追いソルバーでは手の生成が `limit` を読まないので、決着はどの limit の間でもそのまま持ち越せる。追い詰めソルバーで持ち越せるのは、limit が `transfer_from` 以上のときだけ（06 §4）。`test_verdict_is_monotone_in_limit`（`--ignored`）が、limit を増やしても「詰み」が「詰みなし」に戻らないことを確認している。
 
 ## 4. `Solver`: 1 つの問い、1 つの世代
 

@@ -1,5 +1,5 @@
-pub mod analysis;
 pub mod board;
+pub mod feature;
 pub mod mate;
 pub mod wasm;
 

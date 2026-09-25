@@ -26,7 +26,7 @@
 pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> SolveResult
 ```
 
-ソルバーを作って 1 回走らせ、捨てる。`limits` で深さと（任意で）ノード予算を指定し、答えは 3 値になる。`wasm.rs` もこれを呼び、答えを詰み手順か「なし」に落とす。
+ソルバーを作って 1 回走らせ、捨てる。`limits` で深さと（任意で）ノード予算を指定する。答えは 3 値。`wasm.rs` もこれを呼び、答えを「詰み手順」か「なし」の 2 つにまとめて返す。
 
 ```rust
 use quintet::board::{Board, Player};
@@ -90,7 +90,7 @@ SolveLimits::new(limit)
 pub enum SolveResult { Proven(Mate), Disproven, Aborted }
 ```
 
-`Option<Mate>` は「なぜ詰みがないか」を区別できない。`SolveResult` は区別する。
+`Option<Mate>` では、詰みが返らなかった理由（詰みがないのか、途中で打ち切ったのか）を区別できない。`SolveResult` は区別する。
 
 - `Disproven`: この上限では詰みがない。
 - `Aborted`: 予算が尽きた。詰みの有無は不明。
@@ -182,7 +182,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 
 | `End` | 受け方の状況 | 誰に起きるか |
 | --- | --- | --- |
-| `Fours(p1, p2)` | 勝ち点の異なる四が 2 つ。1 手では止まらない。棒四（`Square` は眼の異なる 2 つの `Four` として報告する）または四四。 | どちらも。ただし攻め方が黒なら棒四だけ（四四は禁手なので打たれない）。 |
+| `Fours(p1, p2)` | 勝ち点の異なる四が 2 つ。1 手では止まらない。棒四（`Grid` は眼の異なる 2 つの `Four` として報告する）または四四。 | どちらも。ただし攻め方が黒なら棒四だけ（四四は禁手なので打たれない）。 |
 | `Forbidden(p)` | 四が 1 つで、唯一の止め `p` が禁手。 | 黒のみ。 |
 | `Unknown` | 勝ちは証明されたが手順を復元できなかった。探索前から攻め方に四があった（§6）か、復元でたどれる証明済みの子がなかった（06 §6）。 | — |
 

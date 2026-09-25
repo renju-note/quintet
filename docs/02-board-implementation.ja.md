@@ -11,18 +11,18 @@
 | `line.rs` | `Line`: 縦・横・斜めの 1 本を 2 つのビットマスクで表す。 |
 | `sequence.rs` | `Sequences`: `Line` 上を窓をスライドさせて石のパターンを見つけるスキャナ。 |
 | `structure.rs` | `StructureKind`（Two, Three, Sword, Four, Five, ...）と `Structure`（盤上に位置づけられたパターン）。 |
-| `square.rs` | `Square`: 15×15 の盤全体を 4 方向の `Line` 配列として持ち、パターン検索を提供する。 |
+| `grid.rs` | `Grid`: 15×15 の盤全体を 4 方向の `Line` 配列として持ち、パターン検索を提供する。 |
 | `forbidden.rs` | 黒の禁手判定。 |
 | `potential.rs` | 手の順序付けに使う点ごとの「ポテンシャル」評価。 |
 | `zobrist.rs` | 置換表用の Zobrist ハッシュ。 |
-| `map.rs` | `SwordMap`: 各プレイヤーの剣を線ごとに持ち、遅延更新する（§8）。 |
-| `board.rs` | `Board` = `Square` + Zobrist ハッシュ + `SwordMap`。ソルバーが使う公開のファサード。 |
+| `map.rs` | `SwordMap`: 各プレイヤーの剣先を線ごとに持ち、遅延更新する（§8）。 |
+| `board.rs` | `Board` = `Grid` + Zobrist ハッシュ + `SwordMap`。ソルバーが使う公開のファサード。 |
 
 各部品は層になっており、以下の章はこの層を下から順にたどる:
 
 1. `Line` は盤の 1 本の線をビットマスクで保持する（§2）。
 2. `Sequences` は `Line` 上で 5 マスの窓をスライドさせ、自分の石が指定の数だけある窓を見つける（§3）。
-3. `Square` はすべての線を持ち、「盤上に / この点を通ってどんなパターンがあるか」に答える（§4）。
+3. `Grid` はすべての線を持ち、「盤上に / この点を通ってどんなパターンがあるか」に答える（§4）。
 4. `StructureKind` はそのパターンにルール用語の名前を付ける — `Five`、`Four`、`Three`、…（§5）。
 5. `forbidden.rs` はいくつかの `structures_on` の問い合わせを組み合わせて禁手のルールを実装する（§6）。
 6. `potential.rs` と `zobrist.rs` は同じ仕組みを手の順序付けとハッシュに再利用する（§7、§8）。
@@ -91,7 +91,7 @@ cell :  i+5  | i+4  i+3  i+2  i+1   i  |  i-1
 - 対象 5 マスに相手の石がない（`op & TARGET_MASK == 0`）。
 - `exact` モードのときは、さらに左右どちらのマージンにも*自分の*石がない（`my & MARGIN_MASK == 0`）。
 
-`exact` はプレイヤーが**黒**のときにちょうど真になる（`StructureKind::to_sequence` 参照）。これは「黒の五はちょうど五でなければならない」というルールの実装である。窓に隣接して自分の石があれば、その窓に五を作ると長連になってしまうので、五になりうる窓として数えない。白にはこの制約がないため非 exact でスキャンし、長連も通常の勝ちとして扱われる。
+`exact` はプレイヤーが**黒**のときだけ真になる（`StructureKind::to_sequence` 参照）。これが「黒の五はちょうど五でなければならない」というルールの実装である。窓のすぐ外に自分の石があると、その窓で五を作っても長連になってしまうので、五になりうる窓として数えない。白にはこの制約がないので exact でない方法でスキャンし、長連も普通の勝ちとして扱う。
 
 有効な窓について、自分の石の数を `n` と比較する。何を返すかは 3 種類の `SequenceKind` で決まる:
 
@@ -113,14 +113,14 @@ Open    n = 3    .   o   o   .   o   .     両端が空の Double               
 返り値は `(i, Sequence)` の組で、`Sequence` は対象 5 マスの状態を表す 5 ビットのマスクである。
 
 - `Sequence::stones()` と `eyes()` はマスクをオフセット `0..5` に写す。立っているビットが石、空きが「眼（eye）」である。
-- `Open` の場合、閉じ側の空点 `i+4` が眼として返らないよう、5 ビット目を強制的に立てている（`LAST_MASK`）。その副作用として `stones()` にはこのマスも含まれる。したがって `Open` な構造の `stones()` は「眼でないマス」と読むこと。
+- `Open` の場合、右端の空点 `i+4` が眼として返らないよう、5 ビット目を強制的に立てている（`LAST_MASK`）。そのため `stones()` にはこのマスも含まれる。`Open` な構造の `stones()` は「眼でないマス」と読むこと。
 
 `Sequences::new_on(j, …)` は、位置 `j` を含む窓だけをスキャンする変種である。`structures_on(p, …)` が「この着手はどのパターンに関わるか」を調べるときに使う。
 
-## 4. `Square`: 盤全体
+## 4. `Grid`: 盤全体
 
 ```rust
-pub struct Square {
+pub struct Grid {
     vlines: [Line; 15],  // 列。x で索引
     hlines: [Line; 15],  // 行。y で索引
     alines: [Line; 21],  // 長さ 5 以上の右上がり斜め
@@ -140,10 +140,10 @@ pub struct Square {
 - `stone(p)`、`stones(player)`、`empties()`、`neighbors(p, distance, only_empty)` — 石や空点の取得。
 - `structures(r, kind)` — 盤全体にあるプレイヤー `r` の種別 `kind` の `Structure` をすべて返す。
 - `structures_on(p, r, kind)` — 5 マス窓が点 `p` を含む構造だけを返す（`p` を通る 4 本の線のみ調べる）。「`p` に打つと何ができるか」を調べるホットパス。
-- `line(d, i)` / `line_on(p, d)` — 格納されている `Line` そのもの。短い斜めでは `None`。`lines()` と `lines_on(p)` は `(Direction, i, &Line)` として列挙する。点ごとの表を自前で持つ利用側が、72 本の線をもう 1 組持たずに済むようにするためのもの。
+- `line(d, i)` / `line_on(p, d)` — 格納されている `Line` そのもの。短い斜めでは `None`。`lines()` と `lines_on(p)` はそれを `(Direction, i, &Line)` の形で列挙する。点ごとの表を自前で持つ利用側が、72 本の線の複製を持たずに済むようにするためのもの。
 - `potentials(...)` / `potentials_along(...)` — §7 参照。
 
-文字列からのパース（`FromStr for Square`、`Board` でも利用）は次の 3 形式を受け付ける:
+文字列からのパース（`FromStr for Grid`、`Board` でも利用）は次の 3 形式を受け付ける:
 
 - 手順: `H8,H7,F6` のように黒から交互に並べたもの。
 - 石のリスト: `H8,F6/H7` のように `黒/白` で区切ったもの。
@@ -151,7 +151,7 @@ pub struct Square {
 
 ## 5. `StructureKind`: ルール用語の語彙
 
-`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, exact)` の組に写す。`exact` は原則 `r.is_black()`（黒のみ真）であるが、黒の長連系の `StructureKind` を検出する際は常に偽となる。これは長連が必ず各 5 マス窓の隣に自分の石を持ち、exact ではまさにその窓が無効になって検出できないためである:
+`StructureKind::to_sequence(r)` は各種別を `(SequenceKind, n, exact)` の組に写す。`exact` は原則として `r.is_black()`（黒のときだけ真）だが、長連系の種別（`Overlined`、`Overlining`）では常に偽になる。長連の 5 マス窓はどれも、すぐ外に自分の石があるので、exact にするとまさにその窓が無効になり検出できないからである:
 
 | `StructureKind` | `SequenceKind` | `n` | `exact` | パターン（黒の例、`_` = 眼） | ルール上の概念 |
 | --- | --- | --- | --- | --- | --- |
@@ -161,7 +161,7 @@ pub struct Square {
 | `Straight` | `Open` | 4 | 黒のみ | `.oooo.` | **棒四**。 |
 | `Sword` | `Single` | 3 | 黒のみ | `ooo__`、`o_oo_` など（5 マス窓に 3 石） | **剣先**: どちらかの眼に打てば `Four`。活三も含むので英語の "closed three" とは異なる。ルール上の定義はないが、VCF/VCT が四を作る手を列挙するのに使う。 |
 | `Three` | `Open` | 3 | 黒のみ | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `Straight`。 |
-| `Two` | `Open` | 2 | 黒のみ | `.oo__.`、`.o_o_.` など | **連**（二）: 眼に打てば `Three`。 |
+| `Two` | `Open` | 2 | 黒のみ | `.oo__.`、`.o_o_.` など | **二**: 眼に打てば `Three`。 |
 | `Overlining` | `Double` | 4 | 常に偽 | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
 
 黒には `exact` が適用されるため、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
@@ -176,9 +176,9 @@ pub struct Square {
 禁手があるのは黒だけである。入口となる関数は次の 3 つ:
 
 ```rust
-pub fn forbidden_strict(q: &Square, p: Point) -> Option<ForbiddenKind>
-pub fn forbidden(q: &Square, p: Point) -> Option<ForbiddenKind>
-pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)>
+pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind>
+pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind>
+pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ```
 
 `ForbiddenKind` は `Overline`（長連）、`DoubleFour`（四四）、`DoubleThree`（三三）のいずれかである。
@@ -192,7 +192,7 @@ pub fn forbiddens(q: &Square) -> Vec<(ForbiddenKind, Point)>
 ### 長連（9.2 a）
 
 ```rust
-fn overline(q, p) -> bool { q.structures_on(p, Black, Overlining).next().is_some() }
+fn overline(g, p) -> bool { g.structures_on(p, Black, Overlining).next().is_some() }
 ```
 
 `Overlining`（六腐）は、隣り合う 2 つの 5 マス窓がそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
@@ -200,12 +200,12 @@ fn overline(q, p) -> bool { q.structures_on(p, Black, Overlining).next().is_some
 ### 四四（9.2 b）
 
 ```rust
-fn double_four(q, p) -> bool {
-    distinctive(&mut q.structures_on(p, Black, Sword).map(|s| s.start_index()))
+fn double_four(g, p) -> bool {
+    distinctive(&mut g.structures_on(p, Black, Sword).map(|s| s.start_index()))
 }
 ```
 
-`p` を通る各 `Sword`（剣先）は、`p` に打つと `Four` になる。`distinctive` は、イテレータが返す索引の中に「`first` と `first.walk(1)`」以外の組み合わせが 2 つ以上あるときに真を返す。この除外が必要なのは次の理由による:
+`p` を通る各 `Sword`（剣先）は、`p` に打つと `Four` になる。`distinctive` は、最初の窓の索引 `first` とその隣 `first.walk(1)` 以外の索引が 1 つでも現れれば真を返す。つまり、隣り合う 2 つの窓を 1 つと数えたうえで、窓が 2 つ以上あるかを見ている。隣の窓を除くのは次の理由による:
 
 - 同一線上の隣り合う窓にある 2 つの `Sword` は、1 つの棒四の両半分（`.oo_o.` → `.oooo.`）である。四としては 1 つなので二重に数えない。
 - 隣接しない 2 つの窓は本物の四四である。別の線上にある場合はもちろん、同一線上でも `o.o_o.o` のように 2 つの異なる五候補になる場合が該当する。
@@ -213,10 +213,10 @@ fn double_four(q, p) -> bool {
 ### 三三（9.2 c および 9.3）
 
 ```rust
-fn double_three(q, p) -> bool {
-    // 軽い前段フィルタ: p を通る連（Two）が 2 つ以上
-    if !distinctive(q.structures_on(p, Black, Two)) { return false; }
-    let mut next = q.clone();
+fn double_three(g, p) -> bool {
+    // 軽い前段フィルタ: p を通る二（Two）が 2 つ以上
+    if !distinctive(g.structures_on(p, Black, Two)) { return false; }
+    let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
 }
@@ -232,8 +232,8 @@ fn truthy_double_three(next, p) -> bool {
 
 判定は次の手順で進む:
 
-1. `p` を通る `Two`（連）が 2 つ以上あることは三三の必要条件なので、これを先に調べる。ほとんどの点はここで却下され、盤をクローンせずに済む。
-2. コピーした盤に着手し、`p` を通る本当の `Three` を列挙する。`Three`（`Open`, 3）の眼はちょうど 1 つで、それが達四点である。
+1. `p` を通る `Two`（二）が 2 つ以上あることは三三の必要条件なので、これを先に調べる。ほとんどの点はここで却下され、盤をクローンせずに済む。
+2. 盤のコピーに `p` を打ち、`p` を通る `Three` を列挙する。`Three`（`Open`, 3）の眼はちょうど 1 つで、それが達四点である。
 3. ルール 9.3 に従い、三はその眼が黒にとって合法な着手であるときだけ数える。新しい局面で眼に対して `forbidden_strict` を呼ぶことで判定する（詳細は後述）。
 4. *異なる*本物の三が 2 つ以上残れば、その手は禁手の三三である。
 
@@ -265,7 +265,9 @@ fn truthy_double_three(next, p) -> bool {
  . . . . . . . . . . . . . . .
 ```
 
-`H8` を通る `Two` があるのは縦方向だけである（H 列の `.o_o.`。重なり合う 2 つの `Open` 窓は隣接しているので `distinctive` は 1 つと数える）。横の `x.o_o.x` は `x` に挟まれているため `Open` の窓が収まらず、`Two` ではない — この形は達四になりえない。したがって手順 1 の前段フィルタが盤をクローンせずにこの手を却下し、結果は `None` になる。2 つの `x` を取り除くと両方向に `Two` があり、`H8` に打つと両方が達四点の合法な `Three` になるので、結果は `Some(DoubleThree)` になる。参照されている Twitter スレッドの入れ子の「偽の三」の局面を含む他のケースは、`forbidden.rs` のテストにある。
+`H8` を通る `Two` があるのは縦方向だけである（H 列の `.o_o.`。重なり合う 2 つの `Open` 窓は隣接しているので、`distinctive` は 1 つと数える）。横の `x.o_o.x` は両側を `x` に挟まれていて `Open` の窓が収まらないので、`Two` ではない。この形からは棒四を作れない。したがって手順 1 の前段フィルタが、盤をクローンせずにこの手を却下し、結果は `None` になる。
+
+2 つの `x` を取り除くと、両方向に `Two` ができる。`H8` に打つと両方が、達四点に合法に打てる `Three` になるので、結果は `Some(DoubleThree)` になる。入れ子の「偽の三」の局面（テストのコメントにある Twitter スレッドのもの）など、ほかのケースは `forbidden.rs` のテストにある。
 
 ## 7. ポテンシャル（`potential.rs`）
 
@@ -275,22 +277,22 @@ fn truthy_double_three(next, p) -> bool {
 2. 有効な窓ごとに「自分の石数 + 1」（そこに打った後に窓が持つ石数）を点数とする。
 3. 「最大点数 × 最大点数を達成した窓の数」をその空点の値として返す。
 
-`Square::potentials` / `potentials_along` がこれを `Index` ごとに公開し、`src/analysis/potential.rs` が点ごとに集約して手の順序付けに使う。`VICTORY = 5` は五になる窓の点数である。
+`Grid::potentials` / `potentials_along` がこれを `Index` ごとに公開し、`src/feature/potential.rs` が点ごとに集約して手の順序付けに使う。`VICTORY = 5` は五になる窓の点数である。
 
 ## 8. Zobrist ハッシュ（`zobrist.rs`）と `Board`
 
-`Board` は `Square` と `u64` の Zobrist ハッシュを包み、`put_mut` / `remove_mut` で両者の同期を保つ。
+`Board` は `Grid` と `u64` の Zobrist ハッシュを包み、`put_mut` / `remove_mut` で両者の同期を保つ。
 
 - `CODE_TABLE` は `2 * 225` 個のランダムな 64 ビット値を持つ。索引は `2 * u8::from(point) + c` で、`c` は黒なら 0、白なら 1 である。
 - 石を置く・取り除くたびに、対応する値を XOR でハッシュに出し入れする。
 - `zobrist_hash_n(n)` は深さごとの値（`N_TABLE`）をさらに XOR し、ソルバーが（局面, 残り深さ）の組で置換表を引けるようにする。
 - `Board::put` / `remove` はコピーを返す。ソルバーは探索ループでのクローンを避けるため `_mut` 版を使う。
 
-`Board` は、四追い探索がほぼ毎ノード問い合わせる各プレイヤーの剣（`Sword`、§5）もキャッシュする。キャッシュ本体は `SwordMap`（`map.rs`）で、`Board` は転送するだけ。`put_mut` / `remove_mut` で印を付け、`sync_swords` / `swords` / `swords_on` では自分の `Square` を渡す。
+`Board` は、四追い探索がほぼ毎ノード問い合わせる各プレイヤーの剣先（`Sword`、§5）もキャッシュする。キャッシュ本体は `SwordMap`（`map.rs`）で、`Board` は転送するだけ。`put_mut` / `remove_mut` で印を付け、`sync_swords` / `swords` / `swords_on` では自分の `Grid` を渡す。
 
-- プレイヤーごと・線ごと（`Square::line_key` = `Square::lines` での線の位置）に、剣の窓がセル `j` から始まるならビット `j` を立てた `u16` と、剣のある線を表す `u128` を持つ。
-- 手はその点を通る高々 4 本の線に「古い」印を付けるだけで（`SwordMap::mark_stale`）、`SwordMap::sync` が古い線を計算し直す。探索は読むよりずっと頻繁に手を動かすので、毎手計算し直すと置き換えたはずの全走査より高くつく。
-- 線の計算は `Line::sword_starts` が行う。`Sequences` で窓を 1 つずつ見るのではなく、すべての窓をビット演算で一度に調べる（相手の石がない、自分の石がちょうど 3 つ（ビットスライスの加算）、黒なら窓のすぐ外に自分の石がない）。
+- プレイヤーごと・線ごと（`Grid::line_key` = `Grid::lines` での線の位置）に、剣先の窓がセル `j` から始まるならビット `j` を立てた `u16` と、剣先のある線を表す `u128` を持つ。
+- 着手は、その点を通る高々 4 本の線に「古い」印を付けるだけで（`SwordMap::mark_stale`）、古い線は `SwordMap::sync` がまとめて計算し直す。探索では剣先を読む回数より手を打つ・戻す回数のほうがずっと多いので、着手のたびに計算し直すと、キャッシュで置き換えたはずの全走査よりかえって高くつく。
+- 線の計算は `Line::sword_starts` が行う。`Sequences` で窓を 1 つずつ見るのではなく、すべての窓を一度にビット演算で調べる。調べる条件は、相手の石がないこと、自分の石がちょうど 3 つあること（ビットスライスの加算で数える）、黒なら窓のすぐ外に自分の石がないこと。
 - `swords(r)` / `swords_on(p, r)` はキャッシュを読み、`structures(r, Sword)` / `structures_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync_swords` が必要で、`Game::synced_board` が両方を行う。
 
 ## 9. 早見表: ルール → コード

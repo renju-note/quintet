@@ -236,7 +236,7 @@ it. `end` says why the defender is lost after the last move:
 
 | `End` | The defender faces | Who can suffer it |
 | --- | --- | --- |
-| `Fours(p1, p2)` | fours with two different winning points `p1`, `p2` — one block is not enough. A straight four (which `Square` reports as two `Four`s with different eyes) or a double-four. | Either. As an attacker, Black gets it only from a straight four, because a double-four is forbidden for Black and never played. |
+| `Fours(p1, p2)` | fours with two different winning points `p1`, `p2` — one block is not enough. A straight four (which `Grid` reports as two `Four`s with different eyes) or a double-four. | Either. As an attacker, Black gets it only from a straight four, because a double-four is forbidden for Black and never played. |
 | `Forbidden(p)` | a single four whose only block `p` is a forbidden move. | Black only. |
 | `Unknown` | The win was proven but the line could not be completed: the attacker already had a four before the search (§6), or the extractor found no proven child to follow (06, §6). | — |
 
