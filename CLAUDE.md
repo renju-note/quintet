@@ -21,7 +21,7 @@ cargo build --target wasm32-unknown-unknown   # verify the wasm target still com
 wasm-pack build --scope renju-note            # what CI runs on release
 
 # Solver benchmark (benches/solvers.rs, cases in benches/cases/)
-cargo bench --bench solvers -- --tag quick        # about a second
+cargo bench --bench solvers -- --tag quick        # a few seconds
 cargo bench --bench solvers                       # everything but `heavy`
 cargo bench --bench solvers -- --save base.tsv    # then --baseline base.tsv
 scripts/bench-compare.sh main                     # this tree vs. a git ref

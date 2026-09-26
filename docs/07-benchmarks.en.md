@@ -62,7 +62,7 @@ benchmark is also a test, of positions too slow for `cargo test`.
 Typical uses:
 
 ```sh
-cargo bench --bench solvers -- --tag quick          # about a second
+cargo bench --bench solvers -- --tag quick          # a few seconds
 cargo bench --bench solvers                         # everything but `heavy`: a few minutes
 cargo bench --bench solvers -- --tag vct --tag disproven
 cargo bench --bench solvers -- --mode vct_pns --tag vct   # the same positions with PNS
@@ -146,7 +146,8 @@ Tags in use:
 | `proven` / `disproven` | The expected verdict. Disproofs matter as much as proofs: most of what an engine asks has no mate, and a disproof has to search the whole tree. |
 | `quick` | Well under a second. The set to run on every change. |
 | `slow` | Seconds to tens of seconds. |
-| `heavy` | A minute or more. Left out unless asked for. |
+| `heavy` | Too slow for the default set: a minute or more, or 3 s or more among the `game` cases. Left out unless asked for. |
+| `game` | Taken from a played game (§4.1). |
 
 Adding a case:
 
@@ -161,6 +162,37 @@ Adding a case:
 - Keep `quick` quick, and the default set (everything but `heavy`) within a
   few minutes: the Bench workflow runs it on every pull request.
 
+### 4.1 Positions from games (`vct_game_*`)
+
+The puzzles above are made to have one hard mate. The `game` cases are
+positions met in play instead: 100 VCT positions from about 2,400 games
+between Rapfi (classical) and quintet-ai, an engine in development. A game
+that ends in a five ends in a mate, so each game was walked back from its
+end, two plies at a time, over the positions with the winner to move; a
+position with a VCF was passed over, and for the others the shortest VCT
+limit `L` was found by asking one reused df-pn solver limit 1, 2, 3, ...
+(`threat_limit` 2). The walk stopped at the first position with no VCT
+within limit 20.
+
+- **Names.** `vct_game_{black|white}_lLL_N` is proven at its shortest limit
+  `LL`; `..._short` is the same position at `LL - 1`, disproven. Together
+  they pin the length of the mate from both sides.
+- **Spread.** 50 cases per colour: 30 proven, over the limit bands 3–4, 5–6,
+  7–8, 9–10, 11–12 and 13 or more (5, 6, 7, 6, 3, 3 cases), each band spread
+  from its easiest to its hardest position by df-pn nodes; 20 of them also
+  have their `_short` twin. The proven cases of one band come from different
+  games (four games give a case to two bands each). The longest are limit 17
+  (Black) and 18 (White).
+- **Checked.** Every verdict was reached afresh by `vct_dfpns` and `vct_pns`
+  and never contradicted by `vct` (which ran out of a 20M-node budget on 29
+  of them). Proven at `LL` and disproven at `LL - 1` means `LL` is the
+  shortest limit.
+- **Cost.** All 100 take about 140 s in one run on an Apple M1; the 14 of
+  3 s or more are tagged `heavy`, which leaves about 40 s in the default set.
+  `--tag game --all` runs them all.
+- Each file's comment gives the game's players and the moves up to the
+  position.
+
 ## 5. Cheat sheet
 
 | I want to… | Use |
@@ -171,4 +203,5 @@ Adding a case:
 | Compare with `main` | `scripts/bench-compare.sh main` |
 | Compare two VCT modes on the same positions | `--mode vct_pns --tag vct`, then `--mode vct_dfpns --tag vct` |
 | Keep a result to compare with later | `--save PATH`, later `--baseline PATH` |
+| Run the positions from games | `cargo bench --bench solvers -- --tag game --all` (§4.1) |
 | Add a position | A new `benches/cases/NAME.txt` (§4) |

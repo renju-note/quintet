@@ -1,0 +1,26 @@
+# From a game between Rapfi (classical) and quintet-ai, an engine in
+# development (Black: quintet-ai, White: Rapfi), 23 moves before
+# its end. White's shortest VCT here needs 15 attacks (threat_limit 2).
+# Moves: H8,G9,F6,E9,I9,G7,H6,H7,G6,I6,F9,F8,I7,E7,D6,E6,E8,G11,G10
+mode: vct_dfpns
+attacker: x
+limit: 15
+threat_limit: 2
+tags: vct proven game slow heavy
+expect: D10,C11,D7,F7,D9,F10,F5,C8,G4,H3,H5,F3,J5,K4,J7,K8,J6,H11,I12,J4,J9
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . x . . . . . . . .
+. . . . . . o . . . . . . . .
+. . . . x o x . o . . . . . .
+. . . . o x . o . . . . . . .
+. . . . x . x x o . . . . . .
+. . . o x o o o x . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
