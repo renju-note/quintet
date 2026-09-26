@@ -1,7 +1,6 @@
 use super::forbidden::*;
 use super::grid::*;
 use super::line::*;
-use super::map::*;
 use super::player::*;
 use super::point::*;
 use super::structure::*;
@@ -13,8 +12,6 @@ use std::str::FromStr;
 pub struct Board {
     grid: Grid,
     z_hash: u64,
-    /// Each player's swords, for the VCF search (see [`SwordMap`]).
-    swords: SwordMap,
 }
 
 impl Board {
@@ -29,13 +26,7 @@ impl Board {
     }
 
     fn from_grid(grid: Grid, z_hash: u64) -> Self {
-        let mut swords = SwordMap::new();
-        swords.sync(&grid);
-        Self {
-            grid,
-            z_hash,
-            swords,
-        }
+        Self { grid, z_hash }
     }
 
     pub fn put_mut(&mut self, r: Player, p: Point) {
@@ -49,7 +40,6 @@ impl Board {
         }
         self.grid.put_mut(r, p);
         self.update_z_hash(r, p);
-        self.swords.mark_stale(p);
     }
 
     pub fn remove_mut(&mut self, p: Point) {
@@ -57,7 +47,6 @@ impl Board {
             self.update_z_hash(r, p)
         }
         self.grid.remove_mut(p);
-        self.swords.mark_stale(p);
     }
 
     pub fn put(&self, r: Player, p: Point) -> Self {
@@ -165,28 +154,6 @@ impl Board {
         zobrist::apply_n(self.z_hash, n)
     }
 
-    /// Brings the swords up to date with the stones. Call it before
-    /// [`Self::swords`] or [`Self::swords_on`].
-    pub fn sync_swords(&mut self) {
-        self.swords.sync(&self.grid);
-    }
-
-    pub fn swords_synced(&self) -> bool {
-        self.swords.is_synced()
-    }
-
-    /// The same as `structures(r, Sword)`, in the same order, without
-    /// scanning the board. The swords must be in sync.
-    pub fn swords(&self, r: Player) -> impl Iterator<Item = Structure> + '_ {
-        self.swords.swords(&self.grid, r)
-    }
-
-    /// The same as `structures_on(p, r, Sword)`, in the same order, without
-    /// scanning the lines. The swords must be in sync.
-    pub fn swords_on(&self, p: Point, r: Player) -> impl Iterator<Item = Structure> + '_ {
-        self.swords.swords_on(&self.grid, p, r)
-    }
-
     fn update_z_hash(&mut self, r: Player, p: Point) {
         self.z_hash = zobrist::apply_move(self.z_hash, r, p);
     }
@@ -220,24 +187,6 @@ impl FromStr for Board {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// `Board` hands its moves to its `SwordMap` (tested in `map.rs`).
-    #[test]
-    fn test_swords_follow_the_stones() -> Result<(), String> {
-        let mut board = "H8,H9,J8/G8".parse::<Board>()?;
-        assert!(board.swords_synced());
-        let before: Vec<_> = board.swords(Black).collect();
-        board.put_mut(Black, "H10".parse()?);
-        assert!(!board.swords_synced());
-        board.sync_swords();
-        let scanned: Vec<_> = board.structures(Black, StructureKind::Sword).collect();
-        assert_eq!(board.swords(Black).collect::<Vec<_>>(), scanned);
-        assert_ne!(scanned, before);
-        board.remove_mut("H10".parse()?);
-        board.sync_swords();
-        assert_eq!(board.swords(Black).collect::<Vec<_>>(), before);
-        Ok(())
-    }
 
     /// The hash is kept up to date move by move; it has to stay the hash
     /// of the stones on the board, however they got there.

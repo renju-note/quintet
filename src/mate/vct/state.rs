@@ -1,6 +1,7 @@
 use crate::board::StructureKind::*;
 use crate::board::*;
 use crate::feature::potential::PotentialField;
+use crate::feature::sword::SwordMap;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
 use crate::mate::state::{Key, State};
@@ -11,15 +12,19 @@ pub struct VCTState {
     pub attacker: Player,
     pub limit: u8,
     field: PotentialField,
+    /// The swords, kept only to hand to the nested VCF states.
+    swords: SwordMap,
 }
 
 impl VCTState {
     pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
+        let swords = SwordMap::init(game.board());
         Self {
             attacker: game.turn,
             game,
             limit,
             field,
+            swords,
         }
     }
 
@@ -30,16 +35,13 @@ impl VCTState {
     }
 
     pub fn vcf_state(&mut self, max_limit: u8) -> VCFState {
-        // Synced here rather than in the copy, so that the next copy starts
-        // from what this one computed.
-        self.game.synced_board();
         let game = self.game.clone();
         let limit = self.limit.min(max_limit);
-        VCFState::new(game, limit)
+        VCFState::with_swords(game, limit, self.synced_swords())
     }
 
     pub fn threat_state(&mut self, max_limit: u8) -> VCFState {
-        self.game.synced_board();
+        let swords = self.synced_swords();
         let mut game = self.game.clone();
         game.play(None);
         let limit = if self.attacking() {
@@ -48,7 +50,15 @@ impl VCTState {
             self.limit
         }
         .min(max_limit);
-        VCFState::new(game, limit)
+        // A pass puts no stone, so the swords are still those of the board.
+        VCFState::with_swords(game, limit, swords)
+    }
+
+    /// A copy of the swords for a nested VCF state. Synced here rather than
+    /// in the copy, so that the next copy starts from what this one computed.
+    fn synced_swords(&mut self) -> SwordMap {
+        self.swords.sync(self.game.board());
+        self.swords.clone()
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -175,12 +185,14 @@ impl State for VCTState {
     fn after_play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
             self.field.mark_stale(next_move);
+            self.swords.mark_stale(next_move);
         }
     }
 
     fn after_undo(&mut self, maybe_last_move: Option<Point>) {
         if let Some(last_move) = maybe_last_move {
             self.field.mark_stale(last_move);
+            self.swords.mark_stale(last_move);
         }
     }
 }

@@ -54,13 +54,14 @@ after the attack. If the attack happens to make *two* fours, the defender's
 `check_event` reports `Defeated(Fours(..))` before the stored block is ever
 played, so the stored eye only matters for a single four.
 
-None of the three scans the board: they read the swords `Board` caches
-(`Board::swords` / `swords_on`, 02 §8) through `Game::synced_board`, which
-first recomputes the lines the moves since the last read have touched.
+None of the three scans the board: they read the swords `VCFState` caches
+in its `SwordMap` (02 §8), which `after_play` / `after_undo` mark and which
+is synced first, recomputing the lines the moves since the last read have
+touched.
 The order is exactly that of `structures` / `structures_on`, so the tree
 searched is the one a full scan gives. A nested VCF inside the VCT search
-starts from a clone of the VCT's board, which `VCTState` syncs before
-cloning, so it starts with nothing stale.
+starts from a clone of the `SwordMap` `VCTState` keeps, which it syncs
+before cloning, so it starts with nothing stale.
 
 ## 2. `DFSSolver`
 

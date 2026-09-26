@@ -22,6 +22,7 @@ src/mate/
 ├── vcf.rs, vcf/     四追いソルバー                    (05)
 └── vct.rs, vct/     追い詰めソルバー                  (06)
 src/feature/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
+src/feature/sword.rs       SwordMap: 四追い用の剣先キャッシュ (02 §8, 05)
 ```
 
 部品の関係（下から上へ）:

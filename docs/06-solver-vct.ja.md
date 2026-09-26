@@ -73,7 +73,7 @@ pub struct VCTState { game: Game, pub attacker: Player, pub limit: u8, field: Po
 ```
 
 - `field` は攻め方の `PotentialField`（§8）で、`PotentialField::init(attacker, 2, board)` で作る。`after_play` / `after_undo` は打った点に「古い」印を付けるだけ。場は次に読まれるとき（`sorted_potentials` / `sort_by_potential`）に、古い点を通る 4 本の線だけを更新する。場が読まれるのは、候補手がキャッシュになかったときだけ。
-- `vcf_state` / `threat_state` は、ゲームをクローンする前に盤面の剣先（02 §8）を同期する。内部の四追いは同期済みの状態から始まり、次の四追いもこの計算を再利用できる。
+- `VCTState` は `SwordMap`（02 §8）も同じように持つ。`vcf_state` / `threat_state` はそれを同期してからクローンを内部の `VCFState` に渡す。内部の四追いは同期済みの状態から始まり、次の四追いもこの計算を再利用できる。
 - `next_key(m)` は `m` を打った後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
 
 ### 派生する 2 つの `VCFState`
