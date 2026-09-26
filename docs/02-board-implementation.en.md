@@ -161,14 +161,16 @@ every segment in parallel.
 - `scoring(r, n)`: the same with `score(r) == n`, i.e. also no black stone
   at `j - 1` or `j + 5` for Black.
 - `row_starts(r, kind)`: bit `j` is set if the row is at segment
-  `j`, from the above. `rows` walks its set bits.
+  `j`, from the above. `rows` walks its set bits (`Bits`, one
+  `trailing_zeros` per row).
 
 A test checks `row_starts` against `RowKind::matches` on every
 line of up to nine cells and on random full-length lines.
 
 `rows_on(i, r, kind)` keeps only the rows through cell `i`: the
 segment has `i` among its five cells, and for a row of two segments the
-earlier one does too, so `i` is in the four cells they share. It is what
+earlier one does too, so `i` is in the four cells they share.
+`row_starts_on(i, r, kind)` is the same as a mask. It is what
 `rows_on(p, …)` uses to ask "which rows does this move touch?".
 
 ## 4. `Grid`: the full board
@@ -272,8 +274,8 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 `ForbiddenKind` is one of `Overline`, `DoubleFour` or `DoubleThree`.
 
 - `forbidden_strict` first applies the exception in rule 9.2: if `p` is
-  already occupied, or playing `p` makes a five (`rows_on(p, Black,
-  Four)` is non-empty), the move is *not* forbidden. Otherwise it delegates
+  already occupied, or playing `p` makes a five (`row_starts_on(p, Black,
+  Four)` has a start), the move is *not* forbidden. Otherwise it delegates
   to `forbidden`.
 - `forbidden` checks overline, double-four and double-three in that order;
   a point matching several kinds is reported as the first one found.
@@ -286,8 +288,13 @@ by the search itself before the forbidden check matters.
 ### Overline (rule 9.2 a)
 
 ```rust
-fn overline(g, p) -> bool { g.rows_on(p, Black, Overlining).next().is_some() }
+fn overline(g, p) -> bool { any(g.row_starts_on(p, Black, Overlining)) }
 ```
+
+`Grid::row_starts_on(p, r, kind)` gives, per line through `p`, the mask
+`Line::row_starts_on` of where the rows `rows_on(p, r, kind)` would give
+start (§3.1), without building them. Asking whether there is one (`any`),
+or more than one (`distinctive_starts`, below), is then a test on bits.
 
 An `Overlining` is two adjacent segments, each holding 4 black stones and
 both containing the empty point `p`. Together they span 6 cells with 5
@@ -297,7 +304,7 @@ stones, so playing `p` completes a run of six or more.
 
 ```rust
 fn double_four(g, p) -> bool {
-    distinctive(&mut g.rows_on(p, Black, Sword).map(|s| s.start_index()))
+    distinctive_starts(g.row_starts_on(p, Black, Sword))
 }
 ```
 
@@ -314,12 +321,17 @@ neighbour is excluded for the following reason:
   case on different lines, but also on the same line when the shape is like
   `o.o_o.o`, which gives two distinct fives-to-be.
 
+`distinctive_starts` asks the same of the masks: a second line with a start,
+or, on the first one, a start other than its lowest `j` and `j + 1`
+(`s & !(0b11 << s.trailing_zeros()) != 0`). `distinctive` itself is still
+used on the `Three`s below, which have to be looked at one by one.
+
 ### Double-three (rules 9.2 c and 9.3)
 
 ```rust
 fn double_three(g, p) -> bool {
     // cheap pre-filter: at least two "three-to-be" rows through p
-    if !distinctive(g.rows_on(p, Black, Two)) { return false; }
+    if !distinctive_starts(g.row_starts_on(p, Black, Two)) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
@@ -411,6 +423,13 @@ of a line, `Line::potentials(r, min)` computes a value as follows:
 2. A cell is worth the best segment through it (at most five), times the
    number of segments through it reaching that best.
 3. Cells below `min` are not reported.
+
+It is worked out on the same bit-sliced counts as `counting`: one mask per
+score of the segments alive and worth at least `min`, and for each empty
+cell, from the best score down, `count_ones` of that mask over the (at
+most five) segments through the cell. The first score with any is the
+best, and the count is how many reach it. A test checks this against the
+segment-by-segment definition above, on the same lines as `row_starts`.
 
 `Grid::potentials` / `potentials_along` expose this per `Index`, and
 `src/feature/potential.rs` aggregates it per point for move ordering.

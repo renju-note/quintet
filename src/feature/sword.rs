@@ -71,10 +71,8 @@ impl SwordMap {
 
     /// Recomputes the stale lines from `board`.
     pub fn sync(&mut self, board: &Board) {
-        while self.stale != 0 {
-            let k = self.stale.trailing_zeros() as usize;
-            self.stale &= self.stale - 1;
-            self.update(k, board);
+        for k in Bits(std::mem::take(&mut self.stale)) {
+            self.update(k as usize, board);
         }
     }
 
@@ -82,7 +80,7 @@ impl SwordMap {
     pub fn swords<'a>(&'a self, board: &'a Board, r: Player) -> impl Iterator<Item = Row> + 'a {
         debug_assert!(self.is_synced());
         let swords = &self.players[player_index(r)];
-        bits(swords.lines).flat_map(move |k| {
+        Bits(swords.lines).flat_map(move |k| {
             let k = k as usize;
             swords_in(board, r, k, swords.starts[k])
         })
@@ -137,23 +135,11 @@ impl Default for SwordMap {
 fn swords_in(board: &Board, r: Player, k: usize, starts: u16) -> impl Iterator<Item = Row> + '_ {
     let (d, i) = Grid::line_of_key(k);
     let line = board.line(d, i).unwrap();
-    bits(starts as u128).map(move |j| Row::new(Index::new(d, i, j), r, Sword, line.segment(j)))
+    Bits(starts).map(move |j| Row::new(Index::new(d, i, j), r, Sword, line.segment(j)))
 }
 
 fn player_index(r: Player) -> usize {
     if r.is_black() { 0 } else { 1 }
-}
-
-/// The positions of the set bits of `x`, lowest first.
-fn bits(mut x: u128) -> impl Iterator<Item = u8> {
-    std::iter::from_fn(move || {
-        if x == 0 {
-            return None;
-        }
-        let b = x.trailing_zeros() as u8;
-        x &= x - 1;
-        Some(b)
-    })
 }
 
 #[cfg(test)]

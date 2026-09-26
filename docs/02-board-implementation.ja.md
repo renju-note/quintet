@@ -110,11 +110,11 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 
 - `counting(r, n)`: セグメント `j` が `free(r)` で `count(r) == n` ならビット `j` を立てる。5 マスの和はビットスライスで求める（全加算器、半加算器、繰り上がり）。
 - `scoring(r, n)`: 同じく `score(r) == n` のもの。黒ならさらに `j - 1` と `j + 5` に黒石がないこと。
-- `row_starts(r, kind)`: 連がセグメント `j` にあればビット `j` を立てる。上の 2 つから求める。`rows` はその立っているビットをたどる。
+- `row_starts(r, kind)`: 連がセグメント `j` にあればビット `j` を立てる。上の 2 つから求める。`rows` はその立っているビットをたどる（`Bits`。連 1 つにつき `trailing_zeros` 1 回）。
 
 `row_starts` が `RowKind::matches` と一致することは、長さ 9 以下のすべての線と、ランダムな長さ 15 の線でテストしている。
 
-`rows_on(i, r, kind)` はセル `i` を通る連だけを残す。セグメントの 5 マスに `i` が含まれ、2 つのセグメントからなる連では前のセグメントにも含まれる、つまり 2 つが共有する 4 マスに `i` がある。`rows_on(p, …)` が「この着手はどの連に関わるか」を調べるときに使う。
+`rows_on(i, r, kind)` はセル `i` を通る連だけを残す。セグメントの 5 マスに `i` が含まれ、2 つのセグメントからなる連では前のセグメントにも含まれる、つまり 2 つが共有する 4 マスに `i` がある。`rows_on(p, …)` が「この着手はどの連に関わるか」を調べるときに使う。`row_starts_on(i, r, kind)` は同じものをマスクで返す。
 
 ## 4. `Grid`: 盤全体
 
@@ -184,7 +184,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 
 `ForbiddenKind` は `Overline`（長連）、`DoubleFour`（四四）、`DoubleThree`（三三）のいずれかである。
 
-- `forbidden_strict` はまずルール 9.2 の例外を適用する。`p` にすでに石がある場合、または `p` に打つと五ができる場合（`rows_on(p, Black, Four)` が空でない）は禁手*ではない*と判定する。それ以外の場合は `forbidden` に委譲する。
+- `forbidden_strict` はまずルール 9.2 の例外を適用する。`p` にすでに石がある場合、または `p` に打つと五ができる場合（`row_starts_on(p, Black, Four)` に始点がある）は禁手*ではない*と判定する。それ以外の場合は `forbidden` に委譲する。
 - `forbidden` は長連、四四、三三の順に調べ、複数に該当する点は最初に見つかったものを報告する。
 - `forbiddens` は盤上の禁手となる空点をすべて列挙する。
 
@@ -193,8 +193,10 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ### 長連（9.2 a）
 
 ```rust
-fn overline(g, p) -> bool { g.rows_on(p, Black, Overlining).next().is_some() }
+fn overline(g, p) -> bool { any(g.row_starts_on(p, Black, Overlining)) }
 ```
+
+`Grid::row_starts_on(p, r, kind)` は、`p` を通る線ごとに、`rows_on(p, r, kind)` が返す連の始点のマスク `Line::row_starts_on`（§3.1）を、連を組み立てずに返す。連があるか（`any`）、2 つ以上あるか（後述の `distinctive_starts`）は、ビットの判定で済む。
 
 `Overlining`（六腐）は、隣り合う 2 つのセグメントがそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
 
@@ -202,7 +204,7 @@ fn overline(g, p) -> bool { g.rows_on(p, Black, Overlining).next().is_some() }
 
 ```rust
 fn double_four(g, p) -> bool {
-    distinctive(&mut g.rows_on(p, Black, Sword).map(|s| s.start_index()))
+    distinctive_starts(g.row_starts_on(p, Black, Sword))
 }
 ```
 
@@ -211,12 +213,14 @@ fn double_four(g, p) -> bool {
 - 同一線上の隣り合うセグメントにある 2 つの `Sword` は、1 つの棒四の両半分（`.oo_o.` → `.oooo.`）である。四としては 1 つなので二重に数えない。
 - 隣接しない 2 つのセグメントは本物の四四である。別の線上にある場合はもちろん、同一線上でも `o.o_o.o` のように 2 つの異なる五候補になる場合が該当する。
 
+`distinctive_starts` は同じことをマスクについて調べる。始点のある線が 2 本目にもあるか、最初の線で最小の始点 `j` と `j + 1` 以外に始点がある（`s & !(0b11 << s.trailing_zeros()) != 0`）なら真である。`distinctive` そのものは、1 つずつ見る必要がある下の `Three` に使う。
+
 ### 三三（9.2 c および 9.3）
 
 ```rust
 fn double_three(g, p) -> bool {
     // 軽い前段フィルタ: p を通る二連（Two）が 2 つ以上
-    if !distinctive(g.rows_on(p, Black, Two)) { return false; }
+    if !distinctive_starts(g.row_starts_on(p, Black, Two)) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
@@ -277,6 +281,8 @@ fn truthy_double_three(next, p) -> bool {
 1. 各セグメントの値は `score(r) + 1`、つまりそこに打った後にセグメントが持つ石数とする。死んでいるセグメント（§3）は 0。`min` 未満の値は 0 と見なす。
 2. 空点の値は、その空点を通る（高々 5 つの）セグメントの最大値 × 最大値に達したセグメントの数である。
 3. `min` 未満の空点は返さない。
+
+計算には `counting` と同じビットスライスの石数を使う。生きていて値が `min` 以上のセグメントを石数ごとに 1 つのマスクにし、各空点について、石数の多い方から、その空点を通る（高々 5 つの）セグメントに絞ったマスクの `count_ones` を取る。最初に 0 でなかった石数が最大値で、その数が最大値に達したセグメントの数である。上のセグメントごとの定義と一致することは、`row_starts` と同じ線でテストしている。
 
 `Grid::potentials` / `potentials_along` がこれを `Index` ごとに公開し、`src/feature/potential.rs` が点ごとに集約して手の順序付けに使う。`VICTORY = 5` は五の長さである。
 

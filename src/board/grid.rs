@@ -220,6 +220,14 @@ impl Grid {
             })
     }
 
+    /// Per line through `p`, [`Line::row_starts_on`] for `p`'s cell: where
+    /// the rows of [`Self::rows_on`] start, without building them.
+    pub fn row_starts_on(&self, p: Point, r: Player, k: RowKind) -> impl Iterator<Item = u16> + '_ {
+        self.lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
+            .map(move |(d, _, l)| l.row_starts_on(p.to_index(d).j, r, k))
+    }
+
     pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (Index, u8)> + '_ {
         self.lines()
             .filter(move |(_, _, l)| l.potential_cap(r) >= min)

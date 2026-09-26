@@ -1,3 +1,4 @@
+use super::bits::Bits;
 use super::player::*;
 use super::point::*;
 use super::segment::*;
@@ -33,15 +34,11 @@ impl Row {
     }
 
     pub fn stones(&self) -> impl Iterator<Item = Point> + use<> {
-        self.start
-            .mapped(BITS[self.stones as usize])
-            .map(|i| i.to_point())
+        self.start.mapped(Bits(self.stones)).map(|i| i.to_point())
     }
 
     pub fn eyes(&self) -> impl Iterator<Item = Point> + use<> {
-        self.start
-            .mapped(BITS[self.eyes as usize])
-            .map(|i| i.to_point())
+        self.start.mapped(Bits(self.eyes)).map(|i| i.to_point())
     }
 }
 

@@ -181,9 +181,9 @@ impl Index {
         }
     }
 
-    pub fn mapped<'a>(&self, steps: &'a [u8]) -> impl Iterator<Item = Self> + use<'a> {
+    pub fn mapped<I: Iterator<Item = u8>>(&self, steps: I) -> impl Iterator<Item = Self> + use<I> {
         let start = *self;
-        steps.iter().map(move |&s| start.walk(s))
+        steps.map(move |s| start.walk(s))
     }
 
     pub fn maxj(&self) -> u8 {

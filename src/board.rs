@@ -1,3 +1,4 @@
+mod bits;
 #[allow(clippy::module_inception)]
 mod board;
 mod forbidden;
@@ -9,6 +10,7 @@ mod row;
 mod segment;
 mod zobrist;
 
+pub use bits::Bits;
 pub use board::Board;
 pub use forbidden::ForbiddenKind;
 pub use grid::{Grid, LINE_NUM};
