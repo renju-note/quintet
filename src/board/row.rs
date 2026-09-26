@@ -113,7 +113,7 @@ impl RowKind {
     /// The cells of the (later) segment that can be the row's eyes, as
     /// a bitmask: all five, but only the four shared ones for the open
     /// rows, whose fifth cell is an open end.
-    fn eye_cells(&self) -> u8 {
+    pub fn eye_cells(&self) -> u8 {
         match self {
             Two | Three | Straight => 0b01111,
             _ => 0b11111,

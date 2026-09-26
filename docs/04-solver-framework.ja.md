@@ -22,6 +22,7 @@ src/mate/
 ├── vcf.rs, vcf/     四追いソルバー                    (05)
 └── vct.rs, vct/     追い詰めソルバー                  (06)
 src/feature/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
+src/feature/shape.rs       ShapeMap: 着手で何ができるか、追い詰めの手の並べ替え用 (06 §8)
 src/feature/sword.rs       SwordMap: 四追い用の剣先キャッシュ (02 §8, 05)
 ```
 
@@ -35,7 +36,7 @@ Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solve
 ```
 
 - **`Game`**: 盤面 + 探索中に打った手。
-- **`State`**: `Game` + 探索に必要な情報。どちら側の探索か、攻め手はあと何手か、追い詰めなら手の並べ替え用のポテンシャル場。
+- **`State`**: `Game` + 探索に必要な情報。どちら側の探索か、攻め手はあと何手か、追い詰めなら手の並べ替え用のポテンシャル場と形のマップ。
 - **`Solver`**: `State` を探索する。問いをまたいで生きる **`Memo`** を持つ。メモのキーは `State` の **`Key`**。
 - **`NodeBudget`**: 1 つの問い（または一連の問い）に使ってよい仕事量。
 

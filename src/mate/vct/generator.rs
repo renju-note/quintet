@@ -57,14 +57,14 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         // This is not necessary but narrows candidates
         let maybe_threat = self.defender_vcf.threat(state, budget);
         let maybe_threat_defences = maybe_threat.map(|t| state.threat_defences(&t));
-        let mut result = state.sorted_potentials(3, maybe_threat_defences);
-        result.retain(|&x| !state.is_forbidden_move(x.0));
+        let mut result = state.sorted_attacks(maybe_threat_defences);
+        result.retain(|&p| !state.is_forbidden_move(p));
 
         if result.is_empty() {
             return Terminal(Node::disproven(state.limit));
         }
 
-        Moves(result.into_iter().map(|x| x.0).collect())
+        Moves(result)
     }
 
     fn compute_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
@@ -80,14 +80,14 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
         let threat = maybe_threat.unwrap();
         let threat_defences = state.threat_defences(&threat);
-        let mut result = state.sort_by_potential(threat_defences);
-        result.retain(|&x| !state.is_forbidden_move(x.0));
+        let mut result = state.sorted_defences(threat_defences);
+        result.retain(|&p| !state.is_forbidden_move(p));
 
         if result.is_empty() {
             return Terminal(Node::proven(state.limit));
         }
 
-        Moves(result.into_iter().map(|x| x.0).collect())
+        Moves(result)
     }
 }
 

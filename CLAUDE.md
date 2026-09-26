@@ -47,8 +47,11 @@ slower and some cases time out.
   `Board` is the facade over them.
 - `src/feature/` — search-side caches the solver states keep in step with
   the moves: `potential.rs` (`PotentialField`, per-point potential
-  evaluation used for VCT move ordering) and `sword.rs` (`SwordMap`, a
-  lazily updated cache of each line's swords for VCF).
+  evaluation used for VCT move ordering), `shape.rs` (`ShapeMap`, what a
+  stone at each point would make on each line — two, three, four... —
+  also for VCT move ordering, weighed in `VCTState::priority`) and
+  `sword.rs` (`SwordMap`, a lazily updated cache of each line's swords for
+  VCF).
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
   `SolveMode`) and also holds the integration tests. `solver.rs` is the
   `Solver` trait every solver implements (`solve` / `clear` /

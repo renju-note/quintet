@@ -10,7 +10,7 @@ attacker: o
 limit: 12
 threat_limit: 3
 tags: vct proven slow heavy
-expect: E8,H11,K7,L8,H4,G3,G5,I3,H10,K10,F5,E5,D7,C6,F7,D8,F6,F8,H5,J5,G6
+expect: E8,H11,K7,L8,H4,G3,G5,I4,E7,F6,D7,C6,E6,E5,C7,B7,D9,C8,E9,E10,F7,G7,C10
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .
