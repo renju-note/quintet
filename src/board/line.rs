@@ -179,7 +179,8 @@ impl Line {
     /// Bit `j` of `x >> k` is cell `j + k`, so each condition is checked
     /// for every segment in parallel: no opponent stone in the five cells,
     /// and the five added up bit-sliced, a full adder on the first three,
-    /// a half adder on the last two, then the carries.
+    /// a half adder on the last two, then the carries. Worked through step
+    /// by step in `docs/02-board-implementation.en.md` §3.1.
     #[inline]
     fn tally(&self, r: Player) -> ([u16; 3], u16) {
         let (my, op) = self.my_op(r);
