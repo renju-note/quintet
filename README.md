@@ -35,7 +35,7 @@ import init, { solve_vct_dfpn, encode_xy, decode_x, decode_y } from "@renju-note
 await init();
 
 // Points are encoded as a single byte: x * 15 + y, with x, y in 0..15
-// (x = column A..O, y = row 1..15).
+// (x = column A..O, y = horizontal line 1..15).
 const blacks = [encode_xy(7, 7), encode_xy(7, 6)]; // H8, H7
 const whites = [encode_xy(6, 6)];                  // G7
 

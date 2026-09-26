@@ -1,12 +1,12 @@
 use crate::board::Direction::*;
 use crate::board::Player::*;
-use crate::board::StructureKind::Sword;
+use crate::board::RowKind::Sword;
 use crate::board::*;
 
 /// Where each player's swords are, kept alongside a [`Board`].
 ///
 /// A sword is three own stones in a five-cell window with no opponent stone
-/// (see [`StructureKind::Sword`]); its two empty eyes are what a VCF search
+/// (see [`RowKind::Sword`]); its two empty eyes are what a VCF search
 /// plays. The search asks for them at nearly every node, and scanning every
 /// line for them was most of its cost. This keeps, per player and per line
 /// (by [`Grid::line_key`]), the cells where a sword's window starts.
@@ -17,7 +17,7 @@ use crate::board::*;
 /// once matters: the searches move far more often than they read.
 ///
 /// [`Self::swords`] / [`Self::swords_on`] return what
-/// `Board::structures(r, Sword)` / `structures_on(p, r, Sword)` would, in
+/// `Board::rows(r, Sword)` / `rows_on(p, r, Sword)` would, in
 /// the same order, so a search reading either explores the same tree.
 #[derive(Clone)]
 pub struct SwordMap {
@@ -79,11 +79,7 @@ impl SwordMap {
     }
 
     /// `r`'s swords. The map must be in sync with `board`.
-    pub fn swords<'a>(
-        &'a self,
-        board: &'a Board,
-        r: Player,
-    ) -> impl Iterator<Item = Structure> + 'a {
+    pub fn swords<'a>(&'a self, board: &'a Board, r: Player) -> impl Iterator<Item = Row> + 'a {
         debug_assert!(self.is_synced());
         let swords = &self.players[player_index(r)];
         bits(swords.lines).flat_map(move |k| {
@@ -99,7 +95,7 @@ impl SwordMap {
         board: &'a Board,
         p: Point,
         r: Player,
-    ) -> impl Iterator<Item = Structure> + 'a {
+    ) -> impl Iterator<Item = Row> + 'a {
         debug_assert!(self.is_synced());
         let swords = &self.players[player_index(r)];
         [Vertical, Horizontal, Ascending, Descending]
@@ -121,7 +117,7 @@ impl SwordMap {
         let line = board.line(d, i).unwrap();
         for r in [Black, White] {
             let swords = &mut self.players[player_index(r)];
-            swords.starts[k] = line.structure_starts(r, Sword);
+            swords.starts[k] = line.row_starts(r, Sword);
             if swords.starts[k] != 0 {
                 swords.lines |= 1 << k;
             } else {
@@ -138,16 +134,10 @@ impl Default for SwordMap {
 }
 
 /// The swords of line `k` whose windows start at the bits of `starts`.
-fn swords_in(
-    board: &Board,
-    r: Player,
-    k: usize,
-    starts: u16,
-) -> impl Iterator<Item = Structure> + '_ {
+fn swords_in(board: &Board, r: Player, k: usize, starts: u16) -> impl Iterator<Item = Row> + '_ {
     let (d, i) = Grid::line_of_key(k);
     let line = board.line(d, i).unwrap();
-    bits(starts as u128)
-        .map(move |j| Structure::new(Index::new(d, i, j), r, Sword, line.segment(j)))
+    bits(starts as u128).map(move |j| Row::new(Index::new(d, i, j), r, Sword, line.segment(j)))
 }
 
 fn player_index(r: Player) -> usize {
@@ -175,12 +165,12 @@ mod tests {
     fn assert_matches_a_scan(map: &mut SwordMap, board: &Board) {
         map.sync(board);
         for r in [Black, White] {
-            let scanned: Vec<_> = board.structures(r, Sword).collect();
+            let scanned: Vec<_> = board.rows(r, Sword).collect();
             assert_eq!(map.swords(board, r).collect::<Vec<_>>(), scanned, "{r:?}");
             for x in 0..RANGE {
                 for y in 0..RANGE {
                     let p = Point(x, y);
-                    let scanned: Vec<_> = board.structures_on(p, r, Sword).collect();
+                    let scanned: Vec<_> = board.rows_on(p, r, Sword).collect();
                     assert_eq!(
                         map.swords_on(board, p, r).collect::<Vec<_>>(),
                         scanned,

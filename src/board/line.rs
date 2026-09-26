@@ -1,6 +1,6 @@
 use super::player::*;
+use super::row::RowKind::{self, *};
 use super::segment::*;
-use super::structure::StructureKind::{self, *};
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
@@ -78,24 +78,24 @@ impl Line {
         (0..=self.size - VICTORY).map(|j| (j, self.segment(j)))
     }
 
-    /// `r`'s structures of kind `k` in the line, as `(j, segment)`, `j`
+    /// `r`'s rows of kind `k` in the line, as `(j, segment)`, `j`
     /// being where the segment starts: the segments where
-    /// [`StructureKind::matches`] holds, the one before each as its `prev`.
-    pub fn structures(&self, r: Player, k: StructureKind) -> Structures {
-        Structures {
+    /// [`RowKind::matches`] holds, the one before each as its `prev`.
+    pub fn rows(&self, r: Player, k: RowKind) -> Rows {
+        Rows {
             line: *self,
-            starts: self.structure_starts(r, k),
+            starts: self.row_starts(r, k),
         }
     }
 
-    /// [`Self::structures`], only those through cell `i`. For a pattern of
+    /// [`Self::rows`], only those through cell `i`. For a row of
     /// two segments, both have to be through it.
-    pub fn structures_on(&self, i: u8, r: Player, k: StructureKind) -> Structures {
+    pub fn rows_on(&self, i: u8, r: Player, k: RowKind) -> Rows {
         let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
         let through = ((1u32 << (i + 1)) - (1u32 << first)) as u16;
-        Structures {
+        Rows {
             line: *self,
-            starts: self.structure_starts(r, k) & through,
+            starts: self.row_starts(r, k) & through,
         }
     }
 
@@ -129,10 +129,10 @@ impl Line {
         my.count_ones() as u8 + 1
     }
 
-    /// Bit `j` is set if `r` has a structure of kind `k` at the segment
-    /// starting at cell `j`: the starts [`Self::structures`] gives.
+    /// Bit `j` is set if `r` has a row of kind `k` at the segment
+    /// starting at cell `j`: the starts [`Self::rows`] gives.
     #[inline]
-    pub fn structure_starts(&self, r: Player, k: StructureKind) -> u16 {
+    pub fn row_starts(&self, r: Player, k: RowKind) -> u16 {
         let n = k.stones();
         match k {
             Sword | Four | Five => self.scoring(r, n),
@@ -189,15 +189,15 @@ impl Line {
     }
 }
 
-/// The segments of a line where one player has a structure of one kind:
-/// [`Line::structures`].
-pub struct Structures {
+/// The segments of a line where one player has a row of one kind:
+/// [`Line::rows`].
+pub struct Rows {
     line: Line,
     /// Where the segments not given yet start, bit `j` for cell `j`.
     starts: u16,
 }
 
-impl Iterator for Structures {
+impl Iterator for Rows {
     type Item = (u8, Segment);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -243,13 +243,13 @@ impl FromStr for Line {
 mod tests {
     use super::*;
 
-    const KINDS: [StructureKind; 8] = [
+    const KINDS: [RowKind; 8] = [
         Two, Three, Straight, Sword, Four, Five, Overlining, Overlined,
     ];
 
-    /// What `structures` is defined as: the segments, one at a time, where
-    /// `StructureKind::matches` holds.
-    fn structure_starts_by_segments(line: &Line, r: Player, k: StructureKind) -> u16 {
+    /// What `rows` is defined as: the segments, one at a time, where
+    /// `RowKind::matches` holds.
+    fn row_starts_by_segments(line: &Line, r: Player, k: RowKind) -> u16 {
         let mut starts = 0;
         let mut prev = None;
         for (j, cur) in line.segments() {
@@ -261,13 +261,13 @@ mod tests {
         starts
     }
 
-    /// Where `structures` / `structures_on` start, as a list.
-    fn starts(found: Structures) -> Vec<u8> {
+    /// Where `rows` / `rows_on` start, as a list.
+    fn starts(found: Rows) -> Vec<u8> {
         found.map(|(j, _)| j).collect()
     }
 
     #[test]
-    fn test_structure_starts_matches_segments() {
+    fn test_row_starts_matches_segments() {
         let check = |size: u8, cells: &[u8]| {
             let mut line = Line::new(size);
             for (i, &c) in cells.iter().enumerate() {
@@ -279,15 +279,15 @@ mod tests {
             }
             for r in [Black, White] {
                 for k in KINDS {
-                    let expected = structure_starts_by_segments(&line, r, k);
-                    assert_eq!(line.structure_starts(r, k), expected, "{r:?} {k:?} {line}");
-                    // Through cell `i`: the segment, and for a pattern of
+                    let expected = row_starts_by_segments(&line, r, k);
+                    assert_eq!(line.row_starts(r, k), expected, "{r:?} {k:?} {line}");
+                    // Through cell `i`: the segment, and for a row of
                     // two its predecessor too, has `i` among its cells.
                     for i in 0..size {
                         let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
                         let on: Vec<_> = (first..=i).filter(|j| expected & 1 << j != 0).collect();
                         assert_eq!(
-                            starts(line.structures_on(i, r, k)),
+                            starts(line.rows_on(i, r, k)),
                             on,
                             "{r:?} {k:?} {line} on {i}"
                         );
@@ -328,46 +328,46 @@ mod tests {
     }
 
     #[test]
-    fn test_structures() -> Result<(), String> {
+    fn test_rows() -> Result<(), String> {
         // Three stones in a segment free of the opponent. For Black, not
         // next to another black stone: segments 1 and 2 would make an
         // overline.
         let line = "-o-oo-o--------".parse::<Line>()?;
-        assert_eq!(starts(line.structures(Black, Sword)), [0, 3]);
+        assert_eq!(starts(line.rows(Black, Sword)), [0, 3]);
         let line = "-x-xx-x--------".parse::<Line>()?;
-        assert_eq!(starts(line.structures(White, Sword)), [0, 1, 2, 3]);
-        assert_eq!(starts(line.structures_on(6, White, Sword)), [2, 3]);
+        assert_eq!(starts(line.rows(White, Sword)), [0, 1, 2, 3]);
+        assert_eq!(starts(line.rows_on(6, White, Sword)), [2, 3]);
 
         // A three: two segments both scoring 3, with the stones in the four
         // cells they share, reported at the later one. Here cells 4-9.
         let line = "-----xx-x-x----".parse::<Line>()?;
-        assert_eq!(starts(line.structures(White, Three)), [5]);
-        assert_eq!(starts(line.structures_on(7, White, Three)), [5]);
+        assert_eq!(starts(line.rows(White, Three)), [5]);
+        assert_eq!(starts(line.rows_on(7, White, Three)), [5]);
         // ... which for Black would make an overline with cell 10.
         let line = "-----oo-o-o----".parse::<Line>()?;
-        assert_eq!(starts(line.structures(Black, Three)), []);
+        assert_eq!(starts(line.rows(Black, Three)), []);
         // Swords on each side of cell 7, but no three.
         let line = "---ooo---ooo---".parse::<Line>()?;
-        assert_eq!(starts(line.structures_on(7, Black, Sword)), [3, 7]);
-        assert_eq!(starts(line.structures_on(7, Black, Three)), []);
+        assert_eq!(starts(line.rows_on(7, Black, Sword)), [3, 7]);
+        assert_eq!(starts(line.rows_on(7, Black, Three)), []);
 
         // Five stones in six cells: the eye makes an overline.
         let line = "oo-ooo---------".parse::<Line>()?;
-        assert_eq!(starts(line.structures(Black, Overlining)), [1]);
-        assert_eq!(starts(line.structures(Black, Four)), []);
+        assert_eq!(starts(line.rows(Black, Overlining)), [1]);
+        assert_eq!(starts(line.rows(Black, Four)), []);
         // An open four has two such segments too, but not both through an
         // end, which is the only place left to play.
         let line = "-oooo-----o----".parse::<Line>()?;
-        assert_eq!(starts(line.structures(Black, Overlining)), [1]);
-        assert_eq!(starts(line.structures_on(0, Black, Overlining)), []);
-        assert_eq!(starts(line.structures_on(5, Black, Overlining)), []);
-        assert_eq!(starts(line.structures(Black, Straight)), [1]);
+        assert_eq!(starts(line.rows(Black, Overlining)), [1]);
+        assert_eq!(starts(line.rows_on(0, Black, Overlining)), []);
+        assert_eq!(starts(line.rows_on(5, Black, Overlining)), []);
+        assert_eq!(starts(line.rows(Black, Straight)), [1]);
 
         let line = "-oooooo--------".parse::<Line>()?;
-        assert_eq!(starts(line.structures(Black, Overlined)), [2]);
-        assert_eq!(starts(line.structures(Black, Five)), []);
+        assert_eq!(starts(line.rows(Black, Overlined)), [2]);
+        assert_eq!(starts(line.rows(Black, Five)), []);
         let line = "-xxxxxx--------".parse::<Line>()?;
-        assert_eq!(starts(line.structures(White, Five)), [1, 2]);
+        assert_eq!(starts(line.rows(White, Five)), [1, 2]);
         Ok(())
     }
 

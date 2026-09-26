@@ -1,15 +1,16 @@
 use super::line::*;
 use super::player::*;
 use super::point::*;
+use super::row::*;
 use super::segment::VICTORY;
-use super::structure::*;
 use std::fmt;
 use std::str::FromStr;
 
 const D_LINE_OMIT: u8 = VICTORY - 1;
 const D_LINE_NUM: u8 = (RANGE - D_LINE_OMIT) * 2 - 1; // 21
 
-/// How many lines are stored: every row and column, and the diagonals long
+/// How many lines are stored: every horizontal and vertical line, and the
+/// diagonals long
 /// enough to hold a five.
 pub const LINE_NUM: usize = (RANGE as usize + D_LINE_NUM as usize) * 2;
 
@@ -201,26 +202,21 @@ impl Grid {
         viter.chain(hiter).chain(aiter).chain(diter)
     }
 
-    pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
+    pub fn rows(&self, r: Player, k: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.lines()
             .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
             .flat_map(move |(d, i, l)| {
-                l.structures(r, k)
-                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), r, k, s))
+                l.rows(r, k)
+                    .map(move |(j, s)| Row::new(Index::new(d, i, j), r, k, s))
             })
     }
 
-    pub fn structures_on(
-        &self,
-        p: Point,
-        r: Player,
-        k: StructureKind,
-    ) -> impl Iterator<Item = Structure> + '_ {
+    pub fn rows_on(&self, p: Point, r: Player, k: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.lines_on(p)
             .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
             .flat_map(move |(d, i, l)| {
-                l.structures_on(p.to_index(d).j, r, k)
-                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), r, k, s))
+                l.rows_on(p.to_index(d).j, r, k)
+                    .map(move |(j, s)| Row::new(Index::new(d, i, j), r, k, s))
             })
     }
 
@@ -508,7 +504,7 @@ mod tests {
     }
 
     #[test]
-    fn test_structures() -> Result<(), String> {
+    fn test_rows() -> Result<(), String> {
         let grid = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .
@@ -530,22 +526,22 @@ mod tests {
 
         // Black's only open two is H6-K9 on the diagonal: H6-H8 is closed
         // by White's H9.
-        let twos: Vec<_> = grid.structures(Black, Two).collect();
+        let twos: Vec<_> = grid.rows(Black, Two).collect();
         assert_eq!(twos.len(), 1);
         assert_eq!(points(twos[0].eyes()), "I7,J8");
 
         // White's H9-J9 is closed by K9, so it is a sword (three stones that
         // can only become a closed four), not a three.
-        assert_eq!(grid.structures(White, Three).count(), 0);
-        let swords: Vec<_> = grid.structures(White, Sword).collect();
+        assert_eq!(grid.rows(White, Three).count(), 0);
+        let swords: Vec<_> = grid.rows(White, Sword).collect();
         assert_eq!(swords.len(), 1);
         assert_eq!(points(swords[0].stones()), "H9,I9,J9");
         assert_eq!(points(swords[0].eyes()), "F9,G9");
 
-        // `structures_on` is the same search, limited to one point's lines.
-        let on_h9: Vec<_> = grid.structures_on(Point(7, 8), White, Sword).collect();
+        // `rows_on` is the same search, limited to one point's lines.
+        let on_h9: Vec<_> = grid.rows_on(Point(7, 8), White, Sword).collect();
         assert_eq!(on_h9, swords);
-        assert_eq!(grid.structures_on(Point(7, 8), Black, Two).count(), 0);
+        assert_eq!(grid.rows_on(Point(7, 8), Black, Two).count(), 0);
 
         Ok(())
     }
@@ -615,7 +611,7 @@ mod tests {
         assert_eq!("H8,I9,J9".parse::<Grid>()?, expected);
         // Black stones / White stones.
         assert_eq!("H8,J9/I9".parse::<Grid>()?, expected);
-        // The board as `Display` writes it, row 15 first.
+        // The board as `Display` writes it, horizontal line 15 first.
         let s = "
          . . . . . . . . . . . . . . .
          . . . . . . . . . . . . . . .

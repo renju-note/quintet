@@ -5,6 +5,11 @@ from [01-renju-rules.en.md](01-renju-rules.en.md) — row, five, overline, four,
 four, three, double-four, double-three, forbidden move — are detected. It is
 written against the current code; identifiers in backticks can be grepped.
 
+A note on terms: "row" always means a row as defined in 01 §3 (`Row` in
+the code). The Japanese version holds to the same: 連 there always means a
+row, although Japanese sometimes uses it for a `Two`, and a `Two` is
+called 二連.
+
 Module map (`src/board.rs` declares the modules):
 
 | File | Role |
@@ -12,9 +17,9 @@ Module map (`src/board.rs` declares the modules):
 | `player.rs` | `Player` (`Black` / `White`) and its text form (`o` / `x`). |
 | `point.rs` | `Point` (x, y), `Points`, `Direction`, `Index` (position along a line). |
 | `segment.rs` | `Segment`: five consecutive cells of a line (one place for a five) and the cell on each side. |
-| `line.rs` | `Line`: one row/column/diagonal as two bitmasks; its segments, and the structures and potentials found from them. |
-| `structure.rs` | `StructureKind` (Two, Three, Sword, Four, Five, ...) and `Structure` (a pattern located on the board). |
-| `grid.rs` | `Grid`: the whole 15×15 board as four arrays of `Line`s, plus pattern queries. |
+| `line.rs` | `Line`: one horizontal, vertical or diagonal line as two bitmasks; its segments, and the rows and potentials found from them. |
+| `row.rs` | `RowKind` (Two, Three, Sword, Four, Five, ...) and `Row` (a row of one player's stones as defined in 01 §3, located on the board). |
+| `grid.rs` | `Grid`: the whole 15×15 board as four arrays of `Line`s, plus row queries. |
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
 | `board.rs` | `Board` = `Grid` + Zobrist hash; the public facade used by the solvers. |
@@ -25,11 +30,11 @@ bottom up:
 1. `Line` stores one line of the board as bitmasks (§2).
 2. A `Segment` is one place on a line where a five can be made, and says
    how far each player is from making it there (§3).
-3. `Grid` holds all the lines and answers "which patterns are on the
+3. `Grid` holds all the lines and answers "which rows are on the
    board / through this point?" (§4).
-4. `StructureKind` names those patterns in rule vocabulary — `Five`, `Four`,
+4. `RowKind` names those rows in rule vocabulary — `Five`, `Four`,
    `Three`, ... — each as one or two segments with the right score (§5).
-5. `forbidden.rs` combines a few `structures_on` queries into the
+5. `forbidden.rs` combines a few `rows_on` queries into the
    forbidden-move rules (§6).
 6. Potentials reuse the segments' scores for move ordering (§7), and
    `zobrist.rs` hashes the board (§8).
@@ -42,8 +47,8 @@ A point on the board is a `Point(x, y)`.
 
 - Both `x` and `y` are integers from `0` up to but not including `RANGE`
   (= 15).
-- `x` is the column: column `A` is 0 and column `O` is 14.
-- `y` is the row: row `1` is 0 and row `15` is 14.
+- `x` is the vertical line: line `A` is 0 and line `O` is 14.
+- `y` is the horizontal line: line `1` is 0 and line `15` is 14.
 
 Conversion to and from text uses the usual Renju notation such as `H8`
 (the `Display` / `FromStr` implementations). `Points`, a list of points, is
@@ -51,14 +56,14 @@ written comma-separated, as in `H8,H7,F6`.
 
 ### Lines and `Index`
 
-Every point lies on exactly four lines: a column, a row, an ascending
-diagonal and a descending diagonal. A line is identified by its `Direction`
-and a line number `i`, and a position on the line by `j`:
+Every point lies on exactly four lines: a vertical line, a horizontal
+line, an ascending diagonal and a descending diagonal. A line is identified
+by its `Direction` and a line number `i`, and a position on the line by `j`:
 
 | `Direction` | Line type | Line number `i` | Position on the line `j` |
 | --- | --- | --- | --- |
-| `Vertical` | column (`\|`) | `x` | `y` |
-| `Horizontal` | row (`-`) | `y` | `x` |
+| `Vertical` | vertical line (`\|`) | `x` | `y` |
+| `Horizontal` | horizontal line (`-`) | `y` | `x` |
 | `Ascending` | ascending diagonal (`/`) | `x + 14 - y` (0 through 28) | `x` if `i < 14`, else `y` |
 | `Descending` | descending diagonal (`\`) | `x + y` (0 through 28) | `x` if `i < 14`, else `14 - y` |
 
@@ -86,7 +91,7 @@ pub struct Line { blacks: u16, whites: u16, pub size: u8 }
 
 - `blacks` and `whites` are bitmasks of the black and white stones: bit `j`
   is set when position `j` holds a stone of that colour.
-- `size` is the line length: 15 for rows and columns, and anywhere from 5
+- `size` is the line length: 15 for horizontal and vertical lines, and anywhere from 5
   to 15 for diagonals (short diagonals are omitted, see §4).
 
 Placing a stone (`put_mut`), removing one (`remove_mut`) and reading a
@@ -99,7 +104,7 @@ stones, and "own stones + 1" otherwise.
 
 `segment(j)` cuts out the segment (§3) whose five cells start at cell `j`,
 and `segments()` lists them all, `j` from 0 to `size - 5`. Everything else a
-`Line` answers is built on them: `structures(r, kind)` (§3.1, §5) and
+`Line` answers is built on them: `rows(r, kind)` (§3.1, §5) and
 `potentials(r, min)` (§7).
 
 ## 3. `Segment`: one place for a five
@@ -141,11 +146,11 @@ makes an overline, so the segment is dead for Black. White has no such
 restriction; its margins do not matter, and an overline is a win like any
 other.
 
-### 3.1 Finding patterns on a line, all segments at once
+### 3.1 Finding rows on a line, all segments at once
 
-`Line::structures(r, kind)` gives the segments where `r` has a pattern of
+`Line::rows(r, kind)` gives the segments where `r` has a row of
 that kind (§5), as `(j, Segment)`. Checking the segments one by one is what
-`StructureKind::matches` states, but the solvers ask at nearly every node,
+`RowKind::matches` states, but the solvers ask at nearly every node,
 so the line finds them all at once with bit operations: bit `j` of `x >> k`
 is cell `j + k`, so a condition written over shifted masks is checked for
 every segment in parallel.
@@ -155,23 +160,23 @@ every segment in parallel.
   adder and the carries).
 - `scoring(r, n)`: the same with `score(r) == n`, i.e. also no black stone
   at `j - 1` or `j + 5` for Black.
-- `structure_starts(r, kind)`: bit `j` is set if the pattern is at segment
-  `j`, from the above. `structures` walks its set bits.
+- `row_starts(r, kind)`: bit `j` is set if the row is at segment
+  `j`, from the above. `rows` walks its set bits.
 
-A test checks `structure_starts` against `StructureKind::matches` on every
+A test checks `row_starts` against `RowKind::matches` on every
 line of up to nine cells and on random full-length lines.
 
-`structures_on(i, r, kind)` keeps only the patterns through cell `i`: the
-segment has `i` among its five cells, and for a pattern of two segments the
+`rows_on(i, r, kind)` keeps only the rows through cell `i`: the
+segment has `i` among its five cells, and for a row of two segments the
 earlier one does too, so `i` is in the four cells they share. It is what
-`structures_on(p, …)` uses to ask "which patterns does this move touch?".
+`rows_on(p, …)` uses to ask "which rows does this move touch?".
 
 ## 4. `Grid`: the full board
 
 ```rust
 pub struct Grid {
-    vlines: [Line; 15],  // columns,   indexed by x
-    hlines: [Line; 15],  // rows,      indexed by y
+    vlines: [Line; 15],  // vertical lines,   indexed by x
+    hlines: [Line; 15],  // horizontal lines, indexed by y
     alines: [Line; 21],  // ascending  diagonals with length >= 5
     dlines: [Line; 21],  // descending diagonals with length >= 5
 }
@@ -185,16 +190,16 @@ shortest diagonals at each corner are omitted:
 
 - Diagonal `i` for `i` from `4` through `24` is stored at `alines[i - 4]`
   (`D_LINE_OMIT = 4`, `D_LINE_NUM = 21`).
-- For the other diagonals `line_idx` returns `None`, and pattern queries
+- For the other diagonals `line_idx` returns `None`, and row queries
   simply skip them.
 
 Main queries:
 
 - `stone(p)`, `stones(player)`, `empties()`, `neighbors(p, distance, only_empty)`
   — reading stones and empty points.
-- `structures(r, kind)` — every `Structure` of kind `kind` for player `r`
+- `rows(r, kind)` — every `Row` of kind `kind` for player `r`
   on the whole board.
-- `structures_on(p, r, kind)` — only the structures through point `p`
+- `rows_on(p, r, kind)` — only the rows through point `p`
   (§3.1; just the four lines through `p` are examined). This is the hot
   path for "what does playing `p` create?".
 - `line(d, i)` / `line_on(p, d)` — the stored `Line` itself, `None` for the
@@ -209,17 +214,18 @@ formats:
 - A move list such as `H8,H7,F6`, alternating from Black.
 - A stone list such as `H8,F6/H7`, written as `blacks/whites`.
 - A 15-line ASCII picture: `o` is Black, `x` is White, `.` is empty, and
-  row 15 comes first. This is the format used throughout the tests.
+  horizontal line 15 comes first. This is the format used throughout the
+  tests.
 
-## 5. `StructureKind`: the rule vocabulary
+## 5. `RowKind`: the rule vocabulary
 
-Each `StructureKind` is one segment, or two neighbouring ones (segments
+Each `RowKind` is one segment, or two neighbouring ones (segments
 `j - 1` and `j`, together spanning the six cells `j - 1..=j + 4`), with the
-right scores. `StructureKind::matches(r, prev, cur)` states it for the
-segment `cur` and the one before it, `prev`; a pattern of two is reported at
+right scores. `RowKind::matches(r, prev, cur)` states it for the
+segment `cur` and the one before it, `prev`; a row of two is reported at
 the later segment.
 
-| `StructureKind` | Segments | Pattern (Black shown, `_` = eye) | Rule concept |
+| `RowKind` | Segments | Pattern (Black shown, `_` = eye) | Rule concept |
 | --- | --- | --- | --- |
 | `Five` | one scoring 5 | `ooooo` | **Five**. For Black, a score needs empty margins, so overlines are excluded. |
 | `Overlined` | two, each `free` with 5 stones | `oooooo` (6+) | **Overline**. |
@@ -230,10 +236,10 @@ the later segment.
 | `Two` | two scoring 2, the stones in the four cells they share | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
 | `Overlining` | two, each `free` with 4 stones | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
 
-For the open patterns (`Two`, `Three`, `Straight`) "the stones in the four
+For the open rows (`Two`, `Three`, `Straight`) "the stones in the four
 shared cells" means the later segment's last cell is empty; since both
 segments are alive, the six cells they span then have both ends empty. The
-overline patterns look at `free` segments rather than `alive` ones: an
+overline rows look at `free` segments rather than `alive` ones: an
 overline always has a black stone next to each of its segments, which is
 exactly what makes a segment dead for Black. Two `free` segments with four
 black stones each are either five stones in six cells (the empty one makes
@@ -248,9 +254,9 @@ making an overline". Consider the shape `o.oooo.` as an example:
   margin, so filling the gap on the left would make six.
 - Only segment `oooo.` counts: playing the right end makes exactly five.
 
-A `Structure` is where the pattern's (later) segment starts, an `Index`,
+A `Row` is where the row's (later) segment starts, an `Index`,
 with the masks of its stones and eyes; `stones()` and `eyes()` yield board
-`Point`s. For the open patterns only the four shared cells can be eyes: the
+`Point`s. For the open rows only the four shared cells can be eyes: the
 fifth is an open end, not a point to play.
 
 ## 6. Forbidden moves (`forbidden.rs`)
@@ -266,7 +272,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 `ForbiddenKind` is one of `Overline`, `DoubleFour` or `DoubleThree`.
 
 - `forbidden_strict` first applies the exception in rule 9.2: if `p` is
-  already occupied, or playing `p` makes a five (`structures_on(p, Black,
+  already occupied, or playing `p` makes a five (`rows_on(p, Black,
   Four)` is non-empty), the move is *not* forbidden. Otherwise it delegates
   to `forbidden`.
 - `forbidden` checks overline, double-four and double-three in that order;
@@ -280,7 +286,7 @@ by the search itself before the forbidden check matters.
 ### Overline (rule 9.2 a)
 
 ```rust
-fn overline(g, p) -> bool { g.structures_on(p, Black, Overlining).next().is_some() }
+fn overline(g, p) -> bool { g.rows_on(p, Black, Overlining).next().is_some() }
 ```
 
 An `Overlining` is two adjacent segments, each holding 4 black stones and
@@ -291,7 +297,7 @@ stones, so playing `p` completes a run of six or more.
 
 ```rust
 fn double_four(g, p) -> bool {
-    distinctive(&mut g.structures_on(p, Black, Sword).map(|s| s.start_index()))
+    distinctive(&mut g.rows_on(p, Black, Sword).map(|s| s.start_index()))
 }
 ```
 
@@ -312,15 +318,15 @@ neighbour is excluded for the following reason:
 
 ```rust
 fn double_three(g, p) -> bool {
-    // cheap pre-filter: at least two "three-to-be" patterns through p
-    if !distinctive(g.structures_on(p, Black, Two)) { return false; }
+    // cheap pre-filter: at least two "three-to-be" rows through p
+    if !distinctive(g.rows_on(p, Black, Two)) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
 }
 
 fn truthy_double_three(next, p) -> bool {
-    let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
+    let truthy_threes = next.rows_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();   // the straight-four point
         forbidden_strict(next, eye).is_none()
     });
@@ -330,7 +336,7 @@ fn truthy_double_three(next, p) -> bool {
 
 The check proceeds in these steps:
 
-1. Having two or more `Two` structures through `p` is a necessary condition
+1. Having two or more `Two` rows through `p` is a necessary condition
    for a double-three, so it is checked first. Most points are rejected
    here, without cloning the board.
 2. The move is played on a copy, and the real `Three`s through `p` are
@@ -383,7 +389,7 @@ As a worked example from the tests (`test_double_three`), consider playing
  . . . . . . . . . . . . . . .
 ```
 
-Only the vertical direction has a `Two` through `H8`: `.o_o.` on column H
+Only the vertical direction has a `Two` through `H8`: `.o_o.` on vertical line H
 (it is found at two adjacent segments, so `distinctive` counts it once).
 The horizontal `x.o_o.x` is capped by the `x`s, so no pair of segments
 fits and it is not a `Two` — it could never become a straight four.
@@ -438,17 +444,17 @@ and passing the board along when they sync or read it.
   (`SwordMap::mark_stale`); `SwordMap::sync` recomputes the stale lines. The searches move
   far more often than they read, so recomputing at every move would cost
   more than the scan it replaces.
-- A line is recomputed by `Line::structure_starts(r, Sword)`, which checks
+- A line is recomputed by `Line::row_starts(r, Sword)`, which checks
   every segment at once with bit operations (§3.1).
 - `SwordMap::swords(board, r)` / `swords_on(board, p, r)` read the cache
-  and return what `structures(r, Sword)` / `structures_on(p, r, Sword)`
+  and return what `rows(r, Sword)` / `rows_on(p, r, Sword)`
   would, in the same order. They require `sync(board)` first.
 
 ## 9. Cheat sheet: rule → code
 
 | Rule | Code |
 | --- | --- |
-| Five wins | `structures(r, Five)` (checked in `mate::solve` / `Game`). |
+| Five wins | `rows(r, Five)` (checked in `mate::solve` / `Game`). |
 | Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::validate` rejects input positions that already contain a five or a Black `Overlined`. |
 | Four / straight four | `Four` (a segment scoring 4) / `Straight` (two scoring 4); a straight four = two adjacent `Four`s. |
 | Three (must reach a straight four) | `Three` (two segments scoring 3), single eye = the straight-four point. |

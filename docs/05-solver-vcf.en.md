@@ -58,7 +58,7 @@ None of the three scans the board: they read the swords `VCFState` caches
 in its `SwordMap` (02 §8), which `after_play` / `after_undo` mark and which
 is synced first, recomputing the lines the moves since the last read have
 touched.
-The order is exactly that of `structures` / `structures_on`, so the tree
+The order is exactly that of `rows` / `rows_on`, so the tree
 searched is the one a full scan gives. A nested VCF inside the VCT search
 starts from a clone of the `SwordMap` `VCTState` keeps, which it syncs
 before cloning, so it starts with nothing stale.

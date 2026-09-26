@@ -1,7 +1,7 @@
 use super::grid::*;
 use super::player::*;
 use super::point::*;
-use super::structure::*;
+use super::row::*;
 
 pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)> {
     g.empties()
@@ -13,7 +13,7 @@ pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind> {
     if g.stone(p).is_some() {
         return None;
     }
-    let mut fours = g.structures_on(p, Black, Four);
+    let mut fours = g.rows_on(p, Black, Four);
     if fours.next().is_some() {
         return None;
     }
@@ -42,17 +42,17 @@ pub enum ForbiddenKind {
 pub use ForbiddenKind::*;
 
 fn overline(g: &Grid, p: Point) -> bool {
-    let mut overlinings = g.structures_on(p, Black, Overlining);
+    let mut overlinings = g.rows_on(p, Black, Overlining);
     overlinings.next().is_some()
 }
 
 fn double_four(g: &Grid, p: Point) -> bool {
-    let swords = g.structures_on(p, Black, Sword);
+    let swords = g.rows_on(p, Black, Sword);
     distinctive(&mut swords.map(|s| s.start_index()))
 }
 
 fn double_three(g: &Grid, p: Point) -> bool {
-    let twos = g.structures_on(p, Black, Two);
+    let twos = g.rows_on(p, Black, Two);
     if !distinctive(&mut twos.map(|s| s.start_index())) {
         return false;
     }
@@ -62,7 +62,7 @@ fn double_three(g: &Grid, p: Point) -> bool {
 }
 
 fn truthy_double_three(next: &Grid, p: Point) -> bool {
-    let truthy_threes = next.structures_on(p, Black, Three).filter(|s| {
+    let truthy_threes = next.rows_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();
         forbidden_strict(next, eye).is_none()
     });

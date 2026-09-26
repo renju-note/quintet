@@ -5,7 +5,7 @@ use super::solver::Solver;
 use super::vcf::*;
 use super::vct::*;
 use crate::board::Player::*;
-use crate::board::StructureKind::*;
+use crate::board::RowKind::*;
 use crate::board::*;
 use std::convert::TryFrom;
 use std::str::FromStr;
@@ -260,16 +260,16 @@ impl SolveResult {
 }
 
 fn validate(board: &Board, attacker: Player) -> Result<(), Option<Mate>> {
-    if board.structures(Black, Five).next().is_some() {
+    if board.rows(Black, Five).next().is_some() {
         return Err(None);
     }
-    if board.structures(White, Five).next().is_some() {
+    if board.rows(White, Five).next().is_some() {
         return Err(None);
     }
-    if board.structures(Black, Overlined).next().is_some() {
+    if board.rows(Black, Overlined).next().is_some() {
         return Err(None);
     }
-    if board.structures(attacker, Four).next().is_some() {
+    if board.rows(attacker, Four).next().is_some() {
         return Err(Some(Mate::new(Unknown, vec![])));
     }
     Ok(())
@@ -1059,14 +1059,14 @@ mod tests {
         for seed in 1..=60u64 {
             for n in [8usize, 12, 16] {
                 let board = random_position(seed, n);
-                if board.structures(Black, Five).next().is_some()
-                    || board.structures(White, Five).next().is_some()
-                    || board.structures(Black, Overlined).next().is_some()
+                if board.rows(Black, Five).next().is_some()
+                    || board.rows(White, Five).next().is_some()
+                    || board.rows(Black, Overlined).next().is_some()
                 {
                     continue;
                 }
                 for attacker in [Black, White] {
-                    if board.structures(attacker, Four).next().is_some() {
+                    if board.rows(attacker, Four).next().is_some() {
                         continue;
                     }
                     let verdicts: String = (1..=5u8)
@@ -1108,8 +1108,7 @@ mod tests {
         let mut r = Black;
         let mut placed = 0;
         while placed < n {
-            if board.structures(Black, Five).next().is_some()
-                || board.structures(White, Five).next().is_some()
+            if board.rows(Black, Five).next().is_some() || board.rows(White, Five).next().is_some()
             {
                 break;
             }
