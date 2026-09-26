@@ -11,12 +11,11 @@ Module map (`src/board.rs` declares the modules):
 | --- | --- |
 | `player.rs` | `Player` (`Black` / `White`) and its text form (`o` / `x`). |
 | `point.rs` | `Point` (x, y), `Points`, `Direction`, `Index` (position along a line). |
-| `line.rs` | `Line`: one row/column/diagonal as two bitmasks. |
-| `sequence.rs` | `Sequences`: sliding-window scanner over a `Line` that finds stone patterns. |
+| `segment.rs` | `Segment`: five consecutive cells of a line (one place for a five) and the cell on each side. |
+| `line.rs` | `Line`: one row/column/diagonal as two bitmasks; its segments, and the structures and potentials found from them. |
 | `structure.rs` | `StructureKind` (Two, Three, Sword, Four, Five, ...) and `Structure` (a pattern located on the board). |
 | `grid.rs` | `Grid`: the whole 15×15 board as four arrays of `Line`s, plus pattern queries. |
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
-| `potential.rs` | Per-point "potential" scoring used for move ordering. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
 | `board.rs` | `Board` = `Grid` + Zobrist hash; the public facade used by the solvers. |
 
@@ -24,16 +23,16 @@ The pieces are layered, and the sections below follow the layers from the
 bottom up:
 
 1. `Line` stores one line of the board as bitmasks (§2).
-2. `Sequences` slides a 5-cell window over a `Line` and finds the windows
-   with a given number of own stones (§3).
+2. A `Segment` is one place on a line where a five can be made, and says
+   how far each player is from making it there (§3).
 3. `Grid` holds all the lines and answers "which patterns are on the
    board / through this point?" (§4).
 4. `StructureKind` names those patterns in rule vocabulary — `Five`, `Four`,
-   `Three`, ... (§5).
+   `Three`, ... — each as one or two segments with the right score (§5).
 5. `forbidden.rs` combines a few `structures_on` queries into the
    forbidden-move rules (§6).
-6. `potential.rs` and `zobrist.rs` reuse the same machinery for move
-   ordering and hashing (§7, §8).
+6. Potentials reuse the segments' scores for move ordering (§7), and
+   `zobrist.rs` hashes the board (§8).
 
 ---
 
@@ -98,69 +97,74 @@ search loop cheap.
 returns 0 when the line cannot even fit five stones between the opponent's
 stones, and "own stones + 1" otherwise.
 
-## 3. `Sequences`: finding patterns in a line
+`segment(j)` cuts out the segment (§3) whose five cells start at cell `j`,
+and `segments()` lists them all, `j` from 0 to `size - 5`. Everything else a
+`Line` answers is built on them: `structures(r, kind)` (§3.1, §5) and
+`potentials(r, min)` (§7).
 
-`Sequences` (`sequence.rs`) is an iterator that slides a **5-cell window**
-over a line and reports the windows that match a pattern. It is the single
-primitive from which every rule concept is built.
+## 3. `Segment`: one place for a five
 
-For each window start `i` it takes 7 bits from each colour's mask:
+A `Segment` (`segment.rs`) is five consecutive cells of a line — one place
+where a five can be made — together with the cell just before them and the
+cell just after. It is the single primitive from which every rule concept is
+built.
+
+```rust
+pub struct Segment { blacks: u8, whites: u8 }
+```
+
+Each colour's stones are 7 bits, taken from the line by `Line::segment(j)`:
 
 ```
 bit  :   6   |  5    4    3    2    1  |   0
-cell :  i+5  | i+4  i+3  i+2  i+1   i  |  i-1
-     : right |          target         | left
-     : margin|        (5 cells)        | margin
+cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
+     : margin|     the five cells      | margin
 ```
 
-The own-stone mask `my` and the opponent mask `op` are shifted left by one
-in advance, so the bit for `i-1` exists even when `i = 0`. Margins that fall
-outside the board read as empty.
+Cells beyond the edge of the line read as empty. The five cells are
+numbered 0-4 when a segment reports positions.
 
-A window is considered **valid** when all of the following hold:
+A segment answers, for either player `r`:
 
-- No opponent stone is in the 5 target cells (`op & TARGET_MASK == 0`).
-- In `exact` mode, additionally no *own* stone is in either margin
-  (`my & MARGIN_MASK == 0`).
+| Method | Answer |
+| --- | --- |
+| `free(r)` | No opponent stone is among the five cells. |
+| `alive(r)` | `r` can still make a five here: `free(r)`, and for Black also no black stone in either margin. |
+| `count(r)` | How many of the five cells hold `r`'s stones, 0-5, alive or not. |
+| `score(r)` | `count(r)` if `alive(r)`, else `-1`. |
+| `stones(r)` | The cells (0-4) holding `r`'s stones. `stone_bits(r)` is the same as a 5-bit mask. |
+| `eyes(r)` | The cells (0-4) `r` still has to play to make a five here; none when not alive. `eye_bits(r)` is the same as a mask. |
 
-`exact` is set exactly when the player is **Black** (see
-`StructureKind::to_sequence`). It implements the rule that a completed five
-for Black must be *exactly* five: if an own stone is adjacent to the window,
-making a five in that window would produce an overline, so the window does
-not count as a five-to-be. White has no such restriction, so its windows are
-scanned non-exactly and an overline is treated like any other win.
+The margins are what make Black's rule work. A five for Black must be
+*exactly* five: if a black stone is next to the five cells, filling them in
+makes an overline, so the segment is dead for Black. White has no such
+restriction; its margins do not matter, and an overline is a win like any
+other.
 
-For each valid window the number of own stones is compared with `n`. Three
-`SequenceKind`s decide what is reported:
+### 3.1 Finding patterns on a line, all segments at once
 
-| `SequenceKind` | Condition | Meaning |
-| --- | --- | --- |
-| `Single` | window `i` has exactly `n` own stones | A place where adding `5 - n` stones makes a five. |
-| `Double` | window `i-1` **and** window `i` both have `n` own stones | Two overlapping fives-to-be, i.e. a 6-cell span `i-1..=i+4`. Its two ends are either both stones (`n + 1` stones in 6 cells) or both empty (the `Open` case below). |
-| `Open` | the `Double` case whose ends `i-1` and `i+4` are both empty, so the `n` own stones all lie in the 4 cells `i..=i+3` | A pattern with **open ends** on both sides, as in *open three* / *open four*. |
+`Line::structures(r, kind)` gives the segments where `r` has a pattern of
+that kind (§5), as `(j, Segment)`. Checking the segments one by one is what
+`StructureKind::matches` states, but the solvers ask at nearly every node,
+so the line finds them all at once with bit operations: bit `j` of `x >> k`
+is cell `j + k`, so a condition written over shifted masks is checked for
+every segment in parallel.
 
-In pictures (Black shown, cells labelled by their position on the line):
+- `counting(r, n)`: bit `j` is set if segment `j` is `free(r)` and has
+  `count(r) == n` — the five cells added up bit-sliced (a full adder, a half
+  adder and the carries).
+- `scoring(r, n)`: the same with `score(r) == n`, i.e. also no black stone
+  at `j - 1` or `j + 5` for Black.
+- `structure_starts(r, kind)`: bit `j` is set if the pattern is at segment
+  `j`, from the above. `structures` walks its set bits.
 
-```
-                i-1  i  i+1 i+2 i+3 i+4
-Single  n = 4        o   o   o   .   o     window i holds 4 stones               -> Four (the gap is the eye)
-Double  n = 4    o   o   .   o   o   o     windows i-1 and i both hold 4 stones  -> Overlining (5 stones in 6 cells)
-Open    n = 3    .   o   o   .   o   .     a Double whose ends are both empty    -> Three
-```
+A test checks `structure_starts` against `StructureKind::matches` on every
+line of up to nine cells and on random full-length lines.
 
-The reported item is a pair `(i, Sequence)`, where `Sequence` is a 5-bit
-mask describing the target cells.
-
-- `Sequence::stones()` and `eyes()` map that mask to offsets `0..5`: set
-  bits are stones, empty cells are "eyes".
-- For `Open` the 5th bit is forced on (`LAST_MASK`) so that the closing
-  empty cell `i+4` is *not* reported as an eye. As a side effect that cell
-  does show up in `stones()`, so read `stones()` of a `Open` structure as
-  "cells that are not eyes".
-
-`Sequences::new_on(j, …)` is a variant that scans only the windows
-containing position `j`. It is what `structures_on(p, …)` uses to ask
-"which patterns does this move touch?".
+`structures_on(i, r, kind)` keeps only the patterns through cell `i`: the
+segment has `i` among its five cells, and for a pattern of two segments the
+earlier one does too, so `i` is in the four cells they share. It is what
+`structures_on(p, …)` uses to ask "which patterns does this move touch?".
 
 ## 4. `Grid`: the full board
 
@@ -190,8 +194,8 @@ Main queries:
   — reading stones and empty points.
 - `structures(r, kind)` — every `Structure` of kind `kind` for player `r`
   on the whole board.
-- `structures_on(p, r, kind)` — only the structures whose 5-window contains
-  point `p` (just the four lines through `p` are examined). This is the hot
+- `structures_on(p, r, kind)` — only the structures through point `p`
+  (§3.1; just the four lines through `p` are examined). This is the hot
   path for "what does playing `p` create?".
 - `line(d, i)` / `line_on(p, d)` — the stored `Line` itself, `None` for the
   short diagonals. `lines()` and `lines_on(p)` iterate them as
@@ -209,34 +213,45 @@ formats:
 
 ## 5. `StructureKind`: the rule vocabulary
 
-`StructureKind::to_sequence(r)` maps each kind to a triple
-`(SequenceKind, n, exact)`. `exact` is normally `r.is_black()` (true for
-Black only), but it is always false when detecting the overline
-`StructureKind`s for Black: an overline always has an own stone next to each
-of its 5-windows, which is precisely what `exact` rejects, so they could not
-be detected otherwise:
+Each `StructureKind` is one segment, or two neighbouring ones (segments
+`j - 1` and `j`, together spanning the six cells `j - 1..=j + 4`), with the
+right scores. `StructureKind::matches(r, prev, cur)` states it for the
+segment `cur` and the one before it, `prev`; a pattern of two is reported at
+the later segment.
 
-| `StructureKind` | `SequenceKind` | `n` | `exact` | Pattern (Black shown, `_` = eye) | Rule concept |
-| --- | --- | --- | --- | --- | --- |
-| `Five` | `Single` | 5 | Black only | `ooooo` | **Five** (§3). For Black, exact margins exclude overlines. |
-| `Overlined` | `Double` | 5 | never | `oooooo` (6+) | **Overline**. |
-| `Four` | `Single` | 4 | Black only | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: one more stone at the eye makes a five. A straight four appears as **two** adjacent `Four`s. |
-| `Straight` | `Open` | 4 | Black only | `.oooo.` | **Straight four**. |
-| `Sword` | `Single` | 3 | Black only | `ooo__`, `o_oo_`, … (3 stones in a 5-window) | A "four-to-be" (Japanese *kensaki*, "sword tip"): playing either eye makes a `Four`. Includes open threes, so it is not the same as a "closed three". Not a rule term; used by VCF/VCT to enumerate four-making moves. |
-| `Three` | `Open` | 3 | Black only | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: playing the single eye makes a `Straight`. |
-| `Two` | `Open` | 2 | Black only | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
-| `Overlining` | `Double` | 4 | never | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
+| `StructureKind` | Segments | Pattern (Black shown, `_` = eye) | Rule concept |
+| --- | --- | --- | --- |
+| `Five` | one scoring 5 | `ooooo` | **Five**. For Black, a score needs empty margins, so overlines are excluded. |
+| `Overlined` | two, each `free` with 5 stones | `oooooo` (6+) | **Overline**. |
+| `Four` | one scoring 4 | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: one more stone at the eye makes a five. A straight four appears as **two** adjacent `Four`s. |
+| `Straight` | two scoring 4, the stones in the four cells they share | `.oooo.` | **Straight four**. |
+| `Sword` | one scoring 3 | `ooo__`, `o_oo_`, … (3 stones in a segment) | A "four-to-be" (Japanese *kensaki*, "sword tip"): playing either eye makes a `Four`. Includes open threes, so it is not the same as a "closed three". Not a rule term; used by VCF/VCT to enumerate four-making moves. |
+| `Three` | two scoring 3, the stones in the four cells they share | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: playing the single eye makes a `Straight`. |
+| `Two` | two scoring 2, the stones in the four cells they share | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
+| `Overlining` | two, each `free` with 4 stones | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
 
-Because `exact` is applied for Black, kinds such as `Four` and `Three`
-already embody the condition "without at the same time making an overline".
-Consider the shape `o.oooo.` as an example:
+For the open patterns (`Two`, `Three`, `Straight`) "the stones in the four
+shared cells" means the later segment's last cell is empty; since both
+segments are alive, the six cells they span then have both ends empty. The
+overline patterns look at `free` segments rather than `alive` ones: an
+overline always has a black stone next to each of its segments, which is
+exactly what makes a segment dead for Black. Two `free` segments with four
+black stones each are either five stones in six cells (the empty one makes
+six) or an open four `.oooo.`; through an empty point, only the former can
+be found, since an open four's segments share only stones.
 
-- Window `o.ooo` and window `.oooo` are rejected because a black stone sits
-  in their margin: filling the gap on the left would make six.
-- Only window `oooo.` counts: playing the right end makes exactly five.
+Because a segment is alive for Black only with empty margins, kinds such as
+`Four` and `Three` already embody the condition "without at the same time
+making an overline". Consider the shape `o.oooo.` as an example:
 
-A `Structure` is a pair `(start: Index, sequence: Sequence)`; `stones()` and
-`eyes()` yield board `Point`s.
+- Segments `o.ooo` and `.oooo` are dead: a black stone sits in their
+  margin, so filling the gap on the left would make six.
+- Only segment `oooo.` counts: playing the right end makes exactly five.
+
+A `Structure` is where the pattern's (later) segment starts, an `Index`,
+with the masks of its stones and eyes; `stones()` and `eyes()` yield board
+`Point`s. For the open patterns only the four shared cells can be eyes: the
+fifth is an open end, not a point to play.
 
 ## 6. Forbidden moves (`forbidden.rs`)
 
@@ -268,7 +283,7 @@ by the search itself before the forbidden check matters.
 fn overline(g, p) -> bool { g.structures_on(p, Black, Overlining).next().is_some() }
 ```
 
-An `Overlining` is two adjacent 5-windows, each holding 4 black stones and
+An `Overlining` is two adjacent segments, each holding 4 black stones and
 both containing the empty point `p`. Together they span 6 cells with 5
 stones, so playing `p` completes a run of six or more.
 
@@ -282,14 +297,14 @@ fn double_four(g, p) -> bool {
 
 Every `Sword` through `p` becomes a `Four` when `p` is played. `distinctive`
 returns true as soon as the iterator yields an index other than the first
-window's `first` and its neighbour `first.walk(1)`: it counts two adjacent
-windows as one and asks whether there are at least two windows left. The
+segment's `first` and its neighbour `first.walk(1)`: it counts two adjacent
+segments as one and asks whether there are at least two segments left. The
 neighbour is excluded for the following reason:
 
-- Two `Sword`s in adjacent windows of the same line are the two halves of
+- Two `Sword`s in adjacent segments of the same line are the two halves of
   one straight four (`.oo_o.` → `.oooo.`). That is a single four, so they
   are not counted twice.
-- Two non-adjacent windows are a genuine double-four. This is obviously the
+- Two non-adjacent segments are a genuine double-four. This is obviously the
   case on different lines, but also on the same line when the shape is like
   `o.o_o.o`, which gives two distinct fives-to-be.
 
@@ -319,7 +334,7 @@ The check proceeds in these steps:
    for a double-three, so it is checked first. Most points are rejected
    here, without cloning the board.
 2. The move is played on a copy, and the real `Three`s through `p` are
-   enumerated. A `Three` (`Open`, 3) has exactly one eye, which is the
+   enumerated. A `Three` has exactly one eye, which is the
    straight-four point.
 3. Following rule 9.3, a three only counts if that eye is itself a legal
    Black move. This is decided by calling `forbidden_strict` on the eye in
@@ -369,9 +384,9 @@ As a worked example from the tests (`test_double_three`), consider playing
 ```
 
 Only the vertical direction has a `Two` through `H8`: `.o_o.` on column H
-(its two overlapping `Open` windows are adjacent, so `distinctive` counts
-them once). The horizontal `x.o_o.x` is capped by the `x`s, so no `Open`
-window fits and it is not a `Two` — it could never become a straight four.
+(it is found at two adjacent segments, so `distinctive` counts it once).
+The horizontal `x.o_o.x` is capped by the `x`s, so no pair of segments
+fits and it is not a `Two` — it could never become a straight four.
 The pre-filter in step 1 therefore rejects the move without cloning the
 board, and the result is `None`. Remove the two `x`s and both directions
 have a `Two`; after playing `H8` both become `Three`s whose straight-four
@@ -379,21 +394,21 @@ points are legal, so the result is `Some(DoubleThree)`. More cases,
 including the nested "fake three" positions from the referenced Twitter
 thread, are in `forbidden.rs`'s tests.
 
-## 7. Potentials (`potential.rs`)
+## 7. Potentials (`Line::potentials`)
 
-Not part of the rules, but built on the same window scan. For each empty
-cell of a line, `Potentials` computes a score as follows:
+Not part of the rules, but built on the same segments. For each empty cell
+of a line, `Line::potentials(r, min)` computes a value as follows:
 
-1. Look at the five 5-windows containing the cell. Windows are subject to
-   the same `exact` margin rule as in `Sequences`.
-2. Score each valid window as "own stones + 1", the number of stones it
-   would hold after playing there.
-3. Report "max score × number of windows achieving that max" as the value of
-   the cell.
+1. Each segment is worth `score(r) + 1`: the number of stones it would hold
+   after playing there, or 0 if it is dead (§3). Values below `min` count
+   as 0.
+2. A cell is worth the best segment through it (at most five), times the
+   number of segments through it reaching that best.
+3. Cells below `min` are not reported.
 
 `Grid::potentials` / `potentials_along` expose this per `Index`, and
 `src/feature/potential.rs` aggregates it per point for move ordering.
-`VICTORY = 5` is the score of a window that becomes a five.
+`VICTORY = 5` is the length of a five.
 
 ## 8. Zobrist hashing (`zobrist.rs`) and `Board`
 
@@ -417,16 +432,14 @@ to its nested VCFs), marking it from `State::after_play` / `after_undo`
 and passing the board along when they sync or read it.
 
 - Per player and per line (by `Grid::line_key`, the line's position in
-  `Grid::lines`), a `u16` with bit `j` set if a sword's window starts at
+  `Grid::lines`), a `u16` with bit `j` set if a sword's segment starts at
   cell `j`, and a `u128` of the lines that have any.
 - A move only marks the (at most four) lines through the point stale
   (`SwordMap::mark_stale`); `SwordMap::sync` recomputes the stale lines. The searches move
   far more often than they read, so recomputing at every move would cost
   more than the scan it replaces.
-- A line is recomputed by `Line::sword_starts`, which checks every window
-  at once with bit operations (no opponent stone, exactly three own stones
-  by a bit-sliced sum, and for Black no own stone just outside) instead of
-  stepping through `Sequences`.
+- A line is recomputed by `Line::structure_starts(r, Sword)`, which checks
+  every segment at once with bit operations (§3.1).
 - `SwordMap::swords(board, r)` / `swords_on(board, p, r)` read the cache
   and return what `structures(r, Sword)` / `structures_on(p, r, Sword)`
   would, in the same order. They require `sync(board)` first.
@@ -437,9 +450,9 @@ and passing the board along when they sync or read it.
 | --- | --- |
 | Five wins | `structures(r, Five)` (checked in `mate::solve` / `Game`). |
 | Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::validate` rejects input positions that already contain a five or a Black `Overlined`. |
-| Four / straight four | `Four` (`Single`, 4) / `Straight` (`Open`, 4); a straight four = two adjacent `Four`s. |
-| Three (must reach a straight four) | `Three` (`Open`, 3), single eye = the straight-four point. |
-| "Without making an overline" for Black | `exact` margins in `Sequences`. |
+| Four / straight four | `Four` (a segment scoring 4) / `Straight` (two scoring 4); a straight four = two adjacent `Four`s. |
+| Three (must reach a straight four) | `Three` (two segments scoring 3), single eye = the straight-four point. |
+| "Without making an overline" for Black | `Segment::alive`: no black stone in the margins. |
 | Forbidden: overline / double-four / double-three | `forbidden.rs`: `overline` / `double_four` / `double_three`. |
 | 9.2 "unless it makes a five" | `forbidden_strict`. |
 | 9.3 real vs. fake threes, recursive | `truthy_double_three` calling `forbidden_strict` on each three's eye. |

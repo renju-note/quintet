@@ -1,14 +1,13 @@
 use super::player::*;
-use super::potential::*;
-use super::sequence::*;
-use super::structure::StructureKind::Sword;
+use super::segment::*;
+use super::structure::StructureKind::{self, *};
 use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
 const MAX_SIZE: u8 = 16 - 1;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Line {
     blacks: u16,
     whites: u16,
@@ -65,19 +64,61 @@ impl Line {
         (0..self.size).filter(move |i| blacks & 0b1 << i == 0b0 && whites & 0b1 << i == 0b0)
     }
 
-    pub fn sequences(&self, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
-        let (my, op) = self.my_op(r);
-        Sequences::new(self.size, my, op, k, n, exact)
+    /// The segment whose five cells start at cell `j`.
+    #[inline]
+    pub fn segment(&self, j: u8) -> Segment {
+        // Shifted up one so that bit 0 is the cell before, cell -1 at `j = 0`.
+        let cells = |stones: u16| ((stones << 1) >> j) as u8 & 0b1111111;
+        Segment::new(cells(self.blacks), cells(self.whites))
     }
 
-    pub fn sequences_on(&self, i: u8, r: Player, k: SequenceKind, n: u8, exact: bool) -> Sequences {
-        let (my, op) = self.my_op(r);
-        Sequences::new_on(i, self.size, my, op, k, n, exact)
+    /// Every segment of the line, as `(j, segment)`, `j` being where its
+    /// five cells start.
+    pub fn segments(&self) -> impl Iterator<Item = (u8, Segment)> + '_ {
+        (0..=self.size - VICTORY).map(|j| (j, self.segment(j)))
     }
 
-    pub fn potentials(&self, r: Player, min: u8, exact: bool) -> Potentials {
-        let (my, op) = self.my_op(r);
-        Potentials::new(self.size, my, op, min, exact)
+    /// `r`'s structures of kind `k` in the line, as `(j, segment)`, `j`
+    /// being where the segment starts: the segments where
+    /// [`StructureKind::matches`] holds, the one before each as its `prev`.
+    pub fn structures(&self, r: Player, k: StructureKind) -> Structures {
+        Structures {
+            line: *self,
+            starts: self.structure_starts(r, k),
+        }
+    }
+
+    /// [`Self::structures`], only those through cell `i`. For a pattern of
+    /// two segments, both have to be through it.
+    pub fn structures_on(&self, i: u8, r: Player, k: StructureKind) -> Structures {
+        let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
+        let through = ((1u32 << (i + 1)) - (1u32 << first)) as u16;
+        Structures {
+            line: *self,
+            starts: self.structure_starts(r, k) & through,
+        }
+    }
+
+    /// The potential of each empty cell for `r`, as `(i, potential)`, the
+    /// cells below `min` left out.
+    ///
+    /// A segment is worth its [`Segment::score`] + 1, so 0 if it is dead,
+    /// and nothing below `min`. A cell is worth the best segment through
+    /// it, times how many segments through it are that good.
+    pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (u8, u8)> + '_ {
+        let mut values = [0u8; MAX_SIZE as usize];
+        for (j, s) in self.segments() {
+            let v = (s.score(r) + 1) as u8;
+            values[j as usize] = if v >= min { v } else { 0 };
+        }
+        self.empties().filter_map(move |i| {
+            let first = i.saturating_sub(VICTORY - 1);
+            let last = i.min(self.size - VICTORY);
+            let through = &values[first as usize..=last as usize];
+            let max = through.iter().copied().max().unwrap_or(0);
+            let potential = max * through.iter().filter(|&&v| v == max).count() as u8;
+            (potential >= min).then_some((i, potential))
+        })
     }
 
     pub fn potential_cap(&self, r: Player) -> u8 {
@@ -88,36 +129,55 @@ impl Line {
         my.count_ones() as u8 + 1
     }
 
-    /// Bit `j` is set if `r` has a sword in the window starting at cell `j`:
-    /// the windows `sequences` lists for `Sword`, all at once.
+    /// Bit `j` is set if `r` has a structure of kind `k` at the segment
+    /// starting at cell `j`: the starts [`Self::structures`] gives.
+    #[inline]
+    pub fn structure_starts(&self, r: Player, k: StructureKind) -> u16 {
+        let n = k.stones();
+        match k {
+            Sword | Four | Five => self.scoring(r, n),
+            Two | Three | Straight => {
+                let (my, _) = self.my_op(r);
+                let s = self.scoring(r, n);
+                s & s << 1 & !(my >> 4)
+            }
+            Overlining | Overlined => {
+                let s = self.counting(r, n);
+                s & s << 1
+            }
+        }
+    }
+
+    /// Bit `j` is set if the segment starting at cell `j` scores `n` for
+    /// `r` ([`Segment::score`]), for all the segments at once.
+    #[inline]
+    pub fn scoring(&self, r: Player, n: u8) -> u16 {
+        let (my, _) = self.my_op(r);
+        // A black stone just before or just after the five.
+        let overline = if r.is_black() { my << 1 | my >> 5 } else { 0 };
+        self.counting(r, n) & !overline
+    }
+
+    /// Bit `j` is set if the segment starting at cell `j` is free for `r`
+    /// and has `n` of its stones ([`Segment::free`], [`Segment::count`]).
     ///
-    /// Each window's conditions are checked for every window in parallel,
-    /// bit `j` standing for the window at `j`: no opponent stone in it,
-    /// exactly three own stones (a bit-sliced sum of the five cells), and
-    /// for Black no own stone just outside it.
-    pub fn sword_starts(&self, r: Player) -> u16 {
+    /// Bit `j` of `x >> k` is cell `j + k`, so each condition is checked
+    /// for every segment in parallel: no opponent stone in the five cells,
+    /// and the five added up bit-sliced, a full adder on the first three,
+    /// a half adder on the last two, then the carries.
+    #[inline]
+    pub fn counting(&self, r: Player, n: u8) -> u16 {
         let (my, op) = self.my_op(r);
-        let windows = (1u16 << (self.size + 1 - VICTORY)) - 1;
+        let segments = (1u16 << (self.size + 1 - VICTORY)) - 1;
         let blocked = op | op >> 1 | op >> 2 | op >> 3 | op >> 4;
-        // Add up the five cells of each window: a full adder on the first
-        // three, a half adder on the last two, then the carries.
         let (a, b, c, d, e) = (my, my >> 1, my >> 2, my >> 3, my >> 4);
         let (s1, c1) = (a ^ b ^ c, a & b | c & (a ^ b));
         let (s2, c2) = (d ^ e, d & e);
         let (ones, c3) = (s1 ^ s2, s1 & s2);
         let twos = c1 ^ c2 ^ c3;
         let fours = c1 & c2 | c3 & (c1 ^ c2);
-        let three = ones & twos & !fours;
-        let (_, _, exact) = Sword.to_sequence(r);
-        let overline = if exact { my << 1 | my >> 5 } else { 0 };
-        three & !blocked & !overline & windows
-    }
-
-    /// `r`'s stones in the window starting at cell `j`, as `sequences`
-    /// reports them.
-    pub fn window(&self, r: Player, j: u8) -> Sequence {
-        let (my, _) = self.my_op(r);
-        Sequence((my >> j) as u8 & 0b11111)
+        let digit = |bits: u16, k: u8| if n & k != 0 { bits } else { !bits };
+        digit(ones, 1) & digit(twos, 2) & digit(fours, 4) & !blocked & segments
     }
 
     /// `r`'s stones and the opponent's, in that order.
@@ -126,6 +186,27 @@ impl Line {
             Black => (self.blacks, self.whites),
             White => (self.whites, self.blacks),
         }
+    }
+}
+
+/// The segments of a line where one player has a structure of one kind:
+/// [`Line::structures`].
+pub struct Structures {
+    line: Line,
+    /// Where the segments not given yet start, bit `j` for cell `j`.
+    starts: u16,
+}
+
+impl Iterator for Structures {
+    type Item = (u8, Segment);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.starts == 0 {
+            return None;
+        }
+        let j = self.starts.trailing_zeros() as u8;
+        self.starts &= self.starts - 1;
+        Some((j, self.line.segment(j)))
     }
 }
 
@@ -162,18 +243,31 @@ impl FromStr for Line {
 mod tests {
     use super::*;
 
-    /// What `sequences` says, one window at a time.
-    fn sword_starts_by_sequences(line: &Line, r: Player) -> u16 {
-        let (k, n, exact) = Sword.to_sequence(r);
+    const KINDS: [StructureKind; 8] = [
+        Two, Three, Straight, Sword, Four, Five, Overlining, Overlined,
+    ];
+
+    /// What `structures` is defined as: the segments, one at a time, where
+    /// `StructureKind::matches` holds.
+    fn structure_starts_by_segments(line: &Line, r: Player, k: StructureKind) -> u16 {
         let mut starts = 0;
-        for (j, _) in line.sequences(r, k, n, exact) {
-            starts |= 1 << j;
+        let mut prev = None;
+        for (j, cur) in line.segments() {
+            if k.matches(r, prev, cur) {
+                starts |= 1 << j;
+            }
+            prev = Some(cur);
         }
         starts
     }
 
+    /// Where `structures` / `structures_on` start, as a list.
+    fn starts(found: Structures) -> Vec<u8> {
+        found.map(|(j, _)| j).collect()
+    }
+
     #[test]
-    fn test_sword_starts_matches_sequences() {
+    fn test_structure_starts_matches_segments() {
         let check = |size: u8, cells: &[u8]| {
             let mut line = Line::new(size);
             for (i, &c) in cells.iter().enumerate() {
@@ -184,15 +278,25 @@ mod tests {
                 }
             }
             for r in [Black, White] {
-                assert_eq!(
-                    line.sword_starts(r),
-                    sword_starts_by_sequences(&line, r),
-                    "{r:?} {line}"
-                );
+                for k in KINDS {
+                    let expected = structure_starts_by_segments(&line, r, k);
+                    assert_eq!(line.structure_starts(r, k), expected, "{r:?} {k:?} {line}");
+                    // Through cell `i`: the segment, and for a pattern of
+                    // two its predecessor too, has `i` among its cells.
+                    for i in 0..size {
+                        let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
+                        let on: Vec<_> = (first..=i).filter(|j| expected & 1 << j != 0).collect();
+                        assert_eq!(
+                            starts(line.structures_on(i, r, k)),
+                            on,
+                            "{r:?} {k:?} {line} on {i}"
+                        );
+                    }
+                }
             }
         };
         // Every line up to nine cells, which covers the short diagonals and
-        // every window with its margins.
+        // every pair of segments with their margins.
         for size in 5..=9u8 {
             for code in 0..3u32.pow(size as u32) {
                 let cells: Vec<u8> = (0..size)
@@ -203,13 +307,107 @@ mod tests {
         }
         // Full-length lines, pseudo-randomly.
         let mut x: u64 = 0x2545f4914f6cdd1d;
-        for _ in 0..100_000 {
+        for _ in 0..20_000 {
             x ^= x << 13;
             x ^= x >> 7;
             x ^= x << 17;
             let cells: Vec<u8> = (0..15).map(|i| ((x >> (2 * i)) % 3) as u8).collect();
             check(15, &cells);
         }
+    }
+
+    #[test]
+    fn test_segment() -> Result<(), String> {
+        let line = "o-ox---xo".parse::<Line>()?;
+        // Cells off the line are empty.
+        assert_eq!(line.segment(0).to_string(), "-|o-ox-|-");
+        assert_eq!(line.segment(1).to_string(), "o|-ox--|-");
+        assert_eq!(line.segment(4).to_string(), "x|---xo|-");
+        assert_eq!(line.segments().count(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_structures() -> Result<(), String> {
+        // Three stones in a segment free of the opponent. For Black, not
+        // next to another black stone: segments 1 and 2 would make an
+        // overline.
+        let line = "-o-oo-o--------".parse::<Line>()?;
+        assert_eq!(starts(line.structures(Black, Sword)), [0, 3]);
+        let line = "-x-xx-x--------".parse::<Line>()?;
+        assert_eq!(starts(line.structures(White, Sword)), [0, 1, 2, 3]);
+        assert_eq!(starts(line.structures_on(6, White, Sword)), [2, 3]);
+
+        // A three: two segments both scoring 3, with the stones in the four
+        // cells they share, reported at the later one. Here cells 4-9.
+        let line = "-----xx-x-x----".parse::<Line>()?;
+        assert_eq!(starts(line.structures(White, Three)), [5]);
+        assert_eq!(starts(line.structures_on(7, White, Three)), [5]);
+        // ... which for Black would make an overline with cell 10.
+        let line = "-----oo-o-o----".parse::<Line>()?;
+        assert_eq!(starts(line.structures(Black, Three)), []);
+        // Swords on each side of cell 7, but no three.
+        let line = "---ooo---ooo---".parse::<Line>()?;
+        assert_eq!(starts(line.structures_on(7, Black, Sword)), [3, 7]);
+        assert_eq!(starts(line.structures_on(7, Black, Three)), []);
+
+        // Five stones in six cells: the eye makes an overline.
+        let line = "oo-ooo---------".parse::<Line>()?;
+        assert_eq!(starts(line.structures(Black, Overlining)), [1]);
+        assert_eq!(starts(line.structures(Black, Four)), []);
+        // An open four has two such segments too, but not both through an
+        // end, which is the only place left to play.
+        let line = "-oooo-----o----".parse::<Line>()?;
+        assert_eq!(starts(line.structures(Black, Overlining)), [1]);
+        assert_eq!(starts(line.structures_on(0, Black, Overlining)), []);
+        assert_eq!(starts(line.structures_on(5, Black, Overlining)), []);
+        assert_eq!(starts(line.structures(Black, Straight)), [1]);
+
+        let line = "-oooooo--------".parse::<Line>()?;
+        assert_eq!(starts(line.structures(Black, Overlined)), [2]);
+        assert_eq!(starts(line.structures(Black, Five)), []);
+        let line = "-xxxxxx--------".parse::<Line>()?;
+        assert_eq!(starts(line.structures(White, Five)), [1, 2]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_potentials() -> Result<(), String> {
+        // A segment is worth its score + 1, nothing if it is dead. An empty
+        // cell scores the best segment through it, times how many segments
+        // through it reach that best; below `min` it is not reported.
+        //
+        // Cell 7 is in three segments holding both stones (3 each): 9. Cell
+        // 5 is in one of them: 3. The same holds mirrored on the right.
+        let line = "--------oo-----".parse::<Line>()?;
+        let expected = [(5, 3), (6, 6), (7, 9), (10, 9), (11, 6), (12, 3)];
+        assert_eq!(line.potentials(Black, 3).collect::<Vec<_>>(), expected);
+
+        // Segments through White's stone at cell 6 are dead, so cell 5 only
+        // sees segment 1 (two stones).
+        let line = "--x-x-ox---xxx-".parse::<Line>()?;
+        assert_eq!(
+            line.potentials(White, 3).collect::<Vec<_>>(),
+            [
+                (0, 3),
+                (1, 6),
+                (3, 6),
+                (5, 3),
+                (8, 6),
+                (9, 4),
+                (10, 8),
+                (14, 4)
+            ]
+        );
+        // For Black, segments 7 (cells 7-11) and 8 (cells 8-12) have a
+        // black stone just outside them, at 12 and at 7, and would make an
+        // overline; that leaves cell 8 with nothing.
+        let line = "--o-o-xo---ooo-".parse::<Line>()?;
+        assert_eq!(
+            line.potentials(Black, 3).collect::<Vec<_>>(),
+            [(0, 3), (1, 6), (3, 6), (5, 3), (9, 4), (10, 8), (14, 4)]
+        );
+        Ok(())
     }
 
     #[test]
