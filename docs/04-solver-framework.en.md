@@ -74,7 +74,7 @@ the fours of the side that *just moved* mean for the side *to move*?
 | one winning point `p` | `Forced(p)` | must play `p` |
 | none | `None` | free to choose |
 
-Only fours through the last move are examined (`structures_on(last_move,
+Only fours through the last move are examined (`sequences_on(last_move,
 opponent, Four)`): an older four would already have forced a reply. After a
 pass there is no last move, so every four of the opponent is scanned
 instead. A straight four shows up as two `Four`s with different eyes and is

@@ -6,16 +6,16 @@ use super::segment::*;
 /// starts, which of the segment's cells hold the player's stones and which
 /// are its eyes, the cells to play to take it a step further.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Structure {
+pub struct Sequence {
     start: Index,
     stones: u8,
     eyes: u8,
 }
 
-impl Structure {
-    /// `r`'s structure of kind `k` at `segment`, whose cells start at
+impl Sequence {
+    /// `r`'s sequence of kind `k` at `segment`, whose cells start at
     /// `start`.
-    pub fn new(start: Index, r: Player, k: StructureKind, segment: Segment) -> Self {
+    pub fn new(start: Index, r: Player, k: SequenceKind, segment: Segment) -> Self {
         let stones = segment.stone_bits(r);
         Self {
             start,
@@ -48,7 +48,7 @@ impl Structure {
 /// The patterns of the rules, each told by the scores of one or two
 /// neighbouring [`Segment`]s.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum StructureKind {
+pub enum SequenceKind {
     /// Two stones that can become a three: see [`Self::Three`].
     Two,
     /// Three stones that can become a straight four: two neighbouring
@@ -72,9 +72,9 @@ pub enum StructureKind {
     Overlined,
 }
 
-pub use StructureKind::*;
+pub use SequenceKind::*;
 
-impl StructureKind {
+impl SequenceKind {
     /// How many own stones each segment of the pattern has.
     #[inline]
     pub fn stones(&self) -> u8 {

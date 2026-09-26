@@ -3,7 +3,7 @@ use super::grid::*;
 use super::line::*;
 use super::player::*;
 use super::point::*;
-use super::structure::*;
+use super::sequence::*;
 use super::zobrist;
 use std::fmt;
 use std::str::FromStr;
@@ -98,17 +98,17 @@ impl Board {
         self.grid.lines_on(p)
     }
 
-    pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
-        self.grid.structures(r, k)
+    pub fn sequences(&self, r: Player, k: SequenceKind) -> impl Iterator<Item = Sequence> + '_ {
+        self.grid.sequences(r, k)
     }
 
-    pub fn structures_on(
+    pub fn sequences_on(
         &self,
         p: Point,
         r: Player,
-        k: StructureKind,
-    ) -> impl Iterator<Item = Structure> + '_ {
-        self.grid.structures_on(p, r, k)
+        k: SequenceKind,
+    ) -> impl Iterator<Item = Sequence> + '_ {
+        self.grid.sequences_on(p, r, k)
     }
 
     pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (Index, u8)> + '_ {

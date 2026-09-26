@@ -1,4 +1,4 @@
-use crate::board::StructureKind::*;
+use crate::board::SequenceKind::*;
 use crate::board::*;
 use crate::feature::potential::PotentialField;
 use crate::feature::sword::SwordMap;
@@ -144,7 +144,7 @@ impl VCTState {
             if turn == threater {
                 continue;
             }
-            let swords = game.board().structures_on(p, turn, Sword);
+            let swords = game.board().sequences_on(p, turn, Sword);
             for s in swords {
                 result.extend(s.eyes());
             }
@@ -155,7 +155,7 @@ impl VCTState {
     fn four_moves(&self) -> Vec<Point> {
         self.game()
             .board()
-            .structures(self.game().turn, Sword)
+            .sequences(self.game().turn, Sword)
             .flat_map(|s| s.eyes())
             .collect()
     }

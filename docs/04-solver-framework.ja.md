@@ -61,7 +61,7 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 | 1 点 `p` | `Forced(p)` | `p` を打つしかない |
 | なし | `None` | 自由 |
 
-- 見るのは直前の手を通る四だけ（`structures_on(last_move, opponent, Four)`）。それより古い四は、すでに応手を強いているはず。
+- 見るのは直前の手を通る四だけ（`sequences_on(last_move, opponent, Four)`）。それより古い四は、すでに応手を強いているはず。
 - パスの後は直前の手がないので、相手のすべての四を見る。
 - 棒四は眼の異なる 2 つの `Four` として現れ、四四と同じ 2 点判定（`take_distinct_two`）で扱う。
 

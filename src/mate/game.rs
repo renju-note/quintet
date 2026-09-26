@@ -1,4 +1,4 @@
-use crate::board::StructureKind::*;
+use crate::board::SequenceKind::*;
 use crate::board::*;
 use std::fmt;
 
@@ -104,9 +104,9 @@ impl Game {
     fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let opponent = self.turn.opponent();
         if let Some(last_move) = self.last_move() {
-            Self::take_distinct_two(self.board.structures_on(last_move, opponent, Four))
+            Self::take_distinct_two(self.board.sequences_on(last_move, opponent, Four))
         } else {
-            Self::take_distinct_two(self.board.structures(opponent, Four))
+            Self::take_distinct_two(self.board.sequences(opponent, Four))
         }
     }
 
@@ -115,7 +115,7 @@ impl Game {
     /// The eyes are walked with a loop rather than `flat_map(|r| r.eyes())`:
     /// this runs at every node of every search, and a `Four` has exactly one
     /// eye, so the flattening was all overhead and no flattening.
-    fn take_distinct_two(fours: impl Iterator<Item = Structure>) -> (Option<Point>, Option<Point>) {
+    fn take_distinct_two(fours: impl Iterator<Item = Sequence>) -> (Option<Point>, Option<Point>) {
         let mut ret = None;
         for four in fours {
             for p in four.eyes() {
