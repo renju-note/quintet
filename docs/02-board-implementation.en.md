@@ -5,6 +5,11 @@ from [01-renju-rules.en.md](01-renju-rules.en.md) — row, five, overline, four,
 four, three, double-four, double-three, forbidden move — are detected. It is
 written against the current code; identifiers in backticks can be grepped.
 
+A note on terms: "row" always means a row as defined in 01 §3 (`Row` in
+the code). The Japanese version holds to the same: 連 there always means a
+row, although Japanese sometimes uses it for a `Two`, and a `Two` is
+called 二連.
+
 Module map (`src/board.rs` declares the modules):
 
 | File | Role |
