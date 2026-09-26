@@ -1,4 +1,5 @@
 use crate::board::*;
+use crate::feature::sword::SwordMap;
 use crate::mate::game::*;
 use crate::mate::state::State;
 
@@ -7,14 +8,24 @@ pub struct VCFState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
+    /// Each player's swords, kept in step with the moves (see [`SwordMap`]).
+    swords: SwordMap,
 }
 
 impl VCFState {
     pub fn new(game: Game, limit: u8) -> Self {
+        let swords = SwordMap::init(game.board());
+        Self::with_swords(game, limit, swords)
+    }
+
+    /// A state whose `swords` are already known, for a caller that keeps
+    /// its own map of `game`'s board. `swords` need not be in sync yet.
+    pub fn with_swords(game: Game, limit: u8, swords: SwordMap) -> Self {
         Self {
             attacker: game.turn,
             game,
             limit,
+            swords,
         }
     }
 
@@ -33,9 +44,9 @@ impl VCFState {
 
     pub fn forced_move_pair(&mut self, forced_move: Point) -> Option<(Point, Point)> {
         let turn = self.game.turn;
-        self.game
-            .synced_board()
-            .swords_on(forced_move, turn)
+        self.sync_swords();
+        self.swords
+            .swords_on(self.game.board(), forced_move, turn)
             .find_map(|sword| match Self::sword_eyes(&sword) {
                 (e1, e2) if e1 == forced_move => Some((e1, e2)),
                 (e1, e2) if e2 == forced_move => Some((e2, e1)),
@@ -47,7 +58,8 @@ impl VCFState {
         let mut result = vec![];
         if let Some(last2_move) = self.game.last2_move() {
             let turn = self.game.turn;
-            let swords = self.game.synced_board().swords_on(last2_move, turn);
+            self.sync_swords();
+            let swords = self.swords.swords_on(self.game.board(), last2_move, turn);
             Self::push_eyes_pairs(swords, &mut result);
         }
         result
@@ -56,9 +68,14 @@ impl VCFState {
     pub fn move_pairs(&mut self) -> Vec<(Point, Point)> {
         let mut result = vec![];
         let turn = self.game.turn;
-        let swords = self.game.synced_board().swords(turn);
+        self.sync_swords();
+        let swords = self.swords.swords(self.game.board(), turn);
         Self::push_eyes_pairs(swords, &mut result);
         result
+    }
+
+    fn sync_swords(&mut self) {
+        self.swords.sync(self.game.board());
     }
 
     /// Both ways round for each sword, written as a loop rather than
@@ -101,6 +118,18 @@ impl State for VCFState {
 
     fn set_limit(&mut self, limit: u8) {
         self.limit = limit
+    }
+
+    fn after_play(&mut self, next_move: Option<Point>) {
+        if let Some(next_move) = next_move {
+            self.swords.mark_stale(next_move);
+        }
+    }
+
+    fn after_undo(&mut self, maybe_last_move: Option<Point>) {
+        if let Some(last_move) = maybe_last_move {
+            self.swords.mark_stale(last_move);
+        }
     }
 }
 

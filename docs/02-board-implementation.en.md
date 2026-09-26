@@ -18,8 +18,7 @@ Module map (`src/board.rs` declares the modules):
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
 | `potential.rs` | Per-point "potential" scoring used for move ordering. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
-| `map.rs` | `SwordMap`: each player's swords per line, updated lazily (§8). |
-| `board.rs` | `Board` = `Grid` + Zobrist hash + `SwordMap`; the public facade used by the solvers. |
+| `board.rs` | `Board` = `Grid` + Zobrist hash; the public facade used by the solvers. |
 
 The pieces are layered, and the sections below follow the layers from the
 bottom up:
@@ -410,11 +409,12 @@ cell of a line, `Potentials` computes a score as follows:
 - `Board::put` / `remove` return copies; the solvers use the `_mut`
   variants to avoid cloning in the search loop.
 
-`Board` also caches each player's swords (`Sword`, §5), which the VCF
-search asks for at nearly every node. The cache is a `SwordMap`
-(`map.rs`), which `Board` only forwards to: it marks the map on
-`put_mut` / `remove_mut`, and `sync_swords` / `swords` / `swords_on` pass
-its `Grid` along.
+The VCF search asks for each player's swords (`Sword`, §5) at nearly
+every node, so it keeps them cached in a `SwordMap`
+(`src/feature/sword.rs`). `Board` does not hold it: like the VCT's
+`PotentialField`, the search states do (`VCFState`, and `VCTState` to hand
+to its nested VCFs), marking it from `State::after_play` / `after_undo`
+and passing the board along when they sync or read it.
 
 - Per player and per line (by `Grid::line_key`, the line's position in
   `Grid::lines`), a `u16` with bit `j` set if a sword's window starts at
@@ -427,9 +427,9 @@ its `Grid` along.
   at once with bit operations (no opponent stone, exactly three own stones
   by a bit-sliced sum, and for Black no own stone just outside) instead of
   stepping through `Sequences`.
-- `swords(r)` / `swords_on(p, r)` read the cache and return what
-  `structures(r, Sword)` / `structures_on(p, r, Sword)` would, in the same
-  order. They require `sync_swords` first; `Game::synced_board` does both.
+- `SwordMap::swords(board, r)` / `swords_on(board, p, r)` read the cache
+  and return what `structures(r, Sword)` / `structures_on(p, r, Sword)`
+  would, in the same order. They require `sync(board)` first.
 
 ## 9. Cheat sheet: rule → code
 

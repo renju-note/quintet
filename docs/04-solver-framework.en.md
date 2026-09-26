@@ -25,6 +25,7 @@ src/mate/
 ├── vcf.rs, vcf/     the VCF solver                    (05)
 └── vct.rs, vct/     the VCT solver                    (06)
 src/feature/potential.rs   PotentialField: move ordering for VCT (06, §8)
+src/feature/sword.rs       SwordMap: cached swords for VCF (02 §8, 05)
 ```
 
 How they fit together, from the bottom up:

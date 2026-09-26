@@ -90,9 +90,10 @@ each stale point when it is next read (`sorted_potentials` /
 `sort_by_potential`), which happens only on a candidate-cache miss. `next_key(m)`
 is `key()` of the child after `m`, computed from the board's Zobrist hash by
 XOR without playing `m`, which is what keeps table lookups for unexpanded
-children cheap. `vcf_state` / `threat_state` sync the board's swords
-(02 §8) before cloning the game, so that each nested VCF starts in sync and
-the next one reuses what this one computed.
+children cheap. `VCTState` also keeps a `SwordMap` (02 §8), marked the same way;
+`vcf_state` / `threat_state` sync it and hand a clone to the nested
+`VCFState`, so that each nested VCF starts in sync and the next one reuses
+what this one computed.
 
 ### Two derived `VCFState`s
 

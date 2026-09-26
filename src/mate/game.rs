@@ -48,13 +48,6 @@ impl Game {
         &self.board
     }
 
-    /// The board with its swords brought up to date, for
-    /// [`Board::swords`] / [`Board::swords_on`].
-    pub fn synced_board(&mut self) -> &Board {
-        self.board.sync_swords();
-        &self.board
-    }
-
     /// The stones and whose turn it is. The turn has to be in it because a
     /// pass changes it without touching the board.
     pub fn position_hash(&self) -> u64 {
