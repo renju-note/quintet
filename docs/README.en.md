@@ -11,7 +11,7 @@ Japanese index: [README.ja.md](README.ja.md).
 | Document | What it covers |
 | --- | --- |
 | [01-renju-rules.en.md](01-renju-rules.en.md) / [ja](01-renju-rules.ja.md) | The RIF International Rules of Renju (board, terminology, win conditions, forbidden moves, opening rules) restated in Markdown. |
-| [02-board-implementation.en.md](02-board-implementation.en.md) / [ja](02-board-implementation.ja.md) | How `src/board/` represents the board and implements the rules above: line encoding, sequence/structure detection, forbidden-move detection, hashing. |
+| [02-board-implementation.en.md](02-board-implementation.en.md) / [ja](02-board-implementation.ja.md) | How `src/board/` represents the board and implements the rules above: line encoding, segments and structure detection, forbidden-move detection, hashing. |
 | [03-solver-api.en.md](03-solver-api.en.md) / [ja](03-solver-api.ja.md) | Using the solvers: `solve`, `SolveMode`, `SolveLimits`, `SolveResult`, `NodeBudget`, keeping a solver across questions with the `Solver` trait, `Mate` / `End`. |
 | [04-solver-framework.en.md](04-solver-framework.en.md) / [ja](04-solver-framework.ja.md) | Inside `src/mate/`: the layout and the pieces every solver shares — `Game` and `check_event`, `State` and `Key`, `Memo` generations, the `Solver` trait, node budgets. |
 | [05-solver-vcf.en.md](05-solver-vcf.en.md) / [ja](05-solver-vcf.ja.md) | The VCF search in `src/mate/vcf/`: four-making move pairs, `DFSSolver` and its deadend memo, `IDDFSSolver`, a worked example. |

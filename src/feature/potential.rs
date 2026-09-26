@@ -31,7 +31,7 @@ impl PotentialField {
 
     pub fn init(player: Player, min: u8, board: &Board) -> Self {
         let mut result = Self::new(player, min);
-        let os = board.potentials(player, min, player.is_black());
+        let os = board.potentials(player, min);
         for (idx, o) in os {
             result.set(idx, o);
         }
@@ -40,7 +40,7 @@ impl PotentialField {
 
     pub fn update_along(&mut self, p: Point, board: &Board) {
         self.reset_along(p);
-        let os = board.potentials_along(p, self.player, self.min, self.player.is_black());
+        let os = board.potentials_along(p, self.player, self.min);
         for (idx, o) in os {
             self.set(idx, o);
         }

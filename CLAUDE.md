@@ -39,9 +39,11 @@ slower and some cases time out.
 
 - `src/board/` — board representation. `Point`/`Points` (15x15, `A1`..`O15`,
   encoded to a single `u8` for the wasm boundary), `Line`/`Grid` (bit-packed
-  rows and 4 line directions), `Structure`/`StructureKind` (three, four, five,
-  overline...), `forbidden.rs` (Renju forbidden-move detection for Black),
-  `potential.rs`, `zobrist.rs` (hashing for transposition tables).
+  rows and 4 line directions), `Segment` (five cells of a line plus one on
+  each side: where a five can be made, and how close each player is),
+  `Structure`/`StructureKind` (three, four, five, overline..., each one or
+  two segments), `forbidden.rs` (Renju forbidden-move detection for Black),
+  `zobrist.rs` (hashing for transposition tables).
   `Board` is the facade over them.
 - `src/feature/` — search-side caches the solver states keep in step with
   the moves: `potential.rs` (`PotentialField`, per-point potential

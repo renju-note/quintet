@@ -1,7 +1,7 @@
 use super::line::*;
 use super::player::*;
 use super::point::*;
-use super::potential::VICTORY;
+use super::segment::VICTORY;
 use super::structure::*;
 use std::fmt;
 use std::str::FromStr;
@@ -202,12 +202,11 @@ impl Grid {
     }
 
     pub fn structures(&self, r: Player, k: StructureKind) -> impl Iterator<Item = Structure> + '_ {
-        let (sk, n, exact) = k.to_sequence(r);
         self.lines()
-            .filter(move |(_, _, l)| l.potential_cap(r) > n)
+            .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
             .flat_map(move |(d, i, l)| {
-                l.sequences(r, sk, n, exact)
-                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
+                l.structures(r, k)
+                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), r, k, s))
             })
     }
 
@@ -217,26 +216,19 @@ impl Grid {
         r: Player,
         k: StructureKind,
     ) -> impl Iterator<Item = Structure> + '_ {
-        let (sk, n, exact) = k.to_sequence(r);
         self.lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(r) > n)
+            .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
             .flat_map(move |(d, i, l)| {
-                let j = p.to_index(d).j;
-                l.sequences_on(j, r, sk, n, exact)
-                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), s))
+                l.structures_on(p.to_index(d).j, r, k)
+                    .map(move |(j, s)| Structure::new(Index::new(d, i, j), r, k, s))
             })
     }
 
-    pub fn potentials(
-        &self,
-        r: Player,
-        min: u8,
-        exact: bool,
-    ) -> impl Iterator<Item = (Index, u8)> + '_ {
+    pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (Index, u8)> + '_ {
         self.lines()
             .filter(move |(_, _, l)| l.potential_cap(r) >= min)
             .flat_map(move |(d, i, l)| {
-                l.potentials(r, min, exact)
+                l.potentials(r, min)
                     .map(move |(j, p)| (Index::new(d, i, j), p))
             })
     }
@@ -246,12 +238,11 @@ impl Grid {
         p: Point,
         r: Player,
         min: u8,
-        exact: bool,
     ) -> impl Iterator<Item = (Index, u8)> + '_ {
         self.lines_on(p)
             .filter(move |(_, _, l)| l.potential_cap(r) >= min)
             .flat_map(move |(d, i, l)| {
-                l.potentials(r, min, exact)
+                l.potentials(r, min)
                     .map(move |(j, p)| (Index::new(d, i, j), p))
             })
     }
@@ -579,8 +570,8 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Grid>()?;
-        let potentials = |r, min, exact| -> Vec<(Direction, String, u8)> {
-            grid.potentials(r, min, exact)
+        let potentials = |r, min| -> Vec<(Direction, String, u8)> {
+            grid.potentials(r, min)
                 .map(|(i, o)| (i.d, i.to_point().to_string(), o))
                 .collect()
         };
@@ -596,20 +587,18 @@ mod tests {
             (Ascending, "J8".to_string(), 6),
             (Ascending, "L10".to_string(), 3),
         ];
-        assert_eq!(potentials(Black, 3, true), expected);
+        assert_eq!(potentials(Black, 3), expected);
 
         let expected = [
             (Horizontal, "E9".to_string(), 3),
             (Horizontal, "F9".to_string(), 4),
             (Horizontal, "G9".to_string(), 4),
         ];
-        assert_eq!(potentials(White, 3, false), expected);
+        assert_eq!(potentials(White, 3), expected);
 
         // `potentials_along` is the same, limited to one point's lines.
-        let along: Vec<_> = grid
-            .potentials_along(Point(7, 8), White, 3, false)
-            .collect();
-        let all: Vec<_> = grid.potentials(White, 3, false).collect();
+        let along: Vec<_> = grid.potentials_along(Point(7, 8), White, 3).collect();
+        let all: Vec<_> = grid.potentials(White, 3).collect();
         assert_eq!(along, all);
 
         Ok(())

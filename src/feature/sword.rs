@@ -1,5 +1,6 @@
 use crate::board::Direction::*;
 use crate::board::Player::*;
+use crate::board::StructureKind::Sword;
 use crate::board::*;
 
 /// Where each player's swords are, kept alongside a [`Board`].
@@ -120,7 +121,7 @@ impl SwordMap {
         let line = board.line(d, i).unwrap();
         for r in [Black, White] {
             let swords = &mut self.players[player_index(r)];
-            swords.starts[k] = line.sword_starts(r);
+            swords.starts[k] = line.structure_starts(r, Sword);
             if swords.starts[k] != 0 {
                 swords.lines |= 1 << k;
             } else {
@@ -145,7 +146,8 @@ fn swords_in(
 ) -> impl Iterator<Item = Structure> + '_ {
     let (d, i) = Grid::line_of_key(k);
     let line = board.line(d, i).unwrap();
-    bits(starts as u128).map(move |j| Structure::new(Index::new(d, i, j), line.window(r, j)))
+    bits(starts as u128)
+        .map(move |j| Structure::new(Index::new(d, i, j), r, Sword, line.segment(j)))
 }
 
 fn player_index(r: Player) -> usize {
@@ -167,7 +169,6 @@ fn bits(mut x: u128) -> impl Iterator<Item = u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::StructureKind::*;
 
     /// The map has to say what a scan of the grid says, point for point
     /// and in the same order.

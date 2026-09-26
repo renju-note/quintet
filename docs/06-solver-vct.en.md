@@ -430,12 +430,12 @@ every empty point, cheaply and always current. `PotentialField` keeps one
 `u8` per direction per point (`Potential { v, h, a, d }`) and reports the
 sum.
 
-**Per-direction value.** From `Board::potentials(player, min, exact)`
-(02, §7): for each five-window through the point with no opponent stone
-(and, for Black, `exact` — no own stone in the margin, which would make an
-overline), count the own stones it would hold after playing there; keep the
-count if it is at least `min`; report `max × (number of windows reaching
-that max)`. With `min = 2`, a single own stone within four cells already
+**Per-direction value.** From `Board::potentials(player, min)` (02, §7):
+for each segment through the point that is alive (no opponent stone and,
+for Black, no own stone just outside it, which would make an overline),
+count the own stones it would hold after playing there; keep the count if
+it is at least `min`; report `max × (number of segments reaching that
+max)`. With `min = 2`, a single own stone within four cells already
 scores.
 
 **Keeping it current.** `init(player, min, board)` fills the field;
@@ -450,7 +450,7 @@ candidates come from the cache.
 **Querying.** `get(p)` is the sum over the four directions; `collect(min)`
 lists every point whose sum is at least `min`. `VCTState::sorted_potentials`
 and `sort_by_potential` sort descending. Note the two different `min`s: `2`
-at construction filters windows, `3` at query time filters sums.
+at construction filters segments, `3` at query time filters sums.
 
 **Overlay.** `overlay(board)` prints the field for debugging (`.` = 0). For
 the board of §7 with `PotentialField::init(Black, 2, ..)`:
