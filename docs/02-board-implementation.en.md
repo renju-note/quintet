@@ -13,8 +13,8 @@ Module map (`src/board.rs` declares the modules):
 | `point.rs` | `Point` (x, y), `Points`, `Direction`, `Index` (position along a line). |
 | `segment.rs` | `Segment`: five consecutive cells of a line (one place for a five) and the cell on each side. |
 | `line.rs` | `Line`: one row/column/diagonal as two bitmasks; its segments, and the sequences and potentials found from them. |
-| `sequence.rs` | `SequenceKind` (Two, Three, Sword, Four, Five, ...) and `Sequence` (a pattern located on the board). |
-| `grid.rs` | `Grid`: the whole 15×15 board as four arrays of `Line`s, plus pattern queries. |
+| `sequence.rs` | `SequenceKind` (Two, Three, Sword, Four, Five, ...) and `Sequence` (one player's stones in a row, located on the board). |
+| `grid.rs` | `Grid`: the whole 15×15 board as four arrays of `Line`s, plus sequence queries. |
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
 | `zobrist.rs` | Zobrist hashing for transposition tables. |
 | `board.rs` | `Board` = `Grid` + Zobrist hash; the public facade used by the solvers. |
@@ -25,9 +25,9 @@ bottom up:
 1. `Line` stores one line of the board as bitmasks (§2).
 2. A `Segment` is one place on a line where a five can be made, and says
    how far each player is from making it there (§3).
-3. `Grid` holds all the lines and answers "which patterns are on the
+3. `Grid` holds all the lines and answers "which sequences are on the
    board / through this point?" (§4).
-4. `SequenceKind` names those patterns in rule vocabulary — `Five`, `Four`,
+4. `SequenceKind` names those sequences in rule vocabulary — `Five`, `Four`,
    `Three`, ... — each as one or two segments with the right score (§5).
 5. `forbidden.rs` combines a few `sequences_on` queries into the
    forbidden-move rules (§6).
@@ -141,9 +141,9 @@ makes an overline, so the segment is dead for Black. White has no such
 restriction; its margins do not matter, and an overline is a win like any
 other.
 
-### 3.1 Finding patterns on a line, all segments at once
+### 3.1 Finding sequences on a line, all segments at once
 
-`Line::sequences(r, kind)` gives the segments where `r` has a pattern of
+`Line::sequences(r, kind)` gives the segments where `r` has a sequence of
 that kind (§5), as `(j, Segment)`. Checking the segments one by one is what
 `SequenceKind::matches` states, but the solvers ask at nearly every node,
 so the line finds them all at once with bit operations: bit `j` of `x >> k`
@@ -155,16 +155,16 @@ every segment in parallel.
   adder and the carries).
 - `scoring(r, n)`: the same with `score(r) == n`, i.e. also no black stone
   at `j - 1` or `j + 5` for Black.
-- `sequence_starts(r, kind)`: bit `j` is set if the pattern is at segment
+- `sequence_starts(r, kind)`: bit `j` is set if the sequence is at segment
   `j`, from the above. `sequences` walks its set bits.
 
 A test checks `sequence_starts` against `SequenceKind::matches` on every
 line of up to nine cells and on random full-length lines.
 
-`sequences_on(i, r, kind)` keeps only the patterns through cell `i`: the
-segment has `i` among its five cells, and for a pattern of two segments the
+`sequences_on(i, r, kind)` keeps only the sequences through cell `i`: the
+segment has `i` among its five cells, and for a sequence of two segments the
 earlier one does too, so `i` is in the four cells they share. It is what
-`sequences_on(p, …)` uses to ask "which patterns does this move touch?".
+`sequences_on(p, …)` uses to ask "which sequences does this move touch?".
 
 ## 4. `Grid`: the full board
 
@@ -185,7 +185,7 @@ shortest diagonals at each corner are omitted:
 
 - Diagonal `i` for `i` from `4` through `24` is stored at `alines[i - 4]`
   (`D_LINE_OMIT = 4`, `D_LINE_NUM = 21`).
-- For the other diagonals `line_idx` returns `None`, and pattern queries
+- For the other diagonals `line_idx` returns `None`, and sequence queries
   simply skip them.
 
 Main queries:
@@ -216,7 +216,7 @@ formats:
 Each `SequenceKind` is one segment, or two neighbouring ones (segments
 `j - 1` and `j`, together spanning the six cells `j - 1..=j + 4`), with the
 right scores. `SequenceKind::matches(r, prev, cur)` states it for the
-segment `cur` and the one before it, `prev`; a pattern of two is reported at
+segment `cur` and the one before it, `prev`; a sequence of two is reported at
 the later segment.
 
 | `SequenceKind` | Segments | Pattern (Black shown, `_` = eye) | Rule concept |
@@ -230,10 +230,10 @@ the later segment.
 | `Two` | two scoring 2, the stones in the four cells they share | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
 | `Overlining` | two, each `free` with 4 stones | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
 
-For the open patterns (`Two`, `Three`, `Straight`) "the stones in the four
+For the open sequences (`Two`, `Three`, `Straight`) "the stones in the four
 shared cells" means the later segment's last cell is empty; since both
 segments are alive, the six cells they span then have both ends empty. The
-overline patterns look at `free` segments rather than `alive` ones: an
+overline sequences look at `free` segments rather than `alive` ones: an
 overline always has a black stone next to each of its segments, which is
 exactly what makes a segment dead for Black. Two `free` segments with four
 black stones each are either five stones in six cells (the empty one makes
@@ -248,9 +248,9 @@ making an overline". Consider the shape `o.oooo.` as an example:
   margin, so filling the gap on the left would make six.
 - Only segment `oooo.` counts: playing the right end makes exactly five.
 
-A `Sequence` is where the pattern's (later) segment starts, an `Index`,
+A `Sequence` is where the sequence's (later) segment starts, an `Index`,
 with the masks of its stones and eyes; `stones()` and `eyes()` yield board
-`Point`s. For the open patterns only the four shared cells can be eyes: the
+`Point`s. For the open sequences only the four shared cells can be eyes: the
 fifth is an open end, not a point to play.
 
 ## 6. Forbidden moves (`forbidden.rs`)
@@ -312,7 +312,7 @@ neighbour is excluded for the following reason:
 
 ```rust
 fn double_three(g, p) -> bool {
-    // cheap pre-filter: at least two "three-to-be" patterns through p
+    // cheap pre-filter: at least two "three-to-be" sequences through p
     if !distinctive(g.sequences_on(p, Black, Two)) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);

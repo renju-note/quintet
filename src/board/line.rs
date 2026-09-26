@@ -88,7 +88,7 @@ impl Line {
         }
     }
 
-    /// [`Self::sequences`], only those through cell `i`. For a pattern of
+    /// [`Self::sequences`], only those through cell `i`. For a sequence of
     /// two segments, both have to be through it.
     pub fn sequences_on(&self, i: u8, r: Player, k: SequenceKind) -> Sequences {
         let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
@@ -281,7 +281,7 @@ mod tests {
                 for k in KINDS {
                     let expected = sequence_starts_by_segments(&line, r, k);
                     assert_eq!(line.sequence_starts(r, k), expected, "{r:?} {k:?} {line}");
-                    // Through cell `i`: the segment, and for a pattern of
+                    // Through cell `i`: the segment, and for a sequence of
                     // two its predecessor too, has `i` among its cells.
                     for i in 0..size {
                         let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });

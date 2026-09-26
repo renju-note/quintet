@@ -22,7 +22,7 @@ const MARGINS: u8 = 0b1000001;
 /// player: can `r` still make a five here ([`Self::alive`]), how close is it
 /// ([`Self::score`]), and where are the stones still to be played
 /// ([`Self::eyes`]). A [`Line`](super::Line) is the segments along it, and
-/// the patterns of the rules ([`SequenceKind`](super::SequenceKind)) are
+/// the sequences of the rules ([`SequenceKind`](super::SequenceKind)) are
 /// one or two segments with the right scores.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct Segment {

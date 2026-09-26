@@ -2,7 +2,7 @@ use super::player::*;
 use super::point::*;
 use super::segment::*;
 
-/// A pattern of one player's stones found on the board: where its segment
+/// A sequence of one player's stones found on the board: where its segment
 /// starts, which of the segment's cells hold the player's stones and which
 /// are its eyes, the cells to play to take it a step further.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -45,7 +45,7 @@ impl Sequence {
     }
 }
 
-/// The patterns of the rules, each told by the scores of one or two
+/// The sequences of the rules, each told by the scores of one or two
 /// neighbouring [`Segment`]s.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SequenceKind {
@@ -75,7 +75,7 @@ pub enum SequenceKind {
 pub use SequenceKind::*;
 
 impl SequenceKind {
-    /// How many own stones each segment of the pattern has.
+    /// How many own stones each segment of the sequence has.
     #[inline]
     pub fn stones(&self) -> u8 {
         match self {
@@ -86,13 +86,13 @@ impl SequenceKind {
         }
     }
 
-    /// Whether the pattern needs the segment before `cur` as well, the
+    /// Whether the sequence needs the segment before `cur` as well, the
     /// `prev` of [`Self::matches`].
     pub fn spans_two(&self) -> bool {
         !matches!(self, Sword | Four | Five)
     }
 
-    /// Whether `r` has this pattern at segment `cur`; `prev` is the segment
+    /// Whether `r` has this sequence at segment `cur`; `prev` is the segment
     /// starting one cell before it on the same line, if it is looked at.
     pub fn matches(&self, r: Player, prev: Option<Segment>, cur: Segment) -> bool {
         let n = self.stones();
@@ -113,9 +113,9 @@ impl SequenceKind {
         }
     }
 
-    /// The cells of the (later) segment that can be the pattern's eyes, as
+    /// The cells of the (later) segment that can be the sequence's eyes, as
     /// a bitmask: all five, but only the four shared ones for the open
-    /// patterns, whose fifth cell is an open end.
+    /// sequences, whose fifth cell is an open end.
     fn eye_cells(&self) -> u8 {
         match self {
             Two | Three | Straight => 0b01111,
