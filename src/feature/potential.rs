@@ -59,10 +59,8 @@ impl PotentialField {
     /// Recomputes the lines through every stale point from `board`.
     pub fn sync(&mut self, board: &Board) {
         for w in 0..self.stale.len() {
-            while self.stale[w] != 0 {
-                let b = self.stale[w].trailing_zeros() as usize;
-                self.stale[w] &= self.stale[w] - 1;
-                let i = (w * 64 + b) as u8;
+            for b in Bits(std::mem::take(&mut self.stale[w])) {
+                let i = w as u8 * 64 + b;
                 self.update_along(Point(i / RANGE, i % RANGE), board);
             }
         }

@@ -1,3 +1,4 @@
+use super::bits::Bits;
 use super::player::*;
 use std::fmt;
 
@@ -73,15 +74,15 @@ impl Segment {
 
     /// The cells (0-4) of the five holding `r`'s stones.
     #[inline]
-    pub fn stones(&self, r: Player) -> &'static [u8] {
-        BITS[self.stone_bits(r) as usize]
+    pub fn stones(&self, r: Player) -> Bits<u8> {
+        Bits(self.stone_bits(r))
     }
 
     /// The cells (0-4) where `r` still has to play to make a five here, or
     /// none if the segment is not [`Self::alive`] for `r`.
     #[inline]
-    pub fn eyes(&self, r: Player) -> &'static [u8] {
-        BITS[self.eye_bits(r) as usize]
+    pub fn eyes(&self, r: Player) -> Bits<u8> {
+        Bits(self.eye_bits(r))
     }
 
     /// [`Self::stones`] as a bitmask, bit `k` for cell `k`.
@@ -132,42 +133,6 @@ impl fmt::Display for Segment {
     }
 }
 
-/// The positions of the set bits of each 5-bit number, lowest first.
-pub(super) const BITS: [&[u8]; 32] = [
-    &[],
-    &[0],
-    &[1],
-    &[0, 1],
-    &[2],
-    &[0, 2],
-    &[1, 2],
-    &[0, 1, 2],
-    &[3],
-    &[0, 3],
-    &[1, 3],
-    &[0, 1, 3],
-    &[2, 3],
-    &[0, 2, 3],
-    &[1, 2, 3],
-    &[0, 1, 2, 3],
-    &[4],
-    &[0, 4],
-    &[1, 4],
-    &[0, 1, 4],
-    &[2, 4],
-    &[0, 2, 4],
-    &[1, 2, 4],
-    &[0, 1, 2, 4],
-    &[3, 4],
-    &[0, 3, 4],
-    &[1, 3, 4],
-    &[0, 1, 3, 4],
-    &[2, 3, 4],
-    &[0, 2, 3, 4],
-    &[1, 2, 3, 4],
-    &[0, 1, 2, 3, 4],
-];
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,22 +159,22 @@ mod tests {
         assert!(s.free(Black));
         assert!(s.alive(Black));
         assert_eq!(s.score(Black), 2);
-        assert_eq!(s.stones(Black), [0, 2]);
-        assert_eq!(s.eyes(Black), [1, 3, 4]);
+        assert_eq!(s.stones(Black).collect::<Vec<_>>(), [0, 2]);
+        assert_eq!(s.eyes(Black).collect::<Vec<_>>(), [1, 3, 4]);
         // Black's stones are in White's way.
         assert!(!s.free(White));
         assert!(!s.alive(White));
         assert_eq!(s.score(White), -1);
-        assert_eq!(s.eyes(White), []);
+        assert_eq!(s.eyes(White).collect::<Vec<_>>(), []);
 
         let s = segment("-|-----|-");
         assert_eq!(s.score(Black), 0);
         assert_eq!(s.score(White), 0);
-        assert_eq!(s.eyes(White), [0, 1, 2, 3, 4]);
+        assert_eq!(s.eyes(White).collect::<Vec<_>>(), [0, 1, 2, 3, 4]);
 
         let s = segment("-|ooooo|-");
         assert_eq!(s.score(Black), 5);
-        assert_eq!(s.eyes(Black), []);
+        assert_eq!(s.eyes(Black).collect::<Vec<_>>(), []);
     }
 
     #[test]
@@ -221,13 +186,13 @@ mod tests {
         assert!(!s.alive(Black));
         assert_eq!(s.score(Black), -1);
         assert_eq!(s.count(Black), 3);
-        assert_eq!(s.stones(Black), [1, 2, 3]);
-        assert_eq!(s.eyes(Black), []);
+        assert_eq!(s.stones(Black).collect::<Vec<_>>(), [1, 2, 3]);
+        assert_eq!(s.eyes(Black).collect::<Vec<_>>(), []);
 
         let s = segment("x|-xxx-|x");
         assert!(s.alive(White));
         assert_eq!(s.score(White), 3);
-        assert_eq!(s.eyes(White), [0, 4]);
+        assert_eq!(s.eyes(White).collect::<Vec<_>>(), [0, 4]);
         // White's own stones there are no business of Black's either.
         assert_eq!(segment("x|-----|x").score(Black), 0);
     }

@@ -157,19 +157,129 @@ every segment in parallel.
 
 - `counting(r, n)`: bit `j` is set if segment `j` is `free(r)` and has
   `count(r) == n` — the five cells added up bit-sliced (a full adder, a half
-  adder and the carries).
+  adder and the carries) by `tally`, detailed below.
 - `scoring(r, n)`: the same with `score(r) == n`, i.e. also no black stone
   at `j - 1` or `j + 5` for Black.
 - `row_starts(r, kind)`: bit `j` is set if the row is at segment
-  `j`, from the above. `rows` walks its set bits.
+  `j`, from the above. `rows` walks its set bits (`Bits`, one
+  `trailing_zeros` per row).
 
 A test checks `row_starts` against `RowKind::matches` on every
 line of up to nine cells and on random full-length lines.
 
 `rows_on(i, r, kind)` keeps only the rows through cell `i`: the
 segment has `i` among its five cells, and for a row of two segments the
-earlier one does too, so `i` is in the four cells they share. It is what
+earlier one does too, so `i` is in the four cells they share.
+`row_starts_on(i, r, kind)` is the same as a mask. It is what
 `rows_on(p, …)` uses to ask "which rows does this move touch?".
+
+<details>
+<summary>How <code>tally</code> adds up the five cells of every segment at once</summary>
+
+`counting` and `potentials` both start from `Line::tally(r)`, which
+returns `([ones, twos, fours], free)`. Bit `j` of every mask is about
+segment `j` (cells `j` to `j + 4`):
+
+| Mask | Bit `j` |
+| --- | --- |
+| `ones` / `twos` / `fours` | The binary digits 1, 2 and 4 of how many of `r`'s stones segment `j` holds (0-5). Three stones are `0b011`: set in `ones` and `twos`. |
+| `free` | Segment `j` has no opponent stone and lies within the line. |
+
+```rust
+fn tally(&self, r: Player) -> ([u16; 3], u16) {
+    let (my, op) = self.my_op(r);
+    let segments = (1u16 << (self.size + 1 - VICTORY)) - 1;
+    let blocked = op | op >> 1 | op >> 2 | op >> 3 | op >> 4;
+    let (a, b, c, d, e) = (my, my >> 1, my >> 2, my >> 3, my >> 4);
+    let (s1, c1) = (a ^ b ^ c, a & b | c & (a ^ b));
+    let (s2, c2) = (d ^ e, d & e);
+    let (ones, c3) = (s1 ^ s2, s1 & s2);
+    let twos = c1 ^ c2 ^ c3;
+    let fours = c1 & c2 | c3 & (c1 ^ c2);
+    ([ones, twos, fours], !blocked & segments)
+}
+```
+
+**Lining the five cells up.** Bit `j` of `my >> k` is cell `j + k`, so at
+each bit position `j` the five values `a` to `e` are exactly the five cells
+of segment `j`. Their sum is the segment's count, and one `u16` holds up to
+16 segments: every bit operation adds for all of them at once
+(bit-sliced addition).
+
+**Adding five 1-bit values.** The sum is 0-5, three binary digits, and is
+built like an adder circuit:
+
+1. A full adder on `a + b + c`: `s1 = a ^ b ^ c` is the ones digit, and
+   `c1 = a & b | c & (a ^ b)` (at least two of the three, a majority) is the
+   carry, worth 2.
+2. A half adder on `d + e`: `s2 = d ^ e` (ones) and `c2 = d & e` (carry,
+   worth 2).
+3. The ones digits together: `ones = s1 ^ s2` is final, and
+   `c3 = s1 & s2` is one more carry worth 2.
+4. The three carries `c1`, `c2`, `c3`, each worth 2: their parity
+   `twos = c1 ^ c2 ^ c3` is the twos digit, and their majority
+   `fours = c1 & c2 | c3 & (c1 ^ c2)` carries into the fours.
+
+That is, the sum of five bits is split as "ones digit + 2 × (`c1` + `c2` +
+`c3`)", and the second part is added once more.
+
+**Opponent stones and the edge.**
+
+- `blocked = op | op >> 1 | … | op >> 4`: bit `j` is set if any of cells
+  `j` to `j + 4` holds an opponent stone — the same lining up, with OR in
+  place of addition.
+- `segments = (1 << (size - 4)) - 1` keeps the segments starting at 0 to
+  `size - 5`. Further right the window runs off the line, where the shifts
+  bring in zeros that look like empty cells.
+- `!blocked & segments` is `Segment::free` for every segment.
+
+**An example.** The line `-oo-o-x--` (size 9) for Black. The masks are
+written with cell 0 on the **left**, the reverse of the usual binary
+notation:
+
+```
+cell        012345678
+my          011010000   Black's stones
+a (=my)     011010000
+b (>>1)     110100000
+c (>>2)     101000000
+d (>>3)     010000000
+e (>>4)     100000000
+
+s1          000110000   ones digit of a+b+c
+c1          111000000   carry of a+b+c
+s2          110000000   ones digit of d+e
+c2          000000000   carry of d+e
+c3          000000000   carry of s1+s2
+
+ones        110110000
+twos        111000000
+fours       000000000
+
+blocked     001111100   the windows over the x at cell 6
+segments    111110000   the windows starting at 0-4
+free        110000000
+```
+
+| j | Cells | Stones | fours twos ones | Value | free |
+| --- | --- | --- | --- | --- | --- |
+| 0 | `-oo-o` | 3 | 0 1 1 | 3 | ✓ |
+| 1 | `oo-o-` | 3 | 0 1 1 | 3 | ✓ |
+| 2 | `o-o-x` | 2 | 0 1 0 | 2 | ✗ (x) |
+| 3 | `-o-x-` | 1 | 0 0 1 | 1 | ✗ |
+| 4 | `o-x--` | 1 | 0 0 1 | 1 | ✗ |
+
+**How the result is used.**
+
+- `select(digits, n)` picks the segments whose count is exactly `n`: each
+  digit mask as is where `n` has a 1, inverted where it has a 0, ANDed.
+- `counting(r, n)` is `select(digits, n) & free`.
+- `scoring(r, n)` also removes, for Black, the segments with a black stone
+  just outside them (`overline`).
+- `potentials` calls `tally` once and makes one mask per count `n` from it
+  (§7).
+
+</details>
 
 ## 4. `Grid`: the full board
 
@@ -272,8 +382,8 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 `ForbiddenKind` is one of `Overline`, `DoubleFour` or `DoubleThree`.
 
 - `forbidden_strict` first applies the exception in rule 9.2: if `p` is
-  already occupied, or playing `p` makes a five (`rows_on(p, Black,
-  Four)` is non-empty), the move is *not* forbidden. Otherwise it delegates
+  already occupied, or playing `p` makes a five (`row_starts_on(p, Black,
+  Four)` has a start), the move is *not* forbidden. Otherwise it delegates
   to `forbidden`.
 - `forbidden` checks overline, double-four and double-three in that order;
   a point matching several kinds is reported as the first one found.
@@ -286,8 +396,13 @@ by the search itself before the forbidden check matters.
 ### Overline (rule 9.2 a)
 
 ```rust
-fn overline(g, p) -> bool { g.rows_on(p, Black, Overlining).next().is_some() }
+fn overline(g, p) -> bool { any(g.row_starts_on(p, Black, Overlining)) }
 ```
+
+`Grid::row_starts_on(p, r, kind)` gives, per line through `p`, the mask
+`Line::row_starts_on` of where the rows `rows_on(p, r, kind)` would give
+start (§3.1), without building them. Asking whether there is one (`any`),
+or more than one (`distinctive_starts`, below), is then a test on bits.
 
 An `Overlining` is two adjacent segments, each holding 4 black stones and
 both containing the empty point `p`. Together they span 6 cells with 5
@@ -297,7 +412,7 @@ stones, so playing `p` completes a run of six or more.
 
 ```rust
 fn double_four(g, p) -> bool {
-    distinctive(&mut g.rows_on(p, Black, Sword).map(|s| s.start_index()))
+    distinctive_starts(g.row_starts_on(p, Black, Sword))
 }
 ```
 
@@ -314,12 +429,17 @@ neighbour is excluded for the following reason:
   case on different lines, but also on the same line when the shape is like
   `o.o_o.o`, which gives two distinct fives-to-be.
 
+`distinctive_starts` asks the same of the masks: a second line with a start,
+or, on the first one, a start other than its lowest `j` and `j + 1`
+(`s & !(0b11 << s.trailing_zeros()) != 0`). `distinctive` itself is still
+used on the `Three`s below, which have to be looked at one by one.
+
 ### Double-three (rules 9.2 c and 9.3)
 
 ```rust
 fn double_three(g, p) -> bool {
     // cheap pre-filter: at least two "three-to-be" rows through p
-    if !distinctive(g.rows_on(p, Black, Two)) { return false; }
+    if !distinctive_starts(g.row_starts_on(p, Black, Two)) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
@@ -411,6 +531,13 @@ of a line, `Line::potentials(r, min)` computes a value as follows:
 2. A cell is worth the best segment through it (at most five), times the
    number of segments through it reaching that best.
 3. Cells below `min` are not reported.
+
+It is worked out on the same bit-sliced counts as `counting`: one mask per
+score of the segments alive and worth at least `min`, and for each empty
+cell, from the best score down, `count_ones` of that mask over the (at
+most five) segments through the cell. The first score with any is the
+best, and the count is how many reach it. A test checks this against the
+segment-by-segment definition above, on the same lines as `row_starts`.
 
 `Grid::potentials` / `potentials_along` expose this per `Index`, and
 `src/feature/potential.rs` aggregates it per point for move ordering.

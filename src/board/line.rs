@@ -1,3 +1,4 @@
+use super::bits::Bits;
 use super::player::*;
 use super::row::RowKind::{self, *};
 use super::segment::*;
@@ -50,18 +51,13 @@ impl Line {
         }
     }
 
-    pub fn stones(&self, r: Player) -> impl Iterator<Item = u8> {
-        let target = match r {
-            Black => self.blacks,
-            White => self.whites,
-        };
-        (0..self.size).filter(move |i| target & (0b1 << i) != 0b0)
+    pub fn stones(&self, r: Player) -> Bits<u16> {
+        let (my, _) = self.my_op(r);
+        Bits(my)
     }
 
-    pub fn empties(&self) -> impl Iterator<Item = u8> {
-        let blacks = self.blacks;
-        let whites = self.whites;
-        (0..self.size).filter(move |i| blacks & 0b1 << i == 0b0 && whites & 0b1 << i == 0b0)
+    pub fn empties(&self) -> Bits<u16> {
+        Bits(!(self.blacks | self.whites) & ((1 << self.size) - 1))
     }
 
     /// The segment whose five cells start at cell `j`.
@@ -84,19 +80,24 @@ impl Line {
     pub fn rows(&self, r: Player, k: RowKind) -> Rows {
         Rows {
             line: *self,
-            starts: self.row_starts(r, k),
+            starts: Bits(self.row_starts(r, k)),
         }
     }
 
     /// [`Self::rows`], only those through cell `i`. For a row of
     /// two segments, both have to be through it.
     pub fn rows_on(&self, i: u8, r: Player, k: RowKind) -> Rows {
-        let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
-        let through = ((1u32 << (i + 1)) - (1u32 << first)) as u16;
         Rows {
             line: *self,
-            starts: self.row_starts(r, k) & through,
+            starts: Bits(self.row_starts_on(i, r, k)),
         }
+    }
+
+    /// [`Self::row_starts`], only those of [`Self::rows_on`].
+    #[inline]
+    pub fn row_starts_on(&self, i: u8, r: Player, k: RowKind) -> u16 {
+        let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
+        self.row_starts(r, k) & starts_between(first, i)
     }
 
     /// The potential of each empty cell for `r`, as `(i, potential)`, the
@@ -105,18 +106,25 @@ impl Line {
     /// A segment is worth its [`Segment::score`] + 1, so 0 if it is dead,
     /// and nothing below `min`. A cell is worth the best segment through
     /// it, times how many segments through it are that good.
-    pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (u8, u8)> + '_ {
-        let mut values = [0u8; MAX_SIZE as usize];
-        for (j, s) in self.segments() {
-            let v = (s.score(r) + 1) as u8;
-            values[j as usize] = if v >= min { v } else { 0 };
+    ///
+    /// Worked out on [`Self::tally`]'s bits: the segments worth `n + 1`
+    /// are one mask per `n`, and a cell counts those through it with
+    /// `count_ones`, from the best `n` down.
+    pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (u8, u8)> + use<> {
+        let (digits, free) = self.tally(r);
+        let alive = free & !self.overline(r);
+        // By score, the segments worth at least `min`, the rest left empty.
+        let mut worth = [0u16; VICTORY as usize + 1];
+        for n in min.saturating_sub(1)..=VICTORY {
+            worth[n as usize] = select(digits, n) & alive;
         }
         self.empties().filter_map(move |i| {
-            let first = i.saturating_sub(VICTORY - 1);
-            let last = i.min(self.size - VICTORY);
-            let through = &values[first as usize..=last as usize];
-            let max = through.iter().copied().max().unwrap_or(0);
-            let potential = max * through.iter().filter(|&&v| v == max).count() as u8;
+            let through = starts_between(i.saturating_sub(VICTORY - 1), i);
+            let potential = (0..=VICTORY)
+                .rev()
+                .map(|n| (n + 1) * (worth[n as usize] & through).count_ones() as u8)
+                .find(|&p| p != 0)
+                .unwrap_or(0);
             (potential >= min).then_some((i, potential))
         })
     }
@@ -152,21 +160,29 @@ impl Line {
     /// `r` ([`Segment::score`]), for all the segments at once.
     #[inline]
     pub fn scoring(&self, r: Player, n: u8) -> u16 {
-        let (my, _) = self.my_op(r);
-        // A black stone just before or just after the five.
-        let overline = if r.is_black() { my << 1 | my >> 5 } else { 0 };
-        self.counting(r, n) & !overline
+        self.counting(r, n) & !self.overline(r)
     }
 
     /// Bit `j` is set if the segment starting at cell `j` is free for `r`
     /// and has `n` of its stones ([`Segment::free`], [`Segment::count`]).
+    #[inline]
+    pub fn counting(&self, r: Player, n: u8) -> u16 {
+        let (digits, free) = self.tally(r);
+        select(digits, n) & free
+    }
+
+    /// For every segment at once, bit `j` for the one starting at cell `j`:
+    /// how many of `r`'s stones its five cells hold, as three bitmasks
+    /// for the binary digits 1, 2 and 4, and which segments are free for
+    /// `r` ([`Segment::free`]).
     ///
     /// Bit `j` of `x >> k` is cell `j + k`, so each condition is checked
     /// for every segment in parallel: no opponent stone in the five cells,
     /// and the five added up bit-sliced, a full adder on the first three,
-    /// a half adder on the last two, then the carries.
+    /// a half adder on the last two, then the carries. Worked through step
+    /// by step in `docs/02-board-implementation.en.md` §3.1.
     #[inline]
-    pub fn counting(&self, r: Player, n: u8) -> u16 {
+    fn tally(&self, r: Player) -> ([u16; 3], u16) {
         let (my, op) = self.my_op(r);
         let segments = (1u16 << (self.size + 1 - VICTORY)) - 1;
         let blocked = op | op >> 1 | op >> 2 | op >> 3 | op >> 4;
@@ -176,8 +192,16 @@ impl Line {
         let (ones, c3) = (s1 ^ s2, s1 & s2);
         let twos = c1 ^ c2 ^ c3;
         let fours = c1 & c2 | c3 & (c1 ^ c2);
-        let digit = |bits: u16, k: u8| if n & k != 0 { bits } else { !bits };
-        digit(ones, 1) & digit(twos, 2) & digit(fours, 4) & !blocked & segments
+        ([ones, twos, fours], !blocked & segments)
+    }
+
+    /// Bit `j` is set if, for Black, a black stone is just before or just
+    /// after the segment starting at cell `j`, so that filling it in would
+    /// make an overline. Always empty for White.
+    #[inline]
+    fn overline(&self, r: Player) -> u16 {
+        let (my, _) = self.my_op(r);
+        if r.is_black() { my << 1 | my >> 5 } else { 0 }
     }
 
     /// `r`'s stones and the opponent's, in that order.
@@ -189,24 +213,38 @@ impl Line {
     }
 }
 
+/// Of [`Line::tally`]'s digits, where they spell `n`.
+#[inline]
+fn select([ones, twos, fours]: [u16; 3], n: u8) -> u16 {
+    let digit = |bits: u16, k: u8| if n & k != 0 { bits } else { !bits };
+    digit(ones, 1) & digit(twos, 2) & digit(fours, 4)
+}
+
+/// The segments starting at cells `first` to `last`, as a mask.
+#[inline]
+fn starts_between(first: u8, last: u8) -> u16 {
+    ((1u32 << (last + 1)) - (1u32 << first)) as u16
+}
+
 /// The segments of a line where one player has a row of one kind:
 /// [`Line::rows`].
 pub struct Rows {
     line: Line,
-    /// Where the segments not given yet start, bit `j` for cell `j`.
-    starts: u16,
+    /// Where the segments not given yet start.
+    starts: Bits<u16>,
 }
 
 impl Iterator for Rows {
     type Item = (u8, Segment);
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.starts == 0 {
-            return None;
-        }
-        let j = self.starts.trailing_zeros() as u8;
-        self.starts &= self.starts - 1;
+        let j = self.starts.next()?;
         Some((j, self.line.segment(j)))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.starts.size_hint()
     }
 }
 
@@ -266,10 +304,32 @@ mod tests {
         found.map(|(j, _)| j).collect()
     }
 
-    #[test]
-    fn test_row_starts_matches_segments() {
-        let check = |size: u8, cells: &[u8]| {
-            let mut line = Line::new(size);
+    /// What `potentials` is defined as, segment by segment.
+    fn potentials_by_segments(line: &Line, r: Player, min: u8) -> Vec<(u8, u8)> {
+        let values: Vec<u8> = line
+            .segments()
+            .map(|(_, s)| (s.score(r) + 1) as u8)
+            .map(|v| if v >= min { v } else { 0 })
+            .collect();
+        (0..line.size)
+            .filter(|&i| line.stone(i).is_none())
+            .filter_map(|i| {
+                let first = i.saturating_sub(VICTORY - 1) as usize;
+                let last = i.min(line.size - VICTORY) as usize;
+                let through = &values[first..=last];
+                let max = through.iter().copied().max().unwrap_or(0);
+                let potential = max * through.iter().filter(|&&v| v == max).count() as u8;
+                (potential >= min).then_some((i, potential))
+            })
+            .collect()
+    }
+
+    /// Every line up to nine cells, which covers the short diagonals and
+    /// every pair of segments with their margins, then full-length lines,
+    /// pseudo-randomly.
+    fn for_many_lines(mut check: impl FnMut(&Line)) {
+        let line = |cells: &[u8]| {
+            let mut line = Line::new(cells.len() as u8);
             for (i, &c) in cells.iter().enumerate() {
                 match c {
                     1 => line.put_mut(Black, i as u8),
@@ -277,13 +337,36 @@ mod tests {
                     _ => {}
                 }
             }
+            line
+        };
+        for size in 5..=9u8 {
+            for code in 0..3u32.pow(size as u32) {
+                let cells: Vec<u8> = (0..size)
+                    .map(|i| (code / 3u32.pow(i as u32) % 3) as u8)
+                    .collect();
+                check(&line(&cells));
+            }
+        }
+        let mut x: u64 = 0x2545f4914f6cdd1d;
+        for _ in 0..20_000 {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            let cells: Vec<u8> = (0..15).map(|i| ((x >> (2 * i)) % 3) as u8).collect();
+            check(&line(&cells));
+        }
+    }
+
+    #[test]
+    fn test_row_starts_matches_segments() {
+        for_many_lines(|line| {
             for r in [Black, White] {
                 for k in KINDS {
-                    let expected = row_starts_by_segments(&line, r, k);
+                    let expected = row_starts_by_segments(line, r, k);
                     assert_eq!(line.row_starts(r, k), expected, "{r:?} {k:?} {line}");
                     // Through cell `i`: the segment, and for a row of
                     // two its predecessor too, has `i` among its cells.
-                    for i in 0..size {
+                    for i in 0..line.size {
                         let first = i.saturating_sub(if k.spans_two() { 3 } else { 4 });
                         let on: Vec<_> = (first..=i).filter(|j| expected & 1 << j != 0).collect();
                         assert_eq!(
@@ -294,26 +377,22 @@ mod tests {
                     }
                 }
             }
-        };
-        // Every line up to nine cells, which covers the short diagonals and
-        // every pair of segments with their margins.
-        for size in 5..=9u8 {
-            for code in 0..3u32.pow(size as u32) {
-                let cells: Vec<u8> = (0..size)
-                    .map(|i| (code / 3u32.pow(i as u32) % 3) as u8)
-                    .collect();
-                check(size, &cells);
+        });
+    }
+
+    #[test]
+    fn test_potentials_matches_segments() {
+        for_many_lines(|line| {
+            for r in [Black, White] {
+                for min in 0..=7 {
+                    assert_eq!(
+                        line.potentials(r, min).collect::<Vec<_>>(),
+                        potentials_by_segments(line, r, min),
+                        "{r:?} {min} {line}"
+                    );
+                }
             }
-        }
-        // Full-length lines, pseudo-randomly.
-        let mut x: u64 = 0x2545f4914f6cdd1d;
-        for _ in 0..20_000 {
-            x ^= x << 13;
-            x ^= x >> 7;
-            x ^= x << 17;
-            let cells: Vec<u8> = (0..15).map(|i| ((x >> (2 * i)) % 3) as u8).collect();
-            check(15, &cells);
-        }
+        });
     }
 
     #[test]

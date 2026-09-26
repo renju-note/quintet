@@ -13,8 +13,7 @@ pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind> {
     if g.stone(p).is_some() {
         return None;
     }
-    let mut fours = g.rows_on(p, Black, Four);
-    if fours.next().is_some() {
+    if any(g.row_starts_on(p, Black, Four)) {
         return None;
     }
     forbidden(g, p)
@@ -42,18 +41,15 @@ pub enum ForbiddenKind {
 pub use ForbiddenKind::*;
 
 fn overline(g: &Grid, p: Point) -> bool {
-    let mut overlinings = g.rows_on(p, Black, Overlining);
-    overlinings.next().is_some()
+    any(g.row_starts_on(p, Black, Overlining))
 }
 
 fn double_four(g: &Grid, p: Point) -> bool {
-    let swords = g.rows_on(p, Black, Sword);
-    distinctive(&mut swords.map(|s| s.start_index()))
+    distinctive_starts(g.row_starts_on(p, Black, Sword))
 }
 
 fn double_three(g: &Grid, p: Point) -> bool {
-    let twos = g.rows_on(p, Black, Two);
-    if !distinctive(&mut twos.map(|s| s.start_index())) {
+    if !distinctive_starts(g.row_starts_on(p, Black, Two)) {
         return false;
     }
     let mut next = g.clone();
@@ -69,6 +65,26 @@ fn truthy_double_three(next: &Grid, p: Point) -> bool {
     distinctive(&mut truthy_threes.map(|s| s.start_index()))
 }
 
+/// Whether any line has a row start: [`Grid::row_starts_on`] finds a row.
+fn any(mut starts: impl Iterator<Item = u16>) -> bool {
+    starts.any(|s| s != 0)
+}
+
+/// [`distinctive`] on the rows' starts, line by line: rows on two lines,
+/// or on one line starting other than at the first start and the next cell.
+fn distinctive_starts(starts: impl Iterator<Item = u16>) -> bool {
+    let mut found = false;
+    for s in starts.filter(|&s| s != 0) {
+        if found || s & !(0b11 << s.trailing_zeros()) != 0 {
+            return true;
+        }
+        found = true;
+    }
+    false
+}
+
+/// Whether the rows starting at `indices` are more than one: any but the
+/// first and one starting a cell after it.
 fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {
     let first = indices.next();
     if first.is_none() {
@@ -667,5 +683,44 @@ mod tests {
         assert_eq!(result, None);
 
         Ok(())
+    }
+
+    /// The masks say what the rows themselves say, on random boards, at
+    /// every point and for either player.
+    #[test]
+    fn test_starts_match_rows() {
+        let mut x: u64 = 0x9e3779b97f4a7c15;
+        for n in 0..200 {
+            // Stones on 3 points in `spread`, from dense boards to sparse.
+            let spread = 4 + n % 9;
+            let mut grid = Grid::new();
+            for p in (0..RANGE).flat_map(|x| (0..RANGE).map(move |y| Point(x, y))) {
+                x ^= x << 13;
+                x ^= x >> 7;
+                x ^= x << 17;
+                match x % spread {
+                    0 | 1 => grid.put_mut(Black, p),
+                    2 => grid.put_mut(White, p),
+                    _ => {}
+                }
+            }
+            for p in (0..RANGE).flat_map(|x| (0..RANGE).map(move |y| Point(x, y))) {
+                for r in [Black, White] {
+                    for k in [Two, Three, Sword, Four, Overlining] {
+                        let rows = || grid.rows_on(p, r, k).map(|s| s.start_index());
+                        assert_eq!(
+                            any(grid.row_starts_on(p, r, k)),
+                            rows().next().is_some(),
+                            "{r:?} {k:?} {p}"
+                        );
+                        assert_eq!(
+                            distinctive_starts(grid.row_starts_on(p, r, k)),
+                            distinctive(&mut rows()),
+                            "{r:?} {k:?} {p}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }
