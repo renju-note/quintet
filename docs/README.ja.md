@@ -11,7 +11,7 @@
 | [03-solver-api.ja.md](03-solver-api.ja.md) / [en](03-solver-api.en.md) | ソルバーの使い方: `solve`、`SolveMode`、`SolveLimits`、`SolveResult`、`NodeBudget`、`Solver` トレイトでソルバーを問いをまたいで保持する方法、`Mate` / `End`。 |
 | [04-solver-framework.ja.md](04-solver-framework.ja.md) / [en](04-solver-framework.en.md) | `src/mate/` の内側: 構成と、すべてのソルバーが共有する部品 — `Game` と `check_event`、`State` と `Key`、`Memo` の世代、`Solver` トレイト、ノード予算。 |
 | [05-solver-vcf.ja.md](05-solver-vcf.ja.md) / [en](05-solver-vcf.en.md) | `src/mate/vcf/` の四追い（VCF）探索: 四を作る手のペア、`DFSSolver` と行き止まりメモ、`IDDFSSolver`、手順を追う例。 |
-| [06-solver-vct.ja.md](06-solver-vct.ja.md) / [en](06-solver-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）探索: 追い手、内部の四追い探索、手の生成、証明数、DFS / PNS / df-pn の閾値ポリシー、手順の復元、手順を追う例、手の並べ替えに使う `PotentialField`。 |
+| [06-solver-vct.ja.md](06-solver-vct.ja.md) / [en](06-solver-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）探索: 追い手、内部の四追い探索、手の生成、証明数、DFS / PNS / df-pn の閾値ポリシー、手順の復元、手順を追う例、手の並べ替え（`PotentialField`、`ShapeMap`）。 |
 | [07-benchmarks.ja.md](07-benchmarks.ja.md) / [en](07-benchmarks.en.md) | `benches/` にあるソルバーのベンチマーク: 何を測るか（ノード数、メモのエントリ数、時間）、実行方法、2 つの版の比較、ケースの追加。 |
 
 どこから読むか:

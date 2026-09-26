@@ -162,10 +162,17 @@ every segment in parallel.
   at `j - 1` or `j + 5` for Black.
 - `row_starts(r, kind)`: bit `j` is set if the row is at segment
   `j`, from the above. `rows` walks its set bits (`Bits`, one
-  `trailing_zeros` per row).
+  `trailing_zeros` per row). For `Two`, `Three` and `Straight` it is
+  `open_starts(r, n)`, which takes any stone count `n`.
+- `row_eyes(r, kind)`: the empty cells that are eyes of those rows, a
+  cell mask rather than a start mask: where a stone takes a row a step
+  further (`eyes_of(starts, cells)` spreads start bits over the given
+  cells of each segment and keeps the empty ones). The move ordering of
+  the VCT reads it (`ShapeMap`, 06 §8).
 
-A test checks `row_starts` against `RowKind::matches` on every
-line of up to nine cells and on random full-length lines.
+A test checks `row_starts` against `RowKind::matches`, and `row_eyes`
+against the eyes of `rows`, on every line of up to nine cells and on
+random full-length lines.
 
 `rows_on(i, r, kind)` keeps only the rows through cell `i`: the
 segment has `i` among its five cells, and for a row of two segments the

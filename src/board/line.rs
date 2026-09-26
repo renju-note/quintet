@@ -144,16 +144,41 @@ impl Line {
         let n = k.stones();
         match k {
             Sword | Four | Five => self.scoring(r, n),
-            Two | Three | Straight => {
-                let (my, _) = self.my_op(r);
-                let s = self.scoring(r, n);
-                s & s << 1 & !(my >> 4)
-            }
+            Two | Three | Straight => self.open_starts(r, n),
             Overlining | Overlined => {
                 let s = self.counting(r, n);
                 s & s << 1
             }
         }
+    }
+
+    /// Bit `j` is set if the segments starting at cells `j - 1` and `j`
+    /// both score `n` for `r`, with the stones all in the four cells they
+    /// share: an open row of `n` stones, reported at the later segment.
+    /// [`Self::row_starts`] of [`Two`], [`Three`] and [`Straight`], for
+    /// any `n`.
+    #[inline]
+    pub fn open_starts(&self, r: Player, n: u8) -> u16 {
+        let (my, _) = self.my_op(r);
+        let s = self.scoring(r, n);
+        s & s << 1 & !(my >> 4)
+    }
+
+    /// The empty cells that are eyes of `r`'s rows of kind `k`: where a
+    /// stone takes one of them a step further, a [`Sword`] to a [`Four`],
+    /// a [`Two`] to a [`Three`] and so on. The union of
+    /// [`Row::eyes`](super::Row::eyes) over [`Self::rows`], as a bitmask.
+    #[inline]
+    pub fn row_eyes(&self, r: Player, k: RowKind) -> u16 {
+        self.eyes_of(self.row_starts(r, k), k.eye_cells())
+    }
+
+    /// The empty cells among `cells` (bit `k` for cell `k` of a segment)
+    /// of the segments starting at the bits of `starts`.
+    #[inline]
+    pub fn eyes_of(&self, starts: u16, cells: u8) -> u16 {
+        let spread = Bits(cells).fold(0, |acc, k| acc | starts << k);
+        spread & self.empties().0
     }
 
     /// Bit `j` is set if the segment starting at cell `j` scores `n` for
@@ -279,6 +304,8 @@ impl FromStr for Line {
 
 #[cfg(test)]
 mod tests {
+    use super::super::point::{Direction::Vertical, Index};
+    use super::super::row::Row;
     use super::*;
 
     const KINDS: [RowKind; 8] = [
@@ -375,6 +402,24 @@ mod tests {
                             "{r:?} {k:?} {line} on {i}"
                         );
                     }
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn test_row_eyes_matches_rows() {
+        for_many_lines(|line| {
+            for r in [Black, White] {
+                for k in KINDS {
+                    let mut expected = 0u16;
+                    for (j, segment) in line.rows(r, k) {
+                        let start = Index::new(Vertical, 0, j);
+                        for p in Row::new(start, r, k, segment).eyes() {
+                            expected |= 1 << p.1;
+                        }
+                    }
+                    assert_eq!(line.row_eyes(r, k), expected, "{r:?} {k:?} {line}");
                 }
             }
         });

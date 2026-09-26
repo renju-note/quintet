@@ -7,7 +7,7 @@ attacker: x
 limit: 9
 threat_limit: 2
 tags: vct proven game slow
-expect: M6,L11,L12,M13,N7,K12,I14,N8,I13,H14,K13,J14,I11,E5,F5,I12,H10
+expect: M6,N7,L9,E5,F5,L11,L12,M13,I13,H14,K13,K12,I14,J14,I11,I12,H10
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .

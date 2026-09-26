@@ -51,10 +51,10 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
         let threat = self.attacker_vcf.threat(state, budget).unwrap();
         let threat_defences = state.threat_defences(&threat);
-        let defences = state.sort_by_potential(threat_defences);
+        let defences = state.sorted_defences(threat_defences);
         let mut min_limit = u8::MAX;
         let mut best = None;
-        for (defence, _) in defences {
+        for defence in defences {
             let maybe_node = self.defender_table.lookup_next(state, Some(defence));
             let node = maybe_node.unwrap_or(Node::unknown());
             if node.is_proven() && node.limit < min_limit {
