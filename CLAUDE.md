@@ -39,9 +39,9 @@ slower and some cases time out.
 
 - `src/board/` — board representation. `Point`/`Points` (15x15, `A1`..`O15`,
   encoded to a single `u8` for the wasm boundary), `Line`/`Grid` (bit-packed
-  rows and 4 line directions), `Segment` (five cells of a line plus one on
+  lines in 4 directions), `Segment` (five cells of a line plus one on
   each side: where a five can be made, and how close each player is),
-  `Sequence`/`SequenceKind` (three, four, five, overline..., each one or
+  `Row`/`RowKind` (three, four, five, overline..., each one or
   two segments), `forbidden.rs` (Renju forbidden-move detection for Black),
   `zobrist.rs` (hashing for transposition tables).
   `Board` is the facade over them.
@@ -77,7 +77,7 @@ slower and some cases time out.
   (`docs/03-solver-api.en.md`), and how `src/mate/` and `src/feature/`
   work inside (`docs/04-solver-framework.en.md` for the shared pieces,
   `docs/05-solver-vcf.en.md` and `docs/06-solver-vct.en.md` for the two
-  searches). Read these before touching rule logic (sequences, forbidden
+  searches). Read these before touching rule logic (rows, forbidden
   moves) or the search code, and keep them in sync when changing it.
   Every document has an English `*.en.md` and a Japanese `*.ja.md` version;
   always add or edit both together.

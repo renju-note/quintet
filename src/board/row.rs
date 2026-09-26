@@ -2,20 +2,20 @@ use super::player::*;
 use super::point::*;
 use super::segment::*;
 
-/// A sequence of one player's stones found on the board: where its segment
+/// A row of one player's stones found on the board: where its segment
 /// starts, which of the segment's cells hold the player's stones and which
 /// are its eyes, the cells to play to take it a step further.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Sequence {
+pub struct Row {
     start: Index,
     stones: u8,
     eyes: u8,
 }
 
-impl Sequence {
-    /// `r`'s sequence of kind `k` at `segment`, whose cells start at
+impl Row {
+    /// `r`'s row of kind `k` at `segment`, whose cells start at
     /// `start`.
-    pub fn new(start: Index, r: Player, k: SequenceKind, segment: Segment) -> Self {
+    pub fn new(start: Index, r: Player, k: RowKind, segment: Segment) -> Self {
         let stones = segment.stone_bits(r);
         Self {
             start,
@@ -45,10 +45,10 @@ impl Sequence {
     }
 }
 
-/// The sequences of the rules, each told by the scores of one or two
+/// The rows of the rules, each told by the scores of one or two
 /// neighbouring [`Segment`]s.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum SequenceKind {
+pub enum RowKind {
     /// Two stones that can become a three: see [`Self::Three`].
     Two,
     /// Three stones that can become a straight four: two neighbouring
@@ -72,10 +72,10 @@ pub enum SequenceKind {
     Overlined,
 }
 
-pub use SequenceKind::*;
+pub use RowKind::*;
 
-impl SequenceKind {
-    /// How many own stones each segment of the sequence has.
+impl RowKind {
+    /// How many own stones each segment of the row has.
     #[inline]
     pub fn stones(&self) -> u8 {
         match self {
@@ -86,13 +86,13 @@ impl SequenceKind {
         }
     }
 
-    /// Whether the sequence needs the segment before `cur` as well, the
+    /// Whether the row needs the segment before `cur` as well, the
     /// `prev` of [`Self::matches`].
     pub fn spans_two(&self) -> bool {
         !matches!(self, Sword | Four | Five)
     }
 
-    /// Whether `r` has this sequence at segment `cur`; `prev` is the segment
+    /// Whether `r` has this row at segment `cur`; `prev` is the segment
     /// starting one cell before it on the same line, if it is looked at.
     pub fn matches(&self, r: Player, prev: Option<Segment>, cur: Segment) -> bool {
         let n = self.stones();
@@ -113,9 +113,9 @@ impl SequenceKind {
         }
     }
 
-    /// The cells of the (later) segment that can be the sequence's eyes, as
+    /// The cells of the (later) segment that can be the row's eyes, as
     /// a bitmask: all five, but only the four shared ones for the open
-    /// sequences, whose fifth cell is an open end.
+    /// rows, whose fifth cell is an open end.
     fn eye_cells(&self) -> u8 {
         match self {
             Two | Three | Straight => 0b01111,

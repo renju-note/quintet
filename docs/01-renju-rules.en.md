@@ -25,13 +25,14 @@ called *stones*.
 - The board's colour must differ from both stone colours.
 
 In this repository intersections are named `A1`–`O15`: a column letter
-`A`–`O` (left to right) followed by a row number `1`–`15` (bottom to top).
+`A`–`O` (left to right) followed by the number `1`–`15` of the horizontal
+line (bottom to top).
 The centre is `H8`.
 
 ## 3. Terms and definitions
 
-All terms below refer to stones of **one colour** on **one line** (a row,
-column, or either diagonal).
+All terms below refer to stones of **one colour** on **one line** (a
+horizontal line, a vertical line, or either diagonal).
 
 | Term | Definition |
 | --- | --- |

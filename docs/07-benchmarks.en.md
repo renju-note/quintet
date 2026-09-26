@@ -136,7 +136,7 @@ board:
 | `max_nodes` | no | `SolveLimits::with_max_nodes`; default unlimited. |
 | `tags` | no | Space-separated tags (below). |
 | `expect` | yes | The winning line, comma-separated; or `proven` (any line), `disproven` or `aborted`. |
-| `board` | yes | The last key. The board follows on the next lines in the test format (`o` = Black, `x` = White, row 15 at the top), or on the same line as moves (`H8,I9,...`). |
+| `board` | yes | The last key. The board follows on the next lines in the test format (`o` = Black, `x` = White, horizontal line 15 at the top), or on the same line as moves (`H8,I9,...`). |
 
 Tags in use:
 

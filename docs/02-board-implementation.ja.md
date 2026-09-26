@@ -9,9 +9,9 @@
 | `player.rs` | `Player`（`Black` / `White`）とその文字表現（`o` / `x`）。 |
 | `point.rs` | `Point` (x, y)、`Points`、`Direction`、`Index`（線上の位置）。 |
 | `segment.rs` | `Segment`: 線上の連続する 5 マス（五を作れる場所 1 つ）と、その両隣の 1 マスずつ。 |
-| `line.rs` | `Line`: 縦・横・斜めの 1 本を 2 つのビットマスクで表す。その上のセグメントと、セグメントから求めるシーケンス・ポテンシャル。 |
-| `sequence.rs` | `SequenceKind`（Two, Three, Sword, Four, Five, ...）と `Sequence`（盤上に位置づけられた、一方のプレイヤーの石の並び）。 |
-| `grid.rs` | `Grid`: 15×15 の盤全体を 4 方向の `Line` 配列として持ち、シーケンスの検索を提供する。 |
+| `line.rs` | `Line`: 縦・横・斜めの 1 本を 2 つのビットマスクで表す。その上のセグメントと、セグメントから求める連・ポテンシャル。 |
+| `row.rs` | `RowKind`（Two, Three, Sword, Four, Five, ...）と `Row`（01 §3 で定義される連を、盤上に位置づけたもの）。 |
+| `grid.rs` | `Grid`: 15×15 の盤全体を 4 方向の `Line` 配列として持ち、連の検索を提供する。 |
 | `forbidden.rs` | 黒の禁手判定。 |
 | `zobrist.rs` | 置換表用の Zobrist ハッシュ。 |
 | `board.rs` | `Board` = `Grid` + Zobrist ハッシュ。ソルバーが使う公開のファサード。 |
@@ -20,9 +20,9 @@
 
 1. `Line` は盤の 1 本の線をビットマスクで保持する（§2）。
 2. `Segment` は線上で五を作れる場所 1 つを表し、各プレイヤーがそこで五にどれだけ近いかを答える（§3）。
-3. `Grid` はすべての線を持ち、「盤上に / この点を通ってどんなシーケンスがあるか」に答える（§4）。
-4. `SequenceKind` はそのシーケンスにルール用語の名前を付ける — `Five`、`Four`、`Three`、…。どれも、点数の条件を満たす 1 つまたは 2 つのセグメントである（§5）。
-5. `forbidden.rs` はいくつかの `sequences_on` の問い合わせを組み合わせて禁手のルールを実装する（§6）。
+3. `Grid` はすべての線を持ち、「盤上に / この点を通ってどんな連があるか」に答える（§4）。
+4. `RowKind` はその連にルール用語の名前を付ける — `Five`、`Four`、`Three`、…。どれも、点数の条件を満たす 1 つまたは 2 つのセグメントである（§5）。
+5. `forbidden.rs` はいくつかの `rows_on` の問い合わせを組み合わせて禁手のルールを実装する（§6）。
 6. ポテンシャルはセグメントの点数を手の順序付けに再利用し（§7）、`zobrist.rs` は盤面をハッシュする（§8）。
 
 ---
@@ -69,7 +69,7 @@ pub struct Line { blacks: u16, whites: u16, pub size: u8 }
 
 `potential_cap(r)` は、線ごとの処理を読み飛ばすための簡易的な上界である。相手の石を避けて五を置く余地すらない線では 0 を、それ以外では「自分の石数 + 1」を返す。
 
-`segment(j)` は、5 マスがセル `j` から始まるセグメント（§3）を切り出し、`segments()` はそれを `j` = 0 から `size - 5` まですべて列挙する。`Line` が答えるほかのことはすべてこの上に作られている: `sequences(r, kind)`（§3.1、§5）と `potentials(r, min)`（§7）。
+`segment(j)` は、5 マスがセル `j` から始まるセグメント（§3）を切り出し、`segments()` はそれを `j` = 0 から `size - 5` まですべて列挙する。`Line` が答えるほかのことはすべてこの上に作られている: `rows(r, kind)`（§3.1、§5）と `potentials(r, min)`（§7）。
 
 ## 3. `Segment`: 五を作れる場所 1 つ
 
@@ -102,17 +102,17 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 
 マージンがあるのは黒のルールのためである。黒の五は*ちょうど*五でなければならない。5 マスのすぐ隣に黒石があると、5 マスを埋めたときに長連になるので、そのセグメントは黒にとって死んでいる。白にはこの制約がなく、マージンは関係しない。長連もほかと同じく勝ちである。
 
-### 3.1 線上のシーケンスを、すべてのセグメントについて一度に見つける
+### 3.1 線上の連を、すべてのセグメントについて一度に見つける
 
-`Line::sequences(r, kind)` は、`r` がその種別のシーケンス（§5）を持つセグメントを `(j, Segment)` の形で返す。セグメントを 1 つずつ調べる定義が `SequenceKind::matches` だが、ソルバーはほぼ毎ノードこれを問い合わせるので、線はビット演算ですべてを一度に求める。`x >> k` のビット `j` はセル `j + k` なので、シフトしたマスクで書いた条件は全セグメントについて並列に調べられる。
+`Line::rows(r, kind)` は、`r` がその種別の連（§5）を持つセグメントを `(j, Segment)` の形で返す。セグメントを 1 つずつ調べる定義が `RowKind::matches` だが、ソルバーはほぼ毎ノードこれを問い合わせるので、線はビット演算ですべてを一度に求める。`x >> k` のビット `j` はセル `j + k` なので、シフトしたマスクで書いた条件は全セグメントについて並列に調べられる。
 
 - `counting(r, n)`: セグメント `j` が `free(r)` で `count(r) == n` ならビット `j` を立てる。5 マスの和はビットスライスで求める（全加算器、半加算器、繰り上がり）。
 - `scoring(r, n)`: 同じく `score(r) == n` のもの。黒ならさらに `j - 1` と `j + 5` に黒石がないこと。
-- `sequence_starts(r, kind)`: シーケンスがセグメント `j` にあればビット `j` を立てる。上の 2 つから求める。`sequences` はその立っているビットをたどる。
+- `row_starts(r, kind)`: 連がセグメント `j` にあればビット `j` を立てる。上の 2 つから求める。`rows` はその立っているビットをたどる。
 
-`sequence_starts` が `SequenceKind::matches` と一致することは、長さ 9 以下のすべての線と、ランダムな長さ 15 の線でテストしている。
+`row_starts` が `RowKind::matches` と一致することは、長さ 9 以下のすべての線と、ランダムな長さ 15 の線でテストしている。
 
-`sequences_on(i, r, kind)` はセル `i` を通るシーケンスだけを残す。セグメントの 5 マスに `i` が含まれ、2 つのセグメントからなるシーケンスでは前のセグメントにも含まれる、つまり 2 つが共有する 4 マスに `i` がある。`sequences_on(p, …)` が「この着手はどのシーケンスに関わるか」を調べるときに使う。
+`rows_on(i, r, kind)` はセル `i` を通る連だけを残す。セグメントの 5 マスに `i` が含まれ、2 つのセグメントからなる連では前のセグメントにも含まれる、つまり 2 つが共有する 4 マスに `i` がある。`rows_on(p, …)` が「この着手はどの連に関わるか」を調べるときに使う。
 
 ## 4. `Grid`: 盤全体
 
@@ -130,13 +130,13 @@ pub struct Grid {
 斜めの線のうち、長さが 5 未満のものには五が入りえないので、各隅の最も短い 4 本ずつを省略している:
 
 - 斜め `i`（`4` から `24` まで）は `alines[i - 4]` に格納される（`D_LINE_OMIT = 4`、`D_LINE_NUM = 21`）。
-- それ以外の斜めについては `line_idx` が `None` を返し、シーケンスの検索では単に読み飛ばす。
+- それ以外の斜めについては `line_idx` が `None` を返し、連の検索では単に読み飛ばす。
 
 主な問い合わせ:
 
 - `stone(p)`、`stones(player)`、`empties()`、`neighbors(p, distance, only_empty)` — 石や空点の取得。
-- `sequences(r, kind)` — 盤全体にあるプレイヤー `r` の種別 `kind` の `Sequence` をすべて返す。
-- `sequences_on(p, r, kind)` — 点 `p` を通るシーケンスだけを返す（§3.1。`p` を通る 4 本の線のみ調べる）。「`p` に打つと何ができるか」を調べるホットパス。
+- `rows(r, kind)` — 盤全体にあるプレイヤー `r` の種別 `kind` の `Row` をすべて返す。
+- `rows_on(p, r, kind)` — 点 `p` を通る連だけを返す（§3.1。`p` を通る 4 本の線のみ調べる）。「`p` に打つと何ができるか」を調べるホットパス。
 - `line(d, i)` / `line_on(p, d)` — 格納されている `Line` そのもの。短い斜めでは `None`。`lines()` と `lines_on(p)` はそれを `(Direction, i, &Line)` の形で列挙する。点ごとの表を自前で持つ利用側が、72 本の線の複製を持たずに済むようにするためのもの。
 - `potentials(...)` / `potentials_along(...)` — §7 参照。
 
@@ -146,11 +146,11 @@ pub struct Grid {
 - 石のリスト: `H8,F6/H7` のように `黒/白` で区切ったもの。
 - 15 行の ASCII 図: `o` が黒、`x` が白、`.` が空点で、15 行目を先頭に書く。テスト全体で使われている形式。
 
-## 5. `SequenceKind`: ルール用語の語彙
+## 5. `RowKind`: ルール用語の語彙
 
-各 `SequenceKind` は、点数の条件を満たす 1 つのセグメント、または隣り合う 2 つのセグメント（セグメント `j - 1` と `j`。あわせて 6 マス `j - 1..=j + 4` にわたる）である。`SequenceKind::matches(r, prev, cur)` は、セグメント `cur` とその 1 つ前の `prev` についてこれを述べる。2 つからなるシーケンスは後ろのセグメントの位置で返す。
+各 `RowKind` は、点数の条件を満たす 1 つのセグメント、または隣り合う 2 つのセグメント（セグメント `j - 1` と `j`。あわせて 6 マス `j - 1..=j + 4` にわたる）である。`RowKind::matches(r, prev, cur)` は、セグメント `cur` とその 1 つ前の `prev` についてこれを述べる。2 つからなる連は後ろのセグメントの位置で返す。
 
-| `SequenceKind` | セグメント | パターン（黒の例、`_` = 眼） | ルール上の概念 |
+| `RowKind` | セグメント | パターン（黒の例、`_` = 眼） | ルール上の概念 |
 | --- | --- | --- | --- |
 | `Five` | 点数 5 のもの 1 つ | `ooooo` | **五連**。黒の点数はマージンが空のときだけ付くので、長連は除外される。 |
 | `Overlined` | 2 つ。どちらも `free` で石 5 つ | `oooooo`（6 以上） | **長連**。 |
@@ -161,14 +161,14 @@ pub struct Grid {
 | `Two` | 点数 2 のもの 2 つ。石は共有する 4 マスにある | `.oo__.`、`.o_o_.` など | **二**: 眼に打てば `Three`。 |
 | `Overlining` | 2 つ。どちらも `free` で石 4 つ | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
 
-活きたシーケンス（`Two`、`Three`、`Straight`）の「石は共有する 4 マスにある」とは、後ろのセグメントの最後のマスが空だということである。2 つのセグメントはどちらも生きているので、このとき 2 つがわたる 6 マスは両端が空になる。長連系のシーケンスは `alive` ではなく `free` なセグメントを見る。長連では各セグメントのすぐ隣に必ず黒石があり、それこそが黒にとってセグメントを死なせる条件だからである。黒石 4 つずつの `free` なセグメント 2 つは、6 マスに 5 石（空きに打つと六）か、活四 `.oooo.` のどちらかである。空点を通るものとして見つかるのは前者だけである。活四の 2 つのセグメントが共有するのは石だけだからである。
+活きた連（`Two`、`Three`、`Straight`）の「石は共有する 4 マスにある」とは、後ろのセグメントの最後のマスが空だということである。2 つのセグメントはどちらも生きているので、このとき 2 つがわたる 6 マスは両端が空になる。長連系の連は `alive` ではなく `free` なセグメントを見る。長連では各セグメントのすぐ隣に必ず黒石があり、それこそが黒にとってセグメントを死なせる条件だからである。黒石 4 つずつの `free` なセグメント 2 つは、6 マスに 5 石（空きに打つと六）か、活四 `.oooo.` のどちらかである。空点を通るものとして見つかるのは前者だけである。活四の 2 つのセグメントが共有するのは石だけだからである。
 
 黒のセグメントはマージンが空のときだけ生きているので、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
 
 - セグメント `o.ooo` と `.oooo` は死んでいる。マージンに黒石があり、左の隙間を埋めると六になってしまうからである。
 - セグメント `oooo.` だけが数えられる。右端に打てばちょうど五連になるからである。
 
-`Sequence` は、シーケンスの（後ろの）セグメントが始まる位置（`Index`）と、その石と眼のマスクを持つ。`stones()` と `eyes()` は盤上の `Point` を返す。活きたシーケンスで眼になりうるのは共有する 4 マスだけである。5 マス目は開いた端であり、打つ点ではない。
+`Row` は、連の（後ろの）セグメントが始まる位置（`Index`）と、その石と眼のマスクを持つ。`stones()` と `eyes()` は盤上の `Point` を返す。活きた連で眼になりうるのは共有する 4 マスだけである。5 マス目は開いた端であり、打つ点ではない。
 
 ## 6. 禁手（`forbidden.rs`）
 
@@ -182,7 +182,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 
 `ForbiddenKind` は `Overline`（長連）、`DoubleFour`（四四）、`DoubleThree`（三三）のいずれかである。
 
-- `forbidden_strict` はまずルール 9.2 の例外を適用する。`p` にすでに石がある場合、または `p` に打つと五ができる場合（`sequences_on(p, Black, Four)` が空でない）は禁手*ではない*と判定する。それ以外の場合は `forbidden` に委譲する。
+- `forbidden_strict` はまずルール 9.2 の例外を適用する。`p` にすでに石がある場合、または `p` に打つと五ができる場合（`rows_on(p, Black, Four)` が空でない）は禁手*ではない*と判定する。それ以外の場合は `forbidden` に委譲する。
 - `forbidden` は長連、四四、三三の順に調べ、複数に該当する点は最初に見つかったものを報告する。
 - `forbiddens` は盤上の禁手となる空点をすべて列挙する。
 
@@ -191,7 +191,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ### 長連（9.2 a）
 
 ```rust
-fn overline(g, p) -> bool { g.sequences_on(p, Black, Overlining).next().is_some() }
+fn overline(g, p) -> bool { g.rows_on(p, Black, Overlining).next().is_some() }
 ```
 
 `Overlining`（六腐）は、隣り合う 2 つのセグメントがそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
@@ -200,7 +200,7 @@ fn overline(g, p) -> bool { g.sequences_on(p, Black, Overlining).next().is_some(
 
 ```rust
 fn double_four(g, p) -> bool {
-    distinctive(&mut g.sequences_on(p, Black, Sword).map(|s| s.start_index()))
+    distinctive(&mut g.rows_on(p, Black, Sword).map(|s| s.start_index()))
 }
 ```
 
@@ -214,14 +214,14 @@ fn double_four(g, p) -> bool {
 ```rust
 fn double_three(g, p) -> bool {
     // 軽い前段フィルタ: p を通る二（Two）が 2 つ以上
-    if !distinctive(g.sequences_on(p, Black, Two)) { return false; }
+    if !distinctive(g.rows_on(p, Black, Two)) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
 }
 
 fn truthy_double_three(next, p) -> bool {
-    let truthy_threes = next.sequences_on(p, Black, Three).filter(|s| {
+    let truthy_threes = next.rows_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();   // 達四点
         forbidden_strict(next, eye).is_none()
     });
@@ -291,14 +291,14 @@ fn truthy_double_three(next, p) -> bool {
 
 - プレイヤーごと・線ごと（`Grid::line_key` = `Grid::lines` での線の位置）に、剣先のセグメントがセル `j` から始まるならビット `j` を立てた `u16` と、剣先のある線を表す `u128` を持つ。
 - 着手は、その点を通る高々 4 本の線に「古い」印を付けるだけで（`SwordMap::mark_stale`）、古い線は `SwordMap::sync` がまとめて計算し直す。探索では剣先を読む回数より手を打つ・戻す回数のほうがずっと多いので、着手のたびに計算し直すと、キャッシュで置き換えたはずの全走査よりかえって高くつく。
-- 線の計算は `Line::sequence_starts(r, Sword)` が行い、すべてのセグメントを一度にビット演算で調べる（§3.1）。
-- `SwordMap::swords(board, r)` / `swords_on(board, p, r)` はキャッシュを読み、`sequences(r, Sword)` / `sequences_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync(board)` が必要である。
+- 線の計算は `Line::row_starts(r, Sword)` が行い、すべてのセグメントを一度にビット演算で調べる（§3.1）。
+- `SwordMap::swords(board, r)` / `swords_on(board, p, r)` はキャッシュを読み、`rows(r, Sword)` / `rows_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync(board)` が必要である。
 
 ## 9. 早見表: ルール → コード
 
 | ルール | コード |
 | --- | --- |
-| 五連で勝ち | `sequences(r, Five)`（`mate::solve` / `Game` で判定）。 |
+| 五連で勝ち | `rows(r, Five)`（`mate::solve` / `Game` で判定）。 |
 | 長連は白の勝ち、黒は不可 | 黒のセグメントだけがマージンを見るので、白の六も `Five`。黒の長連は禁手（`Overlining` = 六腐）。`mate::solve::validate` は五や黒の `Overlined` を既に含む入力局面を拒否する。 |
 | 四 / 棒四 | `Four`（点数 4 のセグメント）/ `Straight`（点数 4 のセグメント 2 つ）。棒四 = 隣接する 2 つの `Four`。 |
 | 三（達四できること） | `Three`（点数 3 のセグメント 2 つ）。唯一の眼 = 達四点。 |

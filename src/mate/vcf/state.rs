@@ -81,7 +81,7 @@ impl VCFState {
     /// Both ways round for each sword, written as a loop rather than
     /// `flat_map(..).collect()`: this runs at every node, and driving the
     /// nested iterator costs more than the two pushes it ends in.
-    fn push_eyes_pairs(swords: impl Iterator<Item = Sequence>, out: &mut Vec<(Point, Point)>) {
+    fn push_eyes_pairs(swords: impl Iterator<Item = Row>, out: &mut Vec<(Point, Point)>) {
         for sword in swords {
             let (e1, e2) = Self::sword_eyes(&sword);
             out.push((e1, e2));
@@ -89,7 +89,7 @@ impl VCFState {
         }
     }
 
-    fn sword_eyes(sword: &Sequence) -> (Point, Point) {
+    fn sword_eyes(sword: &Row) -> (Point, Point) {
         let mut eyes = sword.eyes();
         // A `Sword` is three stones in five cells with no opponent stone, so
         // it has exactly two eyes.

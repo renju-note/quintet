@@ -2,7 +2,7 @@
 //!
 //! The attacker makes a four with every move, so each defender reply is
 //! forced and the tree is a chain of `(attack, defence)` pairs. [`VCFState`]
-//! generates those pairs from the `Sword` sequences on the board (three
+//! generates those pairs from the `Sword` rows on the board (three
 //! stones with two empty eyes: play one eye, the other is the block);
 //! [`DFSSolver`] searches them depth-first, memoizing the positions it has
 //! shown to be deadends; [`IDDFSSolver`] runs it at increasing limits.
