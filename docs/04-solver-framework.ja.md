@@ -21,6 +21,7 @@ src/mate/
 ├── mate.rs          Mate: 結果
 ├── vcf.rs, vcf/     四追いソルバー                    (05)
 └── vct.rs, vct/     追い詰めソルバー                  (06)
+src/feature/area.rs        Area: 点の集合、四追いの関連領域用 (05 §2)
 src/feature/potential.rs   PotentialField: 追い詰めの手の並べ替え (06 §8)
 src/feature/shape.rs       ShapeMap: 着手で何ができるか、追い詰めの手の並べ替え用 (06 §8)
 src/feature/sword.rs       SwordMap: 四追い用の剣先キャッシュ (02 §8, 05)

@@ -1,5 +1,6 @@
 use crate::board::RowKind::*;
 use crate::board::*;
+use crate::feature::area::Area;
 use crate::feature::potential::PotentialField;
 use crate::feature::shape::{Shape, ShapeMap};
 use crate::feature::sword::SwordMap;
@@ -104,6 +105,19 @@ impl VCTState {
             None => self.field.collect(3),
         };
         self.sort_by_priority(points)
+    }
+
+    /// Whether the attacker's move to `p` may be a threat, given that the
+    /// attacker has no VCF now and `zone` is the zone of the search that
+    /// showed it ([`DFSSolver::search_zone`](crate::mate::DFSSolver::search_zone)).
+    /// For a VCF to appear, the stone has to be in the zone or in a segment
+    /// already holding two of the attacker's stones ([`Shape::Sword`] or
+    /// more along some line), which the zone leaves out. The attacker must
+    /// be to move.
+    pub fn may_threaten(&mut self, p: Point, zone: &Area) -> bool {
+        debug_assert!(self.attacking());
+        self.shapes.sync(self.game.board());
+        zone.contains(p) || self.shapes.get(p, self.attacker).count_from(Shape::Sword) > 0
     }
 
     /// The defender's candidate moves `points`, best first

@@ -38,9 +38,10 @@ VCTSolver::solve = advance_generation; search; extract
 │   search_attacks (OR node, attacker to move)                         §5
 │   ├── check_event: Defeated → disproven; Forced(p) → attacks = [p]
 │   ├── generate_attacks                                               §3
-│   │     attacker_vcf.vcf      has a VCF?          → Terminal(proven)
+│   │     attacker_vcf.vcf      has a VCF?          → Terminal(proven), else its zone
 │   │     defender_vcf.threat   must parry a threat? → only threat_defences
 │   │     points with potential ≥ 3, by priority                       §8
+│   │     minus those the zone rules out as threats
 │   └── expand_attacks: loop { select_attack; play best; search_defences; store in attacker_table }
 │
 │   search_defences (AND node, defender to move)
@@ -120,6 +121,7 @@ belongs to:
 pub struct NestedVCF { solver: IDDFSSolver, depth: u8, for_attacker: bool }
 impl NestedVCF {
     pub fn vcf(&mut self, state: &mut VCTState, budget) -> Option<Mate>;     // this side, to move, has a VCF?
+    pub fn vcf_or_zone(&mut self, state: &mut VCTState, budget) -> Result<Mate, Area>; // the same, or where a stone could give it one
     pub fn threat(&mut self, state: &mut VCTState, budget) -> Option<Mate>;  // this side would have one if the other passed?
 }
 ```
@@ -147,7 +149,7 @@ and across searches, and is charged to the same `NodeBudget`.
 
 ```rust
 pub enum Candidates {
-    Moves(Vec<Point>),   // an inner node: the moves to try, best first
+    Moves { moves: Vec<Point>, width: u32 }, // an inner node: the moves to try, best first
     Terminal(Node),      // decided here without expanding: Node::proven or Node::disproven
 }
 ```
@@ -158,18 +160,36 @@ Results are cached in an `LruCache` of 1000 entries per generator, keyed by
 
 **`compute_attacks`** (attacker to move):
 
-1. `attacker_vcf.vcf` — a VCF now? → `Terminal(proven)`. Not needed for
-   correctness (the main search would find the fours one `Forced` reply at a
-   time) but much faster.
+1. `attacker_vcf.vcf_or_zone` — a VCF now? → `Terminal(proven)`. Not
+   needed for correctness (the main search would find the fours one
+   `Forced` reply at a time) but much faster. If not, it hands back the
+   search's zone (05, §2): the points where one more attacker stone could
+   give the attacker a VCF.
 2. `defender_vcf.threat` — would the defender have a VCF if the attacker
    passed? If so the attack must also parry it: restrict candidates to
    `threat_defences(threat)`.
 3. Candidates are the points with potential `≥ 3` in the attacker's field
-   (`sorted_attacks(only)`), in order of `priority` (§8), minus forbidden
-   moves. None left → `Terminal(disproven)`.
+   (`sorted_attacks(only)`), in order of `priority` (§8). Their number is
+   the `width`.
+4. Of those, keep the ones that may be threats (`may_threaten`): in the
+   zone, or in a segment already holding two attacker stones (at least a
+   `Sword` along some line in the `ShapeMap`, §8), which the zone leaves
+   to the caller. Any other move leaves the attacker without a VCF after
+   a pass, so it is no threat. Skipped when the budget ran out, as the
+   zone is then incomplete.
+5. Minus forbidden moves. None left → `Terminal(disproven)`.
 
-Candidates are *not* checked for being threats here. That happens one ply
-down, at the defender node, where a non-threat is refuted at once.
+Candidates are otherwise *not* checked for being threats here. That
+happens one ply down, at the defender node, where a non-threat is refuted
+at once — for a nested VCF search and a node each, which step 4 saves for
+about half the non-threats on the benchmark (where no threat ever fell
+outside the zone).
+
+The `width` is taken before step 4 because it seeds the proof numbers of
+the unexpanded children (§5): a move that is no threat would only be
+disproven, never make its siblings easier to prove, and seeding with the
+count after pruning tips the search towards other lines than it would
+otherwise take.
 
 **`compute_defences`** (defender to move):
 
@@ -288,7 +308,7 @@ table entries and returns a `Selection`:
 
 | Field | |
 | --- | --- |
-| `node` | the node's own numbers: `min_pn_sum_dn` over the children, a child not yet in the table counting as `unexpanded_defence(attacks.len())` |
+| `node` | the node's own numbers: `min_pn_sum_dn` over the children, a child not yet in the table counting as `unexpanded_defence(width)` (`width` from `Candidates::Moves`, §3; `1` for a forced move) |
 | `best` | the child with the smallest `pn` — the most-proving child |
 | `best_child`, `second_child` | the numbers of the best and second-best child |
 
@@ -548,6 +568,7 @@ were tuned on the benchmark (07); on its cases they cut the nodes by about
 | Why did the search stop at depth N? | `limit` counts attacker moves; `search_defences` returns `disproven` at `limit ≤ 1` |
 | A threat is not recognised | `compute_defences` step 1, `attacker_vcf.threat` with depth `threat_limit`; the nested VCF sees only `Sword` eyes |
 | A defence is missing | `VCTState::threat_defences`: path, `end_breakers`, `counter_defences`, `four_moves` |
+| An attack is missing | potential `≥ 3` (`sorted_attacks`), then `VCTState::may_threaten` over the zone of `DFSSolver::search_zone` (05, §2) |
 | A counter-attack refutation is missing | `defender_vcf.vcf` is bounded by `defender_vcf_depth` (2); deeper counter-VCFs are found only if a counter-four is in `threat_defences`. Raise it with `SolveLimits::with_defender_vcf_depth` |
 | Move ordering | `VCTState::priority` over `PotentialField` (`min = 2`) and `ShapeMap` (§8); attack candidates need a potential sum `≥ 3` |
 | Which mode does what | `ThresholdPolicy` in `threshold.rs`; everything else is shared |
