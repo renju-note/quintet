@@ -84,15 +84,22 @@ impl VCTState {
     /// some line, or only those of `only`.
     pub fn sorted_attacks(&mut self, only: Option<Vec<Point>>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
+        let (shapes, attacker) = (&self.shapes, self.attacker);
+        let makes_two = |&p: &Point| shapes.get(p, attacker).count_from(Shape::Two) > 0;
+        // Filtered in place or into room for every point: this runs at
+        // every attacker node, and a `Vec` grown step by step was a good
+        // part of its cost.
         let points = match only {
-            Some(only) => only,
-            None => self.game.board().empties().collect(),
+            Some(mut only) => {
+                only.retain(makes_two);
+                only
+            }
+            None => {
+                let mut points = Vec::with_capacity(POINTS);
+                points.extend(self.game.board().empties().filter(makes_two));
+                points
+            }
         };
-        let attacker = self.attacker;
-        let points = points
-            .into_iter()
-            .filter(|&p| self.shapes.get(p, attacker).count_from(Shape::Two) > 0)
-            .collect();
         self.sort_by_priority(points)
     }
 
@@ -119,12 +126,12 @@ impl VCTState {
     /// equal ones keep their order.
     fn sort_by_priority(&mut self, points: Vec<Point>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
+        let mut points = points;
         let mut seen = Area::new();
-        let mut result: Vec<_> = points
-            .into_iter()
-            .filter(|&p| seen.insert(p))
-            .map(|p| (p, self.priority(p)))
-            .collect();
+        points.retain(|&p| seen.insert(p));
+        // Sized exactly, where a `filter` before the `map` left the `Vec`
+        // to grow.
+        let mut result: Vec<_> = points.into_iter().map(|p| (p, self.priority(p))).collect();
         result.sort_by_key(|&(_, key)| std::cmp::Reverse(key));
         result.into_iter().map(|(p, _)| p).collect()
     }
