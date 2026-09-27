@@ -156,9 +156,38 @@ A `Candidate`'s `estimate` is the number its child starts from while the
 tables know nothing about it: the proof number of an attack, the disproof
 number of a defence (§5, *Selection*).
 
-Results are cached in an `LruCache` of 1000 entries per generator, keyed by
+Results are cached in an `LruCache` of 65,536 entries per generator, keyed by
 `zobrist_hash()` (position *and* limit, because the nested VCF depth is
 `min(limit, depth)`), and never cached when the budget ran out.
+
+df-pn comes back to the same nodes over and over. With 1000 entries a
+third of the lookups at attack nodes and more than half at defence nodes
+missed, and each miss generates the moves anew, nested VCF searches and
+all. Most misses are positions met for the first time, which no capacity
+saves. An entry takes about 280 bytes in the attacks
+cache (48 for the entry, 34 for its slot in the table, and some 30 moves of
+8 bytes; a sixth are `Terminal` and have none) and about 110 in the
+defences cache (some 6 moves; more than half are `Terminal`). On the
+benchmark (07), all 121 cases:
+
+| Capacity | Both caches full | Nodes | Time |
+| --- | --- | --- | --- |
+| 1000 | 0.4 MB | | |
+| 4096 | 1.6 MB | −5% | −4% |
+| 16384 | 6 MB | −3% | −6% |
+| **65536** | **25 MB** | **−7%** | **−10%** |
+| 262144 | 100 MB | −8% | −10% |
+| 1048576 | 400 MB (220 MB at most, on `vct_unstable`) | −8% | −12% |
+
+At 65536 the caches fill in 18 of the 121 cases, all of them over a
+million nodes, where the process already takes 75 MB to 1 GB without them.
+The caches start empty and grow as they fill (`candidates_cache`), so a
+small search pays nothing for the capacity; `LruCache::with_hasher` would
+allocate the whole table up front. A larger cache also changes some lines,
+not only the number of nodes: what the generators produce can depend on
+what the nested VCF solvers' memos hold (a deadend hands back the zone of
+the search that stored it), so a node whose moves are generated again may
+see other moves than the first time.
 
 **`compute_attacks`** (attacker to move):
 
