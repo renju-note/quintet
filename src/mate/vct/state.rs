@@ -36,21 +36,23 @@ impl VCTState {
     }
 
     pub fn vcf_state(&mut self, max_limit: u8) -> VCFState {
-        let game = self.game.clone();
         let limit = self.limit.min(max_limit);
+        // Two plies per attack.
+        let game = self.game.fork(2 * limit as usize);
         VCFState::with_swords(game, limit, self.synced_swords())
     }
 
     pub fn threat_state(&mut self, max_limit: u8) -> VCFState {
         let swords = self.synced_swords();
-        let mut game = self.game.clone();
-        game.play(None);
         let limit = if self.attacking() {
             self.limit - 1
         } else {
             self.limit
         }
         .min(max_limit);
+        // The pass, and two plies per attack.
+        let mut game = self.game.fork(1 + 2 * limit as usize);
+        game.play(None);
         // A pass puts no stone, so the swords are still those of the board.
         VCFState::with_swords(game, limit, swords)
     }

@@ -18,6 +18,22 @@ impl Game {
         }
     }
 
+    /// A copy to search from, for a nested search that never undoes past
+    /// where it starts: it keeps only the last two moves, all that is read
+    /// of the history ([`Self::last_move`], [`Self::last2_move`]), and room
+    /// for `plies` more. A plain `clone` copied the whole history, and the
+    /// first move played then had to grow it.
+    pub fn fork(&self, plies: usize) -> Self {
+        let kept = &self.moves[self.moves.len().saturating_sub(2)..];
+        let mut moves = Vec::with_capacity(kept.len() + plies);
+        moves.extend_from_slice(kept);
+        Self {
+            board: self.board.clone(),
+            moves,
+            turn: self.turn,
+        }
+    }
+
     pub fn play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
             self.board.put_mut(self.turn, next_move);
@@ -204,6 +220,28 @@ mod tests {
             (game.last_move(), game.last2_move()),
             (Some(point("I9")), None)
         );
+    }
+
+    /// A fork keeps what is read of the history and the position itself.
+    #[test]
+    fn test_fork_keeps_the_last_moves() {
+        let mut game = Game::init(&Board::new(), Black);
+        for m in ["H8", "I9", "J10"] {
+            game.play(Some(point(m)));
+        }
+        let mut fork = game.fork(4);
+        assert_eq!(fork.last_move(), game.last_move());
+        assert_eq!(fork.last2_move(), game.last2_move());
+        assert_eq!(fork.position_hash(), game.position_hash());
+
+        // Moves played on the fork can be undone, down to where it began.
+        fork.play(None);
+        fork.play(Some(point("K11")));
+        assert_eq!(fork.last2_move(), None);
+        fork.undo();
+        fork.undo();
+        assert_eq!(fork.last_move(), game.last_move());
+        assert_eq!(fork.position_hash(), game.position_hash());
     }
 
     fn point(s: &str) -> Point {
