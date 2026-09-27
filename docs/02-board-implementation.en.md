@@ -44,7 +44,7 @@ bottom up:
 
 A point on the board is a `Point(x, y)`.
 
-- Both `x` and `y` are integers from `0` up to but not including `RANGE`
+- Both `x` and `y` are integers from `0` up to but not including `SIZE`
   (= 15).
 - `x` is the vertical line: line `A` is 0 and line `O` is 14.
 - `y` is the horizontal line: line `1` is 0 and line `15` is 14.
@@ -77,9 +77,9 @@ The triple `(Direction, i, j)` is an `Index`. Related operations:
 
 - `Point::to_index(d)` converts a point to the `Index` for direction `d`,
   and `Index::to_point()` converts back.
-- `Index::walk(step)` and `walk_checked(step)` move `step` cells along the
+- `Index::offset(step)` and `checked_offset(step)` move `step` cells along the
   same line.
-- `Index::maxj()` gives the last valid position on the line. Diagonals get
+- `Index::max_j()` gives the last valid position on the line. Diagonals get
   shorter towards the corners, so the value differs from line to line.
 
 ## 2. `Line`: one line as bitmasks
@@ -93,11 +93,11 @@ pub struct Line { blacks: u16, whites: u16, pub size: u8 }
 - `size` is the line length: 15 for horizontal and vertical lines, and anywhere from 5
   to 15 for diagonals (short diagonals are omitted, see §4).
 
-Placing a stone (`put_mut`), removing one (`remove_mut`) and reading a
+Placing a stone (`put`), removing one (`remove`) and reading a
 position (`stone(j)`) are all plain bit operations, which is what keeps the
 search loop cheap.
 
-`potential_cap(r)` is a quick upper bound used to skip whole lines. It
+`score_bound(r)` is a quick upper bound used to skip whole lines. It
 returns 0 when the line cannot even fit five stones between the opponent's
 stones, and "own stones + 1" otherwise.
 
@@ -131,10 +131,10 @@ A segment answers, for either player `r`:
 
 | Method | Answer |
 | --- | --- |
-| `free(r)` | No opponent stone is among the five cells. |
-| `alive(r)` | `r` can still make a five here: `free(r)`, and for Black also no black stone in either margin. |
+| `is_free(r)` | No opponent stone is among the five cells. |
+| `is_alive(r)` | `r` can still make a five here: `is_free(r)`, and for Black also no black stone in either margin. |
 | `count(r)` | How many of the five cells hold `r`'s stones, 0-5, alive or not. |
-| `score(r)` | `count(r)` if `alive(r)`, else `-1`. |
+| `score(r)` | `count(r)` if `is_alive(r)`, else `-1`. |
 | `stones(r)` | The cells (0-4) holding `r`'s stones. `stone_bits(r)` is the same as a 5-bit mask. |
 | `eyes(r)` | The cells (0-4) `r` still has to play to make a five here; none when not alive. `eye_bits(r)` is the same as a mask. |
 
@@ -153,10 +153,10 @@ so the line finds them all at once with bit operations: bit `j` of `x >> k`
 is cell `j + k`, so a condition written over shifted masks is checked for
 every segment in parallel.
 
-- `counting(r, n)`: bit `j` is set if segment `j` is `free(r)` and has
+- `count_mask(r, n)`: bit `j` is set if segment `j` is `is_free(r)` and has
   `count(r) == n` — the five cells added up bit-sliced (a full adder, a half
   adder and the carries) by `tally`, detailed below.
-- `scoring(r, n)`: the same with `score(r) == n`, i.e. also no black stone
+- `score_mask(r, n)`: the same with `score(r) == n`, i.e. also no black stone
   at `j - 1` or `j + 5` for Black.
 - `row_starts(r, kind)`: bit `j` is set if the row is at segment
   `j`, from the above. `rows` walks its set bits (`Bits`, one
@@ -181,7 +181,7 @@ earlier one does too, so `i` is in the four cells they share.
 <details>
 <summary>How <code>tally</code> adds up the five cells of every segment at once</summary>
 
-`counting` starts from `Line::tally(r)`, which
+`count_mask` starts from `Line::tally(r)`, which
 returns `([ones, twos, fours], free)`. Bit `j` of every mask is about
 segment `j` (cells `j` to `j + 4`):
 
@@ -193,7 +193,7 @@ segment `j` (cells `j` to `j + 4`):
 ```rust
 fn tally(&self, r: Player) -> ([u16; 3], u16) {
     let (my, op) = self.my_op(r);
-    let segments = (1u16 << (self.size + 1 - VICTORY)) - 1;
+    let segments = (1u16 << (self.size + 1 - FIVE)) - 1;
     let blocked = op | op >> 1 | op >> 2 | op >> 3 | op >> 4;
     let (a, b, c, d, e) = (my, my >> 1, my >> 2, my >> 3, my >> 4);
     let (s1, c1) = (a ^ b ^ c, a & b | c & (a ^ b));
@@ -236,7 +236,7 @@ That is, the sum of five bits is split as "ones digit + 2 × (`c1` + `c2` +
 - `segments = (1 << (size - 4)) - 1` keeps the segments starting at 0 to
   `size - 5`. Further right the window runs off the line, where the shifts
   bring in zeros that look like empty cells.
-- `!blocked & segments` is `Segment::free` for every segment.
+- `!blocked & segments` is `Segment::is_free` for every segment.
 
 **An example.** The line `-oo-o-x--` (size 9) for Black. The masks are
 written with cell 0 on the **left**, the reverse of the usual binary
@@ -278,8 +278,8 @@ free        110000000
 
 - `select(digits, n)` picks the segments whose count is exactly `n`: each
   digit mask as is where `n` has a 1, inverted where it has a 0, ANDed.
-- `counting(r, n)` is `select(digits, n) & free`.
-- `scoring(r, n)` also removes, for Black, the segments with a black stone
+- `count_mask(r, n)` is `select(digits, n) & free`.
+- `score_mask(r, n)` also removes, for Black, the segments with a black stone
   just outside them (`overline`).
 
 </details>
@@ -296,19 +296,19 @@ pub struct Grid {
 ```
 
 A stone is stored redundantly in all four lines through its point
-(`put_mut` updates each of them).
+(`put` updates each of them).
 
 Diagonals shorter than five cells can never contain a five, so the four
 shortest diagonals at each corner are omitted:
 
 - Diagonal `i` for `i` from `4` through `24` is stored at `alines[i - 4]`
-  (`D_LINE_OMIT = 4`, `D_LINE_NUM = 21`).
+  (`DIAGONAL_LINE_SKIP = 4`, `DIAGONAL_LINE_COUNT = 21`).
 - For the other diagonals `line_idx` returns `None`, and row queries
   simply skip them.
 
 Main queries:
 
-- `stone(p)`, `stones(player)`, `empties()`, `neighbors(p, distance, only_empty)`
+- `stone(p)`, `stones(player)`, `empty_points()`, `neighbors(p, distance, only_empty)`
   — reading stones and empty points.
 - `rows(r, kind)` — every `Row` of kind `kind` for player `r`
   on the whole board.
@@ -340,20 +340,20 @@ the later segment.
 | `RowKind` | Segments | Pattern (Black shown, `_` = eye) | Rule concept |
 | --- | --- | --- | --- |
 | `Five` | one scoring 5 | `ooooo` | **Five**. For Black, a score needs empty margins, so overlines are excluded. |
-| `Overlined` | two, each `free` with 5 stones | `oooooo` (6+) | **Overline**. |
+| `Overlined` | two, each `is_free` with 5 stones | `oooooo` (6+) | **Overline**. |
 | `Four` | one scoring 4 | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: one more stone at the eye makes a five. A straight four appears as **two** adjacent `Four`s. |
 | `Straight` | two scoring 4, the stones in the four cells they share | `.oooo.` | **Straight four**. |
 | `Sword` | one scoring 3 | `ooo__`, `o_oo_`, … (3 stones in a segment) | A "four-to-be" (Japanese *kensaki*, "sword tip"): playing either eye makes a `Four`. Includes open threes, so it is not the same as a "closed three". Not a rule term; used by VCF/VCT to enumerate four-making moves. |
 | `Three` | two scoring 3, the stones in the four cells they share | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: playing the single eye makes a `Straight`. |
 | `Two` | two scoring 2, the stones in the four cells they share | `.oo__.`, `.o_o_.`, … | A "three-to-be": playing an eye makes a `Three`. |
-| `Overlining` | two, each `free` with 4 stones | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
+| `Overlining` | two, each `is_free` with 4 stones | `oo_ooo`, `ooo_oo`, … | Playing the eye makes an overline (6+). |
 
 For the open rows (`Two`, `Three`, `Straight`) "the stones in the four
 shared cells" means the later segment's last cell is empty; since both
 segments are alive, the six cells they span then have both ends empty. The
-overline rows look at `free` segments rather than `alive` ones: an
+overline rows look at `is_free` segments rather than `is_alive` ones: an
 overline always has a black stone next to each of its segments, which is
-exactly what makes a segment dead for Black. Two `free` segments with four
+exactly what makes a segment dead for Black. Two `is_free` segments with four
 black stones each are either five stones in six cells (the empty one makes
 six) or an open four `.oooo.`; through an empty point, only the former can
 be found, since an open four's segments share only stones.
@@ -378,7 +378,7 @@ Only Black has forbidden moves. There are three entry points:
 ```rust
 pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind>
 pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind>
-pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
+pub fn forbidden_points(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ```
 
 `ForbiddenKind` is one of `Overline`, `DoubleFour` or `DoubleThree`.
@@ -391,7 +391,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
   Black's `Overlining`s, `Sword`s and `Two`s together, and checks
   overline, double-four and double-three in that order; a point matching
   several kinds is reported as the first one found.
-- `forbiddens` lists every forbidden empty point on the board.
+- `forbidden_points` lists every forbidden empty point on the board.
 
 The solvers (`Game::is_forbidden_move` in `src/mate/game.rs`) call the
 non-strict `forbidden`, because a five-making move is recognised as a win
@@ -424,7 +424,7 @@ fn double_four(swords: [u16; 4]) -> bool {
 
 Every `Sword` through `p` becomes a `Four` when `p` is played. `has_multiple_rows`
 returns true as soon as the iterator yields an index other than the first
-segment's `first` and its neighbour `first.walk(1)`: it counts two adjacent
+segment's `first` and its neighbour `first.offset(1)`: it counts two adjacent
 segments as one and asks whether there are at least two segments left. The
 neighbour is excluded for the following reason:
 
@@ -447,7 +447,7 @@ fn double_three(g, p, twos: [u16; 4]) -> bool {
     // cheap pre-filter: at least two "three-to-be" rows through p
     if !has_multiple_starts(twos) { return false; }
     let mut next = g.clone();
-    next.put_mut(Black, p);
+    next.put(Black, p);
     real_double_three(&next, p)
 }
 
@@ -528,8 +528,8 @@ thread, are in `forbidden.rs`'s tests.
 
 ## 7. Zobrist hashing (`zobrist.rs`) and `Board`
 
-`Board` wraps a `Grid` and a `u64` Zobrist hash, and `put_mut` /
-`remove_mut` keep the two in sync.
+`Board` wraps a `Grid` and a `u64` Zobrist hash, and `put` /
+`remove` keep the two in sync.
 
 - `CODE_TABLE` holds `2 * 225` random 64-bit codes. The index is
   `2 * u8::from(point) + c`, where `c` is 0 for Black and 1 for White.
@@ -537,10 +537,11 @@ thread, are in `forbidden.rs`'s tests.
   into or out of the hash.
 - Whose turn it is, the search's attacker and the remaining depth are not
   properties of the board, so the hash leaves them out. The solvers XOR
-  them in themselves (`apply_turn`, `apply_attacker` and `apply_n` with
-  `N_TABLE`) to key their transposition tables (`State::key`, 04).
-- `Board::put` / `remove` return copies; the solvers use the `_mut`
-  variants to avoid cloning in the search loop.
+  them in themselves (`apply_turn`, `apply_attacker` and `apply_limit` with
+  `LIMIT_TABLE`) to key their transposition tables (`State::key`, 04).
+- `Board::put` / `remove` change the board in place; `with_stone` /
+  `without_stone` return changed copies, which the solvers avoid so as not
+  to clone in the search loop.
 
 The VCF search asks for each player's swords (`Sword`, §5) at nearly
 every node, so it keeps them cached in a `SwordMap`
@@ -572,7 +573,7 @@ and passing the board along when they sync or read it.
 | Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::decided` answers input positions that already contain a five or a Black `Overlined`. |
 | Four / straight four | `Four` (a segment scoring 4) / `Straight` (two scoring 4); a straight four = two adjacent `Four`s. |
 | Three (must reach a straight four) | `Three` (two segments scoring 3), single eye = the straight-four point. |
-| "Without making an overline" for Black | `Segment::alive`: no black stone in the margins. |
+| "Without making an overline" for Black | `Segment::is_alive`: no black stone in the margins. |
 | Forbidden: overline / double-four / double-three | `forbidden.rs`: `overline` / `double_four` / `double_three`. |
 | 9.2 "unless it makes a five" | `forbidden_strict`. |
 | 9.3 real vs. fake threes, recursive | `real_double_three` calling `forbidden_strict` on each three's eye. |

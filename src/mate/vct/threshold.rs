@@ -8,8 +8,8 @@ use crate::mate::vct::proof::*;
 /// with the parent's current threshold and the result of selecting the
 /// most-proving child.
 pub trait ThresholdPolicy {
-    fn next_threshold_attack(selection: &Selection, threshold: Node) -> Node;
-    fn next_threshold_defence(selection: &Selection, threshold: Node) -> Node;
+    fn next_threshold_attack(selection: &Selection, threshold: PnDn) -> PnDn;
+    fn next_threshold_defence(selection: &Selection, threshold: PnDn) -> PnDn;
 }
 
 /// No threshold: the chosen child is searched to completion before the parent
@@ -17,12 +17,12 @@ pub trait ThresholdPolicy {
 pub struct DFSThreshold;
 
 impl ThresholdPolicy for DFSThreshold {
-    fn next_threshold_attack(_selection: &Selection, _threshold: Node) -> Node {
-        Node::no_threshold()
+    fn next_threshold_attack(_selection: &Selection, _threshold: PnDn) -> PnDn {
+        PnDn::no_threshold()
     }
 
-    fn next_threshold_defence(_selection: &Selection, _threshold: Node) -> Node {
-        Node::no_threshold()
+    fn next_threshold_defence(_selection: &Selection, _threshold: PnDn) -> PnDn {
+        PnDn::no_threshold()
     }
 }
 
@@ -32,11 +32,11 @@ impl ThresholdPolicy for DFSThreshold {
 pub struct PNSThreshold;
 
 impl ThresholdPolicy for PNSThreshold {
-    fn next_threshold_attack(selection: &Selection, _threshold: Node) -> Node {
+    fn next_threshold_attack(selection: &Selection, _threshold: PnDn) -> PnDn {
         Self::just_past_best(selection)
     }
 
-    fn next_threshold_defence(selection: &Selection, _threshold: Node) -> Node {
+    fn next_threshold_defence(selection: &Selection, _threshold: PnDn) -> PnDn {
         Self::just_past_best(selection)
     }
 }
@@ -44,9 +44,9 @@ impl ThresholdPolicy for PNSThreshold {
 impl PNSThreshold {
     /// One more than the best child's numbers, on both sides alike: exceeded
     /// by any change to them.
-    fn just_past_best(selection: &Selection) -> Node {
+    fn just_past_best(selection: &Selection) -> PnDn {
         let best = selection.best_child;
-        Node::new(
+        PnDn::new(
             best.pn.saturating_add(1),
             best.dn.saturating_add(1),
             best.limit,
@@ -68,20 +68,20 @@ IEICE TRANSACTIONS on Information and Systems 85.10 (2002): 1645-1653.
 pub struct DFPNSThreshold;
 
 impl ThresholdPolicy for DFPNSThreshold {
-    fn next_threshold_attack(selection: &Selection, threshold: Node) -> Node {
+    fn next_threshold_attack(selection: &Selection, threshold: PnDn) -> PnDn {
         let pn = threshold
             .pn
             .min(Self::past_second(selection.second_child.pn));
         let dn = (threshold.dn - selection.node.dn).saturating_add(selection.best_child.dn);
-        Node::new(pn, dn, selection.best_child.limit)
+        PnDn::new(pn, dn, selection.best_child.limit)
     }
 
-    fn next_threshold_defence(selection: &Selection, threshold: Node) -> Node {
+    fn next_threshold_defence(selection: &Selection, threshold: PnDn) -> PnDn {
         let pn = (threshold.pn - selection.node.pn).saturating_add(selection.best_child.pn);
         let dn = threshold
             .dn
             .min(Self::past_second(selection.second_child.dn));
-        Node::new(pn, dn, selection.best_child.limit)
+        PnDn::new(pn, dn, selection.best_child.limit)
     }
 }
 

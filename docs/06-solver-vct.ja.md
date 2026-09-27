@@ -11,7 +11,7 @@ src/mate/vct/
 │                       threat_defences、sorted_attacks / sorted_defences、priority
 ├── nested_vcf.rs       NestedVCF: 片側の内部四追い探索                                          (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                        (§3)
-├── proof.rs            Node（証明数）、ProofTable（置換表）                                      (§4)
+├── proof.rs            PnDn（証明数）、ProofTable（置換表）                                      (§4)
 ├── searcher.rs         search_attacks / search_defences、expand_attacks / expand_defences、     (§5)
 │                       select_attack / select_defence → Selection
 ├── threshold.rs        ThresholdPolicy: DFSThreshold、PNSThreshold、DFPNSThreshold              (§5)
@@ -122,7 +122,7 @@ impl NestedVCF {
 ```rust
 pub enum Candidates {
     Moves(Vec<Candidate>),  // 内部ノード: 試す手、良い順
-    Terminal(Node),         // 展開せずに決着: Node::proven または Node::disproven
+    Terminal(PnDn),         // 展開せずに決着: PnDn::proven または PnDn::disproven
 }
 pub struct Candidate { pub point: Point, pub estimate: u32 }
 ```
@@ -180,7 +180,7 @@ df-pn は同じノードに何度も戻ってくる。容量 1000 では、攻�
 ## 4. 証明数（`proof.rs`）
 
 ```rust
-pub struct Node { pub pn: u32, pub dn: u32, pub limit: u8 }
+pub struct PnDn { pub pn: u32, pub dn: u32, pub limit: u8 }
 pub const INF: u32 = u32::MAX;
 ```
 
@@ -189,12 +189,12 @@ pub const INF: u32 = u32::MAX;
 
 | コンストラクタ | `(pn, dn)` | 意味 |
 | --- | --- | --- |
-| `Node::unknown()` | `(INF, INF)` | 表にない局面 |
-| `Node::no_threshold()` | `(INF, INF)` | 決して超えない閾値（決着まで探索）。`unknown` と同じ値、別の役割 |
-| `Node::proven(limit)` | `(0, INF)` | 攻め方の勝ち |
-| `Node::disproven(limit)` | `(INF, 0)` | `limit` 以内に攻め方は勝てない |
-| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | OR ノードの未展開の子（受け方の手番）の初期値。`n` = その攻め手の見積もり（§3） |
-| `Node::unexpanded_attack(n, limit)` | `(1, n)` | AND ノードの未展開の子（攻め方の手番）の初期値。`n` = その受け手の見積もり |
+| `PnDn::unknown()` | `(INF, INF)` | 表にない局面 |
+| `PnDn::no_threshold()` | `(INF, INF)` | 決して超えない閾値（決着まで探索）。`unknown` と同じ値、別の役割 |
+| `PnDn::proven(limit)` | `(0, INF)` | 攻め方の勝ち |
+| `PnDn::disproven(limit)` | `(INF, 0)` | `limit` 以内に攻め方は勝てない |
+| `PnDn::unexpanded_defence(n, limit)` | `(n, 1)` | OR ノードの未展開の子（受け方の手番）の初期値。`n` = その攻め手の見積もり（§3） |
+| `PnDn::unexpanded_attack(n, limit)` | `(1, n)` | AND ノードの未展開の子（攻め方の手番）の初期値。`n` = その受け手の見積もり |
 
 子の合成は 2 通り（和は飽和加算）。
 
@@ -216,7 +216,7 @@ pub const INF: u32 = u32::MAX;
 
 | フィールド | キー | 持つもの |
 | --- | --- | --- |
-| `estimates: Memo<Node>` | `Key::hash()`（局面 + limit） | 挿入されたすべてのノードをそのまま。途中経過の証明数は、それを計算した limit に属する |
+| `estimates: Memo<PnDn>` | `Key::hash()`（局面 + limit） | 挿入されたすべてのノードをそのまま。途中経過の証明数は、それを計算した limit に属する |
 | `decided: Memo<Decided>` | `Key::position` のみ | その局面で証明された最小 limit と、反証された最大 limit |
 
 - `insert(state, node)`: `estimates` には常に書く。ノードが証明済み / 反証済みなら `decided` にも書く。
@@ -228,7 +228,7 @@ pub const INF: u32 = u32::MAX;
 
 ### ノード関数
 
-`VCTSolver::search(state, budget)` は、`limit == 0` の検査の後、`search_attacks(state, Node::no_threshold(), budget).is_proven()` を返す。2 つのノード関数は互いを呼ぶ。
+`VCTSolver::search(state, budget)` は、`limit == 0` の検査の後、`search_attacks(state, PnDn::no_threshold(), budget).is_proven()` を返す。2 つのノード関数は互いを呼ぶ。
 
 ```
 search_attacks(state, threshold):              # OR ノード、攻め方の手番
@@ -253,7 +253,7 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 | --- | --- |
 | `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(estimate)` とみなす（§3。強制手なら `1`） |
 | `best` | `pn` が最小の子（最有望の子）。候補の中での位置 |
-| `fresh` | `best` がまだ表にないか。一度も探索されていない |
+| `unvisited` | `best` がまだ表にないか。一度も探索されていない |
 | `best_child`、`second_child` | 最良と 2 番目の子の数値 |
 
 証明済みの子があれば、`node` はその場で `(0, INF)` になる。
@@ -282,7 +282,7 @@ expand_attacks(state, attacks, threshold):
         s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if 予算切れ:                                              return s
-        if s.fresh かつ s.best が禁手:
+        if s.unvisited かつ s.best が禁手:
             with_move(s.best): attacker_table.insert(child, disproven)
             children[s.best] = disproven
             continue
@@ -358,7 +358,7 @@ extract_attacks(state):                        # 攻め方の手番
 extract_defences(state):                       # 受け方の手番
     Defeated(end) → Mate { end, path: [] }
     Forced(p)     → p を打ち、extract_attacks
-    それ以外      → threat_defences(attacker_vcf.threat(state)) のうち、証明済みで Node::limit が最小の子
+    それ以外      → threat_defences(attacker_vcf.threat(state)) のうち、証明済みで PnDn::limit が最小の子
     証明済みなし  → Mate { end: Unknown, path: [] }   # 合法な受けがなくて証明されたノード
 ```
 
@@ -415,13 +415,13 @@ extract_defences(state):                       # 受け方の手番
 | `Five` | `Four` の目 | `row_eyes(r, Four)` |
 | `Four` | `Sword` の目 | `row_eyes(r, Sword)` |
 | `Three` | `Two` の目 | `row_eyes(r, Two)` |
-| `Sword` | 石を 2 つ含むセグメントの中 | `eyes_of(scoring(r, 2), ..)` |
+| `Sword` | 石を 2 つ含むセグメントの中 | `eyes_of(score_mask(r, 2), ..)` |
 | `Two` | 石を 1 つ含む開いたセグメント対の共有マス | `eyes_of(open_starts(r, 1), ..)` |
 | `Nothing` | 上のどれでもない、または石がある | |
 
 当てはまるうち最も大きいものを取る。`SwordMap`（02 §7）と同じく線ごとに持ち、着手で古い印を付けて `sync` で計算し直す。線・プレイヤーごとに数回のビット演算で済む。
 
-`get(p, r)` は 4 方向分を `Shapes` として返す。`Shapes` は数え（`count`、`count_from`）、格の合計を出し（`total`: `Two` の 1 から `Five` の 5 まで）、1 方向を除き（`except`）、黒がそこに打てなさそうかを推測する（`looks_forbidden`: 四が 2 つか三が 2 つで、五がない。1 本の線上の四四、長連、三が偽であることは見ない）。`forbidden_eyes(board, p, r)` は、`r` が `p` に打って作る四・三のうち、黒の石が禁手に見える点に目が残るものを数える。白にとっては黒が止められない四、止め方の減る三。黒にとっては、そこで棒四にできない三。`p` の石は、目を通る線のうち連の線にしか乗らないので、ほかの線の黒の形はそのまま読める。
+`get(p, r)` は 4 方向分を `Shapes` として返す。`Shapes` は数え（`count`、`count_at_least`）、格の合計を出し（`total`: `Two` の 1 から `Five` の 5 まで）、1 方向を除き（`except`）、黒がそこに打てなさそうかを推測する（`looks_forbidden`: 四が 2 つか三が 2 つで、五がない。1 本の線上の四四、長連、三が偽であることは見ない）。`forbidden_eyes(board, p, r)` は、`r` が `p` に打って作る四・三のうち、黒の石が禁手に見える点に目が残るものを数える。白にとっては黒が止められない四、止め方の減る三。黒にとっては、そこで棒四にできない三。`p` の石は、目を通る線のうち連の線にしか乗らないので、ほかの線の黒の形はそのまま読める。
 
 ### `priority`
 

@@ -36,7 +36,7 @@ pub struct DFSSolver {
 }
 
 impl DFSSolver {
-    pub fn init() -> Self {
+    pub fn new() -> Self {
         Self::with_carry_capacity(DEFAULT_CARRY_CAPACITY)
     }
 
@@ -236,6 +236,12 @@ impl Solver for DFSSolver {
     }
 }
 
+impl Default for DFSSolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,11 +316,11 @@ mod tests {
         let budget = &mut NodeBudget::unlimited();
         let mut tested = 0;
         for board in boards() {
-            let shapes = ShapeMap::init(&board);
+            let shapes = ShapeMap::from_board(&board);
             for attacker in [Black, White] {
                 let mut zone = Area::new();
-                let state = &mut VCFState::init(&board, attacker, 5);
-                if DFSSolver::init()
+                let state = &mut VCFState::from_board(&board, attacker, 5);
+                if DFSSolver::new()
                     .search_zone(state, budget, &mut zone)
                     .is_some()
                 {
@@ -323,12 +329,12 @@ mod tests {
                 tested += 1;
 
                 let mut outside = 0;
-                for p in board.empties() {
-                    let next = board.put(attacker, p);
-                    let state = &mut VCFState::init(&next, attacker, 5);
-                    let gives = DFSSolver::init().search(state, budget).is_some();
-                    let ruled_out =
-                        !zone.contains(p) && shapes.get(p, attacker).count_from(Shape::Sword) == 0;
+                for p in board.empty_points() {
+                    let next = board.with_stone(attacker, p);
+                    let state = &mut VCFState::from_board(&next, attacker, 5);
+                    let gives = DFSSolver::new().search(state, budget).is_some();
+                    let ruled_out = !zone.contains(p)
+                        && shapes.get(p, attacker).count_at_least(Shape::Sword) == 0;
                     assert!(!(gives && ruled_out), "{attacker:?} {p}");
                     outside += ruled_out as usize;
                 }

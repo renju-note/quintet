@@ -14,7 +14,7 @@ pub struct StaleLines(u128);
 impl StaleLines {
     /// Every line: what a map that has read nothing yet has to compute.
     pub fn all() -> Self {
-        Self((1 << LINE_NUM) - 1)
+        Self((1 << LINE_COUNT) - 1)
     }
 
     /// Notes that a stone was put on or taken off `p`.
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn test_mark_and_take() -> Result<(), String> {
         let mut stale = StaleLines::all();
-        assert_eq!(stale.take().len(), LINE_NUM);
+        assert_eq!(stale.take().len(), LINE_COUNT);
         assert!(stale.is_empty());
 
         // H8 is on a stored line in every direction; A1's descending
@@ -54,7 +54,7 @@ mod tests {
         stale.mark("A1".parse()?);
         let keys: Vec<_> = stale
             .take()
-            .map(|k| Grid::line_of_key(k as usize).0)
+            .map(|k| Grid::line_from_key(k as usize).0)
             .collect();
         assert_eq!(keys, [Vertical, Horizontal, Ascending]);
         Ok(())

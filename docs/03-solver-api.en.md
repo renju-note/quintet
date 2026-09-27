@@ -125,12 +125,12 @@ control converts it into a number of nodes itself.
 let mut budget = NodeBudget::new(100_000);   // or NodeBudget::unlimited()
 budget.is_exhausted();                       // did a search run out?
 budget.nodes();                              // nodes counted so far
-budget.restart();                            // back to zero, same limit
+budget.reset();                            // back to zero, same limit
 ```
 
 One node is one visit of a search function: `DFSSolver::search` in VCF,
 `search_attacks` / `search_defences` in VCT, the nested VCF searches
-included. A budget stays exhausted until `restart()`, so a series of calls
+included. A budget stays exhausted until `reset()`, so a series of calls
 sharing one budget stops as a whole rather than each doing a little more.
 
 Two guarantees make a budget safe to use:
@@ -152,10 +152,10 @@ public for that:
 ```rust
 use quintet::mate::{DFPNSVCTSolver, NodeBudget, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
 
-let mut solver = DFPNSVCTSolver::init(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
+let mut solver = DFPNSVCTSolver::new(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
 let budget = &mut NodeBudget::new(1_000_000);   // bounds the whole loop
 for board in candidates {
-    let state = &mut VCTState::init(&board, attacker, limit);
+    let state = &mut VCTState::from_board(&board, attacker, limit);
     match solver.solve(state, budget) {
         Some(mate) => { /* proven */ }
         None if budget.is_exhausted() => break,
@@ -178,12 +178,12 @@ pub trait Solver {
 
 | Solver | `State` | Constructor | Searches for |
 | --- | --- | --- | --- |
-| `DFSSolver` | `VCFState` | `init()` | VCF |
-| `IDDFSSolver` | `VCFState` | `init(limits)` | VCF, at each of `limits` in turn |
-| `VCTSolver<P>` — aliased `DFSVCTSolver`, `PNSVCTSolver`, `DFPNSVCTSolver` | `VCTState` | `init(threat_limit, defender_vcf_depth)` | VCT |
+| `DFSSolver` | `VCFState` | `new()` | VCF |
+| `IDDFSSolver` | `VCFState` | `new(limits)` | VCF, at each of `limits` in turn |
+| `VCTSolver<P>` — aliased `DFSVCTSolver`, `PNSVCTSolver`, `DFPNSVCTSolver` | `VCTState` | `new(threat_limit, defender_vcf_depth)` | VCT |
 
-A state is built with `VCFState::init(&board, attacker, limit)` or
-`VCTState::init(&board, attacker, limit)`; make a fresh one per question,
+A state is built with `VCFState::from_board(&board, attacker, limit)` or
+`VCTState::from_board(&board, attacker, limit)`; make a fresh one per question,
 the solver is what carries over.
 
 What to expect from reuse:
@@ -221,7 +221,7 @@ What to expect from reuse:
   defences from (06, §3).
 - **Is this move a threat?** Let the side to move pass — `Game::play(None)` —
   and ask for the opponent's VCF: `VCFState::new(game, limit)` on the passed
-  game, then `DFSSolver::init().solve(..)`. `test_threat_after_pass` does it
+  game, then `DFSSolver::new().solve(..)`. `test_threat_after_pass` does it
   move by move.
 
 ## 5. `Mate` and `End`
@@ -241,7 +241,7 @@ it. `end` says why the defender is lost after the last move:
 | `Forbidden(p)` | a single four whose only block `p` is a forbidden move. | Black only. |
 | `Unknown` | The win was proven but the line could not be completed: the attacker already had a four before the search (§6), or the extractor found no proven child to follow (06, §6). | — |
 
-## 6. What is checked before searching: `decided`
+## 6. What is checked before searching: `trivial_result`
 
 `solve` first answers, without searching, the positions the solvers do not
 handle (after a reserved mode, which is `Aborted` whatever the board):

@@ -2,11 +2,11 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::str::FromStr;
 
-pub const RANGE: u8 = 15;
+pub const SIZE: u8 = 15;
 
 /// How many points the board has, which is also how many `u8` point codes
 /// there are.
-pub const POINTS: usize = RANGE as usize * RANGE as usize;
+pub const POINT_COUNT: usize = SIZE as usize * SIZE as usize;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Point(pub u8, pub u8);
@@ -14,7 +14,7 @@ pub struct Point(pub u8, pub u8);
 impl Point {
     pub fn to_index(&self, d: Direction) -> Index {
         let (x, y) = (self.0, self.1);
-        let n = RANGE - 1;
+        let n = SIZE - 1;
         match d {
             Vertical => Index::new(Vertical, x, y),
             Horizontal => Index::new(Horizontal, y, x),
@@ -59,7 +59,7 @@ impl FromStr for Point {
             .parse::<u8>()
             .ok()
             .and_then(|n| match n {
-                1..=RANGE => Some(n - 1),
+                1..=SIZE => Some(n - 1),
                 _ => None,
             })
             .ok_or("Failed to parse y part.")?;
@@ -73,9 +73,9 @@ impl TryFrom<u8> for Point {
     type Error = &'static str;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let x = value / RANGE;
-        let y = value % RANGE;
-        if x < RANGE && y < RANGE {
+        let x = value / SIZE;
+        let y = value % SIZE;
+        if x < SIZE && y < SIZE {
             Ok(Point(x, y))
         } else {
             Err("Invalid code")
@@ -85,7 +85,7 @@ impl TryFrom<u8> for Point {
 
 impl From<Point> for u8 {
     fn from(value: Point) -> u8 {
-        value.0 * RANGE + value.1
+        value.0 * SIZE + value.1
     }
 }
 
@@ -154,7 +154,7 @@ impl Index {
     }
 
     pub fn to_point(&self) -> Point {
-        let n = RANGE - 1;
+        let n = SIZE - 1;
         let (i, j) = (self.i, self.j);
         match self.d {
             Vertical => Point(i, j),
@@ -172,26 +172,26 @@ impl Index {
         }
     }
 
-    pub fn walk(&self, step: u8) -> Self {
+    pub fn offset(&self, step: u8) -> Self {
         Self::new(self.d, self.i, self.j + step)
     }
 
-    pub fn walk_checked(&self, step: i8) -> Option<Self> {
+    pub fn checked_offset(&self, step: i8) -> Option<Self> {
         let j = self.j as i8 + step;
-        if 0 <= j && j <= self.maxj() as i8 {
+        if 0 <= j && j <= self.max_j() as i8 {
             Some(Self::new(self.d, self.i, j as u8))
         } else {
             None
         }
     }
 
-    pub fn mapped<I: Iterator<Item = u8>>(&self, steps: I) -> impl Iterator<Item = Self> + use<I> {
+    pub fn offsets<I: Iterator<Item = u8>>(&self, steps: I) -> impl Iterator<Item = Self> + use<I> {
         let start = *self;
-        steps.map(move |s| start.walk(s))
+        steps.map(move |s| start.offset(s))
     }
 
-    pub fn maxj(&self) -> u8 {
-        let n = RANGE - 1;
+    pub fn max_j(&self) -> u8 {
+        let n = SIZE - 1;
         let i = self.i;
         match self.d {
             Vertical | Horizontal => n,
@@ -279,12 +279,12 @@ mod tests {
     /// Every cell of every line maps back to the point it came from.
     #[test]
     fn test_to_index_round_trips_everywhere() {
-        for x in 0..RANGE {
-            for y in 0..RANGE {
+        for x in 0..SIZE {
+            for y in 0..SIZE {
                 let p = Point(x, y);
                 for d in Direction::ALL {
                     let index = p.to_index(d);
-                    assert!(index.j <= index.maxj(), "{p} {d:?}");
+                    assert!(index.j <= index.max_j(), "{p} {d:?}");
                     assert_eq!(index.to_point(), p, "{p} {d:?}");
                 }
             }
@@ -295,13 +295,13 @@ mod tests {
     fn test_walk_checked_stays_on_the_line() {
         // The ascending diagonal from A11 to E15 has five cells.
         let start = Point(0, 10).to_index(Ascending);
-        assert_eq!(start.maxj(), 4);
-        assert_eq!(start.walk_checked(-1), None);
+        assert_eq!(start.max_j(), 4);
+        assert_eq!(start.checked_offset(-1), None);
         assert_eq!(
-            start.walk_checked(4).map(|i| i.to_point()),
+            start.checked_offset(4).map(|i| i.to_point()),
             Some(Point(4, 14))
         );
-        assert_eq!(start.walk_checked(5), None);
+        assert_eq!(start.checked_offset(5), None);
     }
 
     #[test]
@@ -325,10 +325,10 @@ mod tests {
     fn test_u8_code() -> Result<(), String> {
         assert_eq!(u8::from(Point(4, 12)), 72);
         assert_eq!(Point::try_from(72)?, Point(4, 12));
-        for code in 0..RANGE * RANGE {
+        for code in 0..SIZE * SIZE {
             assert_eq!(u8::from(Point::try_from(code)?), code);
         }
-        assert!(Point::try_from(RANGE * RANGE).is_err());
+        assert!(Point::try_from(SIZE * SIZE).is_err());
 
         let codes = Vec::<u8>::from(Points(vec![Point(0, 0), Point(14, 14)]));
         assert_eq!(codes, [0, 224]);

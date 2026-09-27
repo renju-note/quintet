@@ -10,7 +10,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn init(board: &Board, turn: Player) -> Self {
+    pub fn new(board: &Board, turn: Player) -> Self {
         Self {
             board: board.clone(),
             moves: vec![],
@@ -36,7 +36,7 @@ impl Game {
 
     pub fn play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
-            self.board.put_mut(self.turn, next_move);
+            self.board.put(self.turn, next_move);
         }
         self.moves.push(next_move);
         self.turn = self.turn.opponent();
@@ -45,7 +45,7 @@ impl Game {
     pub fn undo(&mut self) {
         self.turn = self.turn.opponent();
         if let Some(last_move) = self.moves.pop().unwrap() {
-            self.board.remove_mut(last_move);
+            self.board.remove(last_move);
         }
     }
 
@@ -84,8 +84,8 @@ impl Game {
     }
 
     pub fn check_event(&self) -> Option<Event> {
-        match self.check_last_four_eyes() {
-            (Some(first), Some(another)) => Some(Defeated(Fours(first, another))),
+        match self.last_four_eyes() {
+            (Some(first), Some(other)) => Some(Defeated(Fours(first, other))),
             (Some(first), None) if self.is_forbidden_move(first) => {
                 Some(Defeated(Forbidden(first)))
             }
@@ -105,12 +105,12 @@ impl Game {
             .join(",")
     }
 
-    fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
+    fn last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let opponent = self.turn.opponent();
         if let Some(last_move) = self.last_move() {
-            Self::take_distinct_two(self.four_eyes_on(last_move, opponent))
+            Self::first_two_distinct(self.four_eyes_on(last_move, opponent))
         } else {
-            Self::take_distinct_two(self.board.rows(opponent, Four).flat_map(|r| r.eyes()))
+            Self::first_two_distinct(self.board.rows(opponent, Four).flat_map(|r| r.eyes()))
         }
     }
 
@@ -125,7 +125,7 @@ impl Game {
     fn four_eyes_on(&self, p: Point, r: Player) -> impl Iterator<Item = Point> + '_ {
         self.board
             .lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(r) > Four.stones())
+            .filter(move |(_, _, l)| l.score_bound(r) > Four.stones())
             .flat_map(move |(d, i, l)| {
                 let starts = l.row_starts_on(p.to_index(d).j, r, Four);
                 Bits(l.eyes_of(starts, Four.eye_cells()))
@@ -134,7 +134,7 @@ impl Game {
     }
 
     /// The first two distinct points of `eyes`, in the order they come.
-    fn take_distinct_two(eyes: impl Iterator<Item = Point>) -> (Option<Point>, Option<Point>) {
+    fn first_two_distinct(eyes: impl Iterator<Item = Point>) -> (Option<Point>, Option<Point>) {
         let mut ret = None;
         for p in eyes {
             if ret.is_some_and(|e| e != p) {
@@ -182,17 +182,17 @@ mod tests {
     #[test]
     fn test_position_hash_separates_the_turn() -> Result<(), String> {
         let board = "H8,J9/I9".parse::<Board>()?;
-        let mut game = Game::init(&board, Black);
+        let mut game = Game::new(&board, Black);
         let hash = game.position_hash();
 
         // The same stones with the other side to move is another position.
-        assert_ne!(Game::init(&board, White).position_hash(), hash);
+        assert_ne!(Game::new(&board, White).position_hash(), hash);
         // ... which is exactly what a pass makes, leaving the board alone.
         game.play(None);
         assert_ne!(game.position_hash(), hash);
         assert_eq!(
             game.position_hash(),
-            Game::init(&board, White).position_hash()
+            Game::new(&board, White).position_hash()
         );
         game.undo();
         assert_eq!(game.position_hash(), hash);
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_last_moves() {
-        let mut game = Game::init(&Board::new(), Black);
+        let mut game = Game::new(&Board::new(), Black);
         assert_eq!((game.last_move(), game.second_last_move()), (None, None));
         game.play(Some(point("H8")));
         assert_eq!(
@@ -224,7 +224,7 @@ mod tests {
     /// A fork keeps what is read of the history and the position itself.
     #[test]
     fn test_fork_keeps_the_last_moves() {
-        let mut game = Game::init(&Board::new(), Black);
+        let mut game = Game::new(&Board::new(), Black);
         for m in ["H8", "I9", "J10"] {
             game.play(Some(point(m)));
         }
@@ -249,7 +249,7 @@ mod tests {
 
     /// The event after `turn` plays `m` on `board`.
     fn event_after(board: &str, turn: Player, m: &str) -> Option<Event> {
-        let mut game = Game::init(&board.parse::<Board>().unwrap(), turn);
+        let mut game = Game::new(&board.parse::<Board>().unwrap(), turn);
         game.play(Some(point(m)));
         game.check_event()
     }
@@ -281,7 +281,7 @@ mod tests {
         // At the root there is no last move to look around, so every four
         // of the side that just moved counts.
         let board = "H8,I8,J8,K8/G8".parse::<Board>()?;
-        let mut game = Game::init(&board, White);
+        let mut game = Game::new(&board, White);
         assert_eq!(game.check_event(), Some(Forced(point("L8"))));
 
         // The same after a pass, which leaves no last move either.

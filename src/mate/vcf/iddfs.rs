@@ -19,14 +19,14 @@ pub struct IDDFSSolver {
 }
 
 impl IDDFSSolver {
-    pub fn init(limits: Vec<u8>) -> Self {
+    pub fn new(limits: Vec<u8>) -> Self {
         Self {
-            solver: DFSSolver::init(),
+            solver: DFSSolver::new(),
             limits,
         }
     }
 
-    /// Like [`Self::init`], but bounding what the dead-end memo carries from
+    /// Like [`Self::new`], but bounding what the dead-end memo carries from
     /// one search into the next (see [`Solver::advance_generation`]).
     pub fn with_carry_capacity(limits: Vec<u8>, carry_capacity: usize) -> Self {
         Self {
@@ -111,11 +111,11 @@ mod tests {
     fn test_finds_the_shortest_vcf_first() {
         let budget = &mut NodeBudget::unlimited();
 
-        let state = &mut VCFState::init(&board(), Black, 5);
-        assert_eq!(path(DFSSolver::init().solve(state, budget)), "G7,G8,I9");
+        let state = &mut VCFState::from_board(&board(), Black, 5);
+        assert_eq!(path(DFSSolver::new().solve(state, budget)), "G7,G8,I9");
 
-        let state = &mut VCFState::init(&board(), Black, 5);
-        let mut solver = IDDFSSolver::init(vec![1, 2, 3]);
+        let state = &mut VCFState::from_board(&board(), Black, 5);
+        let mut solver = IDDFSSolver::new(vec![1, 2, 3]);
         assert_eq!(path(solver.solve(state, budget)), "G8");
         // The limit it deepened through is put back.
         assert_eq!(state.limit(), 5);

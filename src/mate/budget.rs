@@ -14,8 +14,8 @@
 ///
 /// let board = Board::new();
 /// let mut budget = NodeBudget::new(1_000);
-/// let mut solver = DFSSolver::init();
-/// let state = &mut VCFState::init(&board, Player::Black, 5);
+/// let mut solver = DFSSolver::new();
+/// let state = &mut VCFState::from_board(&board, Player::Black, 5);
 /// assert!(solver.solve(state, &mut budget).is_none());
 /// assert!(!budget.is_exhausted());
 /// ```
@@ -46,7 +46,7 @@ impl NodeBudget {
     }
 
     /// Counts one node. Returns `false` once the budget is used up, after
-    /// which it stays exhausted until [`NodeBudget::restart`].
+    /// which it stays exhausted until [`NodeBudget::reset`].
     pub fn consume(&mut self) -> bool {
         if self.exhausted {
             return false;
@@ -77,7 +77,7 @@ impl NodeBudget {
     }
 
     /// Puts the counter back to zero, keeping the limit.
-    pub fn restart(&mut self) {
+    pub fn reset(&mut self) {
         self.nodes = 0;
         self.exhausted = false;
     }
@@ -111,11 +111,11 @@ mod tests {
     }
 
     #[test]
-    fn test_restart() {
+    fn test_reset() {
         let mut budget = NodeBudget::new(1);
         assert!(budget.consume());
         assert!(!budget.consume());
-        budget.restart();
+        budget.reset();
         assert!(!budget.is_exhausted());
         assert_eq!(budget.nodes(), 0);
         assert!(budget.consume());

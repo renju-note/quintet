@@ -105,11 +105,11 @@ pub enum SolveResult { Proven(Mate), Disproven, Aborted }
 let mut budget = NodeBudget::new(100_000);   // または NodeBudget::unlimited()
 budget.is_exhausted();                       // 予算切れになったか
 budget.nodes();                              // これまでのノード数
-budget.restart();                            // 0 に戻す。上限はそのまま
+budget.reset();                            // 0 に戻す。上限はそのまま
 ```
 
 - 1 ノード = 探索関数の 1 回の呼び出し。四追いでは `DFSSolver::search`、追い詰めでは `search_attacks` / `search_defences`。内部の四追い探索も数える。
-- 尽きた予算は `restart()` まで尽きたまま。1 つの予算を複数の呼び出しで共有すると、全体としてそこで止まる。
+- 尽きた予算は `reset()` まで尽きたまま。1 つの予算を複数の呼び出しで共有すると、全体としてそこで止まる。
 
 予算を安全に使える理由は 2 つ。
 
@@ -123,10 +123,10 @@ budget.restart();                            // 0 に戻す。上限はそのま
 ```rust
 use quintet::mate::{DFPNSVCTSolver, NodeBudget, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
 
-let mut solver = DFPNSVCTSolver::init(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
+let mut solver = DFPNSVCTSolver::new(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
 let budget = &mut NodeBudget::new(1_000_000);   // ループ全体の上限
 for board in candidates {
-    let state = &mut VCTState::init(&board, attacker, limit);
+    let state = &mut VCTState::from_board(&board, attacker, limit);
     match solver.solve(state, budget) {
         Some(mate) => { /* 詰みあり */ }
         None if budget.is_exhausted() => break,
@@ -149,11 +149,11 @@ pub trait Solver {
 
 | ソルバー | `State` | コンストラクタ | 探すもの |
 | --- | --- | --- | --- |
-| `DFSSolver` | `VCFState` | `init()` | 四追い |
-| `IDDFSSolver` | `VCFState` | `init(limits)` | 四追い。`limits` の各値で順に探す |
-| `VCTSolver<P>`（エイリアス `DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`） | `VCTState` | `init(threat_limit, defender_vcf_depth)` | 追い詰め |
+| `DFSSolver` | `VCFState` | `new()` | 四追い |
+| `IDDFSSolver` | `VCFState` | `new(limits)` | 四追い。`limits` の各値で順に探す |
+| `VCTSolver<P>`（エイリアス `DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`） | `VCTState` | `new(threat_limit, defender_vcf_depth)` | 追い詰め |
 
-状態は `VCFState::init(&board, attacker, limit)` / `VCTState::init(&board, attacker, limit)` で作る。問いごとに作り直してよい。持ち越すのはソルバーのほう。
+状態は `VCFState::from_board(&board, attacker, limit)` / `VCTState::from_board(&board, attacker, limit)` で作る。問いごとに作り直してよい。持ち越すのはソルバーのほう。
 
 使い回すと何が起きるか:
 
@@ -168,7 +168,7 @@ pub trait Solver {
 ### ほかに問えること
 
 - **この詰みをどう受けるか。** `VCTState::threat_defences(&mate)` が、試す価値のある受けを返す。内訳は、詰み手順の各点、詰め上がりを崩す点、ノリ手、受け方自身の四を作る手。追い詰め探索が受けの候補として使うのと同じリスト（06 §3）。
-- **この手は追い手か。** 手番側をパスさせて（`Game::play(None)`）、相手の四追いを問う。パスした `game` から `VCFState::new(game, limit)` を作り、`DFSSolver::init().solve(..)` する。`test_threat_after_pass` が 1 手ずつ確認している。
+- **この手は追い手か。** 手番側をパスさせて（`Game::play(None)`）、相手の四追いを問う。パスした `game` から `VCFState::new(game, limit)` を作り、`DFSSolver::new().solve(..)` する。`test_threat_after_pass` が 1 手ずつ確認している。
 
 ## 5. `Mate` と `End`
 
@@ -186,7 +186,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | `Forbidden(p)` | 四が 1 つで、唯一の止め `p` が禁手。 | 黒のみ。 |
 | `Unknown` | 勝ちは証明されたが手順を復元できなかった。探索前から攻め方に四があった（§6）か、復元でたどれる証明済みの子がなかった（06 §6）。 | — |
 
-## 6. 探索前の検査: `decided`
+## 6. 探索前の検査: `trivial_result`
 
 `solve` は最初に、ソルバーが扱えない局面に探索せず答える（予約モードはその前に、盤面によらず `Aborted`）。
 

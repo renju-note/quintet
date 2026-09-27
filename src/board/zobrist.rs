@@ -2,7 +2,7 @@ use super::player::*;
 use super::point::*;
 
 pub fn from_stones(blacks: &Points, whites: &Points) -> u64 {
-    let mut result = new();
+    let mut result = empty();
     for p in blacks.0.iter() {
         result = apply_move(result, Black, *p)
     }
@@ -12,7 +12,7 @@ pub fn from_stones(blacks: &Points, whites: &Points) -> u64 {
     result
 }
 
-pub fn new() -> u64 {
+pub fn empty() -> u64 {
     EMPTY_CODE
 }
 
@@ -22,8 +22,8 @@ pub fn apply_move(current: u64, player: Player, p: Point) -> u64 {
     current ^ code
 }
 
-pub fn apply_n(current: u64, n: u8) -> u64 {
-    current ^ N_TABLE[n as usize]
+pub fn apply_limit(current: u64, limit: u8) -> u64 {
+    current ^ LIMIT_TABLE[limit as usize]
 }
 
 /// Mixes in whose turn it is. Not a property of the board: a pass changes
@@ -45,7 +45,7 @@ const TURN_TABLE: [u64; 2] = [0x3de2a0c0dee98e6b, 0x30c10a5c09690093];
 
 const ATTACKER_TABLE: [u64; 2] = [0xd3d80ead13e95e73, 0xde27f4c90ba4596a];
 
-const TABLE_SIZE: usize = 2 * (RANGE as usize) * (RANGE as usize); // 450
+const TABLE_SIZE: usize = 2 * (SIZE as usize) * (SIZE as usize); // 450
 
 const EMPTY_CODE: u64 = 0x3453e3078a713e56;
 
@@ -502,7 +502,7 @@ const CODE_TABLE: [u64; TABLE_SIZE] = [
     0x8d34b1a9eafa6b57,
 ];
 
-const N_TABLE: [u64; 256] = [
+const LIMIT_TABLE: [u64; 256] = [
     0xd5c4d8a490fd8689,
     0xea767ba8443999f6,
     0xa2aaca5641e2f103,
@@ -767,12 +767,12 @@ mod tests {
 
     #[test]
     fn test_apply_move() {
-        let mut code1 = new();
+        let mut code1 = empty();
         code1 = apply_move(code1, Black, Point(7, 7));
         code1 = apply_move(code1, White, Point(8, 8));
         code1 = apply_move(code1, Black, Point(9, 8));
         // different order
-        let mut code2 = new();
+        let mut code2 = empty();
         code2 = apply_move(code2, Black, Point(7, 7));
         code2 = apply_move(code2, Black, Point(9, 8));
         code2 = apply_move(code2, White, Point(8, 8));

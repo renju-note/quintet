@@ -19,7 +19,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         let attack = match state.check_event() {
             Some(Forced(attack)) => Some(attack),
             Some(Defeated(_)) => unreachable!("a proven attacker node is not lost"),
-            None => state.empties().into_iter().find(|&attack| {
+            None => state.empty_points().into_iter().find(|&attack| {
                 self.attacker_table
                     .lookup_next(state, Some(attack))
                     .is_some_and(|node| node.is_proven())

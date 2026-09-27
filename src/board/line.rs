@@ -24,7 +24,7 @@ impl Line {
         }
     }
 
-    pub fn put_mut(&mut self, r: Player, i: u8) {
+    pub fn put(&mut self, r: Player, i: u8) {
         let stones = 0b1 << i;
         let (blacks, whites) = match r {
             Black => (self.blacks | stones, self.whites & !stones),
@@ -34,7 +34,7 @@ impl Line {
         self.whites = whites;
     }
 
-    pub fn remove_mut(&mut self, i: u8) {
+    pub fn remove(&mut self, i: u8) {
         let stones = 0b1 << i;
         self.blacks &= !stones;
         self.whites &= !stones;
@@ -56,7 +56,7 @@ impl Line {
         Bits(my)
     }
 
-    pub fn empties(&self) -> Bits<u16> {
+    pub fn empty_cells(&self) -> Bits<u16> {
         Bits(!(self.blacks | self.whites) & ((1 << self.size) - 1))
     }
 
@@ -71,7 +71,7 @@ impl Line {
     /// Every segment of the line, as `(j, segment)`, `j` being where its
     /// five cells start.
     pub fn segments(&self) -> impl Iterator<Item = (u8, Segment)> + '_ {
-        (0..=self.size - VICTORY).map(|j| (j, self.segment(j)))
+        (0..=self.size - FIVE).map(|j| (j, self.segment(j)))
     }
 
     /// `r`'s rows of kind `k` in the line, as `(j, segment)`, `j`
@@ -104,7 +104,7 @@ impl Line {
     /// there is no room for a five beside the opponent's stones, else how
     /// many stones `r` has on it plus one, which no segment's
     /// [`Segment::score`] reaches.
-    pub fn potential_cap(&self, r: Player) -> u8 {
+    pub fn score_bound(&self, r: Player) -> u8 {
         let (my, op) = self.my_op(r);
         if self.size < op.count_ones() as u8 + 5 {
             return 0;
@@ -118,10 +118,10 @@ impl Line {
     pub fn row_starts(&self, r: Player, k: RowKind) -> u16 {
         let n = k.stones();
         match k {
-            Sword | Four | Five => self.scoring(r, n),
+            Sword | Four | Five => self.score_mask(r, n),
             Two | Three | Straight => self.open_starts(r, n),
             Overlining | Overlined => {
-                let s = self.counting(r, n);
+                let s = self.count_mask(r, n);
                 s & s << 1
             }
         }
@@ -135,7 +135,7 @@ impl Line {
     #[inline]
     pub fn open_starts(&self, r: Player, n: u8) -> u16 {
         let (my, _) = self.my_op(r);
-        let s = self.scoring(r, n);
+        let s = self.score_mask(r, n);
         s & s << 1 & !(my >> 4)
     }
 
@@ -153,20 +153,20 @@ impl Line {
     #[inline]
     pub fn eyes_of(&self, starts: u16, cells: u8) -> u16 {
         let spread = Bits(cells).fold(0, |acc, k| acc | starts << k);
-        spread & self.empties().0
+        spread & self.empty_cells().0
     }
 
     /// Bit `j` is set if the segment starting at cell `j` scores `n` for
     /// `r` ([`Segment::score`]), for all the segments at once.
     #[inline]
-    pub fn scoring(&self, r: Player, n: u8) -> u16 {
-        self.counting(r, n) & !self.overline(r)
+    pub fn score_mask(&self, r: Player, n: u8) -> u16 {
+        self.count_mask(r, n) & !self.overline(r)
     }
 
     /// Bit `j` is set if the segment starting at cell `j` is free for `r`
-    /// and has `n` of its stones ([`Segment::free`], [`Segment::count`]).
+    /// and has `n` of its stones ([`Segment::is_free`], [`Segment::count`]).
     #[inline]
-    pub fn counting(&self, r: Player, n: u8) -> u16 {
+    pub fn count_mask(&self, r: Player, n: u8) -> u16 {
         let (digits, free) = self.tally(r);
         select(digits, n) & free
     }
@@ -174,7 +174,7 @@ impl Line {
     /// For every segment at once, bit `j` for the one starting at cell `j`:
     /// how many of `r`'s stones its five cells hold, as three bitmasks
     /// for the binary digits 1, 2 and 4, and which segments are free for
-    /// `r` ([`Segment::free`]).
+    /// `r` ([`Segment::is_free`]).
     ///
     /// Bit `j` of `x >> k` is cell `j + k`, so each condition is checked
     /// for every segment in parallel: no opponent stone in the five cells,
@@ -184,7 +184,7 @@ impl Line {
     #[inline]
     fn tally(&self, r: Player) -> ([u16; 3], u16) {
         let (my, op) = self.my_op(r);
-        let segments = (1u16 << (self.size + 1 - VICTORY)) - 1;
+        let segments = (1u16 << (self.size + 1 - FIVE)) - 1;
         let blocked = op | op >> 1 | op >> 2 | op >> 3 | op >> 4;
         let (a, b, c, d, e) = (my, my >> 1, my >> 2, my >> 3, my >> 4);
         let (s1, c1) = (a ^ b ^ c, a & b | c & (a ^ b));
@@ -270,7 +270,7 @@ impl FromStr for Line {
         let mut line = Self::new(size as u8);
         for (i, c) in chars.into_iter().enumerate() {
             if let Ok(p) = Player::try_from(c) {
-                line.put_mut(p, i as u8);
+                line.put(p, i as u8);
             }
         }
         Ok(line)
@@ -314,8 +314,8 @@ mod tests {
             let mut line = Line::new(cells.len() as u8);
             for (i, &c) in cells.iter().enumerate() {
                 match c {
-                    1 => line.put_mut(Black, i as u8),
-                    2 => line.put_mut(White, i as u8),
+                    1 => line.put(Black, i as u8),
+                    2 => line.put(White, i as u8),
                     _ => {}
                 }
             }
@@ -438,12 +438,12 @@ mod tests {
     #[test]
     fn test_put_and_remove() -> Result<(), String> {
         let mut line = "o-x----".parse::<Line>()?;
-        line.put_mut(Black, 4);
+        line.put(Black, 4);
         // Putting on an occupied cell replaces the stone.
-        line.put_mut(White, 0);
-        line.remove_mut(2);
+        line.put(White, 0);
+        line.remove(2);
         // Removing from an empty cell does nothing.
-        line.remove_mut(3);
+        line.remove(3);
         assert_eq!(line, "x---o--".parse::<Line>()?);
         Ok(())
     }
@@ -456,30 +456,30 @@ mod tests {
         assert_eq!(line.stone(3), Some(White));
         assert_eq!(line.stones(Black).collect::<Vec<_>>(), [0, 2]);
         assert_eq!(line.stones(White).collect::<Vec<_>>(), [3]);
-        assert_eq!(line.empties().collect::<Vec<_>>(), [1, 4]);
+        assert_eq!(line.empty_cells().collect::<Vec<_>>(), [1, 4]);
         Ok(())
     }
 
-    /// `potential_cap` bounds every segment's score (own stones + 1), so
+    /// `score_bound` bounds every segment's score (own stones + 1), so
     /// that lines with nothing to find can be skipped.
     #[test]
     fn test_potential_cap() -> Result<(), String> {
         let line = "-----".parse::<Line>()?;
-        assert_eq!(line.potential_cap(Black), 1);
-        assert_eq!(line.potential_cap(White), 1);
+        assert_eq!(line.score_bound(Black), 1);
+        assert_eq!(line.score_bound(White), 1);
 
         // No room for White's five beside Black's stone: nothing to find.
         let line = "--o--".parse::<Line>()?;
-        assert_eq!(line.potential_cap(Black), 2);
-        assert_eq!(line.potential_cap(White), 0);
+        assert_eq!(line.score_bound(Black), 2);
+        assert_eq!(line.score_bound(White), 0);
 
         let line = "--o---".parse::<Line>()?;
-        assert_eq!(line.potential_cap(Black), 2);
-        assert_eq!(line.potential_cap(White), 1);
+        assert_eq!(line.score_bound(Black), 2);
+        assert_eq!(line.score_bound(White), 1);
 
         let line = "o----x".parse::<Line>()?;
-        assert_eq!(line.potential_cap(Black), 2);
-        assert_eq!(line.potential_cap(White), 2);
+        assert_eq!(line.score_bound(Black), 2);
+        assert_eq!(line.score_bound(White), 2);
 
         Ok(())
     }

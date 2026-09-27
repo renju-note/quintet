@@ -33,7 +33,7 @@
 
 盤上の点は `Point(x, y)` で表す。
 
-- `x` と `y` はどちらも `0` 以上 `RANGE`（= 15）未満の整数。
+- `x` と `y` はどちらも `0` 以上 `SIZE`（= 15）未満の整数。
 - `x` は列を表し、`A` 列が 0、`O` 列が 14。
 - `y` は行を表し、`1` 行目が 0、`15` 行目が 14。
 
@@ -55,8 +55,8 @@
 この `(Direction, i, j)` の組が `Index` である。関連する操作:
 
 - `Point::to_index(d)` は点を方向 `d` の `Index` に変換し、`Index::to_point()` は点に戻す。
-- `Index::walk(step)` と `walk_checked(step)` は、同じ線に沿って `step` だけ移動する。
-- `Index::maxj()` はその線の最後の有効な位置を返す。斜めの線は角に近づくほど短くなるため、線ごとに値が異なる。
+- `Index::offset(step)` と `checked_offset(step)` は、同じ線に沿って `step` だけ移動する。
+- `Index::max_j()` はその線の最後の有効な位置を返す。斜めの線は角に近づくほど短くなるため、線ごとに値が異なる。
 
 ## 2. `Line`: 1 本の線をビットマスクで
 
@@ -67,9 +67,9 @@ pub struct Line { blacks: u16, whites: u16, pub size: u8 }
 - `blacks` と `whites` はそれぞれ黒石・白石の位置を表すビットマスクで、位置 `j` にその色の石があるときビット `j` が立つ。
 - `size` は線の長さ。縦横の線は 15、斜めの線は 5 から 15 までのいずれか（短い斜めは省略される。§4 参照）。
 
-石を置く `put_mut`、取り除く `remove_mut`、位置の石を調べる `stone(j)` はいずれも単純なビット演算であり、これが探索ループを軽く保っている。
+石を置く `put`、取り除く `remove`、位置の石を調べる `stone(j)` はいずれも単純なビット演算であり、これが探索ループを軽く保っている。
 
-`potential_cap(r)` は、線ごとの処理を読み飛ばすための簡易的な上界である。相手の石を避けて五を置く余地すらない線では 0 を、それ以外では「自分の石数 + 1」を返す。
+`score_bound(r)` は、線ごとの処理を読み飛ばすための簡易的な上界である。相手の石を避けて五を置く余地すらない線では 0 を、それ以外では「自分の石数 + 1」を返す。
 
 `segment(j)` は、5 マスがセル `j` から始まるセグメント（§3）を切り出し、`segments()` はそれを `j` = 0 から `size - 5` まですべて列挙する。`Line` が答えるほかのことはすべてこの上に作られている: `rows(r, kind)`（§3.1、§5）。
 
@@ -95,10 +95,10 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 
 | メソッド | 答え |
 | --- | --- |
-| `free(r)` | 5 マスに相手の石がない。 |
-| `alive(r)` | `r` がここでまだ五を作れる: `free(r)` であり、黒ならさらに両マージンに黒石がない。 |
+| `is_free(r)` | 5 マスに相手の石がない。 |
+| `is_alive(r)` | `r` がここでまだ五を作れる: `is_free(r)` であり、黒ならさらに両マージンに黒石がない。 |
 | `count(r)` | 5 マスのうち `r` の石があるマスの数（0〜5）。生きているかどうかによらない。 |
-| `score(r)` | `alive(r)` なら `count(r)`、そうでなければ `-1`。 |
+| `score(r)` | `is_alive(r)` なら `count(r)`、そうでなければ `-1`。 |
 | `stones(r)` | `r` の石があるマス（0〜4）。`stone_bits(r)` は同じものを 5 ビットのマスクで返す。 |
 | `eyes(r)` | ここで五を作るために `r` があと打つべきマス（0〜4）。生きていなければ空。`eye_bits(r)` は同じものをマスクで返す。 |
 
@@ -108,8 +108,8 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 
 `Line::rows(r, kind)` は、`r` がその種別の連（§5）を持つセグメントを `(j, Segment)` の形で返す。セグメントを 1 つずつ調べる定義が `RowKind::matches` だが、ソルバーはほぼ毎ノードこれを問い合わせるので、線はビット演算ですべてを一度に求める。`x >> k` のビット `j` はセル `j + k` なので、シフトしたマスクで書いた条件は全セグメントについて並列に調べられる。
 
-- `counting(r, n)`: セグメント `j` が `free(r)` で `count(r) == n` ならビット `j` を立てる。5 マスの和は `tally` がビットスライスで求める（全加算器、半加算器、繰り上がり。詳しくは下記）。
-- `scoring(r, n)`: 同じく `score(r) == n` のもの。黒ならさらに `j - 1` と `j + 5` に黒石がないこと。
+- `count_mask(r, n)`: セグメント `j` が `is_free(r)` で `count(r) == n` ならビット `j` を立てる。5 マスの和は `tally` がビットスライスで求める（全加算器、半加算器、繰り上がり。詳しくは下記）。
+- `score_mask(r, n)`: 同じく `score(r) == n` のもの。黒ならさらに `j - 1` と `j + 5` に黒石がないこと。
 - `row_starts(r, kind)`: 連がセグメント `j` にあればビット `j` を立てる。上の 2 つから求める。`rows` はその立っているビットをたどる（`Bits`。連 1 つにつき `trailing_zeros` 1 回）。`Two`・`Three`・`Straight` では `open_starts(r, n)` で、こちらは任意の石数 `n` を取る。
 - `row_eyes(r, kind)`: それらの連の目になっている空きセルを、始点ではなくセルのマスクで返す。石を置くと連が一段進むところである（`eyes_of(starts, cells)` が始点のビットを各セグメントの指定のセルに広げ、空いているものを残す）。追い詰めの手の並べ替えが使う（`ShapeMap`、06 §8）。
 
@@ -120,7 +120,7 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 <details>
 <summary><code>tally</code> が全セグメントの 5 マスを一度に足し合わせる仕組み</summary>
 
-`counting` は `Line::tally(r)` から始まる。戻り値は `([ones, twos, fours], free)` で、どのマスクもビット `j` がセグメント `j`（セル `j`〜`j + 4`）に対応する。
+`count_mask` は `Line::tally(r)` から始まる。戻り値は `([ones, twos, fours], free)` で、どのマスクもビット `j` がセグメント `j`（セル `j`〜`j + 4`）に対応する。
 
 | マスク | ビット `j` の意味 |
 | --- | --- |
@@ -130,7 +130,7 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 ```rust
 fn tally(&self, r: Player) -> ([u16; 3], u16) {
     let (my, op) = self.my_op(r);
-    let segments = (1u16 << (self.size + 1 - VICTORY)) - 1;
+    let segments = (1u16 << (self.size + 1 - FIVE)) - 1;
     let blocked = op | op >> 1 | op >> 2 | op >> 3 | op >> 4;
     let (a, b, c, d, e) = (my, my >> 1, my >> 2, my >> 3, my >> 4);
     let (s1, c1) = (a ^ b ^ c, a & b | c & (a ^ b));
@@ -157,7 +157,7 @@ fn tally(&self, r: Player) -> ([u16; 3], u16) {
 
 - `blocked = op | op >> 1 | … | op >> 4`: セル `j`〜`j + 4` のどこかに相手の石があればビット `j` が立つ。石数と同じ並べ方で、足し算の代わりに OR を取っている。
 - `segments = (1 << (size - 4)) - 1` は開始位置 0〜`size - 5` のセグメントだけを残す。それより右の窓は線からはみ出し、シフトで入ってくる 0 が空きマスに見えてしまう。
-- `!blocked & segments` が全セグメントの `Segment::free` である。
+- `!blocked & segments` が全セグメントの `Segment::is_free` である。
 
 **具体例。** 長さ 9 の線 `-oo-o-x--` を黒から見る。マスクはセル 0 を**左端**に書いている（通常の 2 進表記とは逆向き）:
 
@@ -196,8 +196,8 @@ free        110000000
 **結果の使われ方。**
 
 - `select(digits, n)` は石数がちょうど `n` のセグメントを取り出す。`n` の各桁が 1 ならその桁のマスクを、0 なら反転したマスクを取り、AND する。
-- `counting(r, n)` は `select(digits, n) & free`。
-- `scoring(r, n)` は、黒ならさらにすぐ外側に黒石のあるセグメント（`overline`）を除く。
+- `count_mask(r, n)` は `select(digits, n) & free`。
+- `score_mask(r, n)` は、黒ならさらにすぐ外側に黒石のあるセグメント（`overline`）を除く。
 
 </details>
 
@@ -212,16 +212,16 @@ pub struct Grid {
 }
 ```
 
-石は、その点が属する 4 本の線すべてに重複して格納される（`put_mut` が各線を更新する）。
+石は、その点が属する 4 本の線すべてに重複して格納される（`put` が各線を更新する）。
 
 斜めの線のうち、長さが 5 未満のものには五が入りえないので、各隅の最も短い 4 本ずつを省略している:
 
-- 斜め `i`（`4` から `24` まで）は `alines[i - 4]` に格納される（`D_LINE_OMIT = 4`、`D_LINE_NUM = 21`）。
+- 斜め `i`（`4` から `24` まで）は `alines[i - 4]` に格納される（`DIAGONAL_LINE_SKIP = 4`、`DIAGONAL_LINE_COUNT = 21`）。
 - それ以外の斜めについては `line_idx` が `None` を返し、連の検索では単に読み飛ばす。
 
 主な問い合わせ:
 
-- `stone(p)`、`stones(player)`、`empties()`、`neighbors(p, distance, only_empty)` — 石や空点の取得。
+- `stone(p)`、`stones(player)`、`empty_points()`、`neighbors(p, distance, only_empty)` — 石や空点の取得。
 - `rows(r, kind)` — 盤全体にあるプレイヤー `r` の種別 `kind` の `Row` をすべて返す。
 - `rows_on(p, r, kind)` — 点 `p` を通る連だけを返す（§3.1。`p` を通る 4 本の線のみ調べる）。「`p` に打つと何ができるか」を調べるホットパス。
 - `line(d, i)` / `line_on(p, d)` — 格納されている `Line` そのもの。短い斜めでは `None`。`lines()` と `lines_on(p)` はそれを `(Direction, i, &Line)` の形で列挙する。点ごとの表を自前で持つ利用側が、72 本の線の複製を持たずに済むようにするためのもの。
@@ -239,15 +239,15 @@ pub struct Grid {
 | `RowKind` | セグメント | パターン（黒の例、`_` = 眼） | ルール上の概念 |
 | --- | --- | --- | --- |
 | `Five` | 点数 5 のもの 1 つ | `ooooo` | **五連**。黒の点数はマージンが空のときだけ付くので、長連は除外される。 |
-| `Overlined` | 2 つ。どちらも `free` で石 5 つ | `oooooo`（6 以上） | **長連**。 |
+| `Overlined` | 2 つ。どちらも `is_free` で石 5 つ | `oooooo`（6 以上） | **長連**。 |
 | `Four` | 点数 4 のもの 1 つ | `oooo_`、`ooo_o`、`oo_oo` など | **四**: 眼に 1 石で五連。棒四は隣り合う **2 つ**の `Four` として現れる。 |
 | `Straight` | 点数 4 のもの 2 つ。石は 2 つが共有する 4 マスにある | `.oooo.` | **棒四**。 |
 | `Sword` | 点数 3 のもの 1 つ | `ooo__`、`o_oo_` など（セグメントに 3 石） | **剣先**: どちらかの眼に打てば `Four`。活三も含むので英語の "closed three" とは異なる。ルール上の定義はないが、VCF/VCT が四を作る手を列挙するのに使う。 |
 | `Three` | 点数 3 のもの 2 つ。石は共有する 4 マスにある | `.ooo_.`、`.oo_o.`、`.o_oo.`、`._ooo.` | **三**: 唯一の眼に打てば `Straight`。 |
 | `Two` | 点数 2 のもの 2 つ。石は共有する 4 マスにある | `.oo__.`、`.o_o_.` など | **二連**: 眼に打てば `Three`。 |
-| `Overlining` | 2 つ。どちらも `free` で石 4 つ | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
+| `Overlining` | 2 つ。どちらも `is_free` で石 4 つ | `oo_ooo`、`ooo_oo` など | **六腐**: 眼に打つと長連（6 以上）。 |
 
-活きた連（`Two`、`Three`、`Straight`）の「石は共有する 4 マスにある」とは、後ろのセグメントの最後のマスが空だということである。2 つのセグメントはどちらも生きているので、このとき 2 つがわたる 6 マスは両端が空になる。長連系の連は `alive` ではなく `free` なセグメントを見る。長連では各セグメントのすぐ隣に必ず黒石があり、それこそが黒にとってセグメントを死なせる条件だからである。黒石 4 つずつの `free` なセグメント 2 つは、6 マスに 5 石（空きに打つと六）か、活四 `.oooo.` のどちらかである。空点を通るものとして見つかるのは前者だけである。活四の 2 つのセグメントが共有するのは石だけだからである。
+活きた連（`Two`、`Three`、`Straight`）の「石は共有する 4 マスにある」とは、後ろのセグメントの最後のマスが空だということである。2 つのセグメントはどちらも生きているので、このとき 2 つがわたる 6 マスは両端が空になる。長連系の連は `is_alive` ではなく `is_free` なセグメントを見る。長連では各セグメントのすぐ隣に必ず黒石があり、それこそが黒にとってセグメントを死なせる条件だからである。黒石 4 つずつの `is_free` なセグメント 2 つは、6 マスに 5 石（空きに打つと六）か、活四 `.oooo.` のどちらかである。空点を通るものとして見つかるのは前者だけである。活四の 2 つのセグメントが共有するのは石だけだからである。
 
 黒のセグメントはマージンが空のときだけ生きているので、`Four` や `Three` などの種別はすでに「同時に長連を作らない」という条件を織り込んでいる。例として `o.oooo.` という並びを考える:
 
@@ -263,14 +263,14 @@ pub struct Grid {
 ```rust
 pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind>
 pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind>
-pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
+pub fn forbidden_points(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ```
 
 `ForbiddenKind` は `Overline`（長連）、`DoubleFour`（四四）、`DoubleThree`（三三）のいずれかである。
 
 - `forbidden_strict` はまずルール 9.2 の例外を適用する。`p` にすでに石がある場合、または `p` に打つと五ができる場合（`row_starts_on(p, Black, Four)` に始点がある）は禁手*ではない*と判定する。それ以外の場合は `forbidden` に委譲する。
 - `forbidden` は `p` を通る各線を 1 度だけ読み、黒の `Overlining`・`Sword`・`Two` の始点をまとめて求めたうえで、長連、四四、三三の順に調べる。複数に該当する点は最初に見つかったものを報告する。
-- `forbiddens` は盤上の禁手となる空点をすべて列挙する。
+- `forbidden_points` は盤上の禁手となる空点をすべて列挙する。
 
 ソルバー（`src/mate/game.rs` の `Game::is_forbidden_move`）は非 strict の `forbidden` を呼ぶ。五を作る手は、禁手判定が問題になる前に探索自身が勝ちとして認識するためである。
 
@@ -292,7 +292,7 @@ fn double_four(swords: [u16; 4]) -> bool {
 }
 ```
 
-`p` を通る各 `Sword`（剣先）は、`p` に打つと `Four` になる。`has_multiple_rows` は、最初のセグメントの索引 `first` とその隣 `first.walk(1)` 以外の索引が 1 つでも現れれば真を返す。つまり、隣り合う 2 つのセグメントを 1 つと数えたうえで、セグメントが 2 つ以上あるかを見ている。隣のセグメントを除くのは次の理由による:
+`p` を通る各 `Sword`（剣先）は、`p` に打つと `Four` になる。`has_multiple_rows` は、最初のセグメントの索引 `first` とその隣 `first.offset(1)` 以外の索引が 1 つでも現れれば真を返す。つまり、隣り合う 2 つのセグメントを 1 つと数えたうえで、セグメントが 2 つ以上あるかを見ている。隣のセグメントを除くのは次の理由による:
 
 - 同一線上の隣り合うセグメントにある 2 つの `Sword` は、1 つの棒四の両半分（`.oo_o.` → `.oooo.`）である。四としては 1 つなので二重に数えない。
 - 隣接しない 2 つのセグメントは本物の四四である。別の線上にある場合はもちろん、同一線上でも `o.o_o.o` のように 2 つの異なる五候補になる場合が該当する。
@@ -306,7 +306,7 @@ fn double_three(g, p, twos: [u16; 4]) -> bool {
     // 軽い前段フィルタ: p を通る二連（Two）が 2 つ以上
     if !has_multiple_starts(twos) { return false; }
     let mut next = g.clone();
-    next.put_mut(Black, p);
+    next.put(Black, p);
     real_double_three(&next, p)
 }
 
@@ -360,12 +360,12 @@ fn real_double_three(next, p) -> bool {
 
 ## 7. Zobrist ハッシュ（`zobrist.rs`）と `Board`
 
-`Board` は `Grid` と `u64` の Zobrist ハッシュを包み、`put_mut` / `remove_mut` で両者の同期を保つ。
+`Board` は `Grid` と `u64` の Zobrist ハッシュを包み、`put` / `remove` で両者の同期を保つ。
 
 - `CODE_TABLE` は `2 * 225` 個のランダムな 64 ビット値を持つ。索引は `2 * u8::from(point) + c` で、`c` は黒なら 0、白なら 1 である。
 - 石を置く・取り除くたびに、対応する値を XOR でハッシュに出し入れする。
-- 手番、探索の攻め方、残り深さは盤面の性質ではないので、このハッシュには含めない。ソルバーが自分で XOR して（`apply_turn`、`apply_attacker`、`N_TABLE` を使う `apply_n`）置換表のキーにする（`State::key`、04）。
-- `Board::put` / `remove` はコピーを返す。ソルバーは探索ループでのクローンを避けるため `_mut` 版を使う。
+- 手番、探索の攻め方、残り深さは盤面の性質ではないので、このハッシュには含めない。ソルバーが自分で XOR して（`apply_turn`、`apply_attacker`、`LIMIT_TABLE` を使う `apply_limit`）置換表のキーにする（`State::key`、04）。
+- `Board::put` / `remove` は盤面をその場で変更する。`with_stone` / `without_stone` は変更したコピーを返すが、ソルバーは探索ループでのクローンを避けるためこちらは使わない。
 
 四追い探索は各プレイヤーの剣先（`Sword`、§5）をほぼ毎ノード問い合わせるので、`SwordMap`（`src/feature/sword.rs`）にキャッシュしておく。持つのは `Board` ではなく、追い詰めの `ShapeMap` と同じく探索の状態である（`VCFState`、および内部の四追いに渡すための `VCTState`）。`State::after_play` / `after_undo` で印を付け、同期や読み出しのときに盤面を渡す。
 
@@ -382,7 +382,7 @@ fn real_double_three(next, p) -> bool {
 | 長連は白の勝ち、黒は不可 | 黒のセグメントだけがマージンを見るので、白の六も `Five`。黒の長連は禁手（`Overlining` = 六腐）。`mate::solve::decided` は五や黒の `Overlined` を既に含む入力局面に、探索せず答える。 |
 | 四 / 棒四 | `Four`（点数 4 のセグメント）/ `Straight`（点数 4 のセグメント 2 つ）。棒四 = 隣接する 2 つの `Four`。 |
 | 三（達四できること） | `Three`（点数 3 のセグメント 2 つ）。唯一の眼 = 達四点。 |
-| 黒の「長連を作らずに」 | `Segment::alive`: マージンに黒石がないこと。 |
+| 黒の「長連を作らずに」 | `Segment::is_alive`: マージンに黒石がないこと。 |
 | 禁手: 長連 / 四四 / 三三 | `forbidden.rs`: `overline` / `double_four` / `double_three`。 |
 | 9.2「同時に五を作る場合を除く」 | `forbidden_strict`。 |
 | 9.3 本物の三と偽の三、再帰 | `real_double_three` が各三の眼に `forbidden_strict` を呼ぶ。 |

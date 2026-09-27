@@ -18,7 +18,7 @@ src/mate/vcf/
 pub struct VCFState { game: Game, pub attacker: Player, pub limit: u8 }
 ```
 
-- `VCFState::init(&board, attacker, limit)`: 攻め方の手番から始める。
+- `VCFState::from_board(&board, attacker, limit)`: 攻め方の手番から始める。
 - `VCFState::new(game, limit)`: 既存の `Game` から作る。攻め方は `game` の手番側。追い詰めソルバーが内部の四追い状態を作るときに使う。
 
 四は **`Sword`**（5 マスの窓に自分の石 3 つと空の**眼** 2 つ）に打つことで作る。片方の眼に打つと、もう片方の眼を勝ち点とする `Four` ができる。1 つの剣先から `(攻め, 受け)` ペアが 2 つ得られる（`sword_eyes_pairs`）。
@@ -104,7 +104,7 @@ search_defence(state, defence):                # 受け方の手番
 
 ## 3. `IDDFSSolver`
 
-`IDDFSSolver::init(limits)` は次のように動く。
+`IDDFSSolver::new(limits)` は次のように動く。
 
 1. `limits` のうち状態の limit より小さい値で順に `DFSSolver::search` を走らせる。
 2. 最後に状態自身の limit で走らせる。

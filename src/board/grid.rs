@@ -2,20 +2,20 @@ use super::line::*;
 use super::player::*;
 use super::point::*;
 use super::row::*;
-use super::segment::VICTORY;
+use super::segment::FIVE;
 use std::fmt;
 use std::str::FromStr;
 
-const D_LINE_OMIT: u8 = VICTORY - 1;
-const D_LINE_NUM: u8 = (RANGE - D_LINE_OMIT) * 2 - 1; // 21
+const DIAGONAL_LINE_SKIP: u8 = FIVE - 1;
+const DIAGONAL_LINE_COUNT: u8 = (SIZE - DIAGONAL_LINE_SKIP) * 2 - 1; // 21
 
 /// How many lines are stored: every horizontal and vertical line, and the
 /// diagonals long
 /// enough to hold a five.
-pub const LINE_NUM: usize = (RANGE as usize + D_LINE_NUM as usize) * 2;
+pub const LINE_COUNT: usize = (SIZE as usize + DIAGONAL_LINE_COUNT as usize) * 2;
 
-type OrthogonalLines = [Line; RANGE as usize];
-type DiagonalLines = [Line; D_LINE_NUM as usize];
+type OrthogonalLines = [Line; SIZE as usize];
+type DiagonalLines = [Line; DIAGONAL_LINE_COUNT as usize];
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Grid {
@@ -39,7 +39,7 @@ impl Grid {
         let mut grid = Self::new();
         let mut player = Black;
         for &m in moves.0.iter() {
-            grid.put_mut(player, m);
+            grid.put(player, m);
             player = player.opponent();
         }
         grid
@@ -48,20 +48,20 @@ impl Grid {
     pub fn from_stones(blacks: &Points, whites: &Points) -> Self {
         let mut grid = Self::new();
         for &p in blacks.0.iter() {
-            grid.put_mut(Black, p);
+            grid.put(Black, p);
         }
         for &p in whites.0.iter() {
-            grid.put_mut(White, p);
+            grid.put(White, p);
         }
         grid
     }
 
-    pub fn put_mut(&mut self, player: Player, p: Point) {
-        self.update_lines_on(p, |line, j| line.put_mut(player, j));
+    pub fn put(&mut self, player: Player, p: Point) {
+        self.update_lines_on(p, |line, j| line.put(player, j));
     }
 
-    pub fn remove_mut(&mut self, p: Point) {
-        self.update_lines_on(p, |line, j| line.remove_mut(j));
+    pub fn remove(&mut self, p: Point) {
+        self.update_lines_on(p, |line, j| line.remove(j));
     }
 
     pub fn stone(&self, p: Point) -> Option<Player> {
@@ -90,14 +90,14 @@ impl Grid {
             p.to_index(Descending),
         ]
         .into_iter()
-        .flat_map(move |idx| (-d..=d).flat_map(move |j| idx.walk_checked(j)))
+        .flat_map(move |idx| (-d..=d).flat_map(move |j| idx.checked_offset(j)))
         .map(|idx| idx.to_point())
         .filter(move |&p| !only_empty || self.stone(p).is_none())
     }
 
-    pub fn empties(&self) -> impl Iterator<Item = Point> + '_ {
+    pub fn empty_points(&self) -> impl Iterator<Item = Point> + '_ {
         self.vlines.iter().enumerate().flat_map(move |(i, l)| {
-            l.empties()
+            l.empty_cells()
                 .map(move |j| Index::new(Vertical, i as u8, j).to_point())
         })
     }
@@ -115,11 +115,11 @@ impl Grid {
     }
 
     /// The position of the line `(d, i)` in [`Self::lines`]: a single index
-    /// for it, below [`LINE_NUM`]. `None` for the diagonals shorter than
+    /// for it, below [`LINE_COUNT`]. `None` for the diagonals shorter than
     /// five, which are not stored.
     pub fn line_key(d: Direction, i: u8) -> Option<usize> {
         let k = Self::line_idx(Index::new(d, i, 0))?;
-        let (r, n) = (RANGE as usize, D_LINE_NUM as usize);
+        let (r, n) = (SIZE as usize, DIAGONAL_LINE_COUNT as usize);
         Some(match d {
             Vertical => k,
             Horizontal => r + k,
@@ -129,16 +129,16 @@ impl Grid {
     }
 
     /// The inverse of [`Self::line_key`].
-    pub fn line_of_key(k: usize) -> (Direction, u8) {
-        let (r, n) = (RANGE as usize, D_LINE_NUM as usize);
+    pub fn line_from_key(k: usize) -> (Direction, u8) {
+        let (r, n) = (SIZE as usize, DIAGONAL_LINE_COUNT as usize);
         if k < r {
             (Vertical, k as u8)
         } else if k < 2 * r {
             (Horizontal, (k - r) as u8)
         } else if k < 2 * r + n {
-            (Ascending, (k - 2 * r) as u8 + D_LINE_OMIT)
+            (Ascending, (k - 2 * r) as u8 + DIAGONAL_LINE_SKIP)
         } else {
-            (Descending, (k - 2 * r - n) as u8 + D_LINE_OMIT)
+            (Descending, (k - 2 * r - n) as u8 + DIAGONAL_LINE_SKIP)
         }
     }
 
@@ -166,13 +166,13 @@ impl Grid {
             .alines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Ascending, (i as u8 + D_LINE_OMIT), l));
+            .map(|(i, l)| (Ascending, (i as u8 + DIAGONAL_LINE_SKIP), l));
 
         let diter = self
             .dlines
             .iter()
             .enumerate()
-            .map(|(i, l)| (Descending, (i as u8 + D_LINE_OMIT), l));
+            .map(|(i, l)| (Descending, (i as u8 + DIAGONAL_LINE_SKIP), l));
 
         viter.chain(hiter).chain(aiter).chain(diter)
     }
@@ -204,7 +204,7 @@ impl Grid {
 
     pub fn rows(&self, r: Player, k: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.lines()
-            .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
+            .filter(move |(_, _, l)| l.score_bound(r) > k.stones())
             .flat_map(move |(d, i, l)| {
                 l.rows(r, k)
                     .map(move |(j, s)| Row::new(Index::new(d, i, j), r, k, s))
@@ -213,7 +213,7 @@ impl Grid {
 
     pub fn rows_on(&self, p: Point, r: Player, k: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
+            .filter(move |(_, _, l)| l.score_bound(r) > k.stones())
             .flat_map(move |(d, i, l)| {
                 l.rows_on(p.to_index(d).j, r, k)
                     .map(move |(j, s)| Row::new(Index::new(d, i, j), r, k, s))
@@ -224,7 +224,7 @@ impl Grid {
     /// the rows of [`Self::rows_on`] start, without building them.
     pub fn row_starts_on(&self, p: Point, r: Player, k: RowKind) -> impl Iterator<Item = u16> + '_ {
         self.lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(r) > k.stones())
+            .filter(move |(_, _, l)| l.score_bound(r) > k.stones())
             .map(move |(d, _, l)| l.row_starts_on(p.to_index(d).j, r, k))
     }
 
@@ -267,8 +267,8 @@ impl Grid {
             Vertical => Some(i as usize),
             Horizontal => Some(i as usize),
             _ => {
-                if (D_LINE_OMIT..D_LINE_OMIT + D_LINE_NUM).contains(&i) {
-                    Some((i - D_LINE_OMIT) as usize)
+                if (DIAGONAL_LINE_SKIP..DIAGONAL_LINE_SKIP + DIAGONAL_LINE_COUNT).contains(&i) {
+                    Some((i - DIAGONAL_LINE_SKIP) as usize)
                 } else {
                     None
                 }
@@ -305,7 +305,7 @@ impl FromStr for Grid {
         } else if s.contains(",") {
             from_str_moves(s)
         } else {
-            from_str_display(s)
+            from_str_diagram(s)
         }
     }
 }
@@ -324,24 +324,24 @@ fn from_str_moves(s: &str) -> Result<Grid, &'static str> {
     Ok(Grid::from_moves(&moves))
 }
 
-fn from_str_display(s: &str) -> Result<Grid, &'static str> {
+fn from_str_diagram(s: &str) -> Result<Grid, &'static str> {
     let hlines_rev = s
         .trim()
         .split("\n")
         .map(|ls| ls.trim().parse::<Line>())
         .collect::<Result<Vec<_>, _>>()?;
-    if hlines_rev.len() != RANGE as usize {
+    if hlines_rev.len() != SIZE as usize {
         return Err("Wrong num of lines");
     }
     let mut grid = Grid::new();
     for (i, hline) in hlines_rev.iter().rev().enumerate() {
-        if hline.size != RANGE {
+        if hline.size != SIZE {
             return Err("Wrong line size");
         }
         for j in 0..hline.size {
             if let Some(player) = hline.stone(j) {
                 let point = Index::new(Horizontal, i as u8, j).to_point();
-                grid.put_mut(player, point)
+                grid.put(player, point)
             }
         }
     }
@@ -350,47 +350,47 @@ fn from_str_display(s: &str) -> Result<Grid, &'static str> {
 
 fn orthogonal_lines() -> OrthogonalLines {
     [
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
-        Line::new(RANGE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
+        Line::new(SIZE),
     ]
 }
 
 fn diagonal_lines() -> DiagonalLines {
     [
-        Line::new(RANGE - 10),
-        Line::new(RANGE - 9),
-        Line::new(RANGE - 8),
-        Line::new(RANGE - 7),
-        Line::new(RANGE - 6),
-        Line::new(RANGE - 5),
-        Line::new(RANGE - 4),
-        Line::new(RANGE - 3),
-        Line::new(RANGE - 2),
-        Line::new(RANGE - 1),
-        Line::new(RANGE),
-        Line::new(RANGE - 1),
-        Line::new(RANGE - 2),
-        Line::new(RANGE - 3),
-        Line::new(RANGE - 4),
-        Line::new(RANGE - 5),
-        Line::new(RANGE - 6),
-        Line::new(RANGE - 7),
-        Line::new(RANGE - 8),
-        Line::new(RANGE - 9),
-        Line::new(RANGE - 10),
+        Line::new(SIZE - 10),
+        Line::new(SIZE - 9),
+        Line::new(SIZE - 8),
+        Line::new(SIZE - 7),
+        Line::new(SIZE - 6),
+        Line::new(SIZE - 5),
+        Line::new(SIZE - 4),
+        Line::new(SIZE - 3),
+        Line::new(SIZE - 2),
+        Line::new(SIZE - 1),
+        Line::new(SIZE),
+        Line::new(SIZE - 1),
+        Line::new(SIZE - 2),
+        Line::new(SIZE - 3),
+        Line::new(SIZE - 4),
+        Line::new(SIZE - 5),
+        Line::new(SIZE - 6),
+        Line::new(SIZE - 7),
+        Line::new(SIZE - 8),
+        Line::new(SIZE - 9),
+        Line::new(SIZE - 10),
     ]
 }
 
@@ -405,8 +405,8 @@ mod tests {
     /// Every point is stored once per direction; all four copies must agree
     /// with `expected` after any sequence of puts and removes.
     fn assert_lines_agree(grid: &Grid, expected: &[(Point, Player)]) {
-        for x in 0..RANGE {
-            for y in 0..RANGE {
+        for x in 0..SIZE {
+            for y in 0..SIZE {
                 let p = Point(x, y);
                 let want = expected.iter().find(|(q, _)| *q == p).map(|&(_, r)| r);
                 for d in Direction::ALL {
@@ -434,15 +434,15 @@ mod tests {
             (Point(0, 0), White),
         ];
         for (p, r) in stones {
-            grid.put_mut(r, p);
+            grid.put(r, p);
         }
         assert_lines_agree(&grid, &stones);
 
         // Replacing a stone, removing two, and removing from an empty point.
-        grid.put_mut(Black, Point(1, 13));
-        grid.remove_mut(Point(7, 7));
-        grid.remove_mut(Point(8, 8));
-        grid.remove_mut(Point(9, 9));
+        grid.put(Black, Point(1, 13));
+        grid.remove(Point(7, 7));
+        grid.remove(Point(8, 8));
+        grid.remove(Point(9, 9));
         let stones = [
             (Point(9, 8), Black),
             (Point(1, 1), Black),
@@ -454,7 +454,7 @@ mod tests {
         assert_lines_agree(&grid, &stones);
         assert_eq!(points(grid.stones(Black)), "B2,B14,J9,N2");
         assert_eq!(points(grid.stones(White)), "A1,N14");
-        assert_eq!(grid.empties().count(), 225 - 6);
+        assert_eq!(grid.empty_points().count(), 225 - 6);
     }
 
     #[test]
@@ -462,15 +462,15 @@ mod tests {
         let grid = "H8,I9,J9".parse::<Grid>()?;
 
         // The diagonals shorter than a five are not stored.
-        assert!(grid.line(Ascending, D_LINE_OMIT).is_some());
-        assert!(grid.line(Ascending, D_LINE_OMIT - 1).is_none());
-        assert!(grid.line(Descending, D_LINE_OMIT - 1).is_none());
+        assert!(grid.line(Ascending, DIAGONAL_LINE_SKIP).is_some());
+        assert!(grid.line(Ascending, DIAGONAL_LINE_SKIP - 1).is_none());
+        assert!(grid.line(Descending, DIAGONAL_LINE_SKIP - 1).is_none());
         assert!(grid.line_on(Point(0, 0), Descending).is_none());
 
         // `lines` and `lines_on` agree with `line`.
         assert_eq!(
             grid.lines().count(),
-            (RANGE as usize + D_LINE_NUM as usize) * 2
+            (SIZE as usize + DIAGONAL_LINE_COUNT as usize) * 2
         );
         for (d, i, line) in grid.lines() {
             assert_eq!(grid.line(d, i), Some(line));
@@ -532,9 +532,9 @@ mod tests {
     #[test]
     fn test_parse() -> Result<(), String> {
         let mut expected = Grid::new();
-        expected.put_mut(Black, Point(7, 7));
-        expected.put_mut(White, Point(8, 8));
-        expected.put_mut(Black, Point(9, 8));
+        expected.put(Black, Point(7, 7));
+        expected.put(White, Point(8, 8));
+        expected.put(Black, Point(9, 8));
 
         // Moves, alternating from Black.
         assert_eq!("H8,I9,J9".parse::<Grid>()?, expected);
@@ -568,10 +568,10 @@ mod tests {
     #[test]
     fn test_to_pretty_string() {
         let mut grid = Grid::new();
-        grid.put_mut(Black, Point(7, 7));
-        grid.put_mut(White, Point(8, 8));
-        grid.put_mut(Black, Point(0, 0));
-        grid.put_mut(White, Point(14, 14));
+        grid.put(Black, Point(7, 7));
+        grid.put(White, Point(8, 8));
+        grid.put(Black, Point(0, 0));
+        grid.put(White, Point(14, 14));
         let expected = "
 15 . . . . . . . . . . . . . . x
 14 . . . . . . . . . . . . . . .

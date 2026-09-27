@@ -34,23 +34,23 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         if state.limit() == 0 {
             return false;
         }
-        self.search_attacks(state, Node::no_threshold(), budget)
+        self.search_attacks(state, PnDn::no_threshold(), budget)
             .is_proven()
     }
 
     pub fn search_attacks(
         &mut self,
         state: &mut VCTState,
-        threshold: Node,
+        threshold: PnDn,
         budget: &mut NodeBudget,
-    ) -> Node {
+    ) -> PnDn {
         if !budget.consume() {
-            return Node::unknown();
+            return PnDn::unknown();
         }
 
         if let Some(event) = state.check_event() {
             return match event {
-                Defeated(_) => Node::disproven(state.limit()),
+                Defeated(_) => PnDn::disproven(state.limit()),
                 Forced(next_move) => {
                     let attacks = &[Candidate::new(next_move, 1)];
                     self.expand_attacks(state, attacks, threshold, budget).node
@@ -68,19 +68,19 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     pub fn search_defences(
         &mut self,
         state: &mut VCTState,
-        threshold: Node,
+        threshold: PnDn,
         budget: &mut NodeBudget,
-    ) -> Node {
+    ) -> PnDn {
         if !budget.consume() {
-            return Node::unknown();
+            return PnDn::unknown();
         }
 
         if let Some(event) = state.check_event() {
             return match event {
-                Defeated(_) => Node::proven(state.limit()),
+                Defeated(_) => PnDn::proven(state.limit()),
                 Forced(next_move) => {
                     if state.limit() <= 1 {
-                        Node::disproven(state.limit())
+                        PnDn::disproven(state.limit())
                     } else {
                         let defences = &[Candidate::new(next_move, 1)];
                         self.expand_defences(state, defences, threshold, budget)
@@ -91,7 +91,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
 
         if state.limit() <= 1 {
-            return Node::disproven(state.limit());
+            return PnDn::disproven(state.limit());
         }
 
         let defences = match self.generate_defences(state, budget) {
@@ -106,7 +106,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         &mut self,
         state: &mut VCTState,
         attacks: &[Candidate],
-        threshold: Node,
+        threshold: PnDn,
         budget: &mut NodeBudget,
     ) -> Selection {
         let base = self.children.len();
@@ -126,9 +126,9 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             // it is first searched rather than when it is generated
             // (`compute_attacks`). A forbidden one is disproven: the
             // attacker cannot play it.
-            if selection.fresh && state.is_forbidden_move(best) {
+            if selection.unvisited && state.is_forbidden_move(best) {
                 let result = state.with_move(Some(best), |child| {
-                    let result = Node::disproven(child.limit());
+                    let result = PnDn::disproven(child.limit());
                     self.attacker_table.insert(child, result);
                     result
                 });
@@ -157,7 +157,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         &mut self,
         state: &mut VCTState,
         defences: &[Candidate],
-        threshold: Node,
+        threshold: PnDn,
         budget: &mut NodeBudget,
     ) -> Selection {
         let base = self.children.len();
@@ -191,18 +191,18 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
     /// Chooses among `attacks` by their numbers in `children`, as the
     /// attacker table had them (`None` for a child not in it).
-    fn select_attack(limit: u8, attacks: &[Candidate], children: &[Option<Node>]) -> Selection {
+    fn select_attack(limit: u8, attacks: &[Candidate], children: &[Option<PnDn>]) -> Selection {
         let mut best = 0;
-        let mut fresh = false;
-        let mut node = Node::disproven(limit);
-        let mut best_child = Node::disproven(limit);
-        let mut second_child = Node::disproven(limit);
+        let mut unvisited = false;
+        let mut node = PnDn::disproven(limit);
+        let mut best_child = PnDn::disproven(limit);
+        let mut second_child = PnDn::disproven(limit);
         for (i, (attack, &maybe_child)) in attacks.iter().zip(children).enumerate() {
-            let child = maybe_child.unwrap_or(Node::unexpanded_defence(attack.estimate, limit));
+            let child = maybe_child.unwrap_or(PnDn::unexpanded_defence(attack.estimate, limit));
             node = node.min_pn_sum_dn(child);
             if child.pn < best_child.pn {
                 best = i;
-                fresh = maybe_child.is_none();
+                unvisited = maybe_child.is_none();
                 second_child = best_child;
                 best_child = child;
             } else if child.pn < second_child.pn {
@@ -215,7 +215,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
         Selection {
             best,
-            fresh,
+            unvisited,
             node,
             best_child,
             second_child,
@@ -224,18 +224,18 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
     /// [`Self::select_attack`] for the defender, with `children` as the
     /// defender table had them.
-    fn select_defence(limit: u8, defences: &[Candidate], children: &[Option<Node>]) -> Selection {
+    fn select_defence(limit: u8, defences: &[Candidate], children: &[Option<PnDn>]) -> Selection {
         let mut best = 0;
-        let mut fresh = false;
-        let mut node = Node::proven(limit - 1);
-        let mut best_child = Node::proven(limit - 1);
-        let mut second_child = Node::proven(limit - 1);
+        let mut unvisited = false;
+        let mut node = PnDn::proven(limit - 1);
+        let mut best_child = PnDn::proven(limit - 1);
+        let mut second_child = PnDn::proven(limit - 1);
         for (i, (defence, &maybe_child)) in defences.iter().zip(children).enumerate() {
-            let child = maybe_child.unwrap_or(Node::unexpanded_attack(defence.estimate, limit - 1));
+            let child = maybe_child.unwrap_or(PnDn::unexpanded_attack(defence.estimate, limit - 1));
             node = node.min_dn_sum_pn(child);
             if child.dn < best_child.dn {
                 best = i;
-                fresh = maybe_child.is_none();
+                unvisited = maybe_child.is_none();
                 second_child = best_child;
                 best_child = child;
             } else if child.dn < second_child.dn {
@@ -248,14 +248,14 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
         Selection {
             best,
-            fresh,
+            unvisited,
             node,
             best_child,
             second_child,
         }
     }
 
-    fn exceeds_threshold(node: Node, threshold: Node) -> bool {
+    fn exceeds_threshold(node: PnDn, threshold: PnDn) -> bool {
         node.pn >= threshold.pn || node.dn >= threshold.dn
     }
 }
@@ -267,11 +267,11 @@ pub struct Selection {
     pub best: usize,
     /// Whether the tables knew nothing of `best`: it has not been
     /// searched.
-    pub fresh: bool,
+    pub unvisited: bool,
     /// The parent's own numbers, aggregated from the children.
-    pub node: Node,
+    pub node: PnDn,
     /// The numbers of `best`.
-    pub best_child: Node,
+    pub best_child: PnDn,
     /// The numbers of the second-most-proving child.
-    pub second_child: Node,
+    pub second_child: PnDn,
 }

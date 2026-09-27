@@ -47,7 +47,7 @@ Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solve
 pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 ```
 
-- `Game::init(&board, turn)` で盤面を 1 回だけクローンする。以後、探索中にクローンはしない。
+- `Game::new(&board, turn)` で盤面を 1 回だけクローンする。以後、探索中にクローンはしない。
 - `play(m)`: 石を置き、`turn` を反転。`undo()`: それを戻す。
 - `with_move(m, f)`: play → `f(self)` → undo をまとめて行い、`f` の結果を返す。すべてのソルバーはこれで木を歩く。
 - 手は `Option<Point>`。`play(None)` は**パス**で、手番だけ反転する。連珠にパスはないが、追い手の定義（「何もしなければ相手はどうできるか」）に必要なので、ここでは普通の手として扱う。
@@ -65,7 +65,7 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 
 - 見るのは直前の手を通る四だけ（`rows_on(last_move, opponent, Four)` の眼。全ノードで呼ばれるので、`four_eyes_on` が行を作らずに各ラインのビットマスクから読み取る）。それより古い四は、すでに応手を強いているはず。
 - パスの後は直前の手がないので、相手のすべての四を見る。
-- 棒四は眼の異なる 2 つの `Four` として現れ、四四と同じ 2 点判定（`take_distinct_two`）で扱う。
+- 棒四は眼の異なる 2 つの `Four` として現れ、四四と同じ 2 点判定（`first_two_distinct`）で扱う。
 
 `End` は `Defeated` の中身で、`Mate` の末尾になる（03 §5）。
 
@@ -154,7 +154,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 
 ## 6. `NodeBudget`: 仕事量を数える
 
-- `consume()` が 1 ノードを数え、上限を超えると `false` を返す。尽きた状態は `restart()` まで続く。
+- `consume()` が 1 ノードを数え、上限を超えると `false` を返す。尽きた状態は `reset()` まで続く。
 - 呼ぶ場所は各探索関数の先頭だけ: `DFSSolver::search`、`search_attacks`、`search_defences`。つまり 1 ノード = これらの 1 回の呼び出し。内部の四追い探索も含む。
 - 時計は使わない。クレートは `wasm32-unknown-unknown` でコンパイルできる必要がある。
 - `VCTSolver::solve` は `extract` を無制限の予算で走らせる。根が証明できたなら、手順の復元は手順の長さで抑えられる。予算不足で証明を捨てるのは無意味。

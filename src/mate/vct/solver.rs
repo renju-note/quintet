@@ -1,6 +1,6 @@
 use super::generator::Candidates;
 use super::nested_vcf::NestedVCF;
-use super::proof::{DEFAULT_CARRY_CAPACITY, Node, ProofTable};
+use super::proof::{DEFAULT_CARRY_CAPACITY, PnDn, ProofTable};
 use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
 use crate::mate::budget::NodeBudget;
@@ -34,7 +34,7 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     pub(super) defences_cache: CandidatesCache,
     /// The children's numbers of the expansions under way, each on top of
     /// its parent's (`expand_attacks` / `expand_defences`).
-    pub(super) children: Vec<Option<Node>>,
+    pub(super) children: Vec<Option<PnDn>>,
     policy: PhantomData<P>,
 }
 
@@ -61,7 +61,7 @@ fn candidates_cache() -> CandidatesCache {
 }
 
 impl<P: ThresholdPolicy> VCTSolver<P> {
-    pub fn init(attacker_vcf_depth: u8, defender_vcf_depth: u8) -> Self {
+    pub fn new(attacker_vcf_depth: u8, defender_vcf_depth: u8) -> Self {
         Self::with_carry_capacity(
             attacker_vcf_depth,
             defender_vcf_depth,
@@ -69,7 +69,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         )
     }
 
-    /// Like [`Self::init`], but setting how much each memo carries from one
+    /// Like [`Self::new`], but setting how much each memo carries from one
     /// search into the next (see [`Solver::advance_generation`]).
     pub fn with_carry_capacity(
         attacker_vcf_depth: u8,

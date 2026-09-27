@@ -3,7 +3,7 @@ use super::player::*;
 use std::fmt;
 
 /// The number of stones in a row that wins.
-pub const VICTORY: u8 = 5;
+pub const FIVE: u8 = 5;
 
 /// The five cells of a segment, bits 1-5.
 const CELLS: u8 = 0b0111110;
@@ -20,7 +20,7 @@ const MARGINS: u8 = 0b1000001;
 /// empty.
 ///
 /// Every question about one place for a five is answered here, for either
-/// player: can `r` still make a five here ([`Self::alive`]), how close is it
+/// player: can `r` still make a five here ([`Self::is_alive`]), how close is it
 /// ([`Self::score`]), and where are the stones still to be played
 /// ([`Self::eyes`]). A [`Line`](super::Line) is the segments along it, and
 /// the rows of the rules ([`RowKind`](super::RowKind)) are
@@ -41,16 +41,16 @@ impl Segment {
     /// holds an opponent stone, and, for Black, filling them in would not
     /// make an overline.
     #[inline]
-    pub fn alive(&self, r: Player) -> bool {
+    pub fn is_alive(&self, r: Player) -> bool {
         let (my, op) = self.my_op(r);
         op & CELLS == 0 && (r.is_white() || my & MARGINS == 0)
     }
 
     /// How many of the five cells `r` already has (0 to 5), or `-1` if the
-    /// segment is not [`Self::alive`] for `r`.
+    /// segment is not [`Self::is_alive`] for `r`.
     #[inline]
     pub fn score(&self, r: Player) -> i8 {
-        if self.alive(r) {
+        if self.is_alive(r) {
             self.count(r) as i8
         } else {
             -1
@@ -65,9 +65,9 @@ impl Segment {
     }
 
     /// Whether none of the five cells holds a stone of `r`'s opponent:
-    /// [`Self::alive`] without the overline condition.
+    /// [`Self::is_alive`] without the overline condition.
     #[inline]
-    pub fn free(&self, r: Player) -> bool {
+    pub fn is_free(&self, r: Player) -> bool {
         let (_, op) = self.my_op(r);
         op & CELLS == 0
     }
@@ -79,7 +79,7 @@ impl Segment {
     }
 
     /// The cells (0-4) where `r` still has to play to make a five here, or
-    /// none if the segment is not [`Self::alive`] for `r`.
+    /// none if the segment is not [`Self::is_alive`] for `r`.
     #[inline]
     pub fn eyes(&self, r: Player) -> Bits<u8> {
         Bits(self.eye_bits(r))
@@ -95,7 +95,7 @@ impl Segment {
     /// [`Self::eyes`] as a bitmask, bit `k` for cell `k`.
     #[inline]
     pub fn eye_bits(&self, r: Player) -> u8 {
-        if self.alive(r) {
+        if self.is_alive(r) {
             !self.stone_bits(r) & 0b11111
         } else {
             0
@@ -156,14 +156,14 @@ mod tests {
     #[test]
     fn test_score_and_eyes() {
         let s = segment("-|o-o--|-");
-        assert!(s.free(Black));
-        assert!(s.alive(Black));
+        assert!(s.is_free(Black));
+        assert!(s.is_alive(Black));
         assert_eq!(s.score(Black), 2);
         assert_eq!(s.stones(Black).collect::<Vec<_>>(), [0, 2]);
         assert_eq!(s.eyes(Black).collect::<Vec<_>>(), [1, 3, 4]);
         // Black's stones are in White's way.
-        assert!(!s.free(White));
-        assert!(!s.alive(White));
+        assert!(!s.is_free(White));
+        assert!(!s.is_alive(White));
         assert_eq!(s.score(White), -1);
         assert_eq!(s.eyes(White).collect::<Vec<_>>(), []);
 
@@ -182,15 +182,15 @@ mod tests {
         // A black stone just outside the five would make filling them in an
         // overline, so the segment is dead for Black, but not for White.
         let s = segment("o|-ooo-|-");
-        assert!(s.free(Black));
-        assert!(!s.alive(Black));
+        assert!(s.is_free(Black));
+        assert!(!s.is_alive(Black));
         assert_eq!(s.score(Black), -1);
         assert_eq!(s.count(Black), 3);
         assert_eq!(s.stones(Black).collect::<Vec<_>>(), [1, 2, 3]);
         assert_eq!(s.eyes(Black).collect::<Vec<_>>(), []);
 
         let s = segment("x|-xxx-|x");
-        assert!(s.alive(White));
+        assert!(s.is_alive(White));
         assert_eq!(s.score(White), 3);
         assert_eq!(s.eyes(White).collect::<Vec<_>>(), [0, 4]);
         // White's own stones there are no business of Black's either.

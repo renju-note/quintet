@@ -99,7 +99,7 @@ impl Key {
 
     /// One entry per limit.
     pub fn hash(&self) -> u64 {
-        apply_n(self.position, self.limit)
+        apply_limit(self.position, self.limit)
     }
 }
 
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn test_key_hash_separates_the_limit() -> Result<(), String> {
         let board = "H8,J9/I9".parse::<Board>()?;
-        let state = VCFState::init(&board, Black, 5);
+        let state = VCFState::from_board(&board, Black, 5);
         let key = state.key();
         let shallower = Key::new(key.position, 4);
         assert_ne!(shallower.hash(), key.hash());
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn test_play_and_undo_count_the_attackers_moves() -> Result<(), String> {
         let board = "H8/I9".parse::<Board>()?;
-        let mut state = VCFState::init(&board, Black, 3);
+        let mut state = VCFState::from_board(&board, Black, 3);
         let before = state.key();
 
         state.play(Some("J10".parse()?)); // Black, the attacker

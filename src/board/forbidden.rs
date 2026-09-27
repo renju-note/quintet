@@ -3,8 +3,8 @@ use super::player::*;
 use super::point::*;
 use super::row::*;
 
-pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)> {
-    g.empties()
+pub fn forbidden_points(g: &Grid) -> Vec<(ForbiddenKind, Point)> {
+    g.empty_points()
         .filter_map(|p| forbidden_strict(g, p).map(|k| (k, p)))
         .collect()
 }
@@ -65,7 +65,7 @@ fn double_three(g: &Grid, p: Point, twos: [u16; 4]) -> bool {
         return false;
     }
     let mut next = g.clone();
-    next.put_mut(Black, p);
+    next.put(Black, p);
     real_double_three(&next, p)
 }
 
@@ -102,7 +102,7 @@ fn has_multiple_rows(indices: &mut impl Iterator<Item = Index>) -> bool {
     if first.is_none() {
         return false;
     }
-    let next_to_first = first.unwrap().walk(1);
+    let next_to_first = first.unwrap().offset(1);
     for index in indices {
         if index != next_to_first {
             return true;
@@ -137,7 +137,7 @@ mod tests {
         .parse::<Grid>()?;
         // M13 would be a double-three, but it also completes the five
         // K11-O15, which wins, so it is not reported.
-        let result = forbiddens(&grid);
+        let result = forbidden_points(&grid);
         let expected = [
             (DoubleThree, Point(2, 12)), // C13
             (Overline, Point(3, 0)),     // D1
@@ -172,7 +172,7 @@ mod tests {
         "
         .parse::<Grid>()?;
         let mut next = grid.clone();
-        next.put_mut(Black, Point(7, 7));
+        next.put(Black, Point(7, 7));
         assert_eq!(forbidden(&next, Point(6, 7)), Some(DoubleFour));
         assert_eq!(forbidden_strict(&next, Point(6, 7)), None);
 
@@ -214,9 +214,9 @@ mod tests {
         let i8 = Point(8, 7);
 
         let mut after_h8 = grid.clone();
-        after_h8.put_mut(Black, h8);
+        after_h8.put(Black, h8);
         let mut after_h7 = after_h8.clone();
-        after_h7.put_mut(Black, h7);
+        after_h7.put(Black, h7);
         assert_eq!(forbidden(&after_h7, i8), Some(DoubleFour));
         assert_eq!(forbidden_strict(&after_h7, i8), None);
         assert_eq!(forbidden(&after_h8, h7), Some(DoubleThree));
@@ -706,17 +706,17 @@ mod tests {
             // Stones on 3 points in `spread`, from dense boards to sparse.
             let spread = 4 + n % 9;
             let mut grid = Grid::new();
-            for p in (0..RANGE).flat_map(|x| (0..RANGE).map(move |y| Point(x, y))) {
+            for p in (0..SIZE).flat_map(|x| (0..SIZE).map(move |y| Point(x, y))) {
                 x ^= x << 13;
                 x ^= x >> 7;
                 x ^= x << 17;
                 match x % spread {
-                    0 | 1 => grid.put_mut(Black, p),
-                    2 => grid.put_mut(White, p),
+                    0 | 1 => grid.put(Black, p),
+                    2 => grid.put(White, p),
                     _ => {}
                 }
             }
-            for p in (0..RANGE).flat_map(|x| (0..RANGE).map(move |y| Point(x, y))) {
+            for p in (0..SIZE).flat_map(|x| (0..SIZE).map(move |y| Point(x, y))) {
                 for r in [Black, White] {
                     for k in [Two, Three, Sword, Four, Overlining] {
                         let rows = || grid.rows_on(p, r, k).map(|s| s.start_index());

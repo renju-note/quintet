@@ -50,7 +50,7 @@ impl Shapes {
     }
 
     /// How many directions make at least `s`.
-    pub fn count_from(&self, s: Shape) -> u8 {
+    pub fn count_at_least(&self, s: Shape) -> u8 {
         self.0.iter().filter(|&&x| x >= s).count() as u8
     }
 
@@ -82,7 +82,7 @@ impl Shapes {
 #[derive(Clone)]
 pub struct ShapeMap {
     /// Black's and White's, in that order, by point code (`u8::from`).
-    shapes: [[Shapes; POINTS]; 2],
+    shapes: [[Shapes; POINT_COUNT]; 2],
     /// Lines changed since the last [`Self::sync`].
     stale: StaleLines,
 }
@@ -91,13 +91,13 @@ impl ShapeMap {
     /// A map that knows nothing yet: every line is stale.
     pub fn new() -> Self {
         Self {
-            shapes: [[Shapes::default(); POINTS]; 2],
+            shapes: [[Shapes::default(); POINT_COUNT]; 2],
             stale: StaleLines::all(),
         }
     }
 
     /// A map in sync with `board`.
-    pub fn init(board: &Board) -> Self {
+    pub fn from_board(board: &Board) -> Self {
         let mut result = Self::new();
         result.sync(board);
         result
@@ -172,7 +172,7 @@ impl ShapeMap {
     }
 
     fn update(&mut self, k: usize, board: &Board) {
-        let (d, i) = Grid::line_of_key(k);
+        let (d, i) = Grid::line_from_key(k);
         let line = board.line(d, i).unwrap();
         let (start, step) = cell_codes(d, i);
         for r in [Black, White] {
@@ -184,13 +184,13 @@ impl ShapeMap {
                 ),
                 (
                     Shape::Sword,
-                    line.eyes_of(line.scoring(r, 2), Sword.eye_cells()),
+                    line.eyes_of(line.score_mask(r, 2), Sword.eye_cells()),
                 ),
                 (Shape::Three, line.row_eyes(r, Two)),
                 (Shape::Four, line.row_eyes(r, Sword)),
                 (Shape::Five, line.row_eyes(r, Four)),
             ];
-            let mut cells = [Shape::Nothing; RANGE as usize];
+            let mut cells = [Shape::Nothing; SIZE as usize];
             for (s, mask) in masks {
                 for j in Bits(mask) {
                     cells[j as usize] = s;
@@ -205,16 +205,16 @@ impl ShapeMap {
 }
 
 /// Cell `j` of line `i` in direction `d` is the point whose code
-/// (`u8::from`) is `start + j * step`: a code is `x * RANGE + y`, and a step
+/// (`u8::from`) is `start + j * step`: a code is `x * SIZE + y`, and a step
 /// along a line moves `x` and `y` by a fixed amount. Cheaper than
 /// [`Index::to_point`] for every cell.
 fn cell_codes(d: Direction, i: u8) -> (usize, usize) {
     let start = u8::from(Index::new(d, i, 0).to_point()) as usize;
     let step = match d {
         Direction::Vertical => 1,
-        Direction::Horizontal => RANGE as usize,
-        Direction::Ascending => RANGE as usize + 1,
-        Direction::Descending => RANGE as usize - 1,
+        Direction::Horizontal => SIZE as usize,
+        Direction::Ascending => SIZE as usize + 1,
+        Direction::Descending => SIZE as usize - 1,
     };
     (start, step)
 }
@@ -231,7 +231,7 @@ mod tests {
     use super::{Shape, ShapeMap, cell_codes};
     use crate::board::Direction::Vertical;
     use crate::board::Player::{self, *};
-    use crate::board::{Board, Grid, Index, LINE_NUM, Points};
+    use crate::board::{Board, Grid, Index, LINE_COUNT, Points};
 
     fn shapes(map: &ShapeMap, p: &str, r: Player) -> [Shape; 4] {
         map.get(p.parse().unwrap(), r).0
@@ -240,8 +240,8 @@ mod tests {
     #[test]
     fn test_cell_codes_match_the_points() {
         let board = Board::new();
-        for k in 0..LINE_NUM {
-            let (d, i) = Grid::line_of_key(k);
+        for k in 0..LINE_COUNT {
+            let (d, i) = Grid::line_from_key(k);
             let (start, step) = cell_codes(d, i);
             for j in 0..board.line(d, i).unwrap().size {
                 let p = Index::new(d, i, j).to_point();
@@ -274,7 +274,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let map = ShapeMap::init(&board);
+        let map = ShapeMap::from_board(&board);
         // [Vertical, Horizontal, Ascending, Descending]
         assert_eq!(shapes(&map, "H8", Black), [Nothing, Four, Nothing, Nothing]);
         assert_eq!(shapes(&map, "E8", Black), [Nothing, Four, Nothing, Nothing]);
@@ -321,7 +321,7 @@ mod tests {
          . . . . . . . . . . . . . . .
         "
         .parse::<Board>()?;
-        let map = ShapeMap::init(&board);
+        let map = ShapeMap::from_board(&board);
         let h8 = "H8".parse()?;
         assert!(board.forbidden(h8).is_some());
         assert!(map.get(h8, Black).looks_forbidden());
@@ -341,24 +341,24 @@ mod tests {
     #[test]
     fn test_lazy_matches_a_fresh_one() -> Result<(), String> {
         let mut board = "H8,I9,J9,H7".parse::<Board>()?;
-        let mut map = ShapeMap::init(&board);
+        let mut map = ShapeMap::from_board(&board);
         let moves = "G7,K9,H9,F6,G8,I7".parse::<Points>()?.into_vec();
         let mut turn = Black;
         for (n, &p) in moves.iter().enumerate() {
-            board.put_mut(turn, p);
+            board.put(turn, p);
             map.mark_stale(p);
             if n % 2 == 1 {
                 map.sync(&board);
-                assert!(map.shapes == ShapeMap::init(&board).shapes);
+                assert!(map.shapes == ShapeMap::from_board(&board).shapes);
             }
             turn = turn.opponent();
         }
         for &p in moves.iter().rev() {
-            board.remove_mut(p);
+            board.remove(p);
             map.mark_stale(p);
         }
         map.sync(&board);
-        assert!(map.shapes == ShapeMap::init(&board).shapes);
+        assert!(map.shapes == ShapeMap::from_board(&board).shapes);
         Ok(())
     }
 }

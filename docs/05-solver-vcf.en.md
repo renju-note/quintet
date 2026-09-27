@@ -24,7 +24,7 @@ src/mate/vcf/
 pub struct VCFState { game: Game, pub attacker: Player, pub limit: u8 }
 ```
 
-`VCFState::init(&board, attacker, limit)` starts with the attacker to move;
+`VCFState::from_board(&board, attacker, limit)` starts with the attacker to move;
 `VCFState::new(game, limit)` takes an existing game (the VCT solver builds
 its nested VCF states this way, and the attacker is then whoever is to move
 in `game`).
@@ -164,7 +164,7 @@ the tree searched, and so the nodes counted, are the same.
 
 ## 3. `IDDFSSolver`
 
-`IDDFSSolver::init(limits)` runs `DFSSolver::search` at each `limit` in
+`IDDFSSolver::new(limits)` runs `DFSSolver::search` at each `limit` in
 `limits` that is below the state's own, then at the state's own limit, and
 returns the first result. Shallow passes find short VCFs without walking the
 whole tree, and since the dead-end memo is exact per limit they cost the

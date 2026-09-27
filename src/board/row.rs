@@ -34,11 +34,11 @@ impl Row {
     }
 
     pub fn stones(&self) -> impl Iterator<Item = Point> + use<> {
-        self.start.mapped(Bits(self.stones)).map(|i| i.to_point())
+        self.start.offsets(Bits(self.stones)).map(|i| i.to_point())
     }
 
     pub fn eyes(&self) -> impl Iterator<Item = Point> + use<> {
-        self.start.mapped(Bits(self.eyes)).map(|i| i.to_point())
+        self.start.offsets(Bits(self.eyes)).map(|i| i.to_point())
     }
 }
 
@@ -104,7 +104,7 @@ impl RowKind {
             }
             // What makes a black segment dead: a black stone next to it.
             Overlining | Overlined => {
-                let full = |s: Segment| s.free(r) && s.count(r) == n;
+                let full = |s: Segment| s.is_free(r) && s.count(r) == n;
                 full(cur) && prev.is_some_and(full)
             }
         }

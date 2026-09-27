@@ -17,7 +17,7 @@ src/mate/vct/
 │                       threat_defences, sorted_attacks / sorted_defences, priority
 ├── nested_vcf.rs       NestedVCF: one side's VCF sub-search                                  (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                     (§3)
-├── proof.rs            Node (proof numbers), ProofTable (transposition table)                (§4)
+├── proof.rs            PnDn (proof numbers), ProofTable (transposition table)                (§4)
 ├── searcher.rs         search_attacks / search_defences, expand_attacks / expand_defences,   (§5)
 │                       select_attack / select_defence → Selection
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
@@ -147,7 +147,7 @@ and across searches, and is charged to the same `NodeBudget`.
 ```rust
 pub enum Candidates {
     Moves(Vec<Candidate>),  // an inner node: the moves to try, best first
-    Terminal(Node),         // decided here without expanding: Node::proven or Node::disproven
+    Terminal(PnDn),         // decided here without expanding: PnDn::proven or PnDn::disproven
 }
 pub struct Candidate { pub point: Point, pub estimate: u32 }
 ```
@@ -254,7 +254,7 @@ each.
 ## 4. Proof numbers (`proof.rs`)
 
 ```rust
-pub struct Node { pub pn: u32, pub dn: u32, pub limit: u8 }
+pub struct PnDn { pub pn: u32, pub dn: u32, pub limit: u8 }
 pub const INF: u32 = u32::MAX;
 ```
 
@@ -264,12 +264,12 @@ the same for refuting it. `pn == 0` is proven, `dn == 0` disproven.
 
 | Constructor | `(pn, dn)` | Meaning |
 | --- | --- | --- |
-| `Node::unknown()` | `(INF, INF)` | a position the tables know nothing about |
-| `Node::no_threshold()` | `(INF, INF)` | a threshold never exceeded: "search until decided" (same value as `unknown`, different role) |
-| `Node::proven(limit)` | `(0, INF)` | the attacker wins |
-| `Node::disproven(limit)` | `(INF, 0)` | the attacker cannot win within `limit` |
-| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | first guess for an unexpanded child of an OR node (defender to move); `n` = the attack's estimate (§3) |
-| `Node::unexpanded_attack(n, limit)` | `(1, n)` | first guess for an unexpanded child of an AND node (attacker to move); `n` = the defence's estimate |
+| `PnDn::unknown()` | `(INF, INF)` | a position the tables know nothing about |
+| `PnDn::no_threshold()` | `(INF, INF)` | a threshold never exceeded: "search until decided" (same value as `unknown`, different role) |
+| `PnDn::proven(limit)` | `(0, INF)` | the attacker wins |
+| `PnDn::disproven(limit)` | `(INF, 0)` | the attacker cannot win within `limit` |
+| `PnDn::unexpanded_defence(n, limit)` | `(n, 1)` | first guess for an unexpanded child of an OR node (defender to move); `n` = the attack's estimate (§3) |
+| `PnDn::unexpanded_attack(n, limit)` | `(1, n)` | first guess for an unexpanded child of an AND node (attacker to move); `n` = the defence's estimate |
 
 Children combine in two ways, with saturating sums:
 
@@ -295,7 +295,7 @@ Each is a `ProofTable`, two `Memo`s under one roof:
 
 | Half | Keyed by | Holds |
 | --- | --- | --- |
-| `estimates: Memo<Node>` | `Key::hash()` — position and limit | every node inserted, as is: a proof number short of a decision belongs to the limit it was computed at |
+| `estimates: Memo<PnDn>` | `Key::hash()` — position and limit | every node inserted, as is: a proof number short of a decision belongs to the limit it was computed at |
 | `decided: Memo<Decided>` | `Key::position` alone | the smallest proven limit and the largest disproven limit seen for the position |
 
 `insert(state, node)` writes `estimates` always and `decided` when the node
@@ -319,7 +319,7 @@ in or read from `decided` below it.
 ### Node functions
 
 `VCTSolver::search(state, budget)` is `search_attacks(state,
-Node::no_threshold(), budget).is_proven()` after a `limit == 0` check. The
+PnDn::no_threshold(), budget).is_proven()` after a `limit == 0` check. The
 two node functions call each other:
 
 ```
@@ -347,7 +347,7 @@ expansion below) and returns a `Selection`:
 | --- | --- |
 | `node` | the node's own numbers: `min_pn_sum_dn` over the children, a child not yet in the table counting as `unexpanded_defence(estimate)` (§3; `1` for a forced move) |
 | `best` | the child with the smallest `pn` — the most-proving child — as an index into the candidates |
-| `fresh` | whether `best` is not in the table yet: it has never been searched |
+| `unvisited` | whether `best` is not in the table yet: it has never been searched |
 | `best_child`, `second_child` | the numbers of the best and second-best child |
 
 If a proven child turns up, `node` becomes `(0, INF)` on the spot.
@@ -393,7 +393,7 @@ expand_attacks(state, attacks, threshold):
         s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if budget exhausted:                                     return s
-        if s.fresh and s.best is forbidden:
+        if s.unvisited and s.best is forbidden:
             with_move(s.best): attacker_table.insert(child, disproven)
             children[s.best] = disproven
             continue
@@ -506,7 +506,7 @@ extract_attacks(state):                        # attacker to move
 extract_defences(state):                       # defender to move
     Defeated(end) → Mate { end, path: [] }
     Forced(p)     → play p, extract_attacks
-    else          → among threat_defences(attacker_vcf.threat(state)), the proven child with the smallest Node::limit
+    else          → among threat_defences(attacker_vcf.threat(state)), the proven child with the smallest PnDn::limit
     none proven   → Mate { end: Unknown, path: [] }   # proven because no legal defence existed
 ```
 
@@ -576,7 +576,7 @@ would make on each of the four lines through it, a `Shape`:
 | `Five` | the eye of a `Four` | `row_eyes(r, Four)` |
 | `Four` | an eye of a `Sword` | `row_eyes(r, Sword)` |
 | `Three` | an eye of a `Two` | `row_eyes(r, Two)` |
-| `Sword` | in a segment holding two | `eyes_of(scoring(r, 2), ..)` |
+| `Sword` | in a segment holding two | `eyes_of(score_mask(r, 2), ..)` |
 | `Two` | in the shared cells of an open pair of segments holding one | `eyes_of(open_starts(r, 1), ..)` |
 | `Nothing` | none of the above, or occupied | |
 
@@ -585,7 +585,7 @@ A cell takes the biggest that applies. It is kept like the `SwordMap`
 bit operations per line and player.
 
 `get(p, r)` returns the four as `Shapes`, which counts them
-(`count`, `count_from`), sums them by rank (`total`: `Two` 1 up to
+(`count`, `count_at_least`), sums them by rank (`total`: `Two` 1 up to
 `Five` 5), drops one direction (`except`) and guesses whether
 Black may not play there (`looks_forbidden`: two fours or two threes and no
 five; it does not see a double-four on one line, an overline, or that a

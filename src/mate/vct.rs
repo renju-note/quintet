@@ -21,7 +21,7 @@
 //!
 //! The state they share is [`VCTState`] (`state.rs`): the game, the remaining
 //! limit and a shape map for move ordering. What they remember is a
-//! [`ProofTable`] per side (`proof.rs`), holding [`Node`]s — proof and
+//! [`ProofTable`] per side (`proof.rs`), holding [`PnDn`]s — proof and
 //! disproof numbers — keyed by position and limit.
 //!
 //! `docs/06-solver-vct.en.md` walks through all of this with
@@ -40,7 +40,7 @@ mod solver;
 mod state;
 mod threshold;
 
-pub use proof::Node;
+pub use proof::PnDn;
 pub use solver::VCTSolver;
 pub use state::VCTState;
 pub use threshold::{DFPNSThreshold, DFSThreshold, PNSThreshold, ThresholdPolicy};

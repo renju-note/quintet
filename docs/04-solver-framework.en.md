@@ -54,7 +54,7 @@ Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solve
 pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 ```
 
-`Game::init(&board, turn)` clones the board once. From then on the search
+`Game::new(&board, turn)` clones the board once. From then on the search
 never clones again: `play(m)` puts a stone and flips `turn`, `undo()` takes
 it back, and `with_move(m, f)` does play → `f(self)` → undo, returning
 `f`'s result. Every solver walks its tree with `with_move`.
@@ -82,7 +82,7 @@ building the rows, as this runs at every node): an older four would already
 have forced a reply. After a
 pass there is no last move, so every four of the opponent is scanned
 instead. A straight four shows up as two `Four`s with different eyes and is
-handled by the same two-point test (`take_distinct_two`) as a double-four.
+handled by the same two-point test (`first_two_distinct`) as a double-four.
 
 `End` is the `Defeated` payload and is what a `Mate` ends with (03, §5).
 
@@ -215,7 +215,7 @@ insert.
 ## 6. `NodeBudget`: counting work
 
 `NodeBudget::consume()` counts one node and returns `false` once the limit
-is passed; exhaustion is sticky until `restart()`. It is called at the top
+is passed; exhaustion is sticky until `reset()`. It is called at the top
 of each search function — `DFSSolver::search`, `search_attacks`,
 `search_defences` — and nowhere else, so a node is one visit of one of
 those, nested VCF searches included. There is no clock anywhere under
