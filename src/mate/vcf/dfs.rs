@@ -8,7 +8,7 @@ use crate::mate::memo::Memo;
 use crate::mate::solver::Solver;
 use crate::mate::state::State;
 
-/// How many deadends a solver carries into a new search before it starts
+/// How many dead ends a solver carries into a new search before it starts
 /// dropping what older searches left behind. See [`Memo`].
 pub const DEFAULT_CARRY_CAPACITY: usize = 1 << 16;
 
@@ -29,10 +29,10 @@ pub struct DFSSolver {
     /// short, and the bound holds exactly. `search` is only ever called with
     /// the attacker to move, so the attacker in the position pins the turn.
     ///
-    /// Each deadend also keeps the [zone](Self::search_zone) of the search
+    /// Each dead end also keeps the [zone](Self::search_zone) of the search
     /// that showed it, so that a search running into it can still tell its
     /// own.
-    deadends: Memo<(u8, Area)>,
+    dead_ends: Memo<(u8, Area)>,
 }
 
 impl DFSSolver {
@@ -42,7 +42,7 @@ impl DFSSolver {
 
     pub fn with_carry_capacity(carry_capacity: usize) -> Self {
         Self {
-            deadends: Memo::new(carry_capacity),
+            dead_ends: Memo::new(carry_capacity),
         }
     }
 
@@ -93,7 +93,7 @@ impl DFSSolver {
         }
 
         let key = state.key();
-        if let Some((limit, known)) = self.deadends.get(key.position)
+        if let Some((limit, known)) = self.dead_ends.get(key.position)
             && key.limit <= *limit
         {
             *zone |= known;
@@ -103,10 +103,10 @@ impl DFSSolver {
         let result = self.search_move_pairs(state, budget, &mut own);
         *zone |= own;
         // A search that gave up proves nothing, so it must not be memoized.
-        // Any deadend already there is for a smaller limit: its tree is cut
+        // Any dead end already there is for a smaller limit: its tree is cut
         // shorter than this one, and so is its zone.
         if result.is_none() && !budget.is_exhausted() {
-            self.deadends.insert(key.position, (key.limit, own));
+            self.dead_ends.insert(key.position, (key.limit, own));
         }
         result
     }
@@ -177,9 +177,9 @@ impl DFSSolver {
     ) -> Option<Mate> {
         // The defence is on the same segment, within four cells.
         *zone |= Area::around(attack, 4);
-        let result = state.into_play(Some(attack), |s| {
+        let result = state.with_move(Some(attack), |s| {
             self.search_defence(s, defence, budget, zone)
-                .map(|m| m.unshift(attack))
+                .map(|m| m.prepend(attack))
         });
 
         // Few attacks are forbidden, so whether this one is is only asked
@@ -208,9 +208,9 @@ impl DFSSolver {
         if state.game().turn.is_black() {
             *zone |= Area::around(defence, 5);
         }
-        state.into_play(Some(defence), |s| {
+        state.with_move(Some(defence), |s| {
             self.search_zone(s, budget, zone)
-                .map(|m| m.unshift(defence))
+                .map(|m| m.prepend(defence))
         })
     }
 }
@@ -224,15 +224,15 @@ impl Solver for DFSSolver {
     }
 
     fn clear(&mut self) {
-        self.deadends.clear();
+        self.dead_ends.clear();
     }
 
     fn advance_generation(&mut self) {
-        self.deadends.advance_generation();
+        self.dead_ends.advance_generation();
     }
 
     fn memo_len(&self) -> usize {
-        self.deadends.len()
+        self.dead_ends.len()
     }
 }
 

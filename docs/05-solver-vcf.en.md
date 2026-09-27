@@ -14,7 +14,7 @@ Assumes [04](04-solver-framework.en.md): `Game`, `State`, `Key`, `Memo`,
 src/mate/vcf.rs         module doc, re-exports
 src/mate/vcf/
 ├── state.rs            VCFState: Game + attacker + limit; four-making move pairs   (§1)
-├── dfs.rs              DFSSolver: the depth-first search and its deadend memo      (§2)
+├── dfs.rs              DFSSolver: the depth-first search and its dead-end memo      (§2)
 └── iddfs.rs            IDDFSSolver: DFSSolver at increasing limits                (§3)
 ```
 
@@ -46,7 +46,7 @@ Three generators, in the order the solver tries them:
 | Generator | Pairs from | When |
 | --- | --- | --- |
 | `forced_move_pair(p)` | the sword whose attack eye is exactly `p` | the attacker is `Forced(p)`: the defender's block made a four of its own (a counter-four), and the attacker's reply must block it *and* be a four, or the VCF is over |
-| `neighbor_move_pairs()` | swords through `last2_move`, the attacker's previous stone | first — extending the stones just played is the likeliest way to keep making fours |
+| `neighbor_move_pairs()` | swords through `second_last_move`, the attacker's previous stone | first — extending the stones just played is the likeliest way to keep making fours |
 | `move_pairs()` | every sword of the side to move | then everything else |
 
 Note that the block is taken from the sword, not re-derived from the board
@@ -72,10 +72,10 @@ solve(state):                                  # Solver::solve — one question
 search(state):                                 # attacker to move
     if limit == 0:                       return None
     if !budget.consume():                return None
-    if deadends[key.position] >= limit:  return None        # known: no VCF this deep
+    if dead_ends[key.position] >= limit:  return None        # known: no VCF this deep
     result = search_move_pairs(state)
     if result is None and budget not exhausted:
-        deadends[key.position] = max(known, limit)
+        dead_ends[key.position] = max(known, limit)
     return result
 
 search_move_pairs(state):
@@ -87,20 +87,20 @@ search_move_pairs(state):
                       None
 
 search_attack(state, attack, defence):
-    result = into_play(attack): search_defence(defence)   then prepend attack
+    result = with_move(attack): search_defence(defence)   then prepend attack
     if result is Some and attack is forbidden: return None
     return result
 
 search_defence(state, defence):                # defender to move
     if check_event() is Defeated(end): return Mate { end, path: [] }
-    into_play(defence): search(state)            then prepend defence
-                                                 # limit decrements inside into_play
+    with_move(defence): search(state)            then prepend defence
+                                                 # limit decrements inside with_move
 ```
 
 Things to notice:
 
 - **Only failures are memoized.** A success is returned immediately; a
-  position shown to have no VCF is recorded in `deadends` as the
+  position shown to have no VCF is recorded in `dead_ends` as the
   largest limit it was shown for, with the zone of that search (below).
   Because nothing here reads `limit` when generating moves, the tree at limit *n* is the tree at limit *n+1* cut
   short, so "no VCF within *n*" is exact for every limit up to *n*, and the
@@ -156,8 +156,8 @@ with it, and so is the answer. The last row is an approximation, as in
 forbidden from further away, when a three there is no real three because
 its straight-four point is forbidden in turn.
 
-A deadend keeps its zone next to its limit, `Memo<(u8, Area)>`, and a
-search that runs into it adds that zone to its own. A deadend is only
+A dead end keeps its zone next to its limit, `Memo<(u8, Area)>`, and a
+search that runs into it adds that zone to its own. A dead end is only
 overwritten by a search at a larger limit, whose tree — and zone — holds
 the smaller one's. `search` is `search_zone` with the zone thrown away:
 the tree searched, and so the nodes counted, are the same.
@@ -167,7 +167,7 @@ the tree searched, and so the nodes counted, are the same.
 `IDDFSSolver::init(limits)` runs `DFSSolver::search` at each `limit` in
 `limits` that is below the state's own, then at the state's own limit, and
 returns the first result. Shallow passes find short VCFs without walking the
-whole tree, and since the deadend memo is exact per limit they cost the
+whole tree, and since the dead-end memo is exact per limit they cost the
 deeper passes nothing.
 
 It implements `Solver` with the same `solve` / `search` split. The VCT
@@ -219,7 +219,7 @@ and `search` stops before `J9` is tried. Three fours need `limit >= 3`.
 | A four-making move is not generated | `VCFState::move_pairs` sees only `Sword` eyes; for Black, the `exact` margins exclude fours that would be overlines |
 | A counter-four is mishandled | `Game::check_event` at the attacker's node → `Forced(p)`, then `VCFState::forced_move_pair` |
 | Which fours are tried first? | `neighbor_move_pairs` (through the attacker's last stone), then `move_pairs` |
-| The memo | `DFSSolver::deadends`: largest limit with no VCF and that search's zone, keyed by `Key::position`; never written after the budget ran out |
+| The memo | `DFSSolver::dead_ends`: largest limit with no VCF and that search's zone, keyed by `Key::position`; never written after the budget ran out |
 | Which points could give the attacker a VCF? | `DFSSolver::search_zone` (§2, "The zone") |
 | Why `solve` and `search`? | `solve` opens a generation; `search` is what `IDDFSSolver` and the VCT solver call repeatedly (04, §4) |
 | How deep may a VCF be? | `limit` attacker moves; each is a four, so a VCF of *k* fours needs `limit >= k` |

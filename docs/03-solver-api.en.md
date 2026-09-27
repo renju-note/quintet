@@ -232,7 +232,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 ```
 
 `path` alternates attacker and defender moves, attacker first.
-`Mate::n_moves()` is its length, `n_times()` the number of attacker moves in
+`Mate::n_moves()` is its length, `n_attacks()` the number of attacker moves in
 it. `end` says why the defender is lost after the last move:
 
 | `End` | The defender faces | Who can suffer it |

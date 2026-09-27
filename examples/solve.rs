@@ -36,7 +36,7 @@ fn solve_print(mode: SolveMode, limit: u8, board: Board, attacker: Player, threa
     match result.into_mate() {
         Some(m) => {
             println!("End: {}", m.end);
-            println!("Times (Length): {} ({})", m.n_times(), m.n_moves());
+            println!("Times (Length): {} ({})", m.n_attacks(), m.n_moves());
             println!("Moves: {}", Points(m.path));
         }
         None => println!("None"),

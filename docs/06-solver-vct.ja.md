@@ -142,7 +142,7 @@ df-pn は同じノードに何度も戻ってくる。容量 1000 では、攻�
 | 262144 | 100 MB | −8% | −10% |
 | 1048576 | 400 MB（実際は `vct_unstable` の 220 MB が最大） | −8% | −12% |
 
-65536 でキャッシュが満杯になるのは 121 ケース中 18 ケースで、どれも 100 万ノードを超え、キャッシュを除いてもプロセスが 75 MB〜1 GB を使うケースである。キャッシュは空で始まり、埋まるにつれて大きくなる（`candidates_cache`）。そのため小さな探索は容量の分を払わない。`LruCache::with_hasher` だと表全体を最初に確保してしまう。キャッシュを大きくすると、ノード数だけでなく手順が変わるケースもある。生成器が返すものは内部四追いソルバーのメモの中身に左右されうる（deadend は、それを記録した探索のゾーンを返す）ので、手を生成し直したノードは最初と違う手を見ることがあるからである。
+65536 でキャッシュが満杯になるのは 121 ケース中 18 ケースで、どれも 100 万ノードを超え、キャッシュを除いてもプロセスが 75 MB〜1 GB を使うケースである。キャッシュは空で始まり、埋まるにつれて大きくなる（`candidates_cache`）。そのため小さな探索は容量の分を払わない。`LruCache::with_hasher` だと表全体を最初に確保してしまう。キャッシュを大きくすると、ノード数だけでなく手順が変わるケースもある。生成器が返すものは内部四追いソルバーのメモの中身に左右されうる（dead end は、それを記録した探索のゾーンを返す）ので、手を生成し直したノードは最初と違う手を見ることがあるからである。
 
 **`compute_attacks`**（攻め方の手番）
 
@@ -283,11 +283,11 @@ expand_attacks(state, attacks, threshold):
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if 予算切れ:                                              return s
         if s.fresh かつ s.best が禁手:
-            into_play(s.best): attacker_table.insert(child, disproven)
+            with_move(s.best): attacker_table.insert(child, disproven)
             children[s.best] = disproven
             continue
         next = P::next_threshold_attack(s, threshold)
-        into_play(s.best):
+        with_move(s.best):
             result = search_defences(child, next)
             if 予算が残っていれば: attacker_table.insert(child, result)
         children[s.best] = result
@@ -452,7 +452,7 @@ extract_defences(state):                       # 受け方の手番
 | 逆襲による反証が見つからない | `defender_vcf.vcf` の深さは `defender_vcf_depth`（2）。より深い逆襲四追いは、ノリ手が `threat_defences` に入っている場合しか見つからない。`SolveLimits::with_defender_vcf_depth` で深くできる |
 | 手の並べ替え | `ShapeMap` の上の `VCTState::priority`（§8）。攻め手の候補はどれかの線に `Two` 以上 |
 | モードごとの違い | `threshold.rs` の `ThresholdPolicy`。それ以外は共通 |
-| 置換表 | `attacker_table` / `defender_table`（`ProofTable`）、2 つの `LruCache`、内部ソルバーの `deadends`。キーはすべて `State::key()`。決着は局面のみ |
+| 置換表 | `attacker_table` / `defender_table`（`ProofTable`）、2 つの `LruCache`、内部ソルバーの `dead_ends`。キーはすべて `State::key()`。決着は局面のみ |
 | 決着が limit をまたいで効くのが一定の深さ以上である理由 | `ProofTable` の `transfer_from`（§4） |
 | 手順の復元 | `extract`。`End::Unknown` = たどれる証明済みの子がなかった |
 | 回帰テストの追加 | `solve.rs` に ASCII 盤面と期待する手順。関係する `SolveMode` ごとに 1 アサーション |

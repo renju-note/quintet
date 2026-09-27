@@ -29,8 +29,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         let Some(attack) = attack else {
             return self.attacker_vcf.vcf(state, budget);
         };
-        state.into_play(Some(attack), |s| {
-            self.extract_defences(s, budget).map(|m| m.unshift(attack))
+        state.with_move(Some(attack), |s| {
+            self.extract_defences(s, budget).map(|m| m.prepend(attack))
         })
     }
 
@@ -56,8 +56,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 defence
             }
         };
-        state.into_play(Some(defence), |s| {
-            self.extract_attacks(s, budget).map(|m| m.unshift(defence))
+        state.with_move(Some(defence), |s| {
+            self.extract_attacks(s, budget).map(|m| m.prepend(defence))
         })
     }
 }

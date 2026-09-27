@@ -177,7 +177,7 @@ pub struct Mate { pub end: End, pub path: Vec<Point> }
 pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 ```
 
-- `path`: 攻め方から始まり、攻めと受けが交互に並ぶ。`n_moves()` は長さ、`n_times()` は攻め手数。
+- `path`: 攻め方から始まり、攻めと受けが交互に並ぶ。`n_moves()` は長さ、`n_attacks()` は攻め手数。
 - `end`: 最後の手の後、受け方がなぜ負けているか。
 
 | `End` | 受け方の状況 | 誰に起きるか |

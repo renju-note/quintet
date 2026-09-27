@@ -127,7 +127,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             // (`compute_attacks`). A forbidden one is disproven: the
             // attacker cannot play it.
             if selection.fresh && state.is_forbidden_move(best) {
-                let result = state.into_play(Some(best), |child| {
+                let result = state.with_move(Some(best), |child| {
                     let result = Node::disproven(child.limit());
                     self.attacker_table.insert(child, result);
                     result
@@ -136,7 +136,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 continue;
             }
             let next_threshold = P::next_threshold_attack(&selection, threshold);
-            let result = state.into_play(Some(best), |child| {
+            let result = state.with_move(Some(best), |child| {
                 let result = self.search_defences(child, next_threshold, budget);
                 // A child the search gave up on proves nothing about the
                 // position, so it must not enter the table.
@@ -174,7 +174,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             }
             let best = defences[selection.best].point;
             let next_threshold = P::next_threshold_defence(&selection, threshold);
-            let result = state.into_play(Some(best), |child| {
+            let result = state.with_move(Some(best), |child| {
                 let result = self.search_attacks(child, next_threshold, budget);
                 // A child the search gave up on proves nothing about the
                 // position, so it must not enter the table.

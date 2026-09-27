@@ -35,7 +35,7 @@ H 列:  H7 = x（白）、H8 H9 H10 = o（黒）、H11 H12 = 空
 | 生成器 | ペアの出どころ | 使う場面 |
 | --- | --- | --- |
 | `forced_move_pair(p)` | 攻めの眼がちょうど `p` である剣先 | 攻め方が `Forced(p)` のとき。受け方の止めが四になった（ノリ手）ので、攻め方はそれを止めつつ四を作る必要がある。できなければ四追いは終わり |
-| `neighbor_move_pairs()` | `last2_move`（攻め方の直前の石）を通る剣先 | 最初に試す。直前の石を伸ばす手が、四を続ける可能性が最も高い |
+| `neighbor_move_pairs()` | `second_last_move`（攻め方の直前の石）を通る剣先 | 最初に試す。直前の石を伸ばす手が、四を続ける可能性が最も高い |
 | `move_pairs()` | 手番側のすべての剣先 | 次に試す |
 
 止めの点は剣先から取り、攻め手を打った後の盤面から求め直さない。攻め手がたまたま四を 2 つ作った場合は、止めを打つ前に受け方の `check_event` が `Defeated(Fours(..))` を返す。したがって保持している止めが使われるのは四が 1 つのときだけ。
@@ -53,10 +53,10 @@ solve(state):                                  # Solver::solve — 1 つの問�
 search(state):                                 # 攻め方の手番
     if limit == 0:                       return None
     if !budget.consume():                return None
-    if deadends[key.position] >= limit:  return None        # 既知: この深さでは四追いなし
+    if dead_ends[key.position] >= limit:  return None        # 既知: この深さでは四追いなし
     result = search_move_pairs(state)
     if result is None and budget not exhausted:
-        deadends[key.position] = max(known, limit)
+        dead_ends[key.position] = max(known, limit)
     return result
 
 search_move_pairs(state):
@@ -68,19 +68,19 @@ search_move_pairs(state):
                       None
 
 search_attack(state, attack, defence):
-    result = into_play(attack): search_defence(defence)   → 結果の先頭に attack を付ける
+    result = with_move(attack): search_defence(defence)   → 結果の先頭に attack を付ける
     if result が Some かつ attack が禁手: return None
     return result
 
 search_defence(state, defence):                # 受け方の手番
     if check_event() が Defeated(end): return Mate { end, path: [] }
-    into_play(defence): search(state)            → 結果の先頭に defence を付ける
-                                                 # limit は into_play の中で 1 減る
+    with_move(defence): search(state)            → 結果の先頭に defence を付ける
+                                                 # limit は with_move の中で 1 減る
 ```
 
 要点:
 
-- **メモするのは失敗だけ。** 成功はそのまま返す。四追いがない局面は、それが分かった最大の limit として、その探索の関連領域（後述）と一緒に `deadends` に記録する。手の生成が `limit` を読まないので、limit *n* の木は limit *n+1* の木を途中で切ったもの。「*n* 以内に四追いなし」は *n* 以下のすべての limit で正しく、キーは `Key::position` だけでよい（04 §3）。
+- **メモするのは失敗だけ。** 成功はそのまま返す。四追いがない局面は、それが分かった最大の limit として、その探索の関連領域（後述）と一緒に `dead_ends` に記録する。手の生成が `limit` を読まないので、limit *n* の木は limit *n+1* の木を途中で切ったもの。「*n* 以内に四追いなし」は *n* 以下のすべての limit で正しく、キーは `Key::position` だけでよい（04 §3）。
 - **禁手の攻め手では勝てない。** ここで見つかる四追いで、黒は四四や長連を打たない。黒の `Fours` が常に棒四なのはこのため（03 §5）。禁手の攻め手は少ない（ベンチマークでおよそ 70 に 1 つ）ので、攻め手はまず探索し、その先で四追いが見つかったときにだけ禁手かどうかを確かめる。禁手なら失敗とする。禁手の攻め手の先の探索は無駄になるが、すべての攻め手を事前に確かめるほうが高くついた。
 - **ノリ手は特別扱いしない。** 止めが四になれば、攻め方の次のノードは `Forced(p)` を見る。`forced_move_pair(p)` が成功するのは `p` が四を作る眼のときだけ。`test_vcf_counter`、`test_vcf_not_opponent_double_four` が検証している。
 - **攻め方のノードでの `Defeated` は枝の終わり。** 受け方の止めが四四（または黒が止められない四）を作った。攻め方に応じる四はないので、この手順は失敗。
@@ -157,7 +157,7 @@ search_defence(state, defence):                # 受け方の手番
 | 四を作る手が生成されない | `VCFState::move_pairs` は `Sword` の眼しか見ない。黒では `exact` の余白判定が長連になる四を除く |
 | ノリ手の扱いがおかしい | 攻め方のノードの `Game::check_event` → `Forced(p)`、次に `VCFState::forced_move_pair` |
 | どの四が先に試されるか | `neighbor_move_pairs`（攻め方の直前の石を通るもの）→ `move_pairs` |
-| メモ | `DFSSolver::deadends`: 四追いのない最大 limit とその探索の関連領域。キーは `Key::position`。予算切れ後は書かない |
+| メモ | `DFSSolver::dead_ends`: 四追いのない最大 limit とその探索の関連領域。キーは `Key::position`。予算切れ後は書かない |
 | どの点に置けば攻め方に四追いが生まれうるか | `DFSSolver::search_zone`（§2「関連領域」） |
 | `solve` と `search` の違い | `solve` は世代を開く。`search` は `IDDFSSolver` と追い詰めソルバーが繰り返し呼ぶ（04 §4） |
 | 四追いの深さ | 攻め手 `limit` 手。各手が四なので、四 *k* 個には `limit >= k` が必要 |

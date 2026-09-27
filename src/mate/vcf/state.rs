@@ -48,10 +48,12 @@ impl VCFState {
 
     pub fn neighbor_move_pairs(&mut self) -> Vec<(Point, Point)> {
         let mut result = vec![];
-        if let Some(last2_move) = self.game.last2_move() {
+        if let Some(second_last_move) = self.game.second_last_move() {
             let turn = self.game.turn;
             self.sync_swords();
-            let swords = self.swords.swords_on(self.game.board(), last2_move, turn);
+            let swords = self
+                .swords
+                .swords_on(self.game.board(), second_last_move, turn);
             Self::push_eyes_pairs(swords, &mut result);
         }
         result

@@ -20,7 +20,7 @@ impl Game {
 
     /// A copy to search from, for a nested search that never undoes past
     /// where it starts: it keeps only the last two moves, all that is read
-    /// of the history ([`Self::last_move`], [`Self::last2_move`]), and room
+    /// of the history ([`Self::last_move`], [`Self::second_last_move`]), and room
     /// for `plies` more. A plain `clone` copied the whole history, and the
     /// first move played then had to grow it.
     pub fn fork(&self, plies: usize) -> Self {
@@ -49,8 +49,7 @@ impl Game {
         }
     }
 
-    #[allow(clippy::wrong_self_convention)]
-    pub fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
+    pub fn with_move<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,
     {
@@ -76,7 +75,7 @@ impl Game {
     }
 
     /// The move before the last, as [`Self::last_move`].
-    pub fn last2_move(&self) -> Option<Point> {
+    pub fn second_last_move(&self) -> Option<Point> {
         self.moves.iter().rev().nth(1).copied().flatten()
     }
 
@@ -204,20 +203,20 @@ mod tests {
     #[test]
     fn test_last_moves() {
         let mut game = Game::init(&Board::new(), Black);
-        assert_eq!((game.last_move(), game.last2_move()), (None, None));
+        assert_eq!((game.last_move(), game.second_last_move()), (None, None));
         game.play(Some(point("H8")));
         assert_eq!(
-            (game.last_move(), game.last2_move()),
+            (game.last_move(), game.second_last_move()),
             (Some(point("H8")), None)
         );
         game.play(None);
         assert_eq!(
-            (game.last_move(), game.last2_move()),
+            (game.last_move(), game.second_last_move()),
             (None, Some(point("H8")))
         );
         game.play(Some(point("I9")));
         assert_eq!(
-            (game.last_move(), game.last2_move()),
+            (game.last_move(), game.second_last_move()),
             (Some(point("I9")), None)
         );
     }
@@ -231,13 +230,13 @@ mod tests {
         }
         let mut fork = game.fork(4);
         assert_eq!(fork.last_move(), game.last_move());
-        assert_eq!(fork.last2_move(), game.last2_move());
+        assert_eq!(fork.second_last_move(), game.second_last_move());
         assert_eq!(fork.position_hash(), game.position_hash());
 
         // Moves played on the fork can be undone, down to where it began.
         fork.play(None);
         fork.play(Some(point("K11")));
-        assert_eq!(fork.last2_move(), None);
+        assert_eq!(fork.second_last_move(), None);
         fork.undo();
         fork.undo();
         assert_eq!(fork.last_move(), game.last_move());

@@ -57,24 +57,24 @@ fn overline(overlinings: [u16; 4]) -> bool {
 }
 
 fn double_four(swords: [u16; 4]) -> bool {
-    distinctive_starts(swords)
+    has_multiple_starts(swords)
 }
 
 fn double_three(g: &Grid, p: Point, twos: [u16; 4]) -> bool {
-    if !distinctive_starts(twos) {
+    if !has_multiple_starts(twos) {
         return false;
     }
     let mut next = g.clone();
     next.put_mut(Black, p);
-    truthy_double_three(&next, p)
+    real_double_three(&next, p)
 }
 
-fn truthy_double_three(next: &Grid, p: Point) -> bool {
-    let truthy_threes = next.rows_on(p, Black, Three).filter(|s| {
+fn real_double_three(next: &Grid, p: Point) -> bool {
+    let real_threes = next.rows_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();
         forbidden_strict(next, eye).is_none()
     });
-    distinctive(&mut truthy_threes.map(|s| s.start_index()))
+    has_multiple_rows(&mut real_threes.map(|s| s.start_index()))
 }
 
 /// Whether any line has a row start: [`Grid::row_starts_on`] finds a row.
@@ -82,9 +82,9 @@ fn any(starts: impl IntoIterator<Item = u16>) -> bool {
     starts.into_iter().any(|s| s != 0)
 }
 
-/// [`distinctive`] on the rows' starts, line by line: rows on two lines,
+/// [`has_multiple_rows`] on the rows' starts, line by line: rows on two lines,
 /// or on one line starting other than at the first start and the next cell.
-fn distinctive_starts(starts: impl IntoIterator<Item = u16>) -> bool {
+fn has_multiple_starts(starts: impl IntoIterator<Item = u16>) -> bool {
     let mut found = false;
     for s in starts.into_iter().filter(|&s| s != 0) {
         if found || s & !(0b11 << s.trailing_zeros()) != 0 {
@@ -97,7 +97,7 @@ fn distinctive_starts(starts: impl IntoIterator<Item = u16>) -> bool {
 
 /// Whether the rows starting at `indices` are more than one: any but the
 /// first and one starting a cell after it.
-fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {
+fn has_multiple_rows(indices: &mut impl Iterator<Item = Index>) -> bool {
     let first = indices.next();
     if first.is_none() {
         return false;
@@ -726,8 +726,8 @@ mod tests {
                             "{r:?} {k:?} {p}"
                         );
                         assert_eq!(
-                            distinctive_starts(grid.row_starts_on(p, r, k)),
-                            distinctive(&mut rows()),
+                            has_multiple_starts(grid.row_starts_on(p, r, k)),
+                            has_multiple_rows(&mut rows()),
                             "{r:?} {k:?} {p}"
                         );
                     }

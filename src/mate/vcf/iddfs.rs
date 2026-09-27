@@ -26,7 +26,7 @@ impl IDDFSSolver {
         }
     }
 
-    /// Like [`Self::init`], but bounding what the deadend memo carries from
+    /// Like [`Self::init`], but bounding what the dead-end memo carries from
     /// one search into the next (see [`Solver::advance_generation`]).
     pub fn with_carry_capacity(limits: Vec<u8>, carry_capacity: usize) -> Self {
         Self {

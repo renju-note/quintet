@@ -408,7 +408,7 @@ The three checks take, per line through `p`, the mask
 kind)` would give start (§3.1), without building them; `forbidden` reads
 all three kinds from each line in one pass (`Grid::row_starts_on` gives
 the same for one kind). Asking whether there is one (`any`), or more than
-one (`distinctive_starts`, below), is then a test on bits.
+one (`has_multiple_starts`, below), is then a test on bits.
 
 An `Overlining` is two adjacent segments, each holding 4 black stones and
 both containing the empty point `p`. Together they span 6 cells with 5
@@ -418,11 +418,11 @@ stones, so playing `p` completes a run of six or more.
 
 ```rust
 fn double_four(swords: [u16; 4]) -> bool {
-    distinctive_starts(swords)
+    has_multiple_starts(swords)
 }
 ```
 
-Every `Sword` through `p` becomes a `Four` when `p` is played. `distinctive`
+Every `Sword` through `p` becomes a `Four` when `p` is played. `has_multiple_rows`
 returns true as soon as the iterator yields an index other than the first
 segment's `first` and its neighbour `first.walk(1)`: it counts two adjacent
 segments as one and asks whether there are at least two segments left. The
@@ -435,9 +435,9 @@ neighbour is excluded for the following reason:
   case on different lines, but also on the same line when the shape is like
   `o.o_o.o`, which gives two distinct fives-to-be.
 
-`distinctive_starts` asks the same of the masks: a second line with a start,
+`has_multiple_starts` asks the same of the masks: a second line with a start,
 or, on the first one, a start other than its lowest `j` and `j + 1`
-(`s & !(0b11 << s.trailing_zeros()) != 0`). `distinctive` itself is still
+(`s & !(0b11 << s.trailing_zeros()) != 0`). `has_multiple_rows` itself is still
 used on the `Three`s below, which have to be looked at one by one.
 
 ### Double-three (rules 9.2 c and 9.3)
@@ -445,18 +445,18 @@ used on the `Three`s below, which have to be looked at one by one.
 ```rust
 fn double_three(g, p, twos: [u16; 4]) -> bool {
     // cheap pre-filter: at least two "three-to-be" rows through p
-    if !distinctive_starts(twos) { return false; }
+    if !has_multiple_starts(twos) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
-    truthy_double_three(&next, p)
+    real_double_three(&next, p)
 }
 
-fn truthy_double_three(next, p) -> bool {
-    let truthy_threes = next.rows_on(p, Black, Three).filter(|s| {
+fn real_double_three(next, p) -> bool {
+    let real_threes = next.rows_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();   // the straight-four point
         forbidden_strict(next, eye).is_none()
     });
-    distinctive(&mut truthy_threes.map(|s| s.start_index()))
+    has_multiple_rows(&mut real_threes.map(|s| s.start_index()))
 }
 ```
 
@@ -480,7 +480,7 @@ Some notes on the check in step 3:
   move would be an overline or double-four) and 9.3 b (it would be a
   forbidden double-three).
 - The recursion `forbidden_strict → forbidden → double_three →
-  truthy_double_three → forbidden_strict → …` handles the "and so on"
+  real_double_three → forbidden_strict → …` handles the "and so on"
   nesting the rule describes.
 - Using the `_strict` variant matters: if the eye also completes a five on
   another line, that move is legal (and winning) under 9.2 even when it
@@ -516,7 +516,7 @@ As a worked example from the tests (`test_double_three`), consider playing
 ```
 
 Only the vertical direction has a `Two` through `H8`: `.o_o.` on vertical line H
-(it is found at two adjacent segments, so `distinctive` counts it once).
+(it is found at two adjacent segments, so `has_multiple_rows` counts it once).
 The horizontal `x.o_o.x` is capped by the `x`s, so no pair of segments
 fits and it is not a `Two` — it could never become a straight four.
 The pre-filter in step 1 therefore rejects the move without cloning the
@@ -575,4 +575,4 @@ and passing the board along when they sync or read it.
 | "Without making an overline" for Black | `Segment::alive`: no black stone in the margins. |
 | Forbidden: overline / double-four / double-three | `forbidden.rs`: `overline` / `double_four` / `double_three`. |
 | 9.2 "unless it makes a five" | `forbidden_strict`. |
-| 9.3 real vs. fake threes, recursive | `truthy_double_three` calling `forbidden_strict` on each three's eye. |
+| 9.3 real vs. fake threes, recursive | `real_double_three` calling `forbidden_strict` on each three's eye. |

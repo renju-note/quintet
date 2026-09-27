@@ -126,7 +126,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
     }
 
     /// Forgets both proof tables, both move caches and the nested VCF
-    /// solvers' deadends.
+    /// solvers' dead ends.
     fn clear(&mut self) {
         self.attacker_table.clear();
         self.defender_table.clear();
@@ -146,7 +146,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
         // The two candidate caches are `LruCache`s, already bounded.
     }
 
-    /// The two proof tables and the two nested VCF solvers' deadends.
+    /// The two proof tables and the two nested VCF solvers' dead ends.
     fn memo_len(&self) -> usize {
         self.attacker_table.len()
             + self.defender_table.len()

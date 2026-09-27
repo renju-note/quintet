@@ -49,7 +49,7 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 
 - `Game::init(&board, turn)` で盤面を 1 回だけクローンする。以後、探索中にクローンはしない。
 - `play(m)`: 石を置き、`turn` を反転。`undo()`: それを戻す。
-- `into_play(m, f)`: play → `f(self)` → undo をまとめて行い、`f` の結果を返す。すべてのソルバーはこれで木を歩く。
+- `with_move(m, f)`: play → `f(self)` → undo をまとめて行い、`f` の結果を返す。すべてのソルバーはこれで木を歩く。
 - 手は `Option<Point>`。`play(None)` は**パス**で、手番だけ反転する。連珠にパスはないが、追い手の定義（「何もしなければ相手はどうできるか」）に必要なので、ここでは普通の手として扱う。
 
 ### `check_event`: 盤上にすでにある四
@@ -77,7 +77,7 @@ pub trait State {
     fn attacker(&self) -> Player;
     fn limit(&self) -> u8;          fn set_limit(&mut self, limit: u8);
     // 提供メソッド:
-    fn play(&mut self, m: Option<Point>);   fn undo(&mut self);   fn into_play(..);
+    fn play(&mut self, m: Option<Point>);   fn undo(&mut self);   fn with_move(..);
     fn attacking(&self) -> bool;    // turn == attacker
     fn key(&self) -> Key;           fn zobrist_hash(&self) -> u64;
     fn after_play(..) / after_undo(..)      // フック。VCTState が場の更新に使う
@@ -109,7 +109,7 @@ pub struct Key { pub position: u64, pub limit: u8 }
 `position` と `limit` を分けている理由: 覚え方が違うため。
 
 - **決着**（証明済み / 反証済み）は limit をまたいで有効。`limit` 以内の詰みはそれより大きい limit でも詰み。`limit` 以内で詰みなしなら、それより小さい limit でもなし。だから決着は `position` だけをキーにし、limit はデータとして持つ。
-  - `DFSSolver::deadends`: 四追いがないと分かった最大 limit。
+  - `DFSSolver::dead_ends`: 四追いがないと分かった最大 limit。
   - `ProofTable::decided`: 証明された最小 limit と、反証された最大 limit。
 - **決着していない情報**（証明数の途中経過、候補手リスト）は、特定の limit の木についてだけ成り立つ。そのため両方を合わせた `Key::hash()` をキーにする（`ProofTable::estimates`、候補手キャッシュ）。
 
@@ -166,7 +166,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 | ソルバーとは何か | `solver.rs` の `Solver`。`solve` = `advance_generation` + 各ソルバーの `search` |
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。受けの手ごとに `State::play` で 1 減る |
 | ハッシュに攻め方が入る理由 | `State::key`。1 つのソルバーで両方の色に答えるため |
-| 決着のキーに limit がない理由 | 決着は limit をまたいで有効（§3）。`DFSSolver::deadends`、`ProofTable::decided` |
+| 決着のキーに limit がない理由 | 決着は limit をまたいで有効（§3）。`DFSSolver::dead_ends`、`ProofTable::decided` |
 | メモが育たない理由 | `Memo::advance_generation`。`carry_capacity` を超えると直前の世代以外を捨てる |
 | メモされない理由 | 打ち切られた探索は何も書かない。`!budget.is_exhausted()` のガード |
 | 1 ノードとは | `DFSSolver::search` / `search_attacks` / `search_defences` の 1 回の呼び出し |

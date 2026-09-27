@@ -219,12 +219,12 @@ impl VCTState {
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut game = self.game().clone();
         game.play(None);
-        let threater = game.turn;
+        let threatener = game.turn;
         let mut result = vec![];
         for &p in &threat.path {
             let turn = game.turn;
             game.play(Some(p));
-            if turn == threater {
+            if turn == threatener {
                 continue;
             }
             let swords = game.board().rows_on(p, turn, Sword);
@@ -302,7 +302,7 @@ mod tests {
             // Two plies, so that the turn and the limit have both moved.
             for &first in &moves {
                 let predicted = state.next_key(Some(first));
-                let actual = state.into_play(Some(first), |c| c.key());
+                let actual = state.with_move(Some(first), |c| c.key());
                 assert_eq!(predicted, actual, "{attacker:?} {first}");
 
                 state.play(Some(first));
@@ -311,7 +311,7 @@ mod tests {
                         continue;
                     }
                     let predicted = state.next_key(Some(second));
-                    let actual = state.into_play(Some(second), |c| c.key());
+                    let actual = state.with_move(Some(second), |c| c.key());
                     assert_eq!(predicted, actual, "{attacker:?} {first},{second}");
                 }
                 state.undo();

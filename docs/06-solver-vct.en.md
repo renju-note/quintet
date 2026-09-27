@@ -137,7 +137,7 @@ the four calls the generators make:
 `vcf` asserts that its own side is to move and `threat` that the other side
 is; a call the other way round is a bug in the search, not a question. The
 solver inside is an `IDDFSSolver` with `limits = [1]`, called through
-`search` so that its deadend memo (04, §5) lives for the whole VCT search
+`search` so that its dead-end memo (04, §5) lives for the whole VCT search
 and across searches, and is charged to the same `NodeBudget`.
 
 ## 3. Move generation (`generator.rs`)
@@ -185,7 +185,7 @@ The caches start empty and grow as they fill (`candidates_cache`), so a
 small search pays nothing for the capacity; `LruCache::with_hasher` would
 allocate the whole table up front. A larger cache also changes some lines,
 not only the number of nodes: what the generators produce can depend on
-what the nested VCF solvers' memos hold (a deadend hands back the zone of
+what the nested VCF solvers' memos hold (a dead end hands back the zone of
 the search that stored it), so a node whose moves are generated again may
 see other moves than the first time.
 
@@ -394,11 +394,11 @@ expand_attacks(state, attacks, threshold):
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if budget exhausted:                                     return s
         if s.fresh and s.best is forbidden:
-            into_play(s.best): attacker_table.insert(child, disproven)
+            with_move(s.best): attacker_table.insert(child, disproven)
             children[s.best] = disproven
             continue
         next = P::next_threshold_attack(s, threshold)
-        into_play(s.best):
+        with_move(s.best):
             result = search_defences(child, next)
             if budget not exhausted: attacker_table.insert(child, result)
         children[s.best] = result
@@ -635,7 +635,7 @@ board took about a fifth of the search's time.
 | A counter-attack refutation is missing | `defender_vcf.vcf` is bounded by `defender_vcf_depth` (2); deeper counter-VCFs are found only if a counter-four is in `threat_defences`. Raise it with `SolveLimits::with_defender_vcf_depth` |
 | Move ordering | `VCTState::priority` over the `ShapeMap` (§8); attack candidates need a `Two` or more along some line |
 | Which mode does what | `ThresholdPolicy` in `threshold.rs`; everything else is shared |
-| Transposition tables | `attacker_table` / `defender_table` (`ProofTable`), the two `LruCache`s, the nested solvers' `deadends`; all keyed by `State::key()`, decisions by position alone |
+| Transposition tables | `attacker_table` / `defender_table` (`ProofTable`), the two `LruCache`s, the nested solvers' `dead_ends`; all keyed by `State::key()`, decisions by position alone |
 | Why do decisions carry between limits only from some depth? | `transfer_from` in `ProofTable` (§4) |
 | Path extraction | `extract`; `End::Unknown` means no proven child to follow |
 | Adding a regression case | ASCII board + expected path in `solve.rs`, one assertion per relevant `SolveMode` |

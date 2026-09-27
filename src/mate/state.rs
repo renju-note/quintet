@@ -25,8 +25,7 @@ pub trait State {
         self.after_undo(maybe_last_move);
     }
 
-    #[allow(clippy::wrong_self_convention)]
-    fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
+    fn with_move<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,
     {
@@ -139,7 +138,7 @@ mod tests {
         state.play(Some("K11".parse()?));
         assert_eq!(state.limit(), 2);
 
-        let limit = state.into_play(Some("L12".parse()?), |s| s.limit());
+        let limit = state.with_move(Some("L12".parse()?), |s| s.limit());
         assert_eq!(limit, 1);
         assert_eq!(state.limit(), 2);
 

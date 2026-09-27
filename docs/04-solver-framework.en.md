@@ -56,8 +56,8 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 
 `Game::init(&board, turn)` clones the board once. From then on the search
 never clones again: `play(m)` puts a stone and flips `turn`, `undo()` takes
-it back, and `into_play(m, f)` does play → `f(self)` → undo, returning
-`f`'s result. Every solver walks its tree with `into_play`.
+it back, and `with_move(m, f)` does play → `f(self)` → undo, returning
+`f`'s result. Every solver walks its tree with `with_move`.
 
 A move is an `Option<Point>`. `play(None)` is a **pass**: the turn flips and
 the board stays. A pass is how a threat is defined — "what could the other
@@ -94,7 +94,7 @@ pub trait State {
     fn attacker(&self) -> Player;
     fn limit(&self) -> u8;          fn set_limit(&mut self, limit: u8);
     // provided:
-    fn play(&mut self, m: Option<Point>);   fn undo(&mut self);   fn into_play(..);
+    fn play(&mut self, m: Option<Point>);   fn undo(&mut self);   fn with_move(..);
     fn attacking(&self) -> bool;    // turn == attacker
     fn key(&self) -> Key;           fn zobrist_hash(&self) -> u64;
     fn after_play(..) / after_undo(..)      // hooks, used by VCTState for its field
@@ -135,7 +135,7 @@ The two parts are kept apart because they are remembered differently:
 - A **decision** — proven or disproven — is a *bound*, not a fact about one
   limit. A mate within `limit` is a mate within any larger limit; no mate
   within `limit` is no mate within any smaller one. So decisions are stored
-  under `position` alone, with the limit as data: `DFSSolver::deadends`
+  under `position` alone, with the limit as data: `DFSSolver::dead_ends`
   keeps the largest limit with no VCF, `ProofTable::decided` keeps the
   smallest proven and largest disproven limit.
 - **Anything short of a decision** — a proof number, a candidate list — is
@@ -186,7 +186,7 @@ Every table a solver keeps is a `Memo`, or a pair of them (`ProofTable`).
 Three rules govern what goes in and when it leaves.
 
 **What is stored stays true.** Every entry is a fact about its key — a
-deadend, a proof, a disproof, a proof-number estimate — and the key
+dead end, a proof, a disproof, a proof-number estimate — and the key
 contains everything the fact depends on (§3). So a memo never needs to be
 invalidated, only bounded.
 
@@ -206,7 +206,7 @@ the same child forever. Within one search, the node budget is the bound.
 And one rule about what is *not* stored, from `NodeBudget`:
 
 **An aborted search writes nothing.** When the budget runs out, `None` /
-"unknown" propagates up, and every insert on the way is skipped: no deadend
+"unknown" propagates up, and every insert on the way is skipped: no dead end
 in `DFSSolver`, no node in a `ProofTable`, no list in a candidate cache.
 A memo entry made from a search that gave up would be a guess dressed as a
 fact. The checks are the `!budget.is_exhausted()` guards next to every
@@ -232,7 +232,7 @@ on a proof for want of budget would be pointless.
 | What is a solver, minimally? | `Solver` in `solver.rs`: `solve` = `advance_generation` + the solver's own `search` |
 | Why did the search stop at depth N? | `limit` counts attacker moves and is decremented in `State::play` after each defender move |
 | Why is the attacker in the hash? | `State::key` — one solver answers about both sides |
-| Why are decisions keyed without the limit? | A decision is a bound over limits (§3); `DFSSolver::deadends`, `ProofTable::decided` |
+| Why are decisions keyed without the limit? | A decision is a bound over limits (§3); `DFSSolver::dead_ends`, `ProofTable::decided` |
 | Why did the memo not grow? | `Memo::advance_generation` drops all but the previous generation once over `carry_capacity` |
 | Why is something not memoized? | Aborted searches write nothing — the `!budget.is_exhausted()` guards |
 | What is one node? | One call of `DFSSolver::search` / `search_attacks` / `search_defences` |

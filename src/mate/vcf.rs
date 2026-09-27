@@ -5,7 +5,7 @@
 //! generates those pairs from the `Sword` rows on the board (three
 //! stones with two empty eyes: play one eye, the other is the block);
 //! [`DFSSolver`] searches them depth-first, memoizing the positions it has
-//! shown to be deadends; [`IDDFSSolver`] runs it at increasing limits.
+//! shown to be dead ends; [`IDDFSSolver`] runs it at increasing limits.
 //!
 //! Besides answering `SolveMode::VCFDFS`, this is the subroutine the VCT
 //! solver asks whether a move is a threat: would the other side have a VCF

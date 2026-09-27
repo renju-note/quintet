@@ -280,7 +280,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 fn overline(overlinings: [u16; 4]) -> bool { any(overlinings) }
 ```
 
-3 つの判定は、`p` を通る線ごとに、`rows_on(p, Black, kind)` が返す連の始点のマスク `Line::row_starts_on(i, Black, kind)`（§3.1）を、連を組み立てずに受け取る。`forbidden` は各線から 3 種類をまとめて 1 パスで読む（1 種類だけなら `Grid::row_starts_on` が同じものを返す）。連があるか（`any`）、2 つ以上あるか（後述の `distinctive_starts`）は、ビットの判定で済む。
+3 つの判定は、`p` を通る線ごとに、`rows_on(p, Black, kind)` が返す連の始点のマスク `Line::row_starts_on(i, Black, kind)`（§3.1）を、連を組み立てずに受け取る。`forbidden` は各線から 3 種類をまとめて 1 パスで読む（1 種類だけなら `Grid::row_starts_on` が同じものを返す）。連があるか（`any`）、2 つ以上あるか（後述の `has_multiple_starts`）は、ビットの判定で済む。
 
 `Overlining`（六腐）は、隣り合う 2 つのセグメントがそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
 
@@ -288,34 +288,34 @@ fn overline(overlinings: [u16; 4]) -> bool { any(overlinings) }
 
 ```rust
 fn double_four(swords: [u16; 4]) -> bool {
-    distinctive_starts(swords)
+    has_multiple_starts(swords)
 }
 ```
 
-`p` を通る各 `Sword`（剣先）は、`p` に打つと `Four` になる。`distinctive` は、最初のセグメントの索引 `first` とその隣 `first.walk(1)` 以外の索引が 1 つでも現れれば真を返す。つまり、隣り合う 2 つのセグメントを 1 つと数えたうえで、セグメントが 2 つ以上あるかを見ている。隣のセグメントを除くのは次の理由による:
+`p` を通る各 `Sword`（剣先）は、`p` に打つと `Four` になる。`has_multiple_rows` は、最初のセグメントの索引 `first` とその隣 `first.walk(1)` 以外の索引が 1 つでも現れれば真を返す。つまり、隣り合う 2 つのセグメントを 1 つと数えたうえで、セグメントが 2 つ以上あるかを見ている。隣のセグメントを除くのは次の理由による:
 
 - 同一線上の隣り合うセグメントにある 2 つの `Sword` は、1 つの棒四の両半分（`.oo_o.` → `.oooo.`）である。四としては 1 つなので二重に数えない。
 - 隣接しない 2 つのセグメントは本物の四四である。別の線上にある場合はもちろん、同一線上でも `o.o_o.o` のように 2 つの異なる五候補になる場合が該当する。
 
-`distinctive_starts` は同じことをマスクについて調べる。始点のある線が 2 本目にもあるか、最初の線で最小の始点 `j` と `j + 1` 以外に始点がある（`s & !(0b11 << s.trailing_zeros()) != 0`）なら真である。`distinctive` そのものは、1 つずつ見る必要がある下の `Three` に使う。
+`has_multiple_starts` は同じことをマスクについて調べる。始点のある線が 2 本目にもあるか、最初の線で最小の始点 `j` と `j + 1` 以外に始点がある（`s & !(0b11 << s.trailing_zeros()) != 0`）なら真である。`has_multiple_rows` そのものは、1 つずつ見る必要がある下の `Three` に使う。
 
 ### 三三（9.2 c および 9.3）
 
 ```rust
 fn double_three(g, p, twos: [u16; 4]) -> bool {
     // 軽い前段フィルタ: p を通る二連（Two）が 2 つ以上
-    if !distinctive_starts(twos) { return false; }
+    if !has_multiple_starts(twos) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
-    truthy_double_three(&next, p)
+    real_double_three(&next, p)
 }
 
-fn truthy_double_three(next, p) -> bool {
-    let truthy_threes = next.rows_on(p, Black, Three).filter(|s| {
+fn real_double_three(next, p) -> bool {
+    let real_threes = next.rows_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();   // 達四点
         forbidden_strict(next, eye).is_none()
     });
-    distinctive(&mut truthy_threes.map(|s| s.start_index()))
+    has_multiple_rows(&mut real_threes.map(|s| s.start_index()))
 }
 ```
 
@@ -329,7 +329,7 @@ fn truthy_double_three(next, p) -> bool {
 手順 3 の判定について補足する:
 
 - 眼に対する `forbidden_strict` の呼び出しは、9.3 a（達四の手が長連や四四になる）と 9.3 b（達四の手が禁手の三三になる）の両方をカバーする。
-- `forbidden_strict → forbidden → double_three → truthy_double_three → forbidden_strict → …` という再帰が、ルールの言う「以下同様」の入れ子を処理する。
+- `forbidden_strict → forbidden → double_three → real_double_three → forbidden_strict → …` という再帰が、ルールの言う「以下同様」の入れ子を処理する。
 - `_strict` 版を呼ぶことが重要である。眼が別の線で同時に五を作る場合、その手は四四を形成していても 9.2 により合法（かつ勝ち）なので、その三は本物として数える（`test_double_three_eye_makes_five`）。
 - 判定は再帰的なので、この五は候補手自身が作った四によるものでもよい。その場合は候補手自体の判定が反転する（`test_double_three_nested_eye_makes_five`）。
 - なお RIF 9.3 a) の字面は「長連または四四ができない限り」であり、9.2 の五の例外を再掲していない。本実装はこれを「*禁手*にならない限り」と読んでいる。9.2 および日本連珠社規約の三の定義と整合する解釈である。
@@ -354,7 +354,7 @@ fn truthy_double_three(next, p) -> bool {
  . . . . . . . . . . . . . . .
 ```
 
-`H8` を通る `Two` があるのは縦方向だけである（H 列の `.o_o.`。隣り合う 2 つのセグメントで見つかるので、`distinctive` は 1 つと数える）。横の `x.o_o.x` は両側を `x` に挟まれていてセグメントの組が収まらないので、`Two` ではない。この形からは棒四を作れない。したがって手順 1 の前段フィルタが、盤をクローンせずにこの手を却下し、結果は `None` になる。
+`H8` を通る `Two` があるのは縦方向だけである（H 列の `.o_o.`。隣り合う 2 つのセグメントで見つかるので、`has_multiple_rows` は 1 つと数える）。横の `x.o_o.x` は両側を `x` に挟まれていてセグメントの組が収まらないので、`Two` ではない。この形からは棒四を作れない。したがって手順 1 の前段フィルタが、盤をクローンせずにこの手を却下し、結果は `None` になる。
 
 2 つの `x` を取り除くと、両方向に `Two` ができる。`H8` に打つと両方が、達四点に合法に打てる `Three` になるので、結果は `Some(DoubleThree)` になる。入れ子の「偽の三」の局面（テストのコメントにある Twitter スレッドのもの）など、ほかのケースは `forbidden.rs` のテストにある。
 
@@ -385,4 +385,4 @@ fn truthy_double_three(next, p) -> bool {
 | 黒の「長連を作らずに」 | `Segment::alive`: マージンに黒石がないこと。 |
 | 禁手: 長連 / 四四 / 三三 | `forbidden.rs`: `overline` / `double_four` / `double_three`。 |
 | 9.2「同時に五を作る場合を除く」 | `forbidden_strict`。 |
-| 9.3 本物の三と偽の三、再帰 | `truthy_double_three` が各三の眼に `forbidden_strict` を呼ぶ。 |
+| 9.3 本物の三と偽の三、再帰 | `real_double_three` が各三の眼に `forbidden_strict` を呼ぶ。 |
