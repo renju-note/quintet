@@ -38,12 +38,23 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 /// How many positions' candidates each of the two caches keeps. Unlike the
 /// proof tables they are a plain LRU, bounded within a search too: losing
 /// an entry only costs generating the moves again.
-const CANDIDATES_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(1000).unwrap();
+///
+/// An entry takes about 280 bytes in the attacks cache (some 30 moves of 8
+/// bytes) and 110 in the defences cache (some 6), so the two together take
+/// about 25 MB when full. On the benchmark (07), going up from 1000 took
+/// 7% off the nodes and 10% off the time; larger caches bought little more
+/// (8% at 2^18 and at 2^20) for four and sixteen times the memory.
+const CANDIDATES_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(1 << 16).unwrap();
 
 pub(super) type CandidatesCache = LruCache<u64, Candidates, ZobristBuildHasher>;
 
+/// An empty cache that grows as it is filled. `LruCache::with_hasher` would
+/// allocate the table for the whole capacity up front, for every solver,
+/// however small its search.
 fn candidates_cache() -> CandidatesCache {
-    LruCache::with_hasher(CANDIDATES_CACHE_CAPACITY, ZobristBuildHasher::default())
+    let mut cache = LruCache::unbounded_with_hasher(ZobristBuildHasher::default());
+    cache.resize(CANDIDATES_CACHE_CAPACITY);
+    cache
 }
 
 impl<P: ThresholdPolicy> VCTSolver<P> {

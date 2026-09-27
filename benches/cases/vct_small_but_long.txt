@@ -1,12 +1,12 @@
 # Formerly the bench_vct_small_but_long test. The line below, found since
-# df-pn took the 1 + epsilon trick, is a mate: every defence along it was
-# tried and refuted.
+# the candidates caches grew to 65536 entries, is a mate: every defence
+# along it was tried and refuted.
 mode: vct_dfpns
 attacker: o
 limit: 255
 threat_limit: 3
 tags: vct proven slow
-expect: F6,E5,E7,D8,G9,H10,I9,J10,H4,I3,F10,E11,J6,I7,I5,G3,J5,K5,K7,L8,J8,J7,L6,M5,K6,N6,D6,C5,I4,M7,K9,L7,F5,H5,H9,J9,E9,F9,D10,C11,E10,C10,E6,E8,C6
+expect: F6,E5,E7,D8,G9,H10,F10,E11,H4,I3,J6,I7,I5,K7,I9,J10,J5,F5,H5,K5,G3,F2,J7,J4,J9,J8,H9
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .
