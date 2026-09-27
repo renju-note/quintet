@@ -174,6 +174,7 @@ impl ShapeMap {
     fn update(&mut self, k: usize, board: &Board) {
         let (d, i) = Grid::line_of_key(k);
         let line = board.line(d, i).unwrap();
+        let (start, step) = cell_codes(d, i);
         for r in [Black, White] {
             // Lowest first, so that a cell gets the biggest shape it makes.
             let masks = [
@@ -189,18 +190,33 @@ impl ShapeMap {
                 (Shape::Four, line.row_eyes(r, Sword)),
                 (Shape::Five, line.row_eyes(r, Four)),
             ];
+            let mut cells = [Shape::Nothing; RANGE as usize];
+            for (s, mask) in masks {
+                for j in Bits(mask) {
+                    cells[j as usize] = s;
+                }
+            }
             let shapes = &mut self.shapes[r.index()];
-            for j in 0..line.size {
-                let p = Index::new(d, i, j).to_point();
-                let s = masks
-                    .iter()
-                    .rev()
-                    .find(|(_, mask)| mask & 1 << j != 0)
-                    .map_or(Shape::Nothing, |&(s, _)| s);
-                shapes[u8::from(p) as usize].0[d as usize] = s;
+            for (j, &s) in cells[..line.size as usize].iter().enumerate() {
+                shapes[start + j * step].0[d as usize] = s;
             }
         }
     }
+}
+
+/// Cell `j` of line `i` in direction `d` is the point whose code
+/// (`u8::from`) is `start + j * step`: a code is `x * RANGE + y`, and a step
+/// along a line moves `x` and `y` by a fixed amount. Cheaper than
+/// [`Index::to_point`] for every cell.
+fn cell_codes(d: Direction, i: u8) -> (usize, usize) {
+    let start = u8::from(Index::new(d, i, 0).to_point()) as usize;
+    let step = match d {
+        Direction::Vertical => 1,
+        Direction::Horizontal => RANGE as usize,
+        Direction::Ascending => RANGE as usize + 1,
+        Direction::Descending => RANGE as usize - 1,
+    };
+    (start, step)
 }
 
 impl Default for ShapeMap {
@@ -212,13 +228,30 @@ impl Default for ShapeMap {
 #[cfg(test)]
 mod tests {
     use super::Shape::*;
-    use super::{Shape, ShapeMap};
+    use super::{Shape, ShapeMap, cell_codes};
     use crate::board::Direction::Vertical;
     use crate::board::Player::{self, *};
-    use crate::board::{Board, Points};
+    use crate::board::{Board, Grid, Index, LINE_NUM, Points};
 
     fn shapes(map: &ShapeMap, p: &str, r: Player) -> [Shape; 4] {
         map.get(p.parse().unwrap(), r).0
+    }
+
+    #[test]
+    fn test_cell_codes_match_the_points() {
+        let board = Board::new();
+        for k in 0..LINE_NUM {
+            let (d, i) = Grid::line_of_key(k);
+            let (start, step) = cell_codes(d, i);
+            for j in 0..board.line(d, i).unwrap().size {
+                let p = Index::new(d, i, j).to_point();
+                assert_eq!(
+                    start + j as usize * step,
+                    u8::from(p) as usize,
+                    "{d:?} {i} {j}"
+                );
+            }
+        }
     }
 
     #[test]
