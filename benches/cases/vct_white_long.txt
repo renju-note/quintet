@@ -1,13 +1,13 @@
 # Formerly the bench_vct_white test. Its expected line changed in #110, when
-# expand_attacks stopped always expanding its best attack once (#108). The
-# line below is a mate: every defence along it was tried and refuted
-# (issue #148).
+# expand_attacks stopped always expanding its best attack once (#108), and
+# again when df-pn took the 1 + epsilon trick. Both lines are mates: every
+# defence along each was tried and refuted (issue #148).
 mode: vct_dfpns
 attacker: x
 limit: 15
 threat_limit: 2
 tags: vct proven slow
-expect: N12,M11,K11,K10,N8,H5,H6,L8,J5,J7,M5,F3,I6,D1,E2,L4,M6,K5,J4,K3,J3,J2,K4,L5,M4,L3,L2,M3,N5
+expect: K11,K10,N12,M11,N8,H5,H6,L8,J5,J7,M5,F3,I6,D1,E2,L4,M6,K5,N5,L7,J4,G7,N7,G3,G5,M4,L5,J3,N6
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .

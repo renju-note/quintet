@@ -6,7 +6,8 @@
 # cannot be threats were left out. Weighting the attacks' first proof
 # numbers by the fours and threes they make brought that to about 42M, and
 # ordering moves by their shapes instead of a potential field to about 40M
-# and the line below. All of these lines are
+# and the line below; the df-pn 1 + epsilon trick to about 25M, by the same
+# line. All of these lines are
 # mates: every defence along each was tried and refuted. See
 # docs/06-solver-vct.en.md §5 and issue #148.
 mode: vct_dfpns
