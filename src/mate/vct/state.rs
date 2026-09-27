@@ -1,7 +1,6 @@
 use crate::board::RowKind::*;
 use crate::board::*;
 use crate::feature::area::Area;
-use crate::feature::potential::PotentialField;
 use crate::feature::shape::{Shape, ShapeMap};
 use crate::feature::sword::SwordMap;
 use crate::mate::game::*;
@@ -13,21 +12,19 @@ pub struct VCTState {
     game: Game,
     pub attacker: Player,
     pub limit: u8,
-    field: PotentialField,
     shapes: ShapeMap,
     /// The swords, kept only to hand to the nested VCF states.
     swords: SwordMap,
 }
 
 impl VCTState {
-    pub fn new(game: Game, limit: u8, field: PotentialField) -> Self {
+    pub fn new(game: Game, limit: u8) -> Self {
         let swords = SwordMap::init(game.board());
         let shapes = ShapeMap::init(game.board());
         Self {
             attacker: game.turn,
             game,
             limit,
-            field,
             shapes,
             swords,
         }
@@ -35,8 +32,7 @@ impl VCTState {
 
     pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
         let game = Game::init(board, attacker);
-        let field = PotentialField::init(attacker, 2, board);
-        Self::new(game, limit, field)
+        Self::new(game, limit)
     }
 
     pub fn vcf_state(&mut self, max_limit: u8) -> VCFState {
@@ -92,18 +88,19 @@ impl VCTState {
     }
 
     /// The attacker's candidate moves, best first ([`Self::priority`]):
-    /// the points where the attacker's potential is at least 3, or only
-    /// those of `only`.
+    /// the points where the attacker makes at least a [`Shape::Two`] on
+    /// some line, or only those of `only`.
     pub fn sorted_attacks(&mut self, only: Option<Vec<Point>>) -> Vec<Point> {
-        self.field.sync(self.game.board());
+        self.shapes.sync(self.game.board());
         let points = match only {
-            Some(only) => only
-                .into_iter()
-                .map(|p| (p, self.field.get(p)))
-                .filter(|&(_, o)| o >= 3)
-                .collect(),
-            None => self.field.collect(3),
+            Some(only) => only,
+            None => self.game.board().empties().collect(),
         };
+        let attacker = self.attacker;
+        let points = points
+            .into_iter()
+            .filter(|&p| self.shapes.get(p, attacker).count_from(Shape::Two) > 0)
+            .collect();
         self.sort_by_priority(points)
     }
 
@@ -123,37 +120,36 @@ impl VCTState {
     /// The defender's candidate moves `points`, best first
     /// ([`Self::priority`]).
     pub fn sorted_defences(&mut self, points: Vec<Point>) -> Vec<Point> {
-        self.field.sync(self.game.board());
-        let points = points.into_iter().map(|p| (p, self.field.get(p))).collect();
         self.sort_by_priority(points)
     }
 
-    /// `points`, each with the attacker's potential there, without
-    /// duplicates and by [`Self::priority`], then by potential, highest
-    /// first.
-    fn sort_by_priority(&mut self, points: Vec<(Point, u8)>) -> Vec<Point> {
+    /// `points` without duplicates, by [`Self::priority`], highest first;
+    /// equal ones keep their order.
+    fn sort_by_priority(&mut self, points: Vec<Point>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
         let mut seen = [0u64; 4];
         let mut result: Vec<_> = points
             .into_iter()
-            .filter(|&(p, _)| {
+            .filter(|&p| {
                 let i = u8::from(p) as usize;
                 let (word, bit) = (i / 64, 1 << (i % 64));
                 let new = seen[word] & bit == 0;
                 seen[word] |= bit;
                 new
             })
-            .map(|(p, o)| (p, (self.priority(p, o), o)))
+            .map(|p| (p, self.priority(p)))
             .collect();
         result.sort_by_key(|&(_, key)| std::cmp::Reverse(key));
         result.into_iter().map(|(p, _)| p).collect()
     }
 
     /// How promising a move to `p` is for the side to move, for move
-    /// ordering: the attacker's `potential` there, plus what the move
-    /// makes for the side to move ([`ShapeMap`]), the way a player sizes
-    /// up a move:
+    /// ordering: what the move makes for the side to move ([`ShapeMap`]),
+    /// the way a player sizes up a move:
     ///
+    /// - every line counts by the shape it makes
+    ///   ([`Shapes::total`](crate::feature::shape::Shapes::total)), a two
+    ///   or a sword too, as the next threats are made of them;
     /// - a four or a three narrows the opponent's replies;
     /// - a move making threats along several lines at once is stronger
     ///   than its lines one by one;
@@ -163,27 +159,30 @@ impl VCTState {
     /// - for White, a four or three with an eye where Black's stone looks
     ///   forbidden is strong, as Black cannot answer there.
     ///
-    /// A defence is foremost a block, so the defender's own shapes count
-    /// half.
-    fn priority(&self, p: Point, potential: u8) -> i32 {
+    /// A defence leaves out the first. Ordering defences by how much the
+    /// attacker wants the point, by its stones or its shapes there, made
+    /// the search larger on the benchmark than these terms alone.
+    fn priority(&self, p: Point) -> i32 {
         let mover = self.game.turn;
         let mine = self.shapes.get(p, mover);
-        let mut bonus = 5 * mine.count(Shape::Four) as i32
+        let mut value = if self.attacking() {
+            mine.total() as i32
+        } else {
+            0
+        };
+        value += 5 * mine.count(Shape::Four) as i32
             + 2 * mine.count(Shape::Three) as i32
             + 5 * mine.count_from(Shape::Sword).saturating_sub(1) as i32;
         let (fours, threes) = self.shapes.forbidden_eyes(self.game.board(), p, mover);
         if mover.is_white() {
-            bonus += 20 * fours as i32 + 10 * threes as i32;
+            value += 20 * fours as i32 + 10 * threes as i32;
         } else {
-            bonus -= 2 * threes as i32;
+            value -= 2 * threes as i32;
             if mine.looks_forbidden() {
-                bonus -= 20;
+                value -= 20;
             }
         }
-        if !self.attacking() {
-            bonus /= 2;
-        }
-        potential as i32 + bonus
+        value
     }
 
     /// The biggest [`Shape`] a stone of the side to move at `p` makes on
@@ -272,7 +271,6 @@ impl State for VCTState {
 
     fn after_play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
-            self.field.mark_stale(next_move);
             self.shapes.mark_stale(next_move);
             self.swords.mark_stale(next_move);
         }
@@ -280,7 +278,6 @@ impl State for VCTState {
 
     fn after_undo(&mut self, maybe_last_move: Option<Point>) {
         if let Some(last_move) = maybe_last_move {
-            self.field.mark_stale(last_move);
             self.shapes.mark_stale(last_move);
             self.swords.mark_stale(last_move);
         }
@@ -326,10 +323,10 @@ mod tests {
         }
     }
 
-    /// The field is only brought up to date when it is read, so after any
-    /// run of plays and undos it has to read as a fresh one would.
+    /// The shapes are only brought up to date when they are read, so after
+    /// any run of plays and undos they have to read as fresh ones would.
     #[test]
-    fn test_lazy_field_matches_a_fresh_one() -> Result<(), String> {
+    fn test_lazy_shapes_match_fresh_ones() -> Result<(), String> {
         let moves = "G7,K9,H9,F6".parse::<Points>()?.into_vec();
         let mut state = VCTState::init(&board(), Black, 4);
         for (k, &m) in moves.iter().enumerate() {

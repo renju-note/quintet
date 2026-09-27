@@ -7,7 +7,7 @@ attacker: o
 limit: 17
 threat_limit: 2
 tags: vct proven game slow heavy
-expect: E10,E11,F9,G10,F10,F11,F7,F6,E7,E6,G7,G11,G12,H7,C10,D11,C11,J10,K10,K13,J12,D9,D12,C12,C7,D7,D8,B6,C9,C8,B10,A11,E13
+expect: E10,J12,K13,E11,F9,G10,F10,F11,F7,F6,E7,E6,G7,G11,G12,J10,K10,C11,D11,H7,C10,G6,C7,D7,D8,B6,C8,B8,C12,B13,E12,D12,B9
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .

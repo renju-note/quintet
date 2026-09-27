@@ -4,7 +4,7 @@ attacker: o
 limit: 255
 threat_limit: 3
 tags: vct proven slow
-expect: F6,E5,E7,D8,G9,H10,F10,E11,H4,I3,J6,I7,I5,K7,J5,J7,L7,F5,I4,K6,G3,F2,G4,G6,F4
+expect: F6,E5,E7,H4,G9,H3,H5,H10,F10,E11,D8,C9,E9,C7,D6,C5,D10,C11,I9,J10,I7,J6,C8,E6,D7,D9,E8,B8,D5,D4,F9,H9,I10,I6,C6
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .

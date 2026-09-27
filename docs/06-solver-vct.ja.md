@@ -1,13 +1,13 @@
 # 追い詰め（VCT）探索（`src/mate/vct/`）
 
-**追い詰め**（VCT: victory by continuous threats）は、攻め手がすべて**追い手**である手順。追い手とは、四、三、または「受け方が何もしなければ攻め方に四追いが生じる手」。四追いと違って受け方に選択肢があるので、木は本物の AND/OR 木になり、ソルバーは**証明数**で探索する。このドキュメントはその探索と、手の並べ替えに使う `PotentialField` と `ShapeMap` を説明する。
+**追い詰め**（VCT: victory by continuous threats）は、攻め手がすべて**追い手**である手順。追い手とは、四、三、または「受け方が何もしなければ攻め方に四追いが生じる手」。四追いと違って受け方に選択肢があるので、木は本物の AND/OR 木になり、ソルバーは**証明数**で探索する。このドキュメントはその探索と、手の並べ替えに使う `ShapeMap` を説明する。
 
 前提: [04](04-solver-framework.ja.md) と [05](05-solver-vcf.ja.md)。特に `State`、`Key`、`Memo`、`Solver`、`DFSSolver`。
 
 ```
 src/mate/vct.rs         モジュールドキュメント: アルゴリズムの 1 ページ要約、再エクスポート、3 つのエイリアス
 src/mate/vct/
-├── state.rs            VCTState: Game + 攻め方 + limit + PotentialField + ShapeMap。            (§2, §3, §8)
+├── state.rs            VCTState: Game + 攻め方 + limit + ShapeMap + SwordMap。                  (§2, §3, §8)
 │                       threat_defences、sorted_attacks / sorted_defences、priority
 ├── nested_vcf.rs       NestedVCF: 片側の内部四追い探索                                          (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                        (§3)
@@ -17,7 +17,6 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold、PNSThreshold、DFPNSThreshold              (§5)
 ├── solver.rs           VCTSolver<P>: 構造体、Solver の実装                                      (§5)
 └── extractor.rs        extract: 表から詰み手順を復元する                                        (§6)
-src/feature/potential.rs   PotentialField                                                           (§8)
 src/feature/shape.rs       ShapeMap: 点・プレイヤー・方向ごとに、石を置くと何ができるか             (§8)
 ```
 
@@ -33,7 +32,7 @@ VCTSolver::solve = advance_generation; search; extract
 │   ├── generate_attacks                                                  §3
 │   │     attacker_vcf.vcf      四追いがある？           → Terminal(proven)。なければ関連領域
 │   │     defender_vcf.threat   追い手を受ける必要がある？ → threat_defences に絞る
-│   │     ポテンシャル ≥ 3 の点、priority 順                              §8
+│   │     二以上ができる点、priority 順                                   §8
 │   │     関連領域から追い手になりえない手を除く
 │   └── expand_attacks: loop { select_attack; 最良の子を打つ; search_defences; attacker_table に保存 }
 │
@@ -74,12 +73,12 @@ VCTSolver::solve = advance_generation; search; extract
 ```rust
 pub struct VCTState {
     game: Game, pub attacker: Player, pub limit: u8,
-    field: PotentialField, shapes: ShapeMap, swords: SwordMap,
+    shapes: ShapeMap, swords: SwordMap,
 }
 ```
 
-- `field` は攻め方の `PotentialField`（§8）で、`PotentialField::init(attacker, 2, board)` で作る。`shapes` は両プレイヤーの `ShapeMap`（§8）。`after_play` / `after_undo` はどちらにも打った点に「古い」印を付けるだけ。次に読まれるとき（`sorted_attacks` / `sorted_defences`）に、古い点を通る 4 本の線だけを更新する。読まれるのは、候補手がキャッシュになかったときだけ。
-- `VCTState` は `SwordMap`（02 §8）も同じように持つ。`vcf_state` / `threat_state` はそれを同期してからクローンを内部の `VCFState` に渡す。内部の四追いは同期済みの状態から始まり、次の四追いもこの計算を再利用できる。
+- `shapes` は両プレイヤーの `ShapeMap`（§8）。`after_play` / `after_undo` は着手の線に「古い」印を付けるだけ。次に読まれるとき（`sorted_attacks` / `sorted_defences`）に計算し直す。読まれるのは、候補手がキャッシュになかったときだけ。
+- `VCTState` は `SwordMap`（02 §7）も同じように持つ。`vcf_state` / `threat_state` はそれを同期してからクローンを内部の `VCFState` に渡す。内部の四追いは同期済みの状態から始まり、次の四追いもこの計算を再利用できる。
 - `next_key(m)` は `m` を打った後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
 
 ### 派生する 2 つの `VCFState`
@@ -136,7 +135,7 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 
 1. `attacker_vcf.vcf_or_zone`: 今すぐ四追いがあれば `Terminal(proven)`。正しさのためには不要（本探索でも `Forced` をたどれば四追いは見つかる）だが、大幅に速くなる。なければ、その探索の関連領域（05 §2）を返す。攻め方がもう 1 石置けば四追いが生まれうる点の集合である。
 2. `defender_vcf.threat`: 攻め方がパスすると受け方に四追いがあるなら、攻め手はそれも受ける必要がある。候補を `threat_defences(threat)` に絞る。
-3. 候補 = 攻め方の場でポテンシャル `≥ 3` の点（`sorted_attacks(only)`）を `priority`（§8）の順に並べたもの。その数が `width`。
+3. 候補 = `ShapeMap` で攻め方がどれかの線に `Two` 以上を作る点（`sorted_attacks(only)`）を `priority`（§8）の順に並べたもの。その数が `width`。
 4. そのうち追い手になりうる手（`may_threaten`）だけを残す: 関連領域にあるか、攻め方の石をすでに 2 つ含む区間にある手（`ShapeMap` でどれかの線が `Sword` 以上、§8。関連領域が呼び出し側に任せる部分）。それ以外の手は、パスされても攻め方に四追いを生まないので追い手ではない。予算切れのときは関連領域が不完全なので行わない。
 5. 禁手を除く。空なら `Terminal(disproven)`。
 6. 各候補に、それが作るいちばん大きな形（`best_shape`。`ShapeMap` から、§8）から見積もりを付ける。四なら `width / 4`、三なら `width / 2`、それ以外は `width`（§5「選択」）。
@@ -149,7 +148,7 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 
 1. `attacker_vcf.threat`: 受け方がパスしても攻め方に四追いがなければ、直前の攻め手は追い手ではない。`Terminal(disproven)`。
 2. `defender_vcf.vcf`: 受け方自身に（`defender_vcf_depth` 以内の）四追いがあれば、受け方が先に勝つ。`Terminal(disproven)`。
-3. 候補 = `threat_defences(threat)` を、**攻め方の**ポテンシャルから始まる `priority`（§8）の順に並べ（`sorted_defences`）、禁手を除いたもの。空なら `Terminal(proven)`（追い手に応手がない）。
+3. 候補 = `threat_defences(threat)` を `priority`（§8）の順に並べ（`sorted_defences`）、禁手を除いたもの。空なら `Terminal(proven)`（追い手に応手がない）。
 4. 各候補の見積もりは候補の数 `n`。
 
 ### `threat_defences`
@@ -359,64 +358,17 @@ extract_defences(state):                       # 受け方の手番
 | `H12`（白） | `Forced` | 1 |
 | `G12`（黒） | `G12,H11,I10,J9`。`F13` と `K8` が空 = `Fours` | 1 |
 
-根で `generate_attacks` は空点を `priority`（§8）順に並べる: `I10`（ポテンシャル 18）、`G10`（16）、`G9`（13、三で 2）、`H11`（10、四で 5）、`F10`（12、三で 2）、`I8`（12）、…。深さ優先モードはまず `I10` を試す。
+根で `generate_attacks` は候補を `priority`（§8）順に並べる: `H11`（10: 四と二で 5、四で 5）、`H12`（9）、`F10`（6: 三と二で 4、三で 2）、`G9`、`J6`、`K5`（各 5）、…。深さ優先モードはまず `H11` を試す。
 
-`I10` は 1 手で反証される。`I10` は三を作らないので、受け方ノードの `attacker_vcf.threat` は 1 手の四追いを見つけられず、`compute_defences` が `Terminal(disproven)` を返す。反証は `attacker_table` に入り、`select_attack` は次の候補に進み、やがて `F10` が証明される。
+白の `H12` は必然で、その四を使ってしまった黒には残り 3 手の追い詰めがないので、`H11` は反証される。反証は `attacker_table` に入り、`select_attack` は次の候補に進む。`H12` も同じく実らず、`F10` が証明される。
 
 ## 8. 手の並べ替え（`src/feature/`、`VCTState::priority`）
 
-見積もり（§3）が同じ候補の間では、候補の順序が、探索がどの子を最初に展開するかを決める。点の特徴は `src/feature/` の 2 つのキャッシュが表し、`VCTState::priority` がそれを重み付けする。
-
-### `PotentialField`（`src/feature/potential.rs`）
-
-生成器は「この点に石を置くと攻め方にどれだけ有利か」を、すべての空点について安く、常に最新の状態で知る必要がある。`PotentialField` は点ごと・方向ごとに `u8` を持ち（`Potential { v, h, a, d }`）、その合計を返す。
-
-**方向ごとの値**（`Board::potentials(player, min)`、02 §7）:
-
-1. その点を通るセグメントのうち、生きているもの（相手の石を含まず、黒ではさらにすぐ外に自分の石がない = 長連にならない）を取る。
-2. 各セグメントについて、そこに打った後にセグメントが含む自分の石の数を数える。`min` 以上なら残す。
-3. `max ×（その max に達したセグメントの数）` を報告する。
-
-`min = 2` なら、4 マス以内に自分の石が 1 つあるだけで点が付く。
-
-**更新**:
-
-- `init(player, min, board)` が場全体を埋める。
-- `update_along(p, board)` は `p` を通る 4 本の線をゼロにし（`reset_along`）、計算し直す（`potentials_along`）。
-- 遅延更新のため、`mark_stale(p)` は点を記録するだけにしてあり、`sync(board)` が記録済みの点すべてに `update_along` をかける。`VCTState` は打った点・戻した点を記録し、場を読む前に `sync` する。
-- したがって走査するのは盤面全体ではなく 1 点あたり 4 本の線だけで、候補をキャッシュから得る大多数のノードでは何もしない。
-
-**問い合わせ**:
-
-- `get(p)`: 4 方向の合計。`collect(min)`: 合計が `min` 以上の点すべて。
-- `VCTState::sorted_attacks` は `3` 以上の点を攻め手の候補にする。
-- `min` は 2 つある。構築時の `2` はセグメントを選ぶ閾値、問い合わせ時の `3` は合計の閾値。
-
-**オーバーレイ**: `overlay(board)` はデバッグ用に場を描く（`.` = 0）。§7 の盤面で `PotentialField::init(Black, 2, ..)` すると:
-
-```
- . . . . . . . . . . . . . . .
- . . . 2 . . . . . . . . . . .
- . . . 2 2 2 . . . 2 . 2 . 2 .
- . . . . 4 2 4 4 . 2 2 . 4 . .
- . . . . 3 6 210 x 4 . 4 . . .
- . . . 2 41216 o18 8 8 2 . . .
- . . . 2 2 213 o x o 2 2 2 2 .
- . . . . . 2 x o12 x 8 . . . .
- . . . . 2 . 2 x o 8 2 8 2 . .
- . . . 2 . 2 . 2 4 9 4 . 4 . .
- . . . . 2 . 2 . 4 . 6 2 . 2 .
- . . . 2 . 2 . . 4 . . 3 . . .
- . . . . 2 . . . 2 . . . . . .
- . . . . . . . . . . . . . . .
- . . . . . . . . . . . . . . .
-```
-
-`I10`（18）と `G10`（16）は黒の 2 本の線に同時に乗っているので、値が最も高い。受けを並べるときも場は**攻め方の**もの。攻め方の最良点に打つ受けが先に来る。
+見積もり（§3）が同じ候補の間では、候補の順序が、探索がどの子を最初に展開するかを決める。点の特徴は `src/feature/` のキャッシュが表し、`VCTState::priority` がそれを重み付けする。
 
 ### `ShapeMap`（`src/feature/shape.rs`）
 
-ポテンシャルは石の数を数えるだけで、何ができるかは見ない。剣先を四にする点が、開いた二を伸ばす点より低くなることもある。`ShapeMap` は、プレイヤーごと・空点ごとに、そこに石を置くと通る 4 本の線それぞれに何ができるか（`Shape`）を持つ:
+`ShapeMap` は、プレイヤーごと・空点ごとに、そこに石を置くと通る 4 本の線それぞれに何ができるか（`Shape`）を持つ:
 
 | `Shape` | その点は | 求め方（02 §3.1） |
 | --- | --- | --- |
@@ -427,16 +379,17 @@ extract_defences(state):                       # 受け方の手番
 | `Two` | 石を 1 つ含む開いたセグメント対の共有マス | `eyes_of(open_starts(r, 1), ..)` |
 | `Nothing` | 上のどれでもない、または石がある | |
 
-当てはまるうち最も大きいものを取る。`SwordMap`（02 §8）と同じく線ごとに持ち、着手で古い印を付けて `sync` で計算し直す。線・プレイヤーごとに数回のビット演算で済む。
+当てはまるうち最も大きいものを取る。`SwordMap`（02 §7）と同じく線ごとに持ち、着手で古い印を付けて `sync` で計算し直す。線・プレイヤーごとに数回のビット演算で済む。
 
-`get(p, r)` は 4 方向分を `Shapes` として返す。`Shapes` は数え（`count`、`count_from`）、1 方向を除き（`except`）、黒がそこに打てなさそうかを推測する（`looks_forbidden`: 四が 2 つか三が 2 つで、五がない。1 本の線上の四四、長連、三が偽であることは見ない）。`forbidden_eyes(board, p, r)` は、`r` が `p` に打って作る四・三のうち、黒の石が禁手に見える点に目が残るものを数える。白にとっては黒が止められない四、止め方の減る三。黒にとっては、そこで棒四にできない三。`p` の石は、目を通る線のうち連の線にしか乗らないので、ほかの線の黒の形はそのまま読める。
+`get(p, r)` は 4 方向分を `Shapes` として返す。`Shapes` は数え（`count`、`count_from`）、格の合計を出し（`total`: `Two` の 1 から `Five` の 5 まで）、1 方向を除き（`except`）、黒がそこに打てなさそうかを推測する（`looks_forbidden`: 四が 2 つか三が 2 つで、五がない。1 本の線上の四四、長連、三が偽であることは見ない）。`forbidden_eyes(board, p, r)` は、`r` が `p` に打って作る四・三のうち、黒の石が禁手に見える点に目が残るものを数える。白にとっては黒が止められない四、止め方の減る三。黒にとっては、そこで棒四にできない三。`p` の石は、目を通る線のうち連の線にしか乗らないので、ほかの線の黒の形はそのまま読める。
 
 ### `priority`
 
-`sorted_attacks` / `sorted_defences` は `VCTState::priority(p)`、次にポテンシャルの高い順に並べる。値は攻め方のポテンシャルに、手番側にとってその手が作るものを足したもので、人が手を見積もるやり方にならっている:
+`sorted_attacks` / `sorted_defences` は `VCTState::priority(p)` の高い順に並べる。同じ値のものは元の順を保つ。値は手番側にとってその手が作るもので、人が手を見積もるやり方にならっている:
 
 | 項 | 値 | 理由 |
 | --- | --- | --- |
+| 攻めのみ: 各方向の形の格 | `Shapes::total` | 次の追い手は二や剣先からも作られる |
 | `Four` 1 つごと | +5 | 相手の応手を 1 つに限定する |
 | `Three` 1 つごと | +2 | 相手の応手を数手に限定する |
 | `Sword` 以上になる方向、2 つ目から 1 つごと | +5 | 複数の線で同時に脅かす（四三、両狙い） |
@@ -444,7 +397,9 @@ extract_defences(state):                       # 受け方の手番
 | 黒: 達四点が禁手に見える三 1 つごと | −2 | その三は偽かもしれない |
 | 黒: その点自体が `looks_forbidden` | −20 | 本当の禁手はそもそも候補にならないので、残るのは外れた推測。三は見かけより少ない |
 
-受けでは、ポテンシャル以外の項を半分にする。受けはまず止めであり、受け方自身の脅威はその次である。重みはベンチマーク（07）で調整した。そのケースでは、ポテンシャルだけの場合と比べてノード数がおよそ 15% 減る。
+受けでは最初の項を除く。ここでの受けはどれも何らかの形で追い手を止める（`threat_defences`）。それらを攻め方がその点をどれだけ欲しいか（そこでの攻め方の石の数や形）で並べると、ベンチマーク（07）ではこれらの項だけの場合より探索が大きくなった。重みもベンチマークで調整した。
+
+最初の項は `PotentialField`（点ごとに、そこを通る生きたセグメントにある攻め方の石を数えたもの）を置き換えたもので、以前は受けもこれで並べていた。上の四や三の項がある今では攻め手の順序をほとんど変えず、受けはないほうがよく、盤面に合わせて更新するのに探索時間の約 5 分の 1 を使っていた。
 
 ## 9. チートシート
 
@@ -453,9 +408,9 @@ extract_defences(state):                       # 受け方の手番
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。`search_defences` は `limit ≤ 1` で `disproven` |
 | 追い手として認識されない | `compute_defences` のステップ 1（`attacker_vcf.threat`、深さ `threat_limit`）。内部四追いは `Sword` の眼しか見ない |
 | 受けが見つからない | `VCTState::threat_defences`: 手順、`end_breakers`、`counter_defences`、`four_moves` |
-| 攻め手が見つからない | ポテンシャル `≥ 3`（`sorted_attacks`）、次に `DFSSolver::search_zone` の関連領域に対する `VCTState::may_threaten`（05 §2） |
+| 攻め手が見つからない | どれかの線に `Two` 以上（`sorted_attacks`）、次に `DFSSolver::search_zone` の関連領域に対する `VCTState::may_threaten`（05 §2） |
 | 逆襲による反証が見つからない | `defender_vcf.vcf` の深さは `defender_vcf_depth`（2）。より深い逆襲四追いは、ノリ手が `threat_defences` に入っている場合しか見つからない。`SolveLimits::with_defender_vcf_depth` で深くできる |
-| 手の並べ替え | `PotentialField`（`min = 2`）と `ShapeMap` の上の `VCTState::priority`（§8）。攻め手の候補はポテンシャルの合計 `≥ 3` |
+| 手の並べ替え | `ShapeMap` の上の `VCTState::priority`（§8）。攻め手の候補はどれかの線に `Two` 以上 |
 | モードごとの違い | `threshold.rs` の `ThresholdPolicy`。それ以外は共通 |
 | 置換表 | `attacker_table` / `defender_table`（`ProofTable`）、2 つの `LruCache`、内部ソルバーの `deadends`。キーはすべて `State::key()`。決着は局面のみ |
 | 決着が limit をまたいで効くのが一定の深さ以上である理由 | `ProofTable` の `transfer_from`（§4） |

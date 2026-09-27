@@ -38,6 +38,12 @@ impl Shapes {
         self.0.iter().filter(|&&x| x == s).count() as u8
     }
 
+    /// The shapes of the four directions summed, each by its rank: a two
+    /// counts 1, a sword 2, a three 3, a four 4 and a five 5.
+    pub fn total(&self) -> u8 {
+        self.0.iter().map(|&s| s as u8).sum()
+    }
+
     /// The biggest shape made along any direction.
     pub fn best(&self) -> Shape {
         self.0.iter().copied().max().unwrap_or_default()

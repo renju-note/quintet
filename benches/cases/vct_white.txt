@@ -3,7 +3,7 @@ attacker: x
 limit: 4
 threat_limit: 1
 tags: vct proven quick
-expect: I10,I6,I11,I8,J11,J8,G8
+expect: I10,I6,I11,I8,J11,G7,G8
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .

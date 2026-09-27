@@ -11,7 +11,7 @@
 | `player.rs` | `Player`（`Black` / `White`）とその文字表現（`o` / `x`）。 |
 | `point.rs` | `Point` (x, y)、`Points`、`Direction`、`Index`（線上の位置）。 |
 | `segment.rs` | `Segment`: 線上の連続する 5 マス（五を作れる場所 1 つ）と、その両隣の 1 マスずつ。 |
-| `line.rs` | `Line`: 縦・横・斜めの 1 本を 2 つのビットマスクで表す。その上のセグメントと、セグメントから求める連・ポテンシャル。 |
+| `line.rs` | `Line`: 縦・横・斜めの 1 本を 2 つのビットマスクで表す。その上のセグメントと、セグメントから求める連。 |
 | `row.rs` | `RowKind`（Two, Three, Sword, Four, Five, ...）と `Row`（01 §3 で定義される連を、盤上に位置づけたもの）。 |
 | `grid.rs` | `Grid`: 15×15 の盤全体を 4 方向の `Line` 配列として持ち、連の検索を提供する。 |
 | `forbidden.rs` | 黒の禁手判定。 |
@@ -25,7 +25,7 @@
 3. `Grid` はすべての線を持ち、「盤上に / この点を通ってどんな連があるか」に答える（§4）。
 4. `RowKind` はその連にルール用語の名前を付ける — `Five`、`Four`、`Three`、…。どれも、点数の条件を満たす 1 つまたは 2 つのセグメントである（§5）。
 5. `forbidden.rs` はいくつかの `rows_on` の問い合わせを組み合わせて禁手のルールを実装する（§6）。
-6. ポテンシャルはセグメントの点数を手の順序付けに再利用し（§7）、`zobrist.rs` は盤面をハッシュする（§8）。
+6. `zobrist.rs` は盤面をハッシュする（§7）。
 
 ---
 
@@ -71,7 +71,7 @@ pub struct Line { blacks: u16, whites: u16, pub size: u8 }
 
 `potential_cap(r)` は、線ごとの処理を読み飛ばすための簡易的な上界である。相手の石を避けて五を置く余地すらない線では 0 を、それ以外では「自分の石数 + 1」を返す。
 
-`segment(j)` は、5 マスがセル `j` から始まるセグメント（§3）を切り出し、`segments()` はそれを `j` = 0 から `size - 5` まですべて列挙する。`Line` が答えるほかのことはすべてこの上に作られている: `rows(r, kind)`（§3.1、§5）と `potentials(r, min)`（§7）。
+`segment(j)` は、5 マスがセル `j` から始まるセグメント（§3）を切り出し、`segments()` はそれを `j` = 0 から `size - 5` まですべて列挙する。`Line` が答えるほかのことはすべてこの上に作られている: `rows(r, kind)`（§3.1、§5）。
 
 ## 3. `Segment`: 五を作れる場所 1 つ
 
@@ -120,7 +120,7 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 <details>
 <summary><code>tally</code> が全セグメントの 5 マスを一度に足し合わせる仕組み</summary>
 
-`counting` と `potentials` はどちらも `Line::tally(r)` から始まる。戻り値は `([ones, twos, fours], free)` で、どのマスクもビット `j` がセグメント `j`（セル `j`〜`j + 4`）に対応する。
+`counting` は `Line::tally(r)` から始まる。戻り値は `([ones, twos, fours], free)` で、どのマスクもビット `j` がセグメント `j`（セル `j`〜`j + 4`）に対応する。
 
 | マスク | ビット `j` の意味 |
 | --- | --- |
@@ -198,7 +198,6 @@ free        110000000
 - `select(digits, n)` は石数がちょうど `n` のセグメントを取り出す。`n` の各桁が 1 ならその桁のマスクを、0 なら反転したマスクを取り、AND する。
 - `counting(r, n)` は `select(digits, n) & free`。
 - `scoring(r, n)` は、黒ならさらにすぐ外側に黒石のあるセグメント（`overline`）を除く。
-- `potentials` は `tally` を 1 回だけ呼び、そこから石数 `n` ごとのマスクを作る（§7）。
 
 </details>
 
@@ -226,7 +225,6 @@ pub struct Grid {
 - `rows(r, kind)` — 盤全体にあるプレイヤー `r` の種別 `kind` の `Row` をすべて返す。
 - `rows_on(p, r, kind)` — 点 `p` を通る連だけを返す（§3.1。`p` を通る 4 本の線のみ調べる）。「`p` に打つと何ができるか」を調べるホットパス。
 - `line(d, i)` / `line_on(p, d)` — 格納されている `Line` そのもの。短い斜めでは `None`。`lines()` と `lines_on(p)` はそれを `(Direction, i, &Line)` の形で列挙する。点ごとの表を自前で持つ利用側が、72 本の線の複製を持たずに済むようにするためのもの。
-- `potentials(...)` / `potentials_along(...)` — §7 参照。
 
 文字列からのパース（`FromStr for Grid`、`Board` でも利用）は次の 3 形式を受け付ける:
 
@@ -360,19 +358,7 @@ fn truthy_double_three(next, p) -> bool {
 
 2 つの `x` を取り除くと、両方向に `Two` ができる。`H8` に打つと両方が、達四点に合法に打てる `Three` になるので、結果は `Some(DoubleThree)` になる。入れ子の「偽の三」の局面（テストのコメントにある Twitter スレッドのもの）など、ほかのケースは `forbidden.rs` のテストにある。
 
-## 7. ポテンシャル（`Line::potentials`）
-
-ルールの一部ではないが、同じセグメントの上に作られている。`Line::potentials(r, min)` は線上の各空点について次のように値を求める:
-
-1. 各セグメントの値は `score(r) + 1`、つまりそこに打った後にセグメントが持つ石数とする。死んでいるセグメント（§3）は 0。`min` 未満の値は 0 と見なす。
-2. 空点の値は、その空点を通る（高々 5 つの）セグメントの最大値 × 最大値に達したセグメントの数である。
-3. `min` 未満の空点は返さない。
-
-計算には `counting` と同じビットスライスの石数を使う。生きていて値が `min` 以上のセグメントを石数ごとに 1 つのマスクにし、各空点について、石数の多い方から、その空点を通る（高々 5 つの）セグメントに絞ったマスクの `count_ones` を取る。最初に 0 でなかった石数が最大値で、その数が最大値に達したセグメントの数である。上のセグメントごとの定義と一致することは、`row_starts` と同じ線でテストしている。
-
-`Grid::potentials` / `potentials_along` がこれを `Index` ごとに公開し、`src/feature/potential.rs` が点ごとに集約して手の順序付けに使う。`VICTORY = 5` は五の長さである。
-
-## 8. Zobrist ハッシュ（`zobrist.rs`）と `Board`
+## 7. Zobrist ハッシュ（`zobrist.rs`）と `Board`
 
 `Board` は `Grid` と `u64` の Zobrist ハッシュを包み、`put_mut` / `remove_mut` で両者の同期を保つ。
 
@@ -381,14 +367,14 @@ fn truthy_double_three(next, p) -> bool {
 - `zobrist_hash_n(n)` は深さごとの値（`N_TABLE`）をさらに XOR し、ソルバーが（局面, 残り深さ）の組で置換表を引けるようにする。
 - `Board::put` / `remove` はコピーを返す。ソルバーは探索ループでのクローンを避けるため `_mut` 版を使う。
 
-四追い探索は各プレイヤーの剣先（`Sword`、§5）をほぼ毎ノード問い合わせるので、`SwordMap`（`src/feature/sword.rs`）にキャッシュしておく。持つのは `Board` ではなく、追い詰めの `PotentialField` と同じく探索の状態である（`VCFState`、および内部の四追いに渡すための `VCTState`）。`State::after_play` / `after_undo` で印を付け、同期や読み出しのときに盤面を渡す。
+四追い探索は各プレイヤーの剣先（`Sword`、§5）をほぼ毎ノード問い合わせるので、`SwordMap`（`src/feature/sword.rs`）にキャッシュしておく。持つのは `Board` ではなく、追い詰めの `ShapeMap` と同じく探索の状態である（`VCFState`、および内部の四追いに渡すための `VCTState`）。`State::after_play` / `after_undo` で印を付け、同期や読み出しのときに盤面を渡す。
 
 - プレイヤーごと・線ごと（`Grid::line_key` = `Grid::lines` での線の位置）に、剣先のセグメントがセル `j` から始まるならビット `j` を立てた `u16` と、剣先のある線を表す `u128` を持つ。
 - 着手は、その点を通る高々 4 本の線に「古い」印を付けるだけで（`SwordMap::mark_stale`）、古い線は `SwordMap::sync` がまとめて計算し直す。探索では剣先を読む回数より手を打つ・戻す回数のほうがずっと多いので、着手のたびに計算し直すと、キャッシュで置き換えたはずの全走査よりかえって高くつく。
 - 線の計算は `Line::row_starts(r, Sword)` が行い、すべてのセグメントを一度にビット演算で調べる（§3.1）。
 - `SwordMap::swords(board, r)` / `swords_on(board, p, r)` はキャッシュを読み、`rows(r, Sword)` / `rows_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync(board)` が必要である。
 
-## 9. 早見表: ルール → コード
+## 8. 早見表: ルール → コード
 
 | ルール | コード |
 | --- | --- |

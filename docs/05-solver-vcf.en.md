@@ -55,7 +55,7 @@ after the attack. If the attack happens to make *two* fours, the defender's
 played, so the stored eye only matters for a single four.
 
 None of the three scans the board: they read the swords `VCFState` caches
-in its `SwordMap` (02 §8), which `after_play` / `after_undo` mark and which
+in its `SwordMap` (02 §7), which `after_play` / `after_undo` mark and which
 is synced first, recomputing the lines the moves since the last read have
 touched.
 The order is exactly that of `rows` / `rows_on`, so the tree

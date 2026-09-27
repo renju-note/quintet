@@ -150,7 +150,7 @@ Moves: K11,K10,N12,M11,N8,H5,H6,L8,J5,J7,M5,L4,M6,K5,J4,K3,J3,J2,K4,L5,M4,L3,L2,
   policy. Threats are recognised by running a nested VCF search after a
   hypothetical pass.
 - `src/feature/` — point features the solvers keep for move ordering and
-  VCF (potentials, shapes, swords).
+  VCF (shapes, swords).
 - `src/wasm.rs` — the `wasm-bindgen` surface.
 
 The [`docs/`](docs/README.en.md) directory has detailed documentation in

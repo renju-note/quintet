@@ -100,35 +100,10 @@ impl Line {
         self.row_starts(r, k) & starts_between(first, i)
     }
 
-    /// The potential of each empty cell for `r`, as `(i, potential)`, the
-    /// cells below `min` left out.
-    ///
-    /// A segment is worth its [`Segment::score`] + 1, so 0 if it is dead,
-    /// and nothing below `min`. A cell is worth the best segment through
-    /// it, times how many segments through it are that good.
-    ///
-    /// Worked out on [`Self::tally`]'s bits: the segments worth `n + 1`
-    /// are one mask per `n`, and a cell counts those through it with
-    /// `count_ones`, from the best `n` down.
-    pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (u8, u8)> + use<> {
-        let (digits, free) = self.tally(r);
-        let alive = free & !self.overline(r);
-        // By score, the segments worth at least `min`, the rest left empty.
-        let mut worth = [0u16; VICTORY as usize + 1];
-        for n in min.saturating_sub(1)..=VICTORY {
-            worth[n as usize] = select(digits, n) & alive;
-        }
-        self.empties().filter_map(move |i| {
-            let through = starts_between(i.saturating_sub(VICTORY - 1), i);
-            let potential = (0..=VICTORY)
-                .rev()
-                .map(|n| (n + 1) * (worth[n as usize] & through).count_ones() as u8)
-                .find(|&p| p != 0)
-                .unwrap_or(0);
-            (potential >= min).then_some((i, potential))
-        })
-    }
-
+    /// A bound on what `r` can make on the line, to skip it at once: 0 if
+    /// there is no room for a five beside the opponent's stones, else how
+    /// many stones `r` has on it plus one, which no segment's
+    /// [`Segment::score`] reaches.
     pub fn potential_cap(&self, r: Player) -> u8 {
         let (my, op) = self.my_op(r);
         if self.size < op.count_ones() as u8 + 5 {
@@ -331,26 +306,6 @@ mod tests {
         found.map(|(j, _)| j).collect()
     }
 
-    /// What `potentials` is defined as, segment by segment.
-    fn potentials_by_segments(line: &Line, r: Player, min: u8) -> Vec<(u8, u8)> {
-        let values: Vec<u8> = line
-            .segments()
-            .map(|(_, s)| (s.score(r) + 1) as u8)
-            .map(|v| if v >= min { v } else { 0 })
-            .collect();
-        (0..line.size)
-            .filter(|&i| line.stone(i).is_none())
-            .filter_map(|i| {
-                let first = i.saturating_sub(VICTORY - 1) as usize;
-                let last = i.min(line.size - VICTORY) as usize;
-                let through = &values[first..=last];
-                let max = through.iter().copied().max().unwrap_or(0);
-                let potential = max * through.iter().filter(|&&v| v == max).count() as u8;
-                (potential >= min).then_some((i, potential))
-            })
-            .collect()
-    }
-
     /// Every line up to nine cells, which covers the short diagonals and
     /// every pair of segments with their margins, then full-length lines,
     /// pseudo-randomly.
@@ -426,21 +381,6 @@ mod tests {
     }
 
     #[test]
-    fn test_potentials_matches_segments() {
-        for_many_lines(|line| {
-            for r in [Black, White] {
-                for min in 0..=7 {
-                    assert_eq!(
-                        line.potentials(r, min).collect::<Vec<_>>(),
-                        potentials_by_segments(line, r, min),
-                        "{r:?} {min} {line}"
-                    );
-                }
-            }
-        });
-    }
-
-    #[test]
     fn test_segment() -> Result<(), String> {
         let line = "o-ox---xo".parse::<Line>()?;
         // Cells off the line are empty.
@@ -496,45 +436,6 @@ mod tests {
     }
 
     #[test]
-    fn test_potentials() -> Result<(), String> {
-        // A segment is worth its score + 1, nothing if it is dead. An empty
-        // cell scores the best segment through it, times how many segments
-        // through it reach that best; below `min` it is not reported.
-        //
-        // Cell 7 is in three segments holding both stones (3 each): 9. Cell
-        // 5 is in one of them: 3. The same holds mirrored on the right.
-        let line = "--------oo-----".parse::<Line>()?;
-        let expected = [(5, 3), (6, 6), (7, 9), (10, 9), (11, 6), (12, 3)];
-        assert_eq!(line.potentials(Black, 3).collect::<Vec<_>>(), expected);
-
-        // Segments through White's stone at cell 6 are dead, so cell 5 only
-        // sees segment 1 (two stones).
-        let line = "--x-x-ox---xxx-".parse::<Line>()?;
-        assert_eq!(
-            line.potentials(White, 3).collect::<Vec<_>>(),
-            [
-                (0, 3),
-                (1, 6),
-                (3, 6),
-                (5, 3),
-                (8, 6),
-                (9, 4),
-                (10, 8),
-                (14, 4)
-            ]
-        );
-        // For Black, segments 7 (cells 7-11) and 8 (cells 8-12) have a
-        // black stone just outside them, at 12 and at 7, and would make an
-        // overline; that leaves cell 8 with nothing.
-        let line = "--o-o-xo---ooo-".parse::<Line>()?;
-        assert_eq!(
-            line.potentials(Black, 3).collect::<Vec<_>>(),
-            [(0, 3), (1, 6), (3, 6), (5, 3), (9, 4), (10, 8), (14, 4)]
-        );
-        Ok(())
-    }
-
-    #[test]
     fn test_put_and_remove() -> Result<(), String> {
         let mut line = "o-x----".parse::<Line>()?;
         line.put_mut(Black, 4);
@@ -559,7 +460,7 @@ mod tests {
         Ok(())
     }
 
-    /// `potential_cap` bounds every window's potential (own stones + 1), so
+    /// `potential_cap` bounds every segment's score (own stones + 1), so
     /// that lines with nothing to find can be skipped.
     #[test]
     fn test_potential_cap() -> Result<(), String> {

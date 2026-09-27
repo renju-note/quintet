@@ -228,29 +228,6 @@ impl Grid {
             .map(move |(d, _, l)| l.row_starts_on(p.to_index(d).j, r, k))
     }
 
-    pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.lines()
-            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
-            .flat_map(move |(d, i, l)| {
-                l.potentials(r, min)
-                    .map(move |(j, p)| (Index::new(d, i, j), p))
-            })
-    }
-
-    pub fn potentials_along(
-        &self,
-        p: Point,
-        r: Player,
-        min: u8,
-    ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.lines_on(p)
-            .filter(move |(_, _, l)| l.potential_cap(r) >= min)
-            .flat_map(move |(d, i, l)| {
-                l.potentials(r, min)
-                    .map(move |(j, p)| (Index::new(d, i, j), p))
-            })
-    }
-
     pub fn to_pretty_string(&self) -> String {
         let mut result = String::new();
         for (i, l) in self.hlines.iter().enumerate().rev() {
@@ -550,60 +527,6 @@ mod tests {
         let on_h9: Vec<_> = grid.rows_on(Point(7, 8), White, Sword).collect();
         assert_eq!(on_h9, swords);
         assert_eq!(grid.rows_on(Point(7, 8), Black, Two).count(), 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_potentials() -> Result<(), String> {
-        let grid = "
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . x x x o . . . .
-         . . . . . . . o . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . o . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-         . . . . . . . . . . . . . . .
-        "
-        .parse::<Grid>()?;
-        let potentials = |r, min| -> Vec<(Direction, String, u8)> {
-            grid.potentials(r, min)
-                .map(|(i, o)| (i.d, i.to_point().to_string(), o))
-                .collect()
-        };
-
-        // Line by line, the empty points and what `Line::potentials` gives
-        // them: see `potential.rs`.
-        let expected = [
-            (Vertical, "H4".to_string(), 3),
-            (Vertical, "H5".to_string(), 3),
-            (Vertical, "H7".to_string(), 3),
-            (Ascending, "G5".to_string(), 3),
-            (Ascending, "I7".to_string(), 6),
-            (Ascending, "J8".to_string(), 6),
-            (Ascending, "L10".to_string(), 3),
-        ];
-        assert_eq!(potentials(Black, 3), expected);
-
-        let expected = [
-            (Horizontal, "E9".to_string(), 3),
-            (Horizontal, "F9".to_string(), 4),
-            (Horizontal, "G9".to_string(), 4),
-        ];
-        assert_eq!(potentials(White, 3), expected);
-
-        // `potentials_along` is the same, limited to one point's lines.
-        let along: Vec<_> = grid.potentials_along(Point(7, 8), White, 3).collect();
-        let all: Vec<_> = grid.potentials(White, 3).collect();
-        assert_eq!(along, all);
 
         Ok(())
     }

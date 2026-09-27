@@ -5,7 +5,7 @@ move is a *threat*: a four, a three, or any move after which the attacker
 would have a VCF if the defender did nothing. Unlike VCF the defender has a
 choice of replies, so the tree is a real AND/OR tree and the solver searches
 it with **proof numbers**. This document explains that search and the
-`PotentialField` and `ShapeMap` that order its moves.
+`ShapeMap` that orders its moves.
 
 Assumes [04](04-solver-framework.en.md) and [05](05-solver-vcf.en.md): in
 particular `State`, `Key`, `Memo`, the `Solver` trait and `DFSSolver`.
@@ -13,7 +13,7 @@ particular `State`, `Key`, `Memo`, the `Solver` trait and `DFSSolver`.
 ```
 src/mate/vct.rs         module doc: the algorithm in one page, re-exports, the three aliases
 src/mate/vct/
-├── state.rs            VCTState: Game + attacker + limit + PotentialField + ShapeMap;       (§2, §3, §8)
+├── state.rs            VCTState: Game + attacker + limit + ShapeMap + SwordMap;             (§2, §3, §8)
 │                       threat_defences, sorted_attacks / sorted_defences, priority
 ├── nested_vcf.rs       NestedVCF: one side's VCF sub-search                                  (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                     (§3)
@@ -23,7 +23,6 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 └── extractor.rs        extract: the winning line from the tables                             (§6)
-src/feature/potential.rs   PotentialField                                                        (§8)
 src/feature/shape.rs       ShapeMap: what a stone would make, per point, player and direction    (§8)
 ```
 
@@ -40,7 +39,7 @@ VCTSolver::solve = advance_generation; search; extract
 │   ├── generate_attacks                                               §3
 │   │     attacker_vcf.vcf      has a VCF?          → Terminal(proven), else its zone
 │   │     defender_vcf.threat   must parry a threat? → only threat_defences
-│   │     points with potential ≥ 3, by priority                       §8
+│   │     points making at least a Two, by priority                    §8
 │   │     minus those the zone rules out as threats
 │   └── expand_attacks: loop { select_attack; play best; search_defences; store in attacker_table }
 │
@@ -85,19 +84,17 @@ The tree alternates two kinds of node:
 ```rust
 pub struct VCTState {
     game: Game, pub attacker: Player, pub limit: u8,
-    field: PotentialField, shapes: ShapeMap, swords: SwordMap,
+    shapes: ShapeMap, swords: SwordMap,
 }
 ```
 
-The field is the attacker's `PotentialField` (§8), built with
-`PotentialField::init(attacker, 2, board)`, and `shapes` is the `ShapeMap`
-(§8) of both players. `after_play` / `after_undo` only mark the move's point
-stale in each; they are refreshed along the four lines of each stale point
-when next read (`sorted_attacks` / `sorted_defences`), which happens only on
-a candidate-cache miss. `next_key(m)`
+`shapes` is the `ShapeMap` (§8) of both players. `after_play` /
+`after_undo` only mark the move's lines stale; they are recomputed when
+next read (`sorted_attacks` / `sorted_defences`), which happens only on a
+candidate-cache miss. `next_key(m)`
 is `key()` of the child after `m`, computed from the board's Zobrist hash by
 XOR without playing `m`, which is what keeps table lookups for unexpanded
-children cheap. `VCTState` also keeps a `SwordMap` (02 §8), marked the same way;
+children cheap. `VCTState` also keeps a `SwordMap` (02 §7), marked the same way;
 `vcf_state` / `threat_state` sync it and hand a clone to the nested
 `VCFState`, so that each nested VCF starts in sync and the next one reuses
 what this one computed.
@@ -173,9 +170,9 @@ Results are cached in an `LruCache` of 1000 entries per generator, keyed by
 2. `defender_vcf.threat` — would the defender have a VCF if the attacker
    passed? If so the attack must also parry it: restrict candidates to
    `threat_defences(threat)`.
-3. Candidates are the points with potential `≥ 3` in the attacker's field
-   (`sorted_attacks(only)`), in order of `priority` (§8). Their number is
-   the `width`.
+3. Candidates are the points where the attacker makes at least a `Two`
+   along some line in the `ShapeMap` (`sorted_attacks(only)`), in order of
+   `priority` (§8). Their number is the `width`.
 4. Of those, keep the ones that may be threats (`may_threaten`): in the
    zone, or in a segment already holding two attacker stones (at least a
    `Sword` along some line in the `ShapeMap`, §8), which the zone leaves
@@ -205,9 +202,8 @@ otherwise take.
    passed? If not, the last attack was no threat → `Terminal(disproven)`.
 2. `defender_vcf.vcf` — does the defender have a VCF of their own (within
    `defender_vcf_depth`)? Then the defender wins first → `Terminal(disproven)`.
-3. Candidates are `threat_defences(threat)` in order of `priority` (§8),
-   which starts from the *attacker's* potential (`sorted_defences`), minus
-   forbidden moves. None left → `Terminal(proven)`: the threat cannot be
+3. Candidates are `threat_defences(threat)` in order of `priority` (§8)
+   (`sorted_defences`), minus forbidden moves. None left → `Terminal(proven)`: the threat cannot be
    answered.
 4. Each gets the estimate `n`, the number of candidates.
 
@@ -474,81 +470,24 @@ and likewise `VCTPNS`, `VCTDFPNS` — proves it with the line
 | `H12` (White) | `Forced` | 1 |
 | `G12` (Black) | `G12,H11,I10,J9` with `F13` and `K8` open: `Fours` | 1 |
 
-At the root, `generate_attacks` orders the empty points by `priority`
-(§8): `I10` (potential 18), `G10` (16), `G9` (13, and 2 for a three),
-`H11` (10, and 5 for a four), `F10` (12, and 2 for a three), `I8` (12), …
-The depth-first mode therefore tries `I10` first. It is refuted in one ply:
-`I10` makes no three, so at the defender node `attacker_vcf.threat` finds
-no one-move VCF and `compute_defences` returns `Terminal(disproven)`. The
-refutation goes into `attacker_table`, `select_attack` moves on, and `F10`
-is eventually proven.
+At the root, `generate_attacks` orders the candidates by `priority` (§8):
+`H11` (10: a four and a two, 5, plus 5 for the four), `H12` (9), `F10` (6:
+a three and a two, 4, plus 2 for the three), `G9`, `J6`, `K5` (5 each), …
+The depth-first mode therefore tries `H11` first. White's `H12` is forced,
+and with that four spent Black has no VCT in the three attacks left, so it
+is disproven. The refutation goes into `attacker_table`, `select_attack`
+moves on, `H12` fares no better, and `F10` is proven.
 
 ## 8. Move ordering (`src/feature/`, `VCTState::priority`)
 
 Among candidates with the same estimate (§3), the order decides which
-child the search expands first. Two caches of
-`src/feature/` describe the points, and `VCTState::priority` weighs them.
-
-### `PotentialField` (`src/feature/potential.rs`)
-
-The generators need "how useful is a stone here for the attacker?" for
-every empty point, cheaply and always current. `PotentialField` keeps one
-`u8` per direction per point (`Potential { v, h, a, d }`) and reports the
-sum.
-
-**Per-direction value.** From `Board::potentials(player, min)` (02, §7):
-for each segment through the point that is alive (no opponent stone and,
-for Black, no own stone just outside it, which would make an overline),
-count the own stones it would hold after playing there; keep the count if
-it is at least `min`; report `max × (number of segments reaching that
-max)`. With `min = 2`, a single own stone within four cells already
-scores.
-
-**Keeping it current.** `init(player, min, board)` fills the field;
-`update_along(p, board)` zeroes the four lines through `p` (`reset_along`)
-and recomputes them (`potentials_along`). For lazy use, `mark_stale(p)`
-only notes the point and `sync(board)` runs `update_along` on every point
-noted since. `VCTState` marks each point played or taken back and syncs
-before reading the field — four line scans
-per such point instead of a board pass, and none for the many nodes whose
-candidates come from the cache.
-
-**Querying.** `get(p)` is the sum over the four directions; `collect(min)`
-lists every point whose sum is at least `min`; `VCTState::sorted_attacks`
-takes those at `3` as the attack candidates. Note the two different `min`s: `2`
-at construction filters segments, `3` at query time filters sums.
-
-**Overlay.** `overlay(board)` prints the field for debugging (`.` = 0). For
-the board of §7 with `PotentialField::init(Black, 2, ..)`:
-
-```
- . . . . . . . . . . . . . . .
- . . . 2 . . . . . . . . . . .
- . . . 2 2 2 . . . 2 . 2 . 2 .
- . . . . 4 2 4 4 . 2 2 . 4 . .
- . . . . 3 6 210 x 4 . 4 . . .
- . . . 2 41216 o18 8 8 2 . . .
- . . . 2 2 213 o x o 2 2 2 2 .
- . . . . . 2 x o12 x 8 . . . .
- . . . . 2 . 2 x o 8 2 8 2 . .
- . . . 2 . 2 . 2 4 9 4 . 4 . .
- . . . . 2 . 2 . 4 . 6 2 . 2 .
- . . . 2 . 2 . . 4 . . 3 . . .
- . . . . 2 . . . 2 . . . . . .
- . . . . . . . . . . . . . . .
- . . . . . . . . . . . . . . .
-```
-
-`I10` (18) and `G10` (16) lie on two of Black's lines at once, which is why
-they score highest. The field is the *attacker's* even when ordering
-defences: a defence landing on the attacker's best point comes first.
+child the search expands first. A cache of `src/feature/` describes the
+points, and `VCTState::priority` weighs them.
 
 ### `ShapeMap` (`src/feature/shape.rs`)
 
-The potential counts stones, not what they make: a point that turns a
-sword into a four can score less than one that extends an open two. The
-`ShapeMap` says, per player and per empty point, what a stone there would
-make on each of the four lines through it, a `Shape`:
+The `ShapeMap` says, per player and per empty point, what a stone there
+would make on each of the four lines through it, a `Shape`:
 
 | `Shape` | The point is | From (02 §3.1) |
 | --- | --- | --- |
@@ -560,11 +499,12 @@ make on each of the four lines through it, a `Shape`:
 | `Nothing` | none of the above, or occupied | |
 
 A cell takes the biggest that applies. It is kept like the `SwordMap`
-(02 §8): per line, marked stale on a move and recomputed on `sync`, a few
+(02 §7): per line, marked stale on a move and recomputed on `sync`, a few
 bit operations per line and player.
 
 `get(p, r)` returns the four as `Shapes`, which counts them
-(`count`, `count_from`), drops one direction (`except`) and guesses whether
+(`count`, `count_from`), sums them by rank (`total`: `Two` 1 up to
+`Five` 5), drops one direction (`except`) and guesses whether
 Black may not play there (`looks_forbidden`: two fours or two threes and no
 five; it does not see a double-four on one line, an overline, or that a
 three is fake). `forbidden_eyes(board, p, r)` counts the fours and threes
@@ -576,12 +516,13 @@ along the others are read as they are.
 
 ### `priority`
 
-`sorted_attacks` / `sorted_defences` sort by `VCTState::priority(p)`, then
-by potential, highest first. It is the attacker's potential plus what the
-move makes for the side to move, after the way a player sizes up a move:
+`sorted_attacks` / `sorted_defences` sort by `VCTState::priority(p)`,
+highest first; equal ones keep their order. It is what the move makes for
+the side to move, after the way a player sizes up a move:
 
 | Term | Value | Why |
 | --- | --- | --- |
+| attack only: every direction, by its shape | `Shapes::total` | the next threats are made of twos and swords too |
 | each `Four` | +5 | narrows the opponent's replies to one |
 | each `Three` | +2 | narrows them to a few |
 | each direction at `Sword` or more, beyond the first | +5 | threats along several lines at once (four-three, double threats) |
@@ -589,10 +530,17 @@ move makes for the side to move, after the way a player sizes up a move:
 | Black: each three whose straight-four point looks forbidden | −2 | the three may be fake |
 | Black: the point itself `looks_forbidden` | −20 | a real forbidden point is not a candidate at all, so what is left is a guess that failed: the threes are fewer than they look |
 
-For a defence the terms after the potential count half: a defence is
-foremost a block, and the defender's own threats come second. The weights
-were tuned on the benchmark (07); on its cases they cut the nodes by about
-15% against the potential alone.
+For a defence the first term is left out. Every defence here stops the
+threat one way or another (`threat_defences`), and ordering them by how
+much the attacker wants the point, by its stones or its shapes there, made
+the search larger on the benchmark (07) than these terms alone. The
+weights were tuned on the benchmark too.
+
+The first term replaced a `PotentialField`, per point the attacker's
+stones in the live segments through it, which the defences were ordered by
+too. With the fours and threes above, it barely changed the attacks'
+order, the defences did better without it, and keeping it in step with the
+board took about a fifth of the search's time.
 
 ## 9. Cheat sheet
 
@@ -601,9 +549,9 @@ were tuned on the benchmark (07); on its cases they cut the nodes by about
 | Why did the search stop at depth N? | `limit` counts attacker moves; `search_defences` returns `disproven` at `limit ≤ 1` |
 | A threat is not recognised | `compute_defences` step 1, `attacker_vcf.threat` with depth `threat_limit`; the nested VCF sees only `Sword` eyes |
 | A defence is missing | `VCTState::threat_defences`: path, `end_breakers`, `counter_defences`, `four_moves` |
-| An attack is missing | potential `≥ 3` (`sorted_attacks`), then `VCTState::may_threaten` over the zone of `DFSSolver::search_zone` (05, §2) |
+| An attack is missing | a `Two` or more along some line (`sorted_attacks`), then `VCTState::may_threaten` over the zone of `DFSSolver::search_zone` (05, §2) |
 | A counter-attack refutation is missing | `defender_vcf.vcf` is bounded by `defender_vcf_depth` (2); deeper counter-VCFs are found only if a counter-four is in `threat_defences`. Raise it with `SolveLimits::with_defender_vcf_depth` |
-| Move ordering | `VCTState::priority` over `PotentialField` (`min = 2`) and `ShapeMap` (§8); attack candidates need a potential sum `≥ 3` |
+| Move ordering | `VCTState::priority` over the `ShapeMap` (§8); attack candidates need a `Two` or more along some line |
 | Which mode does what | `ThresholdPolicy` in `threshold.rs`; everything else is shared |
 | Transposition tables | `attacker_table` / `defender_table` (`ProofTable`), the two `LruCache`s, the nested solvers' `deadends`; all keyed by `State::key()`, decisions by position alone |
 | Why do decisions carry between limits only from some depth? | `transfer_from` in `ProofTable` (§4) |
