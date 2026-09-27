@@ -11,7 +11,7 @@
 | [03-solver-api.ja.md](03-solver-api.ja.md) / [en](03-solver-api.en.md) | ソルバーの使い方: `solve`、`SolveMode`、`SolveLimits`、`SolveResult`、`NodeBudget`、`Solver` トレイトでソルバーを問いをまたいで保持する方法、`Mate` / `End`。 |
 | [04-solver-framework.ja.md](04-solver-framework.ja.md) / [en](04-solver-framework.en.md) | `src/mate/` の内側: 構成と、すべてのソルバーが共有する部品 — `Game` と `check_event`、`State` と `Key`、`Memo` の世代、`Solver` トレイト、ノード予算。 |
 | [05-solver-vcf.ja.md](05-solver-vcf.ja.md) / [en](05-solver-vcf.en.md) | `src/mate/vcf/` の四追い（VCF）探索: 四を作る手のペア、`DFSSolver` と行き止まりメモ、`IDDFSSolver`、手順を追う例。 |
-| [06-solver-vct.ja.md](06-solver-vct.ja.md) / [en](06-solver-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）探索: 追い手、内部の四追い探索、手の生成、証明数、DFS / PNS / df-pn の閾値ポリシー、手順の復元、手順を追う例、手の並べ替え（`PotentialField`、`ShapeMap`）。 |
+| [06-solver-vct.ja.md](06-solver-vct.ja.md) / [en](06-solver-vct.en.md) | `src/mate/vct/` の追い詰め（VCT）探索: 追い手、内部の四追い探索、手の生成、証明数、DFS / PNS / df-pn の閾値ポリシー、手順の復元、手順を追う例、手の並べ替え（`ShapeMap`）。 |
 | [07-benchmarks.ja.md](07-benchmarks.ja.md) / [en](07-benchmarks.en.md) | `benches/` にあるソルバーのベンチマーク: 何を測るか（ノード数、メモのエントリ数、時間）、実行方法、2 つの版の比較、ケースの追加。 |
 
 どこから読むか:
@@ -20,7 +20,7 @@
 - `src/board/` のルール周り（連、禁手）を変更するなら 02 を読む。
 - アプリや CLI、自分の Rust コードからソルバーを呼ぶなら 03 を読む。
 - `src/mate/` や `src/feature/` の探索を変更するなら 04、続いて 05 と 06 を読み、変更の効果は 07 のベンチマークで測る。
-- 特定のことだけ知りたい場合は、各ドキュメント末尾のチートシート（02 §9、03 §7、04 §7、05 §5、06 §9）が「知りたいこと」から識別子への対応表になっている。
+- 特定のことだけ知りたい場合は、各ドキュメント末尾のチートシート（02 §8、03 §7、04 §7、05 §5、06 §9）が「知りたいこと」から識別子への対応表になっている。
 
 ドキュメント追加時の規約:
 

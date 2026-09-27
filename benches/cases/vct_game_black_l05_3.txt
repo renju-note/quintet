@@ -7,7 +7,7 @@ attacker: o
 limit: 5
 threat_limit: 2
 tags: vct proven game quick
-expect: F9,G9,G10,J6,G6,K6,L6,D9,F11
+expect: F9,G6,J6,E9,G10,F11,H11,I12,H10
 board:
 . . . . . . . . . . . . . . .
 . . . . . . . . . . . . . . .

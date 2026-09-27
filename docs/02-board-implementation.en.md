@@ -17,7 +17,7 @@ Module map (`src/board.rs` declares the modules):
 | `player.rs` | `Player` (`Black` / `White`) and its text form (`o` / `x`). |
 | `point.rs` | `Point` (x, y), `Points`, `Direction`, `Index` (position along a line). |
 | `segment.rs` | `Segment`: five consecutive cells of a line (one place for a five) and the cell on each side. |
-| `line.rs` | `Line`: one horizontal, vertical or diagonal line as two bitmasks; its segments, and the rows and potentials found from them. |
+| `line.rs` | `Line`: one horizontal, vertical or diagonal line as two bitmasks; its segments, and the rows found from them. |
 | `row.rs` | `RowKind` (Two, Three, Sword, Four, Five, ...) and `Row` (a row of one player's stones as defined in 01 §3, located on the board). |
 | `grid.rs` | `Grid`: the whole 15×15 board as four arrays of `Line`s, plus row queries. |
 | `forbidden.rs` | Renju forbidden-move detection for Black. |
@@ -36,8 +36,7 @@ bottom up:
    `Three`, ... — each as one or two segments with the right score (§5).
 5. `forbidden.rs` combines a few `rows_on` queries into the
    forbidden-move rules (§6).
-6. Potentials reuse the segments' scores for move ordering (§7), and
-   `zobrist.rs` hashes the board (§8).
+6. `zobrist.rs` hashes the board (§7).
 
 ---
 
@@ -104,8 +103,7 @@ stones, and "own stones + 1" otherwise.
 
 `segment(j)` cuts out the segment (§3) whose five cells start at cell `j`,
 and `segments()` lists them all, `j` from 0 to `size - 5`. Everything else a
-`Line` answers is built on them: `rows(r, kind)` (§3.1, §5) and
-`potentials(r, min)` (§7).
+`Line` answers is built on them: `rows(r, kind)` (§3.1, §5).
 
 ## 3. `Segment`: one place for a five
 
@@ -183,7 +181,7 @@ earlier one does too, so `i` is in the four cells they share.
 <details>
 <summary>How <code>tally</code> adds up the five cells of every segment at once</summary>
 
-`counting` and `potentials` both start from `Line::tally(r)`, which
+`counting` starts from `Line::tally(r)`, which
 returns `([ones, twos, fours], free)`. Bit `j` of every mask is about
 segment `j` (cells `j` to `j + 4`):
 
@@ -283,8 +281,6 @@ free        110000000
 - `counting(r, n)` is `select(digits, n) & free`.
 - `scoring(r, n)` also removes, for Black, the segments with a black stone
   just outside them (`overline`).
-- `potentials` calls `tally` once and makes one mask per count `n` from it
-  (§7).
 
 </details>
 
@@ -323,7 +319,6 @@ Main queries:
   short diagonals. `lines()` and `lines_on(p)` iterate them as
   `(Direction, i, &Line)`. Consumers that keep their own per-point tables can
   read these lines instead of maintaining a second copy of all 72.
-- `potentials(...)` / `potentials_along(...)` — see §7.
 
 Parsing from text (`FromStr for Grid`, reused by `Board`) accepts three
 formats:
@@ -527,30 +522,7 @@ points are legal, so the result is `Some(DoubleThree)`. More cases,
 including the nested "fake three" positions from the referenced Twitter
 thread, are in `forbidden.rs`'s tests.
 
-## 7. Potentials (`Line::potentials`)
-
-Not part of the rules, but built on the same segments. For each empty cell
-of a line, `Line::potentials(r, min)` computes a value as follows:
-
-1. Each segment is worth `score(r) + 1`: the number of stones it would hold
-   after playing there, or 0 if it is dead (§3). Values below `min` count
-   as 0.
-2. A cell is worth the best segment through it (at most five), times the
-   number of segments through it reaching that best.
-3. Cells below `min` are not reported.
-
-It is worked out on the same bit-sliced counts as `counting`: one mask per
-score of the segments alive and worth at least `min`, and for each empty
-cell, from the best score down, `count_ones` of that mask over the (at
-most five) segments through the cell. The first score with any is the
-best, and the count is how many reach it. A test checks this against the
-segment-by-segment definition above, on the same lines as `row_starts`.
-
-`Grid::potentials` / `potentials_along` expose this per `Index`, and
-`src/feature/potential.rs` aggregates it per point for move ordering.
-`VICTORY = 5` is the length of a five.
-
-## 8. Zobrist hashing (`zobrist.rs`) and `Board`
+## 7. Zobrist hashing (`zobrist.rs`) and `Board`
 
 `Board` wraps a `Grid` and a `u64` Zobrist hash, and `put_mut` /
 `remove_mut` keep the two in sync.
@@ -567,7 +539,7 @@ segment-by-segment definition above, on the same lines as `row_starts`.
 The VCF search asks for each player's swords (`Sword`, §5) at nearly
 every node, so it keeps them cached in a `SwordMap`
 (`src/feature/sword.rs`). `Board` does not hold it: like the VCT's
-`PotentialField`, the search states do (`VCFState`, and `VCTState` to hand
+`ShapeMap`, the search states do (`VCFState`, and `VCTState` to hand
 to its nested VCFs), marking it from `State::after_play` / `after_undo`
 and passing the board along when they sync or read it.
 
@@ -584,7 +556,7 @@ and passing the board along when they sync or read it.
   and return what `rows(r, Sword)` / `rows_on(p, r, Sword)`
   would, in the same order. They require `sync(board)` first.
 
-## 9. Cheat sheet: rule → code
+## 8. Cheat sheet: rule → code
 
 | Rule | Code |
 | --- | --- |

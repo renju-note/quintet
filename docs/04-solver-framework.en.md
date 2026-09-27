@@ -25,9 +25,8 @@ src/mate/
 ├── vcf.rs, vcf/     the VCF solver                    (05)
 └── vct.rs, vct/     the VCT solver                    (06)
 src/feature/area.rs        Area: a set of points, for the VCF zone (05, §2)
-src/feature/potential.rs   PotentialField: move ordering for VCT (06, §8)
 src/feature/shape.rs       ShapeMap: what a move would make, for VCT move ordering (06, §8)
-src/feature/sword.rs       SwordMap: cached swords for VCF (02 §8, 05)
+src/feature/sword.rs       SwordMap: cached swords for VCF (02 §7, 05)
 ```
 
 How they fit together, from the bottom up:
@@ -42,7 +41,7 @@ Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solve
 - A **`Game`** is a board plus the moves played on it during the search.
 - A **`State`** is a game plus what the search needs on top: whose side the
   search is for, how many attacker moves are left, and — for VCT — a
-  potential field and a shape map for move ordering.
+  shape map for move ordering.
 - A **`Solver`** searches a state. It owns **`Memo`**s that outlive one
   question, all keyed by the state's **`Key`**.
 - A **`NodeBudget`** bounds how much work one question, or a series of them,

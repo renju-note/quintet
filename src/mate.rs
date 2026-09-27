@@ -10,8 +10,8 @@
 //!   a pass, which is how "would the opponent have a mate if I did nothing"
 //!   is asked.
 //! - A [`State`] is a `Game` plus what a search needs on top of it: whose
-//!   side the search is for, the remaining limit, and for VCT the potential
-//!   field. [`VCFState`] and [`VCTState`] are the two. A state also knows its
+//!   side the search is for, the remaining limit, and for VCT the shape
+//!   map. [`VCFState`] and [`VCTState`] are the two. A state also knows its
 //!   [`Key`], what every memo is keyed by.
 //! - A [`Solver`] searches a state for a [`Mate`]. [`DFSSolver`] and
 //!   [`IDDFSSolver`] search for VCFs, [`VCTSolver`] for VCTs, and the VCT

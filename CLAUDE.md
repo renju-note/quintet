@@ -47,11 +47,10 @@ slower and some cases time out.
   `Board` is the facade over them.
 - `src/feature/` — search-side caches the solver states keep in step with
   the moves, and what the searches collect: `area.rs` (`Area`, a bitset of
-  points, e.g. the zone a failed VCF search reports), `potential.rs`
-  (`PotentialField`, per-point potential evaluation used for VCT move
-  ordering), `shape.rs` (`ShapeMap`, what a stone at each point would
-  make on each line — two, three, four... — also for VCT move ordering,
-  weighed in `VCTState::priority`) and
+  points, e.g. the zone a failed VCF search reports), `shape.rs`
+  (`ShapeMap`, what a stone at each point would make on each line — two,
+  three, four... — for VCT move ordering, weighed in
+  `VCTState::priority`) and
   `sword.rs` (`SwordMap`, a lazily updated cache of each line's swords for
   VCF).
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,

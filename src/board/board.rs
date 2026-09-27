@@ -106,19 +106,6 @@ impl Board {
         self.grid.rows_on(p, r, k)
     }
 
-    pub fn potentials(&self, r: Player, min: u8) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.grid.potentials(r, min)
-    }
-
-    pub fn potentials_along(
-        &self,
-        p: Point,
-        r: Player,
-        min: u8,
-    ) -> impl Iterator<Item = (Index, u8)> + '_ {
-        self.grid.potentials_along(p, r, min)
-    }
-
     pub fn to_pretty_string(&self) -> String {
         self.grid.to_pretty_string()
     }
