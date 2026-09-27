@@ -531,8 +531,10 @@ thread, are in `forbidden.rs`'s tests.
   `2 * u8::from(point) + c`, where `c` is 0 for Black and 1 for White.
 - Whenever a stone is placed or removed, the corresponding code is XORed
   into or out of the hash.
-- `zobrist_hash_n(n)` XORs in an extra per-depth code (`N_TABLE`) so that
-  the solvers can key transposition tables on (position, remaining depth).
+- Whose turn it is, the search's attacker and the remaining depth are not
+  properties of the board, so the hash leaves them out. The solvers XOR
+  them in themselves (`apply_turn`, `apply_attacker` and `apply_n` with
+  `N_TABLE`) to key their transposition tables (`State::key`, 04).
 - `Board::put` / `remove` return copies; the solvers use the `_mut`
   variants to avoid cloning in the search loop.
 

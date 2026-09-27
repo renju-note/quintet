@@ -185,8 +185,8 @@ impl VCTState {
     }
 
     pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = threat.path().clone();
-        result.extend(self.end_breakers(threat.end().clone()));
+        let mut result = threat.path.clone();
+        result.extend(self.end_breakers(threat.end.clone()));
         result.extend(self.counter_defences(threat));
         result.extend(self.four_moves());
         result

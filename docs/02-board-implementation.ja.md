@@ -364,7 +364,7 @@ fn truthy_double_three(next, p) -> bool {
 
 - `CODE_TABLE` は `2 * 225` 個のランダムな 64 ビット値を持つ。索引は `2 * u8::from(point) + c` で、`c` は黒なら 0、白なら 1 である。
 - 石を置く・取り除くたびに、対応する値を XOR でハッシュに出し入れする。
-- `zobrist_hash_n(n)` は深さごとの値（`N_TABLE`）をさらに XOR し、ソルバーが（局面, 残り深さ）の組で置換表を引けるようにする。
+- 手番、探索の攻め方、残り深さは盤面の性質ではないので、このハッシュには含めない。ソルバーが自分で XOR して（`apply_turn`、`apply_attacker`、`N_TABLE` を使う `apply_n`）置換表のキーにする（`State::key`、04）。
 - `Board::put` / `remove` はコピーを返す。ソルバーは探索ループでのクローンを避けるため `_mut` 版を使う。
 
 四追い探索は各プレイヤーの剣先（`Sword`、§5）をほぼ毎ノード問い合わせるので、`SwordMap`（`src/feature/sword.rs`）にキャッシュしておく。持つのは `Board` ではなく、追い詰めの `ShapeMap` と同じく探索の状態である（`VCFState`、および内部の四追いに渡すための `VCTState`）。`State::after_play` / `after_undo` で印を付け、同期や読み出しのときに盤面を渡す。

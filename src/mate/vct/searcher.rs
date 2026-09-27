@@ -9,8 +9,6 @@ use crate::mate::game::*;
 use crate::mate::state::State;
 use crate::mate::vct::proof::*;
 
-// MEMO: Debug printing example is 6e2bace
-
 /// AND/OR search over proof numbers.
 ///
 /// `search_attacks` / `search_defences` evaluate one node (OR / AND
