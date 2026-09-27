@@ -54,25 +54,14 @@ impl Game {
         apply_turn(self.board.zobrist_hash(), self.turn)
     }
 
-    /// [`Self::position_hash`] combined with a remaining limit `n`.
-    pub fn zobrist_hash(&self, n: u8) -> u64 {
-        apply_n(self.position_hash(), n)
-    }
-
+    /// The last move, `None` if it was a pass or there is none.
     pub fn last_move(&self) -> Option<Point> {
-        if !self.moves.is_empty() {
-            self.moves[self.moves.len() - 1]
-        } else {
-            None
-        }
+        self.moves.last().copied().flatten()
     }
 
+    /// The move before the last, as [`Self::last_move`].
     pub fn last2_move(&self) -> Option<Point> {
-        if self.moves.len() >= 2 {
-            self.moves[self.moves.len() - 2]
-        } else {
-            None
-        }
+        self.moves.iter().rev().nth(1).copied().flatten()
     }
 
     pub fn is_forbidden_move(&self, p: Point) -> bool {
@@ -163,27 +152,45 @@ mod tests {
     use crate::board::Player::{Black, White};
 
     #[test]
-    fn test_zobrist_hash_separates_the_turn_and_the_limit() -> Result<(), String> {
+    fn test_position_hash_separates_the_turn() -> Result<(), String> {
         let board = "H8,J9/I9".parse::<Board>()?;
         let mut game = Game::init(&board, Black);
-        let hash = game.zobrist_hash(5);
+        let hash = game.position_hash();
 
         // The same stones with the other side to move is another position.
-        assert_ne!(Game::init(&board, White).zobrist_hash(5), hash);
+        assert_ne!(Game::init(&board, White).position_hash(), hash);
         // ... which is exactly what a pass makes, leaving the board alone.
         game.play(None);
-        assert_ne!(game.zobrist_hash(5), hash);
+        assert_ne!(game.position_hash(), hash);
         assert_eq!(
-            game.zobrist_hash(5),
-            Game::init(&board, White).zobrist_hash(5)
+            game.position_hash(),
+            Game::init(&board, White).position_hash()
         );
         game.undo();
-        assert_eq!(game.zobrist_hash(5), hash);
-
-        // The remaining limit still separates otherwise identical positions.
-        assert_ne!(game.zobrist_hash(4), hash);
+        assert_eq!(game.position_hash(), hash);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_last_moves() {
+        let mut game = Game::init(&Board::new(), Black);
+        assert_eq!((game.last_move(), game.last2_move()), (None, None));
+        game.play(Some(point("H8")));
+        assert_eq!(
+            (game.last_move(), game.last2_move()),
+            (Some(point("H8")), None)
+        );
+        game.play(None);
+        assert_eq!(
+            (game.last_move(), game.last2_move()),
+            (None, Some(point("H8")))
+        );
+        game.play(Some(point("I9")));
+        assert_eq!(
+            (game.last_move(), game.last2_move()),
+            (Some(point("I9")), None)
+        );
     }
 
     fn point(s: &str) -> Point {

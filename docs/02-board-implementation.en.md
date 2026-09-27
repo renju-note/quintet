@@ -531,8 +531,10 @@ thread, are in `forbidden.rs`'s tests.
   `2 * u8::from(point) + c`, where `c` is 0 for Black and 1 for White.
 - Whenever a stone is placed or removed, the corresponding code is XORed
   into or out of the hash.
-- `zobrist_hash_n(n)` XORs in an extra per-depth code (`N_TABLE`) so that
-  the solvers can key transposition tables on (position, remaining depth).
+- Whose turn it is, the search's attacker and the remaining depth are not
+  properties of the board, so the hash leaves them out. The solvers XOR
+  them in themselves (`apply_turn`, `apply_attacker` and `apply_n` with
+  `N_TABLE`) to key their transposition tables (`State::key`, 04).
 - `Board::put` / `remove` return copies; the solvers use the `_mut`
   variants to avoid cloning in the search loop.
 
@@ -547,7 +549,9 @@ and passing the board along when they sync or read it.
   `Grid::lines`), a `u16` with bit `j` set if a sword's segment starts at
   cell `j`, and a `u128` of the lines that have any.
 - A move only marks the (at most four) lines through the point stale
-  (`SwordMap::mark_stale`); `SwordMap::sync` recomputes the stale lines. The searches move
+  (`SwordMap::mark_stale`, kept in a `StaleLines` from
+  `src/feature/stale.rs`, which `ShapeMap` shares); `SwordMap::sync`
+  recomputes the stale lines. The searches move
   far more often than they read, so recomputing at every move would cost
   more than the scan it replaces.
 - A line is recomputed by `Line::row_starts(r, Sword)`, which checks
@@ -561,7 +565,7 @@ and passing the board along when they sync or read it.
 | Rule | Code |
 | --- | --- |
 | Five wins | `rows(r, Five)` (checked in `mate::solve` / `Game`). |
-| Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::validate` rejects input positions that already contain a five or a Black `Overlined`. |
+| Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::decided` answers input positions that already contain a five or a Black `Overlined`. |
 | Four / straight four | `Four` (a segment scoring 4) / `Straight` (two scoring 4); a straight four = two adjacent `Four`s. |
 | Three (must reach a straight four) | `Three` (two segments scoring 3), single eye = the straight-four point. |
 | "Without making an overline" for Black | `Segment::alive`: no black stone in the margins. |

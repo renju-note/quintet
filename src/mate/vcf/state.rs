@@ -6,8 +6,8 @@ use crate::mate::state::State;
 #[derive(Clone)]
 pub struct VCFState {
     game: Game,
-    pub attacker: Player,
-    pub limit: u8,
+    attacker: Player,
+    limit: u8,
     /// Each player's swords, kept in step with the moves (see [`SwordMap`]).
     swords: SwordMap,
 }
@@ -34,14 +34,6 @@ impl VCFState {
         Self::new(game, limit)
     }
 
-    pub fn is_forbidden_move(&self, p: Point) -> bool {
-        self.game().is_forbidden_move(p)
-    }
-
-    pub fn check_event(&self) -> Option<Event> {
-        self.game().check_event()
-    }
-
     pub fn forced_move_pair(&mut self, forced_move: Point) -> Option<(Point, Point)> {
         let turn = self.game.turn;
         self.sync_swords();
@@ -66,7 +58,7 @@ impl VCFState {
     }
 
     pub fn move_pairs(&mut self) -> Vec<(Point, Point)> {
-        let mut result = vec![];
+        let mut result = Vec::with_capacity(16);
         let turn = self.game.turn;
         self.sync_swords();
         let swords = self.swords.swords(self.game.board(), turn);

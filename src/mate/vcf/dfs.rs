@@ -85,7 +85,7 @@ impl DFSSolver {
         budget: &mut NodeBudget,
         zone: &mut Area,
     ) -> Option<Mate> {
-        if state.limit == 0 {
+        if state.limit() == 0 {
             return None;
         }
         if !budget.consume() {

@@ -1,4 +1,4 @@
-use crate::board::Direction::*;
+use super::stale::StaleLines;
 use crate::board::Player::*;
 use crate::board::RowKind::*;
 use crate::board::*;
@@ -81,20 +81,18 @@ impl Shapes {
 /// recomputes them before the next read.
 #[derive(Clone)]
 pub struct ShapeMap {
-    /// Black's and White's, in that order, by point `x * RANGE + y`.
+    /// Black's and White's, in that order, by point code (`u8::from`).
     shapes: [[Shapes; POINTS]; 2],
-    /// Lines changed since the last [`Self::sync`], one bit per line.
-    stale: u128,
+    /// Lines changed since the last [`Self::sync`].
+    stale: StaleLines,
 }
-
-const POINTS: usize = RANGE as usize * RANGE as usize;
 
 impl ShapeMap {
     /// A map that knows nothing yet: every line is stale.
     pub fn new() -> Self {
         Self {
             shapes: [[Shapes::default(); POINTS]; 2],
-            stale: (1 << LINE_NUM) - 1,
+            stale: StaleLines::all(),
         }
     }
 
@@ -107,20 +105,16 @@ impl ShapeMap {
 
     /// Notes that a stone was put on or taken off `p`.
     pub fn mark_stale(&mut self, p: Point) {
-        for d in [Vertical, Horizontal, Ascending, Descending] {
-            if let Some(k) = Grid::line_key(d, p.to_index(d).i) {
-                self.stale |= 1 << k;
-            }
-        }
+        self.stale.mark(p);
     }
 
     pub fn is_synced(&self) -> bool {
-        self.stale == 0
+        self.stale.is_empty()
     }
 
     /// Recomputes the stale lines from `board`.
     pub fn sync(&mut self, board: &Board) {
-        for k in Bits(std::mem::take(&mut self.stale)) {
+        for k in self.stale.take() {
             self.update(k as usize, board);
         }
     }
@@ -129,7 +123,7 @@ impl ShapeMap {
     /// an occupied point makes nothing.
     pub fn get(&self, p: Point, r: Player) -> Shapes {
         debug_assert!(self.is_synced());
-        self.shapes[player_index(r)][point_index(p)]
+        self.shapes[r.index()][u8::from(p) as usize]
     }
 
     /// Of the fours and threes `r` would make at `p`, how many leave an
@@ -195,7 +189,7 @@ impl ShapeMap {
                 (Shape::Four, line.row_eyes(r, Sword)),
                 (Shape::Five, line.row_eyes(r, Four)),
             ];
-            let shapes = &mut self.shapes[player_index(r)];
+            let shapes = &mut self.shapes[r.index()];
             for j in 0..line.size {
                 let p = Index::new(d, i, j).to_point();
                 let s = masks
@@ -203,7 +197,7 @@ impl ShapeMap {
                     .rev()
                     .find(|(_, mask)| mask & 1 << j != 0)
                     .map_or(Shape::Nothing, |&(s, _)| s);
-                shapes[point_index(p)].0[d as usize] = s;
+                shapes[u8::from(p) as usize].0[d as usize] = s;
             }
         }
     }
@@ -213,14 +207,6 @@ impl Default for ShapeMap {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn point_index(p: Point) -> usize {
-    p.0 as usize * RANGE as usize + p.1 as usize
-}
-
-fn player_index(r: Player) -> usize {
-    if r.is_black() { 0 } else { 1 }
 }
 
 #[cfg(test)]

@@ -21,6 +21,12 @@ impl Player {
     pub fn is_white(&self) -> bool {
         *self == White
     }
+
+    /// 0 for Black, 1 for White: where the player's half of a table kept
+    /// for both players is.
+    pub fn index(&self) -> usize {
+        *self as usize
+    }
 }
 
 impl From<bool> for Player {

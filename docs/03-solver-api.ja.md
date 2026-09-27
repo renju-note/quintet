@@ -56,9 +56,9 @@ stats.memo_len   // 探索後にソルバーのメモに残っているエント
 | `SolveMode` | コード | CLI 名 | 探索 |
 | --- | --- | --- | --- |
 | `VCFDFS` | 0 | `vcf` | 四追い、深さ優先。`threat_limit` は無視。 |
-| `VCFIDDFS` | 1 | `vcf_iddfs` | 予約。`solve` は `Disproven` を返す。 |
+| `VCFIDDFS` | 1 | `vcf_iddfs` | 予約。`solve` は何も探索せず `Aborted` を返す。 |
 | `VCTDFS` | 10 | `vct` | 追い詰め。証明数木を深さ優先でたどる。 |
-| `VCTIDDFS` | 11 | `vct_iddfs` | 予約。`solve` は `Disproven` を返す。 |
+| `VCTIDDFS` | 11 | `vct_iddfs` | 予約。`solve` は何も探索せず `Aborted` を返す。 |
 | `VCTPNS` | 15 | `vct_pns` | 追い詰め、証明数探索。 |
 | `VCTDFPNS` | 16 | `vct_dfpns` | 追い詰め、df-pn。**通常はこれ。** |
 
@@ -93,7 +93,7 @@ pub enum SolveResult { Proven(Mate), Disproven, Aborted }
 `Option<Mate>` では、詰みが返らなかった理由（詰みがないのか、途中で打ち切ったのか）を区別できない。`SolveResult` は区別する。
 
 - `Disproven`: この上限では詰みがない。
-- `Aborted`: 予算が尽きた。詰みの有無は不明。
+- `Aborted`: 予算が尽きた（予約モードでは探索しなかった）。詰みの有無は不明。
 
 この違いは重要で、`Aborted` を「安全」と扱うエンジンは詰まされる。アクセサは `is_proven()`、`is_disproven()`、`is_aborted()`、`mate()`、`into_mate()`。
 
@@ -186,9 +186,9 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | `Forbidden(p)` | 四が 1 つで、唯一の止め `p` が禁手。 | 黒のみ。 |
 | `Unknown` | 勝ちは証明されたが手順を復元できなかった。探索前から攻め方に四があった（§6）か、復元でたどれる証明済みの子がなかった（06 §6）。 | — |
 
-## 6. 探索前の検査: `validate`
+## 6. 探索前の検査: `decided`
 
-`solve` は最初に、ソルバーが扱えない局面を弾く。
+`solve` は最初に、ソルバーが扱えない局面に探索せず答える（予約モードはその前に、盤面によらず `Aborted`）。
 
 | 局面 | 結果 |
 | --- | --- |

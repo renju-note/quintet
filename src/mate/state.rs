@@ -40,6 +40,16 @@ pub trait State {
         self.game().turn == self.attacker()
     }
 
+    /// See [`Game::is_forbidden_move`].
+    fn is_forbidden_move(&self, p: Point) -> bool {
+        self.game().is_forbidden_move(p)
+    }
+
+    /// See [`Game::check_event`].
+    fn check_event(&self) -> Option<Event> {
+        self.game().check_event()
+    }
+
     /// What every memo in the solvers is keyed by: the position — the stones
     /// and the turn from [`Game::position_hash`], plus the attacker — and
     /// the remaining limit.
@@ -99,6 +109,19 @@ mod tests {
     use super::*;
     use crate::board::Player::{Black, White};
     use crate::mate::vcf::VCFState;
+
+    /// The remaining limit separates otherwise identical positions in the
+    /// memos that want one entry per limit.
+    #[test]
+    fn test_key_hash_separates_the_limit() -> Result<(), String> {
+        let board = "H8,J9/I9".parse::<Board>()?;
+        let state = VCFState::init(&board, Black, 5);
+        let key = state.key();
+        let shallower = Key::new(key.position, 4);
+        assert_ne!(shallower.hash(), key.hash());
+        assert_eq!(state.zobrist_hash(), key.hash());
+        Ok(())
+    }
 
     /// `limit` is how many attacker moves are left. One is spent each time
     /// the turn comes back to the attacker, i.e. per attack-defence pair,

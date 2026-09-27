@@ -17,7 +17,7 @@ pub fn new() -> u64 {
 }
 
 pub fn apply_move(current: u64, player: Player, p: Point) -> u64 {
-    let idx = 2 * (u8::from(p) as usize) + player_index(player);
+    let idx = 2 * (u8::from(p) as usize) + player.index();
     let code = CODE_TABLE[idx];
     current ^ code
 }
@@ -30,7 +30,7 @@ pub fn apply_n(current: u64, n: u8) -> u64 {
 /// the turn and nothing else, and the same stones can be reached with either
 /// side to move.
 pub fn apply_turn(current: u64, turn: Player) -> u64 {
-    current ^ TURN_TABLE[player_index(turn)]
+    current ^ TURN_TABLE[turn.index()]
 }
 
 /// Mixes in which side a search is trying to find a mate for. Also not a
@@ -38,11 +38,7 @@ pub fn apply_turn(current: u64, turn: Player) -> u64 {
 /// attackers has to carry it: "no mate within this limit" is an answer about
 /// one of the two.
 pub fn apply_attacker(current: u64, attacker: Player) -> u64 {
-    current ^ ATTACKER_TABLE[player_index(attacker)]
-}
-
-fn player_index(r: Player) -> usize {
-    if r.is_black() { 0 } else { 1 }
+    current ^ ATTACKER_TABLE[attacker.index()]
 }
 
 const TURN_TABLE: [u64; 2] = [0x3de2a0c0dee98e6b, 0x30c10a5c09690093];

@@ -364,13 +364,13 @@ fn truthy_double_three(next, p) -> bool {
 
 - `CODE_TABLE` は `2 * 225` 個のランダムな 64 ビット値を持つ。索引は `2 * u8::from(point) + c` で、`c` は黒なら 0、白なら 1 である。
 - 石を置く・取り除くたびに、対応する値を XOR でハッシュに出し入れする。
-- `zobrist_hash_n(n)` は深さごとの値（`N_TABLE`）をさらに XOR し、ソルバーが（局面, 残り深さ）の組で置換表を引けるようにする。
+- 手番、探索の攻め方、残り深さは盤面の性質ではないので、このハッシュには含めない。ソルバーが自分で XOR して（`apply_turn`、`apply_attacker`、`N_TABLE` を使う `apply_n`）置換表のキーにする（`State::key`、04）。
 - `Board::put` / `remove` はコピーを返す。ソルバーは探索ループでのクローンを避けるため `_mut` 版を使う。
 
 四追い探索は各プレイヤーの剣先（`Sword`、§5）をほぼ毎ノード問い合わせるので、`SwordMap`（`src/feature/sword.rs`）にキャッシュしておく。持つのは `Board` ではなく、追い詰めの `ShapeMap` と同じく探索の状態である（`VCFState`、および内部の四追いに渡すための `VCTState`）。`State::after_play` / `after_undo` で印を付け、同期や読み出しのときに盤面を渡す。
 
 - プレイヤーごと・線ごと（`Grid::line_key` = `Grid::lines` での線の位置）に、剣先のセグメントがセル `j` から始まるならビット `j` を立てた `u16` と、剣先のある線を表す `u128` を持つ。
-- 着手は、その点を通る高々 4 本の線に「古い」印を付けるだけで（`SwordMap::mark_stale`）、古い線は `SwordMap::sync` がまとめて計算し直す。探索では剣先を読む回数より手を打つ・戻す回数のほうがずっと多いので、着手のたびに計算し直すと、キャッシュで置き換えたはずの全走査よりかえって高くつく。
+- 着手は、その点を通る高々 4 本の線に「古い」印を付けるだけで（`SwordMap::mark_stale`。印は `ShapeMap` と共用の `StaleLines`、`src/feature/stale.rs` に持つ）、古い線は `SwordMap::sync` がまとめて計算し直す。探索では剣先を読む回数より手を打つ・戻す回数のほうがずっと多いので、着手のたびに計算し直すと、キャッシュで置き換えたはずの全走査よりかえって高くつく。
 - 線の計算は `Line::row_starts(r, Sword)` が行い、すべてのセグメントを一度にビット演算で調べる（§3.1）。
 - `SwordMap::swords(board, r)` / `swords_on(board, p, r)` はキャッシュを読み、`rows(r, Sword)` / `rows_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync(board)` が必要である。
 
@@ -379,7 +379,7 @@ fn truthy_double_three(next, p) -> bool {
 | ルール | コード |
 | --- | --- |
 | 五連で勝ち | `rows(r, Five)`（`mate::solve` / `Game` で判定）。 |
-| 長連は白の勝ち、黒は不可 | 黒のセグメントだけがマージンを見るので、白の六も `Five`。黒の長連は禁手（`Overlining` = 六腐）。`mate::solve::validate` は五や黒の `Overlined` を既に含む入力局面を拒否する。 |
+| 長連は白の勝ち、黒は不可 | 黒のセグメントだけがマージンを見るので、白の六も `Five`。黒の長連は禁手（`Overlining` = 六腐）。`mate::solve::decided` は五や黒の `Overlined` を既に含む入力局面に、探索せず答える。 |
 | 四 / 棒四 | `Four`（点数 4 のセグメント）/ `Straight`（点数 4 のセグメント 2 つ）。棒四 = 隣接する 2 つの `Four`。 |
 | 三（達四できること） | `Three`（点数 3 のセグメント 2 つ）。唯一の眼 = 達四点。 |
 | 黒の「長連を作らずに」 | `Segment::alive`: マージンに黒石がないこと。 |

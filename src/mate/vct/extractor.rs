@@ -5,7 +5,6 @@ use crate::mate::budget::NodeBudget;
 use crate::mate::game::*;
 use crate::mate::mate::Mate;
 use crate::mate::state::State;
-use crate::mate::vct::proof::*;
 
 /// Recovering the winning line after `search` has proven the root.
 ///
@@ -17,57 +16,48 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     }
 
     fn extract_attacks(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
-        if let Some(event) = state.check_event() {
-            return match event {
-                Forced(attack) => state.into_play(Some(attack), |s| {
-                    self.extract_defences(s, budget).map(|m| m.unshift(attack))
-                }),
-                _ => unreachable!(),
-            };
-        }
-
-        for attack in state.empties() {
-            let maybe_node = self.attacker_table.lookup_next(state, Some(attack));
-            let node = maybe_node.unwrap_or(Node::unknown());
-            if node.is_proven() {
-                return state.into_play(Some(attack), |s| {
-                    self.extract_defences(s, budget).map(|m| m.unshift(attack))
-                });
-            }
-        }
-
-        self.attacker_vcf.vcf(state, budget)
+        let attack = match state.check_event() {
+            Some(Forced(attack)) => Some(attack),
+            Some(Defeated(_)) => unreachable!("a proven attacker node is not lost"),
+            None => state.empties().into_iter().find(|&attack| {
+                self.attacker_table
+                    .lookup_next(state, Some(attack))
+                    .is_some_and(|node| node.is_proven())
+            }),
+        };
+        // No proven child: the node was proven by the attacker's VCF.
+        let Some(attack) = attack else {
+            return self.attacker_vcf.vcf(state, budget);
+        };
+        state.into_play(Some(attack), |s| {
+            self.extract_defences(s, budget).map(|m| m.unshift(attack))
+        })
     }
 
     fn extract_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
-        if let Some(event) = state.check_event() {
-            return match event {
-                Defeated(end) => return Some(Mate::new(end, vec![])),
-                Forced(defence) => state.into_play(Some(defence), |s| {
-                    self.extract_attacks(s, budget).map(|m| m.unshift(defence))
-                }),
-            };
-        }
-
-        let threat = self.attacker_vcf.threat(state, budget).unwrap();
-        let threat_defences = state.threat_defences(&threat);
-        let defences = state.sorted_defences(threat_defences);
-        let mut min_limit = u8::MAX;
-        let mut best = None;
-        for defence in defences {
-            let maybe_node = self.defender_table.lookup_next(state, Some(defence));
-            let node = maybe_node.unwrap_or(Node::unknown());
-            if node.is_proven() && node.limit < min_limit {
-                min_limit = node.limit;
-                best.replace(defence);
+        let defence = match state.check_event() {
+            Some(Defeated(end)) => return Some(Mate::new(end, vec![])),
+            Some(Forced(defence)) => defence,
+            None => {
+                // The defence that is lost soonest, the first of those.
+                let threat = self.attacker_vcf.threat(state, budget).unwrap();
+                let threat_defences = state.threat_defences(&threat);
+                let best = state
+                    .sorted_defences(threat_defences)
+                    .into_iter()
+                    .filter_map(|defence| {
+                        let node = self.defender_table.lookup_next(state, Some(defence))?;
+                        node.is_proven().then_some((defence, node.limit))
+                    })
+                    .min_by_key(|&(_, limit)| limit);
+                let Some((defence, _)) = best else {
+                    return Some(Mate::new(End::Unknown, vec![]));
+                };
+                defence
             }
-        }
-        if best.is_none() {
-            return Some(Mate::new(End::Unknown, vec![]));
         };
-        state.into_play(best, |s| {
-            self.extract_attacks(s, budget)
-                .map(|m| m.unshift(best.unwrap()))
+        state.into_play(Some(defence), |s| {
+            self.extract_attacks(s, budget).map(|m| m.unshift(defence))
         })
     }
 }

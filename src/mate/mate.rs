@@ -1,6 +1,8 @@
 use super::game::*;
 use crate::board::*;
 
+/// A winning line: the moves from the root, attacker first, and how it
+/// ends.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Mate {
     pub end: End,
@@ -12,27 +14,10 @@ impl Mate {
         Self { end, path }
     }
 
-    pub fn end(&self) -> &End {
-        &self.end
-    }
-
-    pub fn path(&self) -> &Vec<Point> {
-        &self.path
-    }
-
+    /// The line with `m` played before it.
     pub fn unshift(mut self, m: Point) -> Self {
-        let end = self.end;
-        let mut path = vec![m];
-        path.append(&mut self.path);
-        Self::new(end, path)
-    }
-
-    pub fn preferred(old: Self, new: Self) -> Self {
-        if old.end == Unknown || new.path.len() > old.path.len() {
-            new
-        } else {
-            old
-        }
+        self.path.insert(0, m);
+        self
     }
 
     pub fn n_moves(&self) -> u8 {

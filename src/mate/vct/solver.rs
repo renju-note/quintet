@@ -28,9 +28,22 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     pub(super) attacker_vcf: NestedVCF,
     /// The defender's nested VCF search, `defender_vcf_depth` deep.
     pub(super) defender_vcf: NestedVCF,
-    pub(super) attacks_cache: LruCache<u64, Candidates, ZobristBuildHasher>,
-    pub(super) defences_cache: LruCache<u64, Candidates, ZobristBuildHasher>,
+    /// What `generate_attacks` found, by position.
+    pub(super) attacks_cache: CandidatesCache,
+    /// What `generate_defences` found, by position.
+    pub(super) defences_cache: CandidatesCache,
     policy: PhantomData<P>,
+}
+
+/// How many positions' candidates each of the two caches keeps. Unlike the
+/// proof tables they are a plain LRU, bounded within a search too: losing
+/// an entry only costs generating the moves again.
+const CANDIDATES_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(1000).unwrap();
+
+pub(super) type CandidatesCache = LruCache<u64, Candidates, ZobristBuildHasher>;
+
+fn candidates_cache() -> CandidatesCache {
+    LruCache::with_hasher(CANDIDATES_CACHE_CAPACITY, ZobristBuildHasher::default())
 }
 
 impl<P: ThresholdPolicy> VCTSolver<P> {
@@ -61,14 +74,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             defender_table: ProofTable::with_carry_capacity(carry_capacity, transfer_from),
             attacker_vcf: NestedVCF::new(true, attacker_vcf_depth, carry_capacity),
             defender_vcf: NestedVCF::new(false, defender_vcf_depth, carry_capacity),
-            attacks_cache: LruCache::with_hasher(
-                NonZeroUsize::new(1000).unwrap(),
-                ZobristBuildHasher::default(),
-            ),
-            defences_cache: LruCache::with_hasher(
-                NonZeroUsize::new(1000).unwrap(),
-                ZobristBuildHasher::default(),
-            ),
+            attacks_cache: candidates_cache(),
+            defences_cache: candidates_cache(),
             policy: PhantomData,
         }
     }

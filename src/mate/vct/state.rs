@@ -10,8 +10,8 @@ use crate::mate::vcf::VCFState;
 
 pub struct VCTState {
     game: Game,
-    pub attacker: Player,
-    pub limit: u8,
+    attacker: Player,
+    limit: u8,
     shapes: ShapeMap,
     /// The swords, kept only to hand to the nested VCF states.
     swords: SwordMap,
@@ -62,14 +62,6 @@ impl VCTState {
         self.swords.clone()
     }
 
-    pub fn is_forbidden_move(&self, p: Point) -> bool {
-        self.game().is_forbidden_move(p)
-    }
-
-    pub fn check_event(&self) -> Option<Event> {
-        self.game().check_event()
-    }
-
     /// The key the child after `next_move` would have, without building it.
     /// Must stay in step with [`State::key`]. `next_move` must be an empty
     /// point: the stone is XORed into the board's hash, not played.
@@ -92,15 +84,22 @@ impl VCTState {
     /// some line, or only those of `only`.
     pub fn sorted_attacks(&mut self, only: Option<Vec<Point>>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
+        let (shapes, attacker) = (&self.shapes, self.attacker);
+        let makes_two = |&p: &Point| shapes.get(p, attacker).count_from(Shape::Two) > 0;
+        // Filtered in place or into room for every point: this runs at
+        // every attacker node, and a `Vec` grown step by step was a good
+        // part of its cost.
         let points = match only {
-            Some(only) => only,
-            None => self.game.board().empties().collect(),
+            Some(mut only) => {
+                only.retain(makes_two);
+                only
+            }
+            None => {
+                let mut points = Vec::with_capacity(POINTS);
+                points.extend(self.game.board().empties().filter(makes_two));
+                points
+            }
         };
-        let attacker = self.attacker;
-        let points = points
-            .into_iter()
-            .filter(|&p| self.shapes.get(p, attacker).count_from(Shape::Two) > 0)
-            .collect();
         self.sort_by_priority(points)
     }
 
@@ -127,18 +126,12 @@ impl VCTState {
     /// equal ones keep their order.
     fn sort_by_priority(&mut self, points: Vec<Point>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
-        let mut seen = [0u64; 4];
-        let mut result: Vec<_> = points
-            .into_iter()
-            .filter(|&p| {
-                let i = u8::from(p) as usize;
-                let (word, bit) = (i / 64, 1 << (i % 64));
-                let new = seen[word] & bit == 0;
-                seen[word] |= bit;
-                new
-            })
-            .map(|p| (p, self.priority(p)))
-            .collect();
+        let mut points = points;
+        let mut seen = Area::new();
+        points.retain(|&p| seen.insert(p));
+        // Sized exactly, where a `filter` before the `map` left the `Vec`
+        // to grow.
+        let mut result: Vec<_> = points.into_iter().map(|p| (p, self.priority(p))).collect();
         result.sort_by_key(|&(_, key)| std::cmp::Reverse(key));
         result.into_iter().map(|(p, _)| p).collect()
     }
@@ -199,8 +192,8 @@ impl VCTState {
     }
 
     pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
-        let mut result = threat.path().clone();
-        result.extend(self.end_breakers(threat.end().clone()));
+        let mut result = threat.path.clone();
+        result.extend(self.end_breakers(threat.end.clone()));
         result.extend(self.counter_defences(threat));
         result.extend(self.four_moves());
         result
@@ -363,7 +356,7 @@ mod tests {
         attacking_black.play(Some(next));
         let attacking_white = VCTState::init(&board.put(Black, next), White, 4);
         assert_eq!(attacking_black.game().turn, attacking_white.game().turn);
-        assert_eq!(attacking_black.limit, attacking_white.limit);
+        assert_eq!(attacking_black.limit(), attacking_white.limit());
         assert_eq!(
             attacking_black.game().board().zobrist_hash(),
             attacking_white.game().board().zobrist_hash()

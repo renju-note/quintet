@@ -28,7 +28,7 @@ scripts/bench-compare.sh main                     # this tree vs. a git ref
 
 # CLI for manual experiments (examples/solve.rs)
 cargo run --release --example solve <mode> <limit> <threat_limit> <x|o> <moves>
-#   mode: vcf | vcf_iddfs | vct | vct_iddfs | vct_pns | vct_dfpns
+#   mode: vcf | vct | vct_pns | vct_dfpns (vcf_iddfs, vct_iddfs are reserved)
 #   moves: comma-separated like H8,H7,F6 (alternating Black, White, ...)
 ```
 
@@ -50,9 +50,10 @@ slower and some cases time out.
   points, e.g. the zone a failed VCF search reports), `shape.rs`
   (`ShapeMap`, what a stone at each point would make on each line — two,
   three, four... — for VCT move ordering, weighed in
-  `VCTState::priority`) and
+  `VCTState::priority`),
   `sword.rs` (`SwordMap`, a lazily updated cache of each line's swords for
-  VCF).
+  VCF) and `stale.rs` (`StaleLines`, the lines those two lazy maps have yet
+  to recompute).
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
   `SolveMode`) and also holds the integration tests. `solver.rs` is the
   `Solver` trait every solver implements (`solve` / `clear` /
