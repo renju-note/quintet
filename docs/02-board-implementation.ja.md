@@ -277,7 +277,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ### 長連（9.2 a）
 
 ```rust
-fn overline(overlinings: [u16; 4]) -> bool { any(overlinings.into_iter()) }
+fn overline(overlinings: [u16; 4]) -> bool { any(overlinings) }
 ```
 
 3 つの判定は、`p` を通る線ごとに、`rows_on(p, Black, kind)` が返す連の始点のマスク `Line::row_starts_on(i, Black, kind)`（§3.1）を、連を組み立てずに受け取る。`forbidden` は各線から 3 種類をまとめて 1 パスで読む（1 種類だけなら `Grid::row_starts_on` が同じものを返す）。連があるか（`any`）、2 つ以上あるか（後述の `distinctive_starts`）は、ビットの判定で済む。
@@ -288,7 +288,7 @@ fn overline(overlinings: [u16; 4]) -> bool { any(overlinings.into_iter()) }
 
 ```rust
 fn double_four(swords: [u16; 4]) -> bool {
-    distinctive_starts(swords.into_iter())
+    distinctive_starts(swords)
 }
 ```
 
@@ -304,7 +304,7 @@ fn double_four(swords: [u16; 4]) -> bool {
 ```rust
 fn double_three(g, p, twos: [u16; 4]) -> bool {
     // 軽い前段フィルタ: p を通る二連（Two）が 2 つ以上
-    if !distinctive_starts(twos.into_iter()) { return false; }
+    if !distinctive_starts(twos) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)

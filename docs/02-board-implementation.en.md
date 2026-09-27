@@ -400,7 +400,7 @@ by the search itself before the forbidden check matters.
 ### Overline (rule 9.2 a)
 
 ```rust
-fn overline(overlinings: [u16; 4]) -> bool { any(overlinings.into_iter()) }
+fn overline(overlinings: [u16; 4]) -> bool { any(overlinings) }
 ```
 
 The three checks take, per line through `p`, the mask
@@ -418,7 +418,7 @@ stones, so playing `p` completes a run of six or more.
 
 ```rust
 fn double_four(swords: [u16; 4]) -> bool {
-    distinctive_starts(swords.into_iter())
+    distinctive_starts(swords)
 }
 ```
 
@@ -445,7 +445,7 @@ used on the `Three`s below, which have to be looked at one by one.
 ```rust
 fn double_three(g, p, twos: [u16; 4]) -> bool {
     // cheap pre-filter: at least two "three-to-be" rows through p
-    if !distinctive_starts(twos.into_iter()) { return false; }
+    if !distinctive_starts(twos) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)

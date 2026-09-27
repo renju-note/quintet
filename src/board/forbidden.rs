@@ -53,15 +53,15 @@ pub use ForbiddenKind::*;
 /// The functions below take, per line through `p`, where Black's rows of
 /// one kind through `p` start ([`Grid::row_starts_on`]).
 fn overline(overlinings: [u16; 4]) -> bool {
-    any(overlinings.into_iter())
+    any(overlinings)
 }
 
 fn double_four(swords: [u16; 4]) -> bool {
-    distinctive_starts(swords.into_iter())
+    distinctive_starts(swords)
 }
 
 fn double_three(g: &Grid, p: Point, twos: [u16; 4]) -> bool {
-    if !distinctive_starts(twos.into_iter()) {
+    if !distinctive_starts(twos) {
         return false;
     }
     let mut next = g.clone();
@@ -78,15 +78,15 @@ fn truthy_double_three(next: &Grid, p: Point) -> bool {
 }
 
 /// Whether any line has a row start: [`Grid::row_starts_on`] finds a row.
-fn any(mut starts: impl Iterator<Item = u16>) -> bool {
-    starts.any(|s| s != 0)
+fn any(starts: impl IntoIterator<Item = u16>) -> bool {
+    starts.into_iter().any(|s| s != 0)
 }
 
 /// [`distinctive`] on the rows' starts, line by line: rows on two lines,
 /// or on one line starting other than at the first start and the next cell.
-fn distinctive_starts(starts: impl Iterator<Item = u16>) -> bool {
+fn distinctive_starts(starts: impl IntoIterator<Item = u16>) -> bool {
     let mut found = false;
-    for s in starts.filter(|&s| s != 0) {
+    for s in starts.into_iter().filter(|&s| s != 0) {
         if found || s & !(0b11 << s.trailing_zeros()) != 0 {
             return true;
         }
