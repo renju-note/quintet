@@ -93,26 +93,39 @@ impl Game {
     fn check_last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let opponent = self.turn.opponent();
         if let Some(last_move) = self.last_move() {
-            Self::take_distinct_two(self.board.rows_on(last_move, opponent, Four))
+            Self::take_distinct_two(self.four_eyes_on(last_move, opponent))
         } else {
-            Self::take_distinct_two(self.board.rows(opponent, Four))
+            Self::take_distinct_two(self.board.rows(opponent, Four).flat_map(|r| r.eyes()))
         }
     }
 
-    /// The first two distinct eyes of `fours`, in the order they come.
+    /// The eyes of `r`'s fours through `p`, line by line: those of
+    /// `rows_on(p, r, Four)`, read off each line's bitmasks without building
+    /// the rows. This runs at every node of every search.
     ///
-    /// The eyes are walked with a loop rather than `flat_map(|r| r.eyes())`:
-    /// this runs at every node of every search, and a `Four` has exactly one
-    /// eye, so the flattening was all overhead and no flattening.
-    fn take_distinct_two(fours: impl Iterator<Item = Row>) -> (Option<Point>, Option<Point>) {
+    /// On one line, two fours through `p` give their eyes in the order the
+    /// rows come, as the rows start: were the later row's eye before the
+    /// earlier one's, both would be empty cells of the earlier row, which
+    /// then would have two and be no four.
+    fn four_eyes_on(&self, p: Point, r: Player) -> impl Iterator<Item = Point> + '_ {
+        self.board
+            .lines_on(p)
+            .filter(move |(_, _, l)| l.potential_cap(r) > Four.stones())
+            .flat_map(move |(d, i, l)| {
+                let starts = l.row_starts_on(p.to_index(d).j, r, Four);
+                Bits(l.eyes_of(starts, Four.eye_cells()))
+                    .map(move |j| Index::new(d, i, j).to_point())
+            })
+    }
+
+    /// The first two distinct points of `eyes`, in the order they come.
+    fn take_distinct_two(eyes: impl Iterator<Item = Point>) -> (Option<Point>, Option<Point>) {
         let mut ret = None;
-        for four in fours {
-            for p in four.eyes() {
-                if ret.is_some_and(|e| e != p) {
-                    return (ret, Some(p));
-                }
-                ret = Some(p);
+        for p in eyes {
+            if ret.is_some_and(|e| e != p) {
+                return (ret, Some(p));
             }
+            ret = Some(p);
         }
         (ret, None)
     }
