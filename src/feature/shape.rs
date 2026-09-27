@@ -38,6 +38,11 @@ impl Shapes {
         self.0.iter().filter(|&&x| x == s).count() as u8
     }
 
+    /// The biggest shape made along any direction.
+    pub fn best(&self) -> Shape {
+        self.0.iter().copied().max().unwrap_or_default()
+    }
+
     /// How many directions make at least `s`.
     pub fn count_from(&self, s: Shape) -> u8 {
         self.0.iter().filter(|&&x| x >= s).count() as u8

@@ -1,3 +1,4 @@
+use super::generator::Candidate;
 use super::generator::Candidates::*;
 use super::solver::VCTSolver;
 use super::state::VCTState;
@@ -46,19 +47,17 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             return match event {
                 Defeated(_) => Node::disproven(state.limit),
                 Forced(next_move) => {
-                    let attacks = &[next_move];
-                    self.expand_attacks(state, attacks, 1, threshold, budget)
-                        .node
+                    let attacks = &[Candidate::new(next_move, 1)];
+                    self.expand_attacks(state, attacks, threshold, budget).node
                 }
             };
         }
 
-        let (attacks, width) = match self.generate_attacks(state, budget) {
-            Moves { moves, width } => (moves, width),
+        let attacks = match self.generate_attacks(state, budget) {
+            Moves(v) => v,
             Terminal(node) => return node,
         };
-        self.expand_attacks(state, &attacks, width, threshold, budget)
-            .node
+        self.expand_attacks(state, &attacks, threshold, budget).node
     }
 
     pub fn search_defences(
@@ -78,7 +77,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                     if state.limit <= 1 {
                         Node::disproven(state.limit)
                     } else {
-                        let defences = &[next_move];
+                        let defences = &[Candidate::new(next_move, 1)];
                         self.expand_defences(state, defences, threshold, budget)
                             .node
                     }
@@ -91,7 +90,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
 
         let defences = match self.generate_defences(state, budget) {
-            Moves { moves, .. } => moves,
+            Moves(v) => v,
             Terminal(node) => return node,
         };
         self.expand_defences(state, &defences, threshold, budget)
@@ -101,13 +100,12 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     fn expand_attacks(
         &mut self,
         state: &mut VCTState,
-        attacks: &[Point],
-        width: u32,
+        attacks: &[Candidate],
         threshold: Node,
         budget: &mut NodeBudget,
     ) -> Selection {
         loop {
-            let selection = self.select_attack(state, attacks, width);
+            let selection = self.select_attack(state, attacks);
             if Self::exceeds_threshold(selection.node, threshold) {
                 return selection;
             }
@@ -129,7 +127,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     fn expand_defences(
         &mut self,
         state: &mut VCTState,
-        defences: &[Point],
+        defences: &[Candidate],
         threshold: Node,
         budget: &mut NodeBudget,
     ) -> Selection {
@@ -153,16 +151,19 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
     }
 
-    fn select_attack(&self, state: &mut VCTState, attacks: &[Point], width: u32) -> Selection {
+    fn select_attack(&self, state: &mut VCTState, attacks: &[Candidate]) -> Selection {
         let limit = state.limit;
-        let mut best: Option<Point> = Some(attacks[0]);
+        let mut best: Option<Point> = Some(attacks[0].point);
         let mut node = Node::disproven(limit);
         let mut best_child = Node::disproven(limit);
         let mut second_child = Node::disproven(limit);
-        let init = Node::unexpanded_defence(width, limit); // trick
-        for &attack in attacks {
+        for &Candidate {
+            point: attack,
+            estimate,
+        } in attacks
+        {
             let maybe_child = self.attacker_table.lookup_next(state, Some(attack));
-            let child = maybe_child.unwrap_or(init);
+            let child = maybe_child.unwrap_or(Node::unexpanded_defence(estimate, limit));
             node = node.min_pn_sum_dn(child);
             if child.pn < best_child.pn {
                 best.replace(attack);
@@ -184,16 +185,19 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
     }
 
-    fn select_defence(&self, state: &mut VCTState, defences: &[Point]) -> Selection {
+    fn select_defence(&self, state: &mut VCTState, defences: &[Candidate]) -> Selection {
         let limit = state.limit;
-        let mut best: Option<Point> = Some(defences[0]);
+        let mut best: Option<Point> = Some(defences[0].point);
         let mut node = Node::proven(limit - 1);
         let mut best_child = Node::proven(limit - 1);
         let mut second_child = Node::proven(limit - 1);
-        let init = Node::unexpanded_attack(defences.len() as u32, limit - 1); // trick
-        for &defence in defences {
+        for &Candidate {
+            point: defence,
+            estimate,
+        } in defences
+        {
             let maybe_child = self.defender_table.lookup_next(state, Some(defence));
-            let child = maybe_child.unwrap_or(init);
+            let child = maybe_child.unwrap_or(Node::unexpanded_attack(estimate, limit - 1));
             node = node.min_dn_sum_pn(child);
             if child.dn < best_child.dn {
                 best.replace(defence);

@@ -1,6 +1,7 @@
 use super::solver::VCTSolver;
 use super::threshold::ThresholdPolicy;
 use crate::board::Point;
+use crate::feature::shape::Shape;
 use crate::mate::budget::NodeBudget;
 use crate::mate::state::State;
 use crate::mate::vct::proof::*;
@@ -74,10 +75,27 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             return Terminal(Node::disproven(state.limit));
         }
 
-        Moves {
-            moves: result,
-            width,
-        }
+        // An attack is expanded in the order of its estimated proof number
+        // (`select_attack`), so these decide how far the search follows the
+        // forcing moves before it tries the others. They are the trick of
+        // seeding with the number of siblings, so that narrow nodes look
+        // easier, lowered for a move that narrows the defender's replies: a
+        // four to one, a three to a few. The siblings are counted before the
+        // moves that cannot be threats were ruled out (`width`): leaving out
+        // moves that would only be disproven at once does not make the
+        // others any easier to prove.
+        let moves = result
+            .into_iter()
+            .map(|p| {
+                let estimate = match state.best_shape(p) {
+                    Shape::Five | Shape::Four => width / 4,
+                    Shape::Three => width / 2,
+                    _ => width,
+                };
+                Candidate::new(p, estimate)
+            })
+            .collect();
+        Moves(moves)
     }
 
     fn compute_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
@@ -101,28 +119,39 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
 
         let width = result.len() as u32;
-        Moves {
-            moves: result,
-            width,
-        }
+        Moves(
+            result
+                .into_iter()
+                .map(|p| Candidate::new(p, width))
+                .collect(),
+        )
     }
 }
 
 /// What move generation found for a node.
 #[derive(Clone)]
 pub enum Candidates {
-    /// An inner node.
-    Moves {
-        /// The moves to expand, best first.
-        moves: Vec<Point>,
-        /// How many moves there were before those that cannot be threats
-        /// were ruled out (see `compute_attacks`), which is what an
-        /// unexpanded child's proof number is guessed from. Leaving out
-        /// moves that would only be disproven at once does not make the
-        /// others any easier to prove.
-        width: u32,
-    },
+    /// The moves to expand, best first.
+    Moves(Vec<Candidate>),
     /// The node is decided without expansion (e.g. the attacker has a VCF, or
     /// there is no move at all); this is its value.
     Terminal(Node),
+}
+
+/// A move to expand, with the number its child starts from while the tables
+/// know nothing about it: the proof number of an attack, the disproof number
+/// of a defence.
+#[derive(Clone, Copy)]
+pub struct Candidate {
+    pub point: Point,
+    pub estimate: u32,
+}
+
+impl Candidate {
+    pub fn new(point: Point, estimate: u32) -> Self {
+        Self {
+            point,
+            estimate: estimate.max(1),
+        }
+    }
 }
