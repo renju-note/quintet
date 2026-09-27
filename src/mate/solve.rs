@@ -57,29 +57,29 @@ pub fn solve_with_stats(
     if matches!(mode, VCFIDDFS | VCTIDDFS) {
         return (SolveResult::Aborted, SolveStats::default());
     }
-    if let Some(result) = decided(board, attacker) {
+    if let Some(result) = trivial_result(board, attacker) {
         return (result, SolveStats::default());
     }
     let limit = limits.limit;
     let threat_limit = limits.threat_limit;
     let defender_vcf_depth = limits.defender_vcf_depth;
     let budget = &mut limits.budget();
-    let vcf_state = || VCFState::init(board, attacker, limit);
-    let vct_state = || VCTState::init(board, attacker, limit);
+    let vcf_state = || VCFState::from_board(board, attacker, limit);
+    let vct_state = || VCTState::from_board(board, attacker, limit);
     let (maybe_mate, memo_len) = match mode {
-        VCFDFS => run(DFSSolver::init(), vcf_state(), budget),
+        VCFDFS => run(DFSSolver::new(), vcf_state(), budget),
         VCTDFS => run(
-            DFSVCTSolver::init(threat_limit, defender_vcf_depth),
+            DFSVCTSolver::new(threat_limit, defender_vcf_depth),
             vct_state(),
             budget,
         ),
         VCTPNS => run(
-            PNSVCTSolver::init(threat_limit, defender_vcf_depth),
+            PNSVCTSolver::new(threat_limit, defender_vcf_depth),
             vct_state(),
             budget,
         ),
         VCTDFPNS => run(
-            DFPNSVCTSolver::init(threat_limit, defender_vcf_depth),
+            DFPNSVCTSolver::new(threat_limit, defender_vcf_depth),
             vct_state(),
             budget,
         ),
@@ -275,7 +275,7 @@ fn run<S: Solver>(
 
 /// The answer for a board that needs no search, if it is one: the game
 /// is already over, or the attacker has a four and wins next move.
-fn decided(board: &Board, attacker: Player) -> Option<SolveResult> {
+fn trivial_result(board: &Board, attacker: Player) -> Option<SolveResult> {
     let over = board.rows(Black, Five).next().is_some()
         || board.rows(White, Five).next().is_some()
         || board.rows(Black, Overlined).next().is_some();
@@ -836,14 +836,14 @@ mod tests {
     fn test_abort_leaves_no_wrong_memo() {
         let board = vct_board();
         for max_nodes in [1, 2, 3, 5, 8, 13, 21, 34, 55, 89] {
-            let mut solver = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+            let mut solver = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
 
             let budget = &mut NodeBudget::new(max_nodes);
-            let state = &mut VCTState::init(&board, Black, 4);
+            let state = &mut VCTState::from_board(&board, Black, 4);
             let aborted = solver.solve(state, budget);
 
             let budget = &mut NodeBudget::unlimited();
-            let state = &mut VCTState::init(&board, Black, 4);
+            let state = &mut VCTState::from_board(&board, Black, 4);
             let result = path_string(solver.solve(state, budget));
             assert_eq!(result, VCT_SOLUTION, "after {} nodes", max_nodes);
 
@@ -859,22 +859,22 @@ mod tests {
     #[test]
     fn test_reused_solver() {
         let board = vct_board();
-        let mut solver = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let mut solver = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
         let budget = &mut NodeBudget::unlimited();
 
-        let state = &mut VCTState::init(&board, Black, 4);
+        let state = &mut VCTState::from_board(&board, Black, 4);
         assert_eq!(path_string(solver.solve(state, budget)), VCT_SOLUTION);
         let first = budget.nodes();
         assert!(first > 0);
 
         // The second search reuses the tables, so it costs less than the first.
-        let state = &mut VCTState::init(&board, Black, 4);
+        let state = &mut VCTState::from_board(&board, Black, 4);
         assert_eq!(path_string(solver.solve(state, budget)), VCT_SOLUTION);
         let second = budget.nodes() - first;
         assert!(second < first);
 
         solver.clear();
-        let state = &mut VCTState::init(&board, Black, 4);
+        let state = &mut VCTState::from_board(&board, Black, 4);
         assert_eq!(path_string(solver.solve(state, budget)), VCT_SOLUTION);
         let third = budget.nodes() - first - second;
         assert_eq!(third, first);
@@ -885,16 +885,16 @@ mod tests {
     #[test]
     fn test_reused_solver_both_attackers() {
         let board = vct_board();
-        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let mut reused = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
         let budget = &mut NodeBudget::unlimited();
 
         for round in 0..3 {
             for attacker in [Black, White] {
-                let state = &mut VCTState::init(&board, attacker, 4);
+                let state = &mut VCTState::from_board(&board, attacker, 4);
                 let got = reused.solve(state, budget).is_some();
 
-                let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
-                let state = &mut VCTState::init(&board, attacker, 4);
+                let mut fresh = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
+                let state = &mut VCTState::from_board(&board, attacker, 4);
                 let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
 
                 assert_eq!(got, want, "round {round}, {attacker:?} attacking");
@@ -903,9 +903,9 @@ mod tests {
         // Black wins here and White does not, so the two answers differ and a
         // key that ignored the attacker would have had to get one of them
         // wrong.
-        let state = &mut VCTState::init(&board, Black, 4);
+        let state = &mut VCTState::from_board(&board, Black, 4);
         assert!(reused.solve(state, budget).is_some());
-        let state = &mut VCTState::init(&board, White, 4);
+        let state = &mut VCTState::from_board(&board, White, 4);
         assert!(reused.solve(state, budget).is_none());
     }
 
@@ -920,9 +920,9 @@ mod tests {
         let threat = solve(VCTDFPNS, &board, Black, limits)
             .into_mate()
             .expect("Black has a VCT");
-        let defences = VCTState::init(&board, White, 4).threat_defences(&threat);
+        let defences = VCTState::from_board(&board, White, 4).threat_defences(&threat);
 
-        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let mut reused = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
         let budget = &mut NodeBudget::unlimited();
         let mut seen = std::collections::HashSet::new();
         let mut checked = 0;
@@ -930,13 +930,13 @@ mod tests {
             if !seen.insert(p) || board.forbidden(p).is_some() {
                 continue;
             }
-            let next = board.put(White, p);
+            let next = board.with_stone(White, p);
 
-            let state = &mut VCTState::init(&next, Black, 4);
+            let state = &mut VCTState::from_board(&next, Black, 4);
             let got = reused.solve(state, budget).is_some();
 
-            let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
-            let state = &mut VCTState::init(&next, Black, 4);
+            let mut fresh = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
+            let state = &mut VCTState::from_board(&next, Black, 4);
             let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
 
             assert_eq!(got, want, "after White {p}");
@@ -953,11 +953,11 @@ mod tests {
         let board = vct_board();
         let budget = &mut NodeBudget::unlimited();
         let positions: Vec<_> = board
-            .empties()
+            .empty_points()
             .take(24)
             .enumerate()
             .filter(|(_, p)| board.forbidden(*p).is_none())
-            .map(|(i, p)| board.put(if i % 2 == 0 { White } else { Black }, p))
+            .map(|(i, p)| board.with_stone(if i % 2 == 0 { White } else { Black }, p))
             .collect();
         assert!(positions.len() > 20);
 
@@ -966,13 +966,13 @@ mod tests {
         let mut early = 0;
         let mut total_alone = 0;
         for (i, b) in positions.iter().enumerate() {
-            solver.solve(&mut VCTState::init(b, Black, 4), budget);
+            solver.solve(&mut VCTState::from_board(b, Black, 4), budget);
             if i == 3 {
                 early = solver.memo_len();
             }
             let mut alone = DFPNSVCTSolver::with_carry_capacity(1, DEFAULT_DEFENDER_VCF_DEPTH, 0);
             alone.solve(
-                &mut VCTState::init(b, Black, 4),
+                &mut VCTState::from_board(b, Black, 4),
                 &mut NodeBudget::unlimited(),
             );
             total_alone += alone.memo_len();
@@ -997,19 +997,19 @@ mod tests {
     #[test]
     fn test_decisions_carry_between_limits() {
         let board = vct_board();
-        let mut solver = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let mut solver = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
         let budget = &mut NodeBudget::unlimited();
 
         // Black has a VCT in 4 and none in 3.
         assert!(
             solver
-                .solve(&mut VCTState::init(&board, Black, 3), budget)
+                .solve(&mut VCTState::from_board(&board, Black, 3), budget)
                 .is_none()
         );
         let after_three = budget.nodes();
         assert!(
             solver
-                .solve(&mut VCTState::init(&board, Black, 4), budget)
+                .solve(&mut VCTState::from_board(&board, Black, 4), budget)
                 .is_some()
         );
         let four = budget.nodes() - after_three;
@@ -1019,7 +1019,7 @@ mod tests {
             let before = budget.nodes();
             assert!(
                 solver
-                    .solve(&mut VCTState::init(&board, Black, limit), budget)
+                    .solve(&mut VCTState::from_board(&board, Black, limit), budget)
                     .is_some(),
                 "limit {limit}"
             );
@@ -1035,7 +1035,7 @@ mod tests {
             let before = budget.nodes();
             assert!(
                 solver
-                    .solve(&mut VCTState::init(&board, Black, limit), budget)
+                    .solve(&mut VCTState::from_board(&board, Black, limit), budget)
                     .is_none(),
                 "limit {limit}"
             );
@@ -1048,7 +1048,7 @@ mod tests {
     #[test]
     fn test_reused_solver_matches_fresh_across_limits() {
         let board = vct_board();
-        let mut reused = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
+        let mut reused = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
         let budget = &mut NodeBudget::unlimited();
         let mut verdicts = vec![];
 
@@ -1056,11 +1056,11 @@ mod tests {
         // limit is asked before a smaller one and the other way round.
         for &limit in &[4u8, 2, 6, 1, 5, 3, 6, 2, 4] {
             for attacker in [Black, White] {
-                let state = &mut VCTState::init(&board, attacker, limit);
+                let state = &mut VCTState::from_board(&board, attacker, limit);
                 let got = reused.solve(state, budget).is_some();
 
-                let mut fresh = DFPNSVCTSolver::init(1, DEFAULT_DEFENDER_VCF_DEPTH);
-                let state = &mut VCTState::init(&board, attacker, limit);
+                let mut fresh = DFPNSVCTSolver::new(1, DEFAULT_DEFENDER_VCF_DEPTH);
+                let state = &mut VCTState::from_board(&board, attacker, limit);
                 let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
 
                 assert_eq!(got, want, "{attacker:?} at limit {limit}");
@@ -1145,7 +1145,7 @@ mod tests {
             if board.stone(p).is_some() {
                 continue;
             }
-            board.put_mut(r, p);
+            board.put(r, p);
             placed += 1;
             r = r.opponent();
         }
@@ -1164,13 +1164,13 @@ mod tests {
             .into_mate()
             .expect("Black has a VCT");
 
-        let state = VCTState::init(&board, White, 4);
+        let state = VCTState::from_board(&board, White, 4);
         let defences = state.threat_defences(&threat);
         assert!(defences.contains(&threat.path[0]));
 
         let stops_it = defences.iter().any(|&p| {
             board.forbidden(p).is_none()
-                && solve(VCTDFPNS, &board.put(White, p), Black, limits).is_disproven()
+                && solve(VCTDFPNS, &board.with_stone(White, p), Black, limits).is_disproven()
         });
         assert!(stops_it, "no candidate stops the VCT");
     }
@@ -1184,17 +1184,17 @@ mod tests {
 
         // White to move. After the pass it is Black's turn, and Black has no
         // VCF yet in this position.
-        let mut game = Game::init(&board, White);
+        let mut game = Game::new(&board, White);
         game.play(None);
         let state = &mut VCFState::new(game, 5);
-        assert!(DFSSolver::init().solve(state, budget).is_none());
+        assert!(DFSSolver::new().solve(state, budget).is_none());
 
         // After Black's first VCT move it is a threat: passing loses to a VCF.
-        let board = board.put(Black, threat_start());
-        let mut game = Game::init(&board, White);
+        let board = board.with_stone(Black, threat_start());
+        let mut game = Game::new(&board, White);
         game.play(None);
         let state = &mut VCFState::new(game, 5);
-        assert!(DFSSolver::init().solve(state, budget).is_some());
+        assert!(DFSSolver::new().solve(state, budget).is_some());
     }
 
     fn threat_start() -> Point {

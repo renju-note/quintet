@@ -13,12 +13,12 @@ mod zobrist;
 pub use bits::Bits;
 pub use board::Board;
 pub use forbidden::ForbiddenKind;
-pub use grid::{Grid, LINE_NUM};
+pub use grid::{Grid, LINE_COUNT};
 pub use line::{Line, Rows};
 pub use player::Player;
-pub use point::{Direction, Index, POINTS, Point, Points, RANGE};
+pub use point::{Direction, Index, POINT_COUNT, Point, Points, SIZE};
 pub use row::{Row, RowKind};
-pub use segment::{Segment, VICTORY};
+pub use segment::{FIVE, Segment};
 // Search-key helpers: the turn and a search's attacker are not properties of
 // the board, so the mate solvers mix them into the position hash themselves.
-pub(crate) use zobrist::{apply_attacker, apply_move, apply_n, apply_turn};
+pub(crate) use zobrist::{apply_attacker, apply_limit, apply_move, apply_turn};

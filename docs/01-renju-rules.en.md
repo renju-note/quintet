@@ -1,15 +1,16 @@
 # International Rules of Renju (RIF)
 
 This is a Markdown restatement of the *International Rules of Renju* adopted
-by the Renju International Federation (RIF) on 2 May 1996, with the
-correction of 3 May 1998. The authoritative text is published at
-<https://www.renju.net/rifrules/>; this page follows its section numbering
-but paraphrases the wording. Where the original and this page disagree, the
-original wins.
+by the Renju International Federation (RIF) on 2 May 1996, with a small
+correction decided by the RIF Central Committee on 3 May 1998. The
+authoritative text is published at <https://www.renju.net/rifrules/>; this
+page follows its section numbering but paraphrases the wording. Where the
+original and this page disagree, the original wins.
 
-Sections that matter for a mate solver (2, 3, 4, 9, 10, 11, 12) are written
-out in full. Sections about tournament procedure (clocks, scoresheets,
-arbiters, conduct) are summarized only.
+Sections that matter for a mate solver (2, 3, 4, 9, 10, 11, 12) are restated
+in full; notes that are not part of the rules are marked as such. Sections
+about tournament procedure (clocks, scoresheets, arbiters, conduct) are
+summarized only.
 
 ---
 
@@ -21,7 +22,7 @@ called *stones*.
 ## 2. The board
 
 - 15 × 15 lines, giving 225 intersections.
-- Five intersections are marked as reference points (star points).
+- Five of the intersections are reference points.
 - The board's colour must differ from both stone colours.
 
 In this repository intersections are named `A1`–`O15`: a column letter
@@ -41,16 +42,18 @@ horizontal line, a vertical line, or either diagonal).
 | **Five (in a row)** | An unbroken row of exactly five stones. |
 | **Overline** | An unbroken row of six or more stones. |
 | **Four** | A row of four stones to which one more stone can be added to make a five. |
-| **Straight four** | An unbroken row of four stones that can be turned into a five in **two** different ways (i.e. both ends are open). Also called an *open four*. |
+| **Straight four** | An unbroken row of four stones (a four) that can be turned into a five in **two** different ways. |
 | **Three** | A row of three stones to which one more stone can be added to make a straight four, without that added stone also making a five. |
-| **Double-four** | A single move that creates two or more fours at once, all passing through the intersection played. The fours may lie on different lines or on the same line. |
-| **Double-three** | A single move that creates two or more threes at once, all passing through the intersection played. |
+| **Double-four** | A single stone that makes more than one four at once, the fours meeting at the intersection played. |
+| **Double-three** | A single stone that makes more than one three at once, the threes meeting at the intersection played. |
 
 Notes for implementers:
 
 - A *four* is defined by the existence of a completing point, so `oooo.`,
   `ooo.o`, and `oo.oo` are all fours. Only `.oooo.` (with both ends
-  playable) is a straight four.
+  playable) is a straight four, also called an *open four*.
+- The fours of a double-four may lie on different lines or on the same
+  line (e.g. `o.o_o.o`, where `_` is the stone played).
 - For Black, "can be added to make a five" must be read together with
   section 9: a stone that would produce an overline does not make a five,
   so e.g. `o.oooo` contains no four for Black (filling the gap gives six).
@@ -60,9 +63,10 @@ Notes for implementers:
 ## 4. How to play
 
 - 4.1 One player takes the black stones, the other the white stones.
-- 4.2 Players move alternately, one move at a time. Black moves first and
-  must play the first stone on the centre intersection.
-- 4.3 "Black to play" / "White to play" means it is that side's turn.
+- 4.2 Players move alternately, one move each time. Black begins the game
+  with a move in the middle of the board (the centre intersection).
+- 4.3 "Black to play" / "White to play" means it is that side's turn to
+  move.
 
 ## 5. What a move is
 
@@ -76,28 +80,30 @@ complete when it is declared.
 
 ## 7. Adjusting stones
 
-The player to move may straighten stones on their intersections after
-informing the opponent.
+The player to move may adjust one or more stones on their intersections,
+but must inform the opponent before doing so.
 
 ## 8. Disturbed positions
 
-If stones are knocked out of place or wrongly removed/replaced, the position
-is restored and play continues. If a player caused the disturbance and the
-position cannot be restored, that player loses. If nobody is responsible and
+If stones become disarranged during a game, or are wrongly removed or
+replaced, the position is reconstructed as it was before the mishap and play
+continues. If a player caused the disturbance and the position cannot be
+restored, that player loses. If nobody is responsible and
 the position cannot be restored, the game is void and replayed.
 
 ## 9. Winning the game
 
 - **9.1** The first player to make a **five in a row** wins. For **White**
-  an **overline also counts as a win** (White has no forbidden moves).
+  an **overline also counts as a win**.
 - **9.2** **White wins if Black makes a forbidden move.** A Black move is
   forbidden if, *without at the same time making a five*, it makes:
   - a) an overline;
   - b) a double-four;
   - c) a double-three (with the exceptions in 9.3).
 
-  A Black move that makes a five is always legal and wins, even if the same
-  stone also forms an overline, double-four or double-three.
+  So a Black move that makes a five wins, even if the same stone also
+  forms an overline, double-four or double-three. White has no forbidden
+  moves.
 - **9.3** A Black double-three is **allowed** (i.e. not forbidden) if at
   least one of the following holds:
   - a) At most one of the threes can actually be turned into a straight
@@ -134,81 +140,97 @@ the position cannot be restored, the game is void and replayed.
 - a) The game is drawn when:
   - 10.1 every intersection is occupied;
   - 10.2 both players agree;
-  - 10.3 both players pass consecutively;
+  - 10.3 both players pass, one after the other;
   - 10.4 both players' time has run out.
 - b) A draw offer (10.2) may only be made together with the offerer's move,
   after which they start the opponent's clock. The opponent accepts or
-  declines, verbally or by moving. The offer cannot be withdrawn while it is
-  pending.
+  refuses orally, or refuses by making a move. Meanwhile the player who made
+  the offer may not withdraw it.
 
 ## 11. The opening patterns
 
-Only 26 opening patterns are permitted: 13 *direct* (second move
-orthogonally adjacent to the centre) and 13 *indirect* (second move
-diagonally adjacent). Concretely, the second move (White) has two allowed
-placements next to the centre, and for each of them the third move (Black)
-has 13 allowed placements, all within the central 5 × 5 area. The first
-three stones must form one of these 26 shapes.
+Only 26 opening patterns may be played: 13 *indirect* and 13 *direct*. The
+second and third moves must be played as in the patterns, which the original
+shows as diagrams (not reproduced here): two alternatives for the second
+move, and after it 13 alternatives for the third move.
+
+In the diagrams, the second move (White) is next to the centre,
+orthogonally for the direct patterns and diagonally for the indirect ones,
+and the third move (Black) is within the central 5 × 5 area.
 
 ## 12. Opening rules
 
 - **12.1** Before the game, a *tentative Black* and a *tentative White* are
   decided.
-- **12.2–12.4** The tentative Black plays the first **three** moves (Black,
-  White, Black), i.e. chooses which of the 26 patterns is used.
+- **12.2–12.4** The tentative Black plays all of the first **three** moves
+  (two for Black and one for White), i.e. decides which of the 26 patterns
+  is used.
   (Rule adopted by the General Assembly on 2 May 1996.)
 - **12.5** The tentative White then decides who will play Black and who will
-  play White for the rest of the game (the *swap* option).
+  play White in the game (White has the right to change sides, the *swap*).
 - **12.6** The player now holding White plays the 4th move on any empty
   intersection.
-- **12.7** *Black's choice*: Black proposes **two different** candidates for
-  the 5th move. The proposals must differ in every respect (not be
-  symmetric equivalents). White chooses one of them to become the 5th move.
+- **12.7** *Black's choice*: Black makes **two different** proposals for
+  the 5th stone. The proposals must be unequal in every respect (in
+  practice: not symmetrically equivalent). White chooses one of them to become the 5th move.
   Black's clock runs until two valid proposals are given; White's clock runs
   until a proposal is accepted and the 6th move (any empty intersection) is
   played.
-- **12.8** After the 5th move the special opening rules end.
+- **12.8** With the 5th move the special opening rules end.
 - **12.9** Passing is not allowed during the first three moves.
 
 ## 13. Recording the game (summary)
 
 Both players must keep a legible move-by-move record of the whole game on
 the organizer's form (13.1). A player with five minutes or less remaining
-may stop recording, but must complete the record afterwards if possible
-(13.2).
+need not record, but must complete the record as soon as the time
+shortage is over, if possible (13.2).
 
 ## 14. Use of the clock (summary)
 
-A set number of moves must be made within a set time, controlled by a game
-clock (14.1–14.2). Black's clock starts the game; after each move the player
-stops their own clock and starts the opponent's with the same hand used to
-move (14.3). A move is not counted for time control until the clock is
-pressed (14.4). The clock's reading is decisive unless obviously defective
-(14.5). Clocks are stopped for interruptions not caused by the players
-(14.6), and players may not stop the clocks themselves without immediately
-calling the organizer (14.7). Only the players may point out a flag fall or
-a forgotten clock press (14.8), unless time referees are used, in which case
-they control the time and must be called when five minutes remain (14.9).
+- 14.1–14.2 A set number of moves must be made within a set time,
+  controlled by a special clock.
+- 14.3 Black's clock is started when the game begins. After each move the
+  player stops their own clock with the hand used to move and at the same
+  time starts the opponent's, promptly so as not to disturb the opponent.
+  A player may forget to stop the clock, and the opponent need not point
+  it out.
+- 14.4 For time control, the last move counts as made only once the player
+  has stopped their clock.
+- 14.5 The clock's reading is decisive unless obviously defective; a
+  player who wants to point out a defect must do so immediately.
+- 14.6 If the game is interrupted for a reason not caused by the players,
+  the clocks are stopped until the matter is resolved.
+- 14.7 Players may not stop the clocks themselves without immediately
+  calling the organizer.
+- 14.8 No one but the players, the organizer included, may point out that a
+  player's time is up or that a player forgot to stop the clock.
+- 14.9 The organizer may use time referees, who then control the time, and
+  14.8 does not apply. The organizer must make sure every game can get one
+  when needed, and the players must call one as soon as five minutes of
+  the set time remain.
 
 ## 15. Late arrival (summary)
 
-Clocks are started at the organizer's request. If both players are absent
-one clock runs and its time counts against both.
+When the games are to start, all clocks are started at the organizer's
+request. If both players are absent, one clock is started and its time runs
+for both.
 
 ## 16. Conduct (summary)
 
 During play no written or printed material and no analysis on another board
 is allowed; no analysis is allowed in the playing room while games are in
 progress or adjourned; players may not distract or disturb each other and
-must follow the competition rules. Violations may be punished, including by
-loss of the game.
+must follow the rules set for the competition. Breaking these rules can lead
+to punishment and loss of the game.
 
 ## 17. The organizer (summary)
 
 An organizer is appointed to run the competition: ensure the rules are
-applied, adjudicate disputes, provide good playing conditions, keep players
-undisturbed, penalize rule violations, and schedule the resumption of
-adjourned games.
+applied carefully (17.1), judge all disputes during the competition (17.2),
+provide good conditions (17.3), keep players from being disturbed by each
+other or by spectators (17.4), punish players who break the rules (17.5),
+and decide the order in which interrupted games resume (17.6).
 
 ## 18. Changing the rules
 

@@ -30,7 +30,7 @@ pub struct SwordMap {
 #[derive(Clone)]
 struct Swords {
     /// Per line, bit `j` is set if a sword's window starts at cell `j`.
-    starts: [u16; LINE_NUM],
+    starts: [u16; LINE_COUNT],
     /// The lines with at least one sword, one bit per line.
     lines: u128,
 }
@@ -39,7 +39,7 @@ impl SwordMap {
     /// A map that knows nothing yet: every line is stale.
     pub fn new() -> Self {
         let empty = Swords {
-            starts: [0; LINE_NUM],
+            starts: [0; LINE_COUNT],
             lines: 0,
         };
         Self {
@@ -58,7 +58,7 @@ impl SwordMap {
     }
 
     /// A map in sync with `board`.
-    pub fn init(board: &Board) -> Self {
+    pub fn from_board(board: &Board) -> Self {
         let mut result = Self::new();
         result.sync(board);
         result
@@ -98,7 +98,7 @@ impl SwordMap {
                 let k = Grid::line_key(d, index.i)?;
                 // Windows starting at `j - 4` to `j`.
                 let j = index.j;
-                let lo = j.saturating_sub(VICTORY - 1);
+                let lo = j.saturating_sub(FIVE - 1);
                 let mask = ((1u32 << (j + 1)) - (1u32 << lo)) as u16;
                 Some(swords_in(board, r, k, swords.starts[k] & mask))
             })
@@ -106,7 +106,7 @@ impl SwordMap {
     }
 
     fn update(&mut self, k: usize, board: &Board) {
-        let (d, i) = Grid::line_of_key(k);
+        let (d, i) = Grid::line_from_key(k);
         let line = board.line(d, i).unwrap();
         for r in [Black, White] {
             let swords = &mut self.players[r.index()];
@@ -128,7 +128,7 @@ impl Default for SwordMap {
 
 /// The swords of line `k` whose windows start at the bits of `starts`.
 fn swords_in(board: &Board, r: Player, k: usize, starts: u16) -> impl Iterator<Item = Row> + '_ {
-    let (d, i) = Grid::line_of_key(k);
+    let (d, i) = Grid::line_from_key(k);
     let line = board.line(d, i).unwrap();
     Bits(starts).map(move |j| Row::new(Index::new(d, i, j), r, Sword, line.segment(j)))
 }
@@ -144,8 +144,8 @@ mod tests {
         for r in [Black, White] {
             let scanned: Vec<_> = board.rows(r, Sword).collect();
             assert_eq!(map.swords(board, r).collect::<Vec<_>>(), scanned, "{r:?}");
-            for x in 0..RANGE {
-                for y in 0..RANGE {
+            for x in 0..SIZE {
+                for y in 0..SIZE {
                     let p = Point(x, y);
                     let scanned: Vec<_> = board.rows_on(p, r, Sword).collect();
                     assert_eq!(
@@ -177,7 +177,7 @@ mod tests {
         let moves = "H10,G9,J10,H7,I8,E4,C14,A15".parse::<Points>()?.into_vec();
         let mut turn = Black;
         for (n, &p) in moves.iter().enumerate() {
-            board.put_mut(turn, p);
+            board.put(turn, p);
             map.mark_stale(p);
             assert!(!map.is_synced());
             if n % 2 == 1 {
@@ -186,7 +186,7 @@ mod tests {
             turn = turn.opponent();
         }
         for (n, &p) in moves.iter().enumerate().rev() {
-            board.remove_mut(p);
+            board.remove(p);
             map.mark_stale(p);
             if n % 3 == 0 {
                 assert_matches_a_scan(&mut map, &board);

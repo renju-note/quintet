@@ -19,8 +19,8 @@ pub struct VCTState {
 
 impl VCTState {
     pub fn new(game: Game, limit: u8) -> Self {
-        let swords = SwordMap::init(game.board());
-        let shapes = ShapeMap::init(game.board());
+        let swords = SwordMap::from_board(game.board());
+        let shapes = ShapeMap::from_board(game.board());
         Self {
             attacker: game.turn,
             game,
@@ -30,8 +30,8 @@ impl VCTState {
         }
     }
 
-    pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
-        let game = Game::init(board, attacker);
+    pub fn from_board(board: &Board, attacker: Player, limit: u8) -> Self {
+        let game = Game::new(board, attacker);
         Self::new(game, limit)
     }
 
@@ -87,7 +87,7 @@ impl VCTState {
     pub fn sorted_attacks(&mut self, only: Option<Vec<Point>>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
         let (shapes, attacker) = (&self.shapes, self.attacker);
-        let makes_two = |&p: &Point| shapes.get(p, attacker).count_from(Shape::Two) > 0;
+        let makes_two = |&p: &Point| shapes.get(p, attacker).count_at_least(Shape::Two) > 0;
         // Filtered in place or into room for every point: this runs at
         // every attacker node, and a `Vec` grown step by step was a good
         // part of its cost.
@@ -97,8 +97,8 @@ impl VCTState {
                 only
             }
             None => {
-                let mut points = Vec::with_capacity(POINTS);
-                points.extend(self.game.board().empties().filter(makes_two));
+                let mut points = Vec::with_capacity(POINT_COUNT);
+                points.extend(self.game.board().empty_points().filter(makes_two));
                 points
             }
         };
@@ -115,7 +115,12 @@ impl VCTState {
     pub fn may_threaten(&mut self, p: Point, zone: &Area) -> bool {
         debug_assert!(self.attacking());
         self.shapes.sync(self.game.board());
-        zone.contains(p) || self.shapes.get(p, self.attacker).count_from(Shape::Sword) > 0
+        zone.contains(p)
+            || self
+                .shapes
+                .get(p, self.attacker)
+                .count_at_least(Shape::Sword)
+                > 0
     }
 
     /// The defender's candidate moves `points`, best first
@@ -168,7 +173,7 @@ impl VCTState {
         };
         value += 5 * mine.count(Shape::Four) as i32
             + 2 * mine.count(Shape::Three) as i32
-            + 5 * mine.count_from(Shape::Sword).saturating_sub(1) as i32;
+            + 5 * mine.count_at_least(Shape::Sword).saturating_sub(1) as i32;
         let (fours, threes) = self.shapes.forbidden_eyes(self.game.board(), p, mover);
         if mover.is_white() {
             value += 20 * fours as i32 + 10 * threes as i32;
@@ -190,8 +195,8 @@ impl VCTState {
         self.shapes.get(p, self.game.turn).best()
     }
 
-    pub fn empties(&self) -> Vec<Point> {
-        self.game().board().empties().collect()
+    pub fn empty_points(&self) -> Vec<Point> {
+        self.game().board().empty_points().collect()
     }
 
     pub fn threat_defences(&self, threat: &Mate) -> Vec<Point> {
@@ -219,12 +224,12 @@ impl VCTState {
     fn counter_defences(&self, threat: &Mate) -> Vec<Point> {
         let mut game = self.game().clone();
         game.play(None);
-        let threater = game.turn;
+        let threatener = game.turn;
         let mut result = vec![];
         for &p in &threat.path {
             let turn = game.turn;
             game.play(Some(p));
-            if turn == threater {
+            if turn == threatener {
                 continue;
             }
             let swords = game.board().rows_on(p, turn, Sword);
@@ -298,11 +303,11 @@ mod tests {
             .map(|s| s.parse().unwrap())
             .collect();
         for attacker in [Black, White] {
-            let mut state = VCTState::init(&board(), attacker, 4);
+            let mut state = VCTState::from_board(&board(), attacker, 4);
             // Two plies, so that the turn and the limit have both moved.
             for &first in &moves {
                 let predicted = state.next_key(Some(first));
-                let actual = state.into_play(Some(first), |c| c.key());
+                let actual = state.with_move(Some(first), |c| c.key());
                 assert_eq!(predicted, actual, "{attacker:?} {first}");
 
                 state.play(Some(first));
@@ -311,7 +316,7 @@ mod tests {
                         continue;
                     }
                     let predicted = state.next_key(Some(second));
-                    let actual = state.into_play(Some(second), |c| c.key());
+                    let actual = state.with_move(Some(second), |c| c.key());
                     assert_eq!(predicted, actual, "{attacker:?} {first},{second}");
                 }
                 state.undo();
@@ -324,20 +329,20 @@ mod tests {
     #[test]
     fn test_lazy_shapes_match_fresh_ones() -> Result<(), String> {
         let moves = "G7,K9,H9,F6".parse::<Points>()?.into_vec();
-        let mut state = VCTState::init(&board(), Black, 4);
+        let mut state = VCTState::from_board(&board(), Black, 4);
         for (k, &m) in moves.iter().enumerate() {
             state.play(Some(m));
             if k % 2 == 1 {
                 // Read only every other move, so that several points are
                 // stale at once.
-                let fresh = &mut VCTState::init(state.game().board(), Black, 4);
+                let fresh = &mut VCTState::from_board(state.game().board(), Black, 4);
                 assert_eq!(state.sorted_attacks(None), fresh.sorted_attacks(None));
             }
         }
         for _ in &moves {
             state.undo();
         }
-        let fresh = &mut VCTState::init(&board(), Black, 4);
+        let fresh = &mut VCTState::from_board(&board(), Black, 4);
         assert_eq!(state.sorted_attacks(None), fresh.sorted_attacks(None));
         Ok(())
     }
@@ -347,17 +352,17 @@ mod tests {
     #[test]
     fn test_zobrist_hash_separates_the_attacker() {
         let board = board();
-        let as_black = VCTState::init(&board, Black, 4).zobrist_hash();
-        let as_white = VCTState::init(&board, White, 4).zobrist_hash();
+        let as_black = VCTState::from_board(&board, Black, 4).zobrist_hash();
+        let as_white = VCTState::from_board(&board, White, 4).zobrist_hash();
         assert_ne!(as_black, as_white);
 
         // Those two also differ in whose turn it is, so pin the attacker on
         // its own: build one state that reaches the same board, turn and
         // limit while attacking as the other colour.
         let next: Point = "G7".parse().unwrap();
-        let mut attacking_black = VCTState::init(&board, Black, 4);
+        let mut attacking_black = VCTState::from_board(&board, Black, 4);
         attacking_black.play(Some(next));
-        let attacking_white = VCTState::init(&board.put(Black, next), White, 4);
+        let attacking_white = VCTState::from_board(&board.with_stone(Black, next), White, 4);
         assert_eq!(attacking_black.game().turn, attacking_white.game().turn);
         assert_eq!(attacking_black.limit(), attacking_white.limit());
         assert_eq!(

@@ -15,7 +15,7 @@ impl Mate {
     }
 
     /// The line with `m` played before it.
-    pub fn unshift(mut self, m: Point) -> Self {
+    pub fn prepend(mut self, m: Point) -> Self {
         self.path.insert(0, m);
         self
     }
@@ -24,7 +24,7 @@ impl Mate {
         self.path.len() as u8
     }
 
-    pub fn n_times(&self) -> u8 {
+    pub fn n_attacks(&self) -> u8 {
         self.path.len().div_ceil(2) as u8
     }
 }

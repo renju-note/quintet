@@ -85,7 +85,16 @@ slower and some cases time out.
   searches). Read these before touching rule logic (rows, forbidden
   moves) or the search code, and keep them in sync when changing it.
   Every document has an English `*.en.md` and a Japanese `*.ja.md` version;
-  always add or edit both together.
+  always add or edit both together. How to write them (also in
+  `docs/README.*.md`):
+  - Be concise: short sentences, and split a long explanation into a
+    bulleted list or a table.
+  - Refer to code by its real identifiers, and draw boards in the ASCII
+    test format.
+  - Japanese files: do not hard-wrap paragraphs. In code blocks (pseudo
+    code, diagrams, file trees), write everything in ASCII except a
+    trailing comment at the end of a line, so full-width characters do
+    not break the alignment.
 
 ## Conventions and constraints
 

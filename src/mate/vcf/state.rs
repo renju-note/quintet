@@ -14,7 +14,7 @@ pub struct VCFState {
 
 impl VCFState {
     pub fn new(game: Game, limit: u8) -> Self {
-        let swords = SwordMap::init(game.board());
+        let swords = SwordMap::from_board(game.board());
         Self::with_swords(game, limit, swords)
     }
 
@@ -29,8 +29,8 @@ impl VCFState {
         }
     }
 
-    pub fn init(board: &Board, attacker: Player, limit: u8) -> Self {
-        let game = Game::init(board, attacker);
+    pub fn from_board(board: &Board, attacker: Player, limit: u8) -> Self {
+        let game = Game::new(board, attacker);
         Self::new(game, limit)
     }
 
@@ -48,10 +48,12 @@ impl VCFState {
 
     pub fn neighbor_move_pairs(&mut self) -> Vec<(Point, Point)> {
         let mut result = vec![];
-        if let Some(last2_move) = self.game.last2_move() {
+        if let Some(second_last_move) = self.game.second_last_move() {
             let turn = self.game.turn;
             self.sync_swords();
-            let swords = self.swords.swords_on(self.game.board(), last2_move, turn);
+            let swords = self
+                .swords
+                .swords_on(self.game.board(), second_last_move, turn);
             Self::push_eyes_pairs(swords, &mut result);
         }
         result
@@ -149,19 +151,19 @@ mod tests {
     fn test_move_pairs() {
         // Each sword gives a four at either eye; the other eye is the
         // forced defence.
-        let mut state = VCFState::init(&board(), Black, 5);
+        let mut state = VCFState::from_board(&board(), Black, 5);
         let expected = pairs(&[("C6", "C7"), ("C7", "C6"), ("K8", "L8"), ("L8", "K8")]);
         assert_eq!(state.move_pairs(), expected);
 
         // White has no sword.
-        assert_eq!(VCFState::init(&board(), White, 5).move_pairs(), []);
+        assert_eq!(VCFState::from_board(&board(), White, 5).move_pairs(), []);
     }
 
     #[test]
     fn test_forced_move_pair() {
         // When the attacker has to block at `p`, the VCF only goes on if
         // `p` also makes a four: an eye of one of its swords.
-        let mut state = VCFState::init(&board(), Black, 5);
+        let mut state = VCFState::from_board(&board(), Black, 5);
         assert_eq!(
             state.forced_move_pair(point("L8")),
             Some((point("L8"), point("K8")))
@@ -177,7 +179,7 @@ mod tests {
     fn test_neighbor_move_pairs() {
         // Only the swords through the attacker's previous move, which is
         // where a continuation is most likely.
-        let mut state = VCFState::init(&"C3,C4,C5,H8,I8/C2,G8".parse().unwrap(), Black, 5);
+        let mut state = VCFState::from_board(&"C3,C4,C5,H8,I8/C2,G8".parse().unwrap(), Black, 5);
         assert_eq!(state.neighbor_move_pairs(), []);
         state.play(Some(point("J8")));
         state.play(Some(point("A1")));

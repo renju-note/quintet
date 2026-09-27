@@ -26,7 +26,7 @@ pub type ZobristBuildHasher = BuildHasherDefault<ZobristHasher>;
 /// [`State::zobrist_hash`](crate::mate::State::zobrist_hash).
 ///
 /// Everything stored here stays true for as long as the solver lives: a
-/// proof, a disproof and a deadend are properties of the position, the turn,
+/// proof, a disproof and a dead end are properties of the position, the turn,
 /// the attacker and the remaining limit, all of which are in the key.
 /// Proof and disproof *numbers* short of 0 are estimates rather than facts,
 /// but they are lower bounds either way, so reading one a previous search

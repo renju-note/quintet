@@ -3,8 +3,8 @@ use super::player::*;
 use super::point::*;
 use super::row::*;
 
-pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)> {
-    g.empties()
+pub fn forbidden_points(g: &Grid) -> Vec<(ForbiddenKind, Point)> {
+    g.empty_points()
         .filter_map(|p| forbidden_strict(g, p).map(|k| (k, p)))
         .collect()
 }
@@ -57,24 +57,24 @@ fn overline(overlinings: [u16; 4]) -> bool {
 }
 
 fn double_four(swords: [u16; 4]) -> bool {
-    distinctive_starts(swords)
+    has_multiple_starts(swords)
 }
 
 fn double_three(g: &Grid, p: Point, twos: [u16; 4]) -> bool {
-    if !distinctive_starts(twos) {
+    if !has_multiple_starts(twos) {
         return false;
     }
     let mut next = g.clone();
-    next.put_mut(Black, p);
-    truthy_double_three(&next, p)
+    next.put(Black, p);
+    real_double_three(&next, p)
 }
 
-fn truthy_double_three(next: &Grid, p: Point) -> bool {
-    let truthy_threes = next.rows_on(p, Black, Three).filter(|s| {
+fn real_double_three(next: &Grid, p: Point) -> bool {
+    let real_threes = next.rows_on(p, Black, Three).filter(|s| {
         let eye = s.eyes().next().unwrap();
         forbidden_strict(next, eye).is_none()
     });
-    distinctive(&mut truthy_threes.map(|s| s.start_index()))
+    has_multiple_rows(&mut real_threes.map(|s| s.start_index()))
 }
 
 /// Whether any line has a row start: [`Grid::row_starts_on`] finds a row.
@@ -82,9 +82,9 @@ fn any(starts: impl IntoIterator<Item = u16>) -> bool {
     starts.into_iter().any(|s| s != 0)
 }
 
-/// [`distinctive`] on the rows' starts, line by line: rows on two lines,
+/// [`has_multiple_rows`] on the rows' starts, line by line: rows on two lines,
 /// or on one line starting other than at the first start and the next cell.
-fn distinctive_starts(starts: impl IntoIterator<Item = u16>) -> bool {
+fn has_multiple_starts(starts: impl IntoIterator<Item = u16>) -> bool {
     let mut found = false;
     for s in starts.into_iter().filter(|&s| s != 0) {
         if found || s & !(0b11 << s.trailing_zeros()) != 0 {
@@ -97,12 +97,12 @@ fn distinctive_starts(starts: impl IntoIterator<Item = u16>) -> bool {
 
 /// Whether the rows starting at `indices` are more than one: any but the
 /// first and one starting a cell after it.
-fn distinctive(indices: &mut impl Iterator<Item = Index>) -> bool {
+fn has_multiple_rows(indices: &mut impl Iterator<Item = Index>) -> bool {
     let first = indices.next();
     if first.is_none() {
         return false;
     }
-    let next_to_first = first.unwrap().walk(1);
+    let next_to_first = first.unwrap().offset(1);
     for index in indices {
         if index != next_to_first {
             return true;
@@ -137,7 +137,7 @@ mod tests {
         .parse::<Grid>()?;
         // M13 would be a double-three, but it also completes the five
         // K11-O15, which wins, so it is not reported.
-        let result = forbiddens(&grid);
+        let result = forbidden_points(&grid);
         let expected = [
             (DoubleThree, Point(2, 12)), // C13
             (Overline, Point(3, 0)),     // D1
@@ -172,7 +172,7 @@ mod tests {
         "
         .parse::<Grid>()?;
         let mut next = grid.clone();
-        next.put_mut(Black, Point(7, 7));
+        next.put(Black, Point(7, 7));
         assert_eq!(forbidden(&next, Point(6, 7)), Some(DoubleFour));
         assert_eq!(forbidden_strict(&next, Point(6, 7)), None);
 
@@ -214,9 +214,9 @@ mod tests {
         let i8 = Point(8, 7);
 
         let mut after_h8 = grid.clone();
-        after_h8.put_mut(Black, h8);
+        after_h8.put(Black, h8);
         let mut after_h7 = after_h8.clone();
-        after_h7.put_mut(Black, h7);
+        after_h7.put(Black, h7);
         assert_eq!(forbidden(&after_h7, i8), Some(DoubleFour));
         assert_eq!(forbidden_strict(&after_h7, i8), None);
         assert_eq!(forbidden(&after_h8, h7), Some(DoubleThree));
@@ -706,17 +706,17 @@ mod tests {
             // Stones on 3 points in `spread`, from dense boards to sparse.
             let spread = 4 + n % 9;
             let mut grid = Grid::new();
-            for p in (0..RANGE).flat_map(|x| (0..RANGE).map(move |y| Point(x, y))) {
+            for p in (0..SIZE).flat_map(|x| (0..SIZE).map(move |y| Point(x, y))) {
                 x ^= x << 13;
                 x ^= x >> 7;
                 x ^= x << 17;
                 match x % spread {
-                    0 | 1 => grid.put_mut(Black, p),
-                    2 => grid.put_mut(White, p),
+                    0 | 1 => grid.put(Black, p),
+                    2 => grid.put(White, p),
                     _ => {}
                 }
             }
-            for p in (0..RANGE).flat_map(|x| (0..RANGE).map(move |y| Point(x, y))) {
+            for p in (0..SIZE).flat_map(|x| (0..SIZE).map(move |y| Point(x, y))) {
                 for r in [Black, White] {
                     for k in [Two, Three, Sword, Four, Overlining] {
                         let rows = || grid.rows_on(p, r, k).map(|s| s.start_index());
@@ -726,8 +726,8 @@ mod tests {
                             "{r:?} {k:?} {p}"
                         );
                         assert_eq!(
-                            distinctive_starts(grid.row_starts_on(p, r, k)),
-                            distinctive(&mut rows()),
+                            has_multiple_starts(grid.row_starts_on(p, r, k)),
+                            has_multiple_rows(&mut rows()),
                             "{r:?} {k:?} {p}"
                         );
                     }

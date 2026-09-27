@@ -8,7 +8,7 @@ use crate::mate::memo::Memo;
 use crate::mate::solver::Solver;
 use crate::mate::state::State;
 
-/// How many deadends a solver carries into a new search before it starts
+/// How many dead ends a solver carries into a new search before it starts
 /// dropping what older searches left behind. See [`Memo`].
 pub const DEFAULT_CARRY_CAPACITY: usize = 1 << 16;
 
@@ -29,20 +29,20 @@ pub struct DFSSolver {
     /// short, and the bound holds exactly. `search` is only ever called with
     /// the attacker to move, so the attacker in the position pins the turn.
     ///
-    /// Each deadend also keeps the [zone](Self::search_zone) of the search
+    /// Each dead end also keeps the [zone](Self::search_zone) of the search
     /// that showed it, so that a search running into it can still tell its
     /// own.
-    deadends: Memo<(u8, Area)>,
+    dead_ends: Memo<(u8, Area)>,
 }
 
 impl DFSSolver {
-    pub fn init() -> Self {
+    pub fn new() -> Self {
         Self::with_carry_capacity(DEFAULT_CARRY_CAPACITY)
     }
 
     pub fn with_carry_capacity(carry_capacity: usize) -> Self {
         Self {
-            deadends: Memo::new(carry_capacity),
+            dead_ends: Memo::new(carry_capacity),
         }
     }
 
@@ -93,7 +93,7 @@ impl DFSSolver {
         }
 
         let key = state.key();
-        if let Some((limit, known)) = self.deadends.get(key.position)
+        if let Some((limit, known)) = self.dead_ends.get(key.position)
             && key.limit <= *limit
         {
             *zone |= known;
@@ -103,10 +103,10 @@ impl DFSSolver {
         let result = self.search_move_pairs(state, budget, &mut own);
         *zone |= own;
         // A search that gave up proves nothing, so it must not be memoized.
-        // Any deadend already there is for a smaller limit: its tree is cut
+        // Any dead end already there is for a smaller limit: its tree is cut
         // shorter than this one, and so is its zone.
         if result.is_none() && !budget.is_exhausted() {
-            self.deadends.insert(key.position, (key.limit, own));
+            self.dead_ends.insert(key.position, (key.limit, own));
         }
         result
     }
@@ -177,9 +177,9 @@ impl DFSSolver {
     ) -> Option<Mate> {
         // The defence is on the same segment, within four cells.
         *zone |= Area::around(attack, 4);
-        let result = state.into_play(Some(attack), |s| {
+        let result = state.with_move(Some(attack), |s| {
             self.search_defence(s, defence, budget, zone)
-                .map(|m| m.unshift(attack))
+                .map(|m| m.prepend(attack))
         });
 
         // Few attacks are forbidden, so whether this one is is only asked
@@ -208,9 +208,9 @@ impl DFSSolver {
         if state.game().turn.is_black() {
             *zone |= Area::around(defence, 5);
         }
-        state.into_play(Some(defence), |s| {
+        state.with_move(Some(defence), |s| {
             self.search_zone(s, budget, zone)
-                .map(|m| m.unshift(defence))
+                .map(|m| m.prepend(defence))
         })
     }
 }
@@ -224,15 +224,21 @@ impl Solver for DFSSolver {
     }
 
     fn clear(&mut self) {
-        self.deadends.clear();
+        self.dead_ends.clear();
     }
 
     fn advance_generation(&mut self) {
-        self.deadends.advance_generation();
+        self.dead_ends.advance_generation();
     }
 
     fn memo_len(&self) -> usize {
-        self.deadends.len()
+        self.dead_ends.len()
+    }
+}
+
+impl Default for DFSSolver {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -310,11 +316,11 @@ mod tests {
         let budget = &mut NodeBudget::unlimited();
         let mut tested = 0;
         for board in boards() {
-            let shapes = ShapeMap::init(&board);
+            let shapes = ShapeMap::from_board(&board);
             for attacker in [Black, White] {
                 let mut zone = Area::new();
-                let state = &mut VCFState::init(&board, attacker, 5);
-                if DFSSolver::init()
+                let state = &mut VCFState::from_board(&board, attacker, 5);
+                if DFSSolver::new()
                     .search_zone(state, budget, &mut zone)
                     .is_some()
                 {
@@ -323,12 +329,12 @@ mod tests {
                 tested += 1;
 
                 let mut outside = 0;
-                for p in board.empties() {
-                    let next = board.put(attacker, p);
-                    let state = &mut VCFState::init(&next, attacker, 5);
-                    let gives = DFSSolver::init().search(state, budget).is_some();
-                    let ruled_out =
-                        !zone.contains(p) && shapes.get(p, attacker).count_from(Shape::Sword) == 0;
+                for p in board.empty_points() {
+                    let next = board.with_stone(attacker, p);
+                    let state = &mut VCFState::from_board(&next, attacker, 5);
+                    let gives = DFSSolver::new().search(state, budget).is_some();
+                    let ruled_out = !zone.contains(p)
+                        && shapes.get(p, attacker).count_at_least(Shape::Sword) == 0;
                     assert!(!(gives && ruled_out), "{attacker:?} {p}");
                     outside += ruled_out as usize;
                 }

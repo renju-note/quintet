@@ -1,7 +1,7 @@
-use crate::board::{POINTS, Point, RANGE};
+use crate::board::{POINT_COUNT, Point, SIZE};
 use std::ops::BitOrAssign;
 
-/// A set of points, one bit per point by its `u8` code (`x * RANGE + y`).
+/// A set of points, one bit per point by its `u8` code (`x * SIZE + y`).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Area([u64; 4]);
 
@@ -51,16 +51,16 @@ impl BitOrAssign for Area {
     }
 }
 
-static AROUND_4: [Area; POINTS] = around_table(4);
-static AROUND_5: [Area; POINTS] = around_table(5);
+static AROUND_4: [Area; POINT_COUNT] = around_table(4);
+static AROUND_5: [Area; POINT_COUNT] = around_table(5);
 
-const fn around_table(distance: i8) -> [Area; POINTS] {
+const fn around_table(distance: i8) -> [Area; POINT_COUNT] {
     const STEPS: [(i8, i8); 4] = [(0, 1), (1, 0), (1, 1), (1, -1)];
-    let n = RANGE as i8;
-    let mut result = [Area::new(); POINTS];
+    let n = SIZE as i8;
+    let mut result = [Area::new(); POINT_COUNT];
     let mut i = 0;
-    while i < POINTS {
-        let (x, y) = ((i / RANGE as usize) as i8, (i % RANGE as usize) as i8);
+    while i < POINT_COUNT {
+        let (x, y) = ((i / SIZE as usize) as i8, (i % SIZE as usize) as i8);
         let mut s = 0;
         while s < STEPS.len() {
             let (dx, dy) = STEPS[s];
@@ -68,7 +68,7 @@ const fn around_table(distance: i8) -> [Area; POINTS] {
             while k <= distance {
                 let (nx, ny) = (x + k * dx, y + k * dy);
                 if 0 <= nx && nx < n && 0 <= ny && ny < n {
-                    let j = nx as usize * RANGE as usize + ny as usize;
+                    let j = nx as usize * SIZE as usize + ny as usize;
                     result[i].0[j / 64] |= 1u64 << (j % 64);
                 }
                 k += 1;
@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn test_around_matches_neighbors() {
         let board = Board::new();
-        for code in 0..RANGE * RANGE {
+        for code in 0..SIZE * SIZE {
             let p = Point::try_from(code).unwrap();
             for distance in [4, 5] {
                 let mut expected = Area::new();

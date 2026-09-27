@@ -25,8 +25,7 @@ pub trait State {
         self.after_undo(maybe_last_move);
     }
 
-    #[allow(clippy::wrong_self_convention)]
-    fn into_play<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
+    fn with_move<F, T>(&mut self, next_move: Option<Point>, mut f: F) -> T
     where
         F: FnMut(&mut Self) -> T,
     {
@@ -100,7 +99,7 @@ impl Key {
 
     /// One entry per limit.
     pub fn hash(&self) -> u64 {
-        apply_n(self.position, self.limit)
+        apply_limit(self.position, self.limit)
     }
 }
 
@@ -115,7 +114,7 @@ mod tests {
     #[test]
     fn test_key_hash_separates_the_limit() -> Result<(), String> {
         let board = "H8,J9/I9".parse::<Board>()?;
-        let state = VCFState::init(&board, Black, 5);
+        let state = VCFState::from_board(&board, Black, 5);
         let key = state.key();
         let shallower = Key::new(key.position, 4);
         assert_ne!(shallower.hash(), key.hash());
@@ -129,7 +128,7 @@ mod tests {
     #[test]
     fn test_play_and_undo_count_the_attackers_moves() -> Result<(), String> {
         let board = "H8/I9".parse::<Board>()?;
-        let mut state = VCFState::init(&board, Black, 3);
+        let mut state = VCFState::from_board(&board, Black, 3);
         let before = state.key();
 
         state.play(Some("J10".parse()?)); // Black, the attacker
@@ -139,7 +138,7 @@ mod tests {
         state.play(Some("K11".parse()?));
         assert_eq!(state.limit(), 2);
 
-        let limit = state.into_play(Some("L12".parse()?), |s| s.limit());
+        let limit = state.with_move(Some("L12".parse()?), |s| s.limit());
         assert_eq!(limit, 1);
         assert_eq!(state.limit(), 2);
 
