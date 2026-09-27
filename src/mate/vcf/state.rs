@@ -58,7 +58,7 @@ impl VCFState {
     }
 
     pub fn move_pairs(&mut self) -> Vec<(Point, Point)> {
-        let mut result = vec![];
+        let mut result = Vec::with_capacity(16);
         let turn = self.game.turn;
         self.sync_swords();
         let swords = self.swords.swords(self.game.board(), turn);
