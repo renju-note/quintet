@@ -1,0 +1,10 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `bench` profile [optimized] target(s) in 0.29s
+     Running benches/solvers.rs (target/release/deps/solvers-f646689e547f3805)
+error: ./cases: No such file or directory (os error 2)
+error: bench failed, to rerun pass `--bench solvers`
+
+Caused by:
+  process didn't exit successfully: `/Users/shotaro/src/github.com/renju-note/quintet/.claude/worktrees/board-implementation-docs-readability-e52e44/target/release/deps/solvers-f646689e547f3805 --runs 1 --cases ./cases --skip-tag vcf --save ./base2.tsv --bench` (exit status: 2)

@@ -149,10 +149,15 @@ and across searches, and is charged to the same `NodeBudget`.
 
 ```rust
 pub enum Candidates {
-    Moves { moves: Vec<Point>, width: u32 }, // an inner node: the moves to try, best first
-    Terminal(Node),      // decided here without expanding: Node::proven or Node::disproven
+    Moves(Vec<Candidate>),  // an inner node: the moves to try, best first
+    Terminal(Node),         // decided here without expanding: Node::proven or Node::disproven
 }
+pub struct Candidate { pub point: Point, pub estimate: u32 }
 ```
+
+A `Candidate`'s `estimate` is the number its child starts from while the
+tables know nothing about it: the proof number of an attack, the disproof
+number of a defence (§5, *Selection*).
 
 Results are cached in an `LruCache` of 1000 entries per generator, keyed by
 `zobrist_hash()` (position *and* limit, because the nested VCF depth is
@@ -178,6 +183,9 @@ Results are cached in an `LruCache` of 1000 entries per generator, keyed by
    a pass, so it is no threat. Skipped when the budget ran out, as the
    zone is then incomplete.
 5. Minus forbidden moves. None left → `Terminal(disproven)`.
+6. Each gets its estimate from the biggest shape it makes (`best_shape`,
+   from the `ShapeMap`, §8): `width / 4` for a four, `width / 2` for a
+   three, `width` for any other (§5, *Selection*).
 
 Candidates are otherwise *not* checked for being threats here. That
 happens one ply down, at the defender node, where a non-threat is refuted
@@ -201,6 +209,7 @@ otherwise take.
    which starts from the *attacker's* potential (`sorted_defences`), minus
    forbidden moves. None left → `Terminal(proven)`: the threat cannot be
    answered.
+4. Each gets the estimate `n`, the number of candidates.
 
 ### `threat_defences`
 
@@ -234,8 +243,8 @@ the same for refuting it. `pn == 0` is proven, `dn == 0` disproven.
 | `Node::no_threshold()` | `(INF, INF)` | a threshold never exceeded: "search until decided" (same value as `unknown`, different role) |
 | `Node::proven(limit)` | `(0, INF)` | the attacker wins |
 | `Node::disproven(limit)` | `(INF, 0)` | the attacker cannot win within `limit` |
-| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | first guess for an unexpanded child of an OR node (defender to move); `n` = number of siblings |
-| `Node::unexpanded_attack(n, limit)` | `(1, n)` | first guess for an unexpanded child of an AND node (attacker to move) |
+| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | first guess for an unexpanded child of an OR node (defender to move); `n` = the attack's estimate (§3) |
+| `Node::unexpanded_attack(n, limit)` | `(1, n)` | first guess for an unexpanded child of an AND node (attacker to move); `n` = the defence's estimate |
 
 Children combine in two ways, with saturating sums:
 
@@ -308,17 +317,41 @@ table entries and returns a `Selection`:
 
 | Field | |
 | --- | --- |
-| `node` | the node's own numbers: `min_pn_sum_dn` over the children, a child not yet in the table counting as `unexpanded_defence(width)` (`width` from `Candidates::Moves`, §3; `1` for a forced move) |
+| `node` | the node's own numbers: `min_pn_sum_dn` over the children, a child not yet in the table counting as `unexpanded_defence(estimate)` (§3; `1` for a forced move) |
 | `best` | the child with the smallest `pn` — the most-proving child |
 | `best_child`, `second_child` | the numbers of the best and second-best child |
 
 If a proven child turns up, `node` becomes `(0, INF)` on the spot.
 `select_defence` mirrors it: smallest `dn`, `min_dn_sum_pn`, unexpanded
-children count as `unexpanded_attack(defences.len())`, and `node.limit` is
+children count as `unexpanded_attack(estimate)`, and `node.limit` is
 `limit − 1`.
 
-Seeding unexpanded children with the sibling count is a deliberate trick:
-narrow nodes look easier, so the search prefers forcing lines.
+The estimates (§3) are a deliberate trick. They start from the number of
+siblings, so that narrow nodes look easier and the search prefers forcing
+lines. An attack's is then lowered by how far the move narrows the
+defender's replies: a four leaves one and starts at a quarter of the
+sibling count, a three leaves a few and starts at half of it. So the
+search follows the fours and threes further before it turns to the
+quieter attacks, wherever they stand in the candidate order.
+
+What was tried on the benchmark (07), against the sibling count alone:
+
+- Favouring fours is most of the gain, and also its one cost. Without it
+  (threes only at half) the `heavy` cases got 17% dearer. With it,
+  `vct_small_but_long` gets about three times dearer, whatever the other
+  weights: at `limit` 255 nothing stops the search from following fours
+  ever deeper.
+- Raising the other attacks' estimates above the sibling count (to one and
+  a half times it) paid before the attacks that cannot be threats were
+  ruled out, and only costs since.
+- Proof numbers are compared across nodes, so the scale matters as well as
+  the ratio: halving every estimate alike makes the search dearer.
+- Weighting defences by the fours and threes they make did not pay.
+
+With these weights the whole set, `heavy` included, takes 38% fewer
+nodes, and the `heavy` cases 47% fewer (`vct_unstable` 109.5M → 41.6M).
+The default set takes 6% more in total because of `vct_small_but_long`
+(5.8M → 16.7M); without it, 26% fewer.
 
 ### Expansion
 
@@ -452,8 +485,8 @@ is eventually proven.
 
 ## 8. Move ordering (`src/feature/`, `VCTState::priority`)
 
-The order of the candidates decides which child the search expands first,
-as every unexpanded child starts with the same proof numbers. Two caches of
+Among candidates with the same estimate (§3), the order decides which
+child the search expands first. Two caches of
 `src/feature/` describe the points, and `VCTState::priority` weighs them.
 
 ### `PotentialField` (`src/feature/potential.rs`)

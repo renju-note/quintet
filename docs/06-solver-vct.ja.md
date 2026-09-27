@@ -122,10 +122,13 @@ impl NestedVCF {
 
 ```rust
 pub enum Candidates {
-    Moves { moves: Vec<Point>, width: u32 }, // 内部ノード: 試す手、良い順
-    Terminal(Node),      // 展開せずに決着: Node::proven または Node::disproven
+    Moves(Vec<Candidate>),  // 内部ノード: 試す手、良い順
+    Terminal(Node),         // 展開せずに決着: Node::proven または Node::disproven
 }
+pub struct Candidate { pub point: Point, pub estimate: u32 }
 ```
+
+`Candidate` の `estimate` は、表にまだ何もない間その子が始める数値。攻め手なら証明数、受け手なら反証数（§5「選択」）。
 
 結果は生成器ごとに 1000 エントリの `LruCache` に入れる。キーは `zobrist_hash()`（局面 + limit。内部四追いの深さが `min(limit, depth)` なので limit が要る）。予算切れのときは入れない。
 
@@ -136,6 +139,7 @@ pub enum Candidates {
 3. 候補 = 攻め方の場でポテンシャル `≥ 3` の点（`sorted_attacks(only)`）を `priority`（§8）の順に並べたもの。その数が `width`。
 4. そのうち追い手になりうる手（`may_threaten`）だけを残す: 関連領域にあるか、攻め方の石をすでに 2 つ含む区間にある手（`ShapeMap` でどれかの線が `Sword` 以上、§8。関連領域が呼び出し側に任せる部分）。それ以外の手は、パスされても攻め方に四追いを生まないので追い手ではない。予算切れのときは関連領域が不完全なので行わない。
 5. 禁手を除く。空なら `Terminal(disproven)`。
+6. 各候補に、それが作るいちばん大きな形（`best_shape`。`ShapeMap` から、§8）から見積もりを付ける。四なら `width / 4`、三なら `width / 2`、それ以外は `width`（§5「選択」）。
 
 それ以外に、ここでは候補が追い手かどうかを調べない。1 手下の受け方ノードで調べ、追い手でなければそこで反証される。その都度内部四追い探索とノード 1 つがかかるが、ベンチマークでは、ステップ 4 は追い手でない手のおよそ半分についてそれを省く（関連領域の外に追い手があったことはない）。
 
@@ -146,6 +150,7 @@ pub enum Candidates {
 1. `attacker_vcf.threat`: 受け方がパスしても攻め方に四追いがなければ、直前の攻め手は追い手ではない。`Terminal(disproven)`。
 2. `defender_vcf.vcf`: 受け方自身に（`defender_vcf_depth` 以内の）四追いがあれば、受け方が先に勝つ。`Terminal(disproven)`。
 3. 候補 = `threat_defences(threat)` を、**攻め方の**ポテンシャルから始まる `priority`（§8）の順に並べ（`sorted_defences`）、禁手を除いたもの。空なら `Terminal(proven)`（追い手に応手がない）。
+4. 各候補の見積もりは候補の数 `n`。
 
 ### `threat_defences`
 
@@ -176,8 +181,8 @@ pub const INF: u32 = u32::MAX;
 | `Node::no_threshold()` | `(INF, INF)` | 決して超えない閾値（決着まで探索）。`unknown` と同じ値、別の役割 |
 | `Node::proven(limit)` | `(0, INF)` | 攻め方の勝ち |
 | `Node::disproven(limit)` | `(INF, 0)` | `limit` 以内に攻め方は勝てない |
-| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | OR ノードの未展開の子（受け方の手番）の初期値。`n` = 兄弟の数 |
-| `Node::unexpanded_attack(n, limit)` | `(1, n)` | AND ノードの未展開の子（攻め方の手番）の初期値 |
+| `Node::unexpanded_defence(n, limit)` | `(n, 1)` | OR ノードの未展開の子（受け方の手番）の初期値。`n` = その攻め手の見積もり（§3） |
+| `Node::unexpanded_attack(n, limit)` | `(1, n)` | AND ノードの未展開の子（攻め方の手番）の初期値。`n` = その受け手の見積もり |
 
 子の合成は 2 通り（和は飽和加算）。
 
@@ -233,15 +238,24 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 
 | フィールド | 内容 |
 | --- | --- |
-| `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(width)` とみなす（`width` は `Candidates::Moves` のもの、§3。強制手なら `1`） |
+| `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(estimate)` とみなす（§3。強制手なら `1`） |
 | `best` | `pn` が最小の子（最有望の子） |
 | `best_child`、`second_child` | 最良と 2 番目の子の数値 |
 
 証明済みの子があれば、`node` はその場で `(0, INF)` になる。
 
-`select_defence` はその逆: 最小の `dn`、`min_dn_sum_pn`、表にない子は `unexpanded_attack(defences.len())`、`node.limit` は `limit − 1`。
+`select_defence` はその逆: 最小の `dn`、`min_dn_sum_pn`、表にない子は `unexpanded_attack(estimate)`、`node.limit` は `limit − 1`。
 
-未展開の子の初期値に兄弟の数を使うのは意図的な仕掛け。候補が少ないノードほど易しく見えるので、探索は強制的な手順を好む。
+見積もり（§3）は意図的な仕掛け。兄弟の数から始めるので、候補が少ないノードほど易しく見え、探索は強制的な手順を好む。攻め手の見積もりはさらに、その手が受け方の応手をどれだけ絞るかで下げる。四は応手を 1 つにするので兄弟の数の 4 分の 1 から、三は数手にするので半分から始める。こうして探索は、候補の並び順のどこにあっても、四と三をより深く追ってから静かな攻め手に移る。
+
+ベンチマーク（07）で、兄弟の数だけの場合と比べて試したこと:
+
+- 効果の大半は四の優遇によるもので、唯一の代償もそこから来る。四を優遇しない（三だけ半分にする）と `heavy` のケースは 17% 高くついた。優遇すると、ほかの重みによらず `vct_small_but_long` が約 3 倍高くつく。`limit` 255 では、探索が四をどこまでも深く追うのを止めるものがない。
+- それ以外の攻め手の見積もりを兄弟の数より上げる（1.5 倍にする）のは、追い手になりえない攻め手を除く前は得になったが、除いてからは損になるだけだった。
+- 証明数はノードをまたいで比べられるので、比だけでなく尺度も効く。すべての見積もりを一律に半分にすると探索は高くつく。
+- 受け手を、それが作る四や三で重み付けしても得にならなかった。
+
+この重みで、`heavy` を含む全ケースのノード数は 38%、`heavy` のケースは 47% 減る（`vct_unstable`: 109.5M → 41.6M）。デフォルトセットの合計は `vct_small_but_long`（5.8M → 16.7M）のために 6% 増えるが、このケースを除けば 26% 減る。
 
 ### 展開
 
@@ -351,7 +365,7 @@ extract_defences(state):                       # 受け方の手番
 
 ## 8. 手の並べ替え（`src/feature/`、`VCTState::priority`）
 
-未展開の子はどれも同じ証明数から始まるので、候補の順序が、探索がどの子を最初に展開するかを決める。点の特徴は `src/feature/` の 2 つのキャッシュが表し、`VCTState::priority` がそれを重み付けする。
+見積もり（§3）が同じ候補の間では、候補の順序が、探索がどの子を最初に展開するかを決める。点の特徴は `src/feature/` の 2 つのキャッシュが表し、`VCTState::priority` がそれを重み付けする。
 
 ### `PotentialField`（`src/feature/potential.rs`）
 

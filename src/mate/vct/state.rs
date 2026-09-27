@@ -186,6 +186,15 @@ impl VCTState {
         potential as i32 + bonus
     }
 
+    /// The biggest [`Shape`] a stone of the side to move at `p` makes on
+    /// any line. Read from the shapes as of the last
+    /// [`Self::sorted_attacks`] or [`Self::sorted_defences`] of this
+    /// position.
+    pub fn best_shape(&self, p: Point) -> Shape {
+        debug_assert!(self.shapes.is_synced());
+        self.shapes.get(p, self.game.turn).best()
+    }
+
     pub fn empties(&self) -> Vec<Point> {
         self.game().board().empties().collect()
     }

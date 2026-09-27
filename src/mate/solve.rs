@@ -644,9 +644,8 @@ mod tests {
         "
         .parse::<Board>()?;
 
-        let solution = "G12,E10,F12,E12,H14,H13,F14,G13,F13,F11,E14,D15,G14";
-
         let result = solve_mate(VCTDFS, 7, &board, Black, 3);
+        let solution = "G12,E10,H14,H13,F12,I12,F14,G13,F13,F11,E14,D15,G14";
         assert_eq!(path_string(result), solution);
 
         let result = solve_mate(VCTDFS, 6, &board, Black, 3);
@@ -655,6 +654,7 @@ mod tests {
         let result = solve_mate(VCTDFS, 7, &board, Black, 2);
         assert!(result.is_none());
 
+        let solution = "G12,E10,F12,E12,H14,H13,F14,G13,F13,F11,E14,D15,G14";
         let result = solve_mate(VCTPNS, 7, &board, Black, 3);
         assert_eq!(path_string(result), solution);
 
@@ -685,14 +685,14 @@ mod tests {
         "
         .parse::<Board>()?;
 
-        let solution = "J4,G7,I4,I3,K3,L2,E6,G4,G6";
+        let solution = "I3,I4,K3,G7,L2,J4,L3,K2,J3";
         let result = solve_mate(VCTDFS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
         let result = solve_mate(VCTDFS, 4, &board, White, 1);
         assert!(result.is_none());
 
-        let solution = "J4,G7,I4,I3,E6,G4,G6";
+        let solution = "K3,G7,I3,I4,L2,J4,L3,K2,J3";
         let result = solve_mate(VCTDFPNS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
