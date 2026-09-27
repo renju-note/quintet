@@ -52,40 +52,38 @@ pub fn solve_with_stats(
     attacker: Player,
     limits: SolveLimits,
 ) -> (SolveResult, SolveStats) {
-    if let Err(e) = validate(board, attacker) {
-        let result = match e {
-            Some(mate) => SolveResult::Proven(mate),
-            None => SolveResult::Disproven,
-        };
+    // These codes are only kept taken (see `SolveMode`). Nothing is
+    // searched, so nothing is known either, whatever the board.
+    if matches!(mode, VCFIDDFS | VCTIDDFS) {
+        return (SolveResult::Aborted, SolveStats::default());
+    }
+    if let Some(result) = decided(board, attacker) {
         return (result, SolveStats::default());
     }
     let limit = limits.limit;
     let threat_limit = limits.threat_limit;
     let defender_vcf_depth = limits.defender_vcf_depth;
     let budget = &mut limits.budget();
+    let vcf_state = || VCFState::init(board, attacker, limit);
+    let vct_state = || VCTState::init(board, attacker, limit);
     let (maybe_mate, memo_len) = match mode {
-        VCFDFS => {
-            let state = &mut VCFState::init(board, attacker, limit);
-            let mut solver = DFSSolver::init();
-            (solver.solve(state, budget), solver.memo_len())
-        }
-        VCTDFS => {
-            let state = &mut VCTState::init(board, attacker, limit);
-            let mut solver = DFSVCTSolver::init(threat_limit, defender_vcf_depth);
-            (solver.solve(state, budget), solver.memo_len())
-        }
-        VCTPNS => {
-            let state = &mut VCTState::init(board, attacker, limit);
-            let mut solver = PNSVCTSolver::init(threat_limit, defender_vcf_depth);
-            (solver.solve(state, budget), solver.memo_len())
-        }
-        VCTDFPNS => {
-            let state = &mut VCTState::init(board, attacker, limit);
-            let mut solver = DFPNSVCTSolver::init(threat_limit, defender_vcf_depth);
-            (solver.solve(state, budget), solver.memo_len())
-        }
-        // VCFIDDFS and VCTIDDFS have no solver of their own here.
-        _ => (None, 0),
+        VCFDFS => run(DFSSolver::init(), vcf_state(), budget),
+        VCTDFS => run(
+            DFSVCTSolver::init(threat_limit, defender_vcf_depth),
+            vct_state(),
+            budget,
+        ),
+        VCTPNS => run(
+            PNSVCTSolver::init(threat_limit, defender_vcf_depth),
+            vct_state(),
+            budget,
+        ),
+        VCTDFPNS => run(
+            DFPNSVCTSolver::init(threat_limit, defender_vcf_depth),
+            vct_state(),
+            budget,
+        ),
+        VCFIDDFS | VCTIDDFS => unreachable!("answered above"),
     };
     let result = match maybe_mate {
         Some(mate) => SolveResult::Proven(mate),
@@ -111,11 +109,15 @@ pub struct SolveStats {
     pub memo_len: usize,
 }
 
+/// Which search [`solve`] runs.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SolveMode {
     VCFDFS,
+    /// Reserved: no solver answers it, and [`solve`] returns
+    /// [`SolveResult::Aborted`].
     VCFIDDFS,
     VCTDFS,
+    /// Reserved, as [`Self::VCFIDDFS`].
     VCTIDDFS,
     VCTPNS,
     VCTDFPNS,
@@ -220,14 +222,15 @@ impl SolveLimits {
 ///
 /// `Disproven` and `Aborted` are both "no mate to report", but only
 /// `Disproven` says there is none: `Aborted` means the search ran out of
-/// budget and the position is still open.
+/// budget, or was never run, and the position is still open.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SolveResult {
     /// The attacker wins, by this line.
     Proven(Mate),
     /// The attacker has no mate within the limits.
     Disproven,
-    /// The budget ran out first; nothing is known.
+    /// The budget ran out first, or `mode` has no solver (`VCFIDDFS`,
+    /// `VCTIDDFS`); nothing is known.
     Aborted,
 }
 
@@ -259,20 +262,30 @@ impl SolveResult {
     }
 }
 
-fn validate(board: &Board, attacker: Player) -> Result<(), Option<Mate>> {
-    if board.rows(Black, Five).next().is_some() {
-        return Err(None);
-    }
-    if board.rows(White, Five).next().is_some() {
-        return Err(None);
-    }
-    if board.rows(Black, Overlined).next().is_some() {
-        return Err(None);
+/// Runs `solver` on `state`, reporting the mate and how much the solver's
+/// memos hold afterwards.
+fn run<S: Solver>(
+    mut solver: S,
+    mut state: S::State,
+    budget: &mut NodeBudget,
+) -> (Option<Mate>, usize) {
+    let maybe_mate = solver.solve(&mut state, budget);
+    (maybe_mate, solver.memo_len())
+}
+
+/// The answer for a board that needs no search, if it is one: the game
+/// is already over, or the attacker has a four and wins next move.
+fn decided(board: &Board, attacker: Player) -> Option<SolveResult> {
+    let over = board.rows(Black, Five).next().is_some()
+        || board.rows(White, Five).next().is_some()
+        || board.rows(Black, Overlined).next().is_some();
+    if over {
+        return Some(SolveResult::Disproven);
     }
     if board.rows(attacker, Four).next().is_some() {
-        return Err(Some(Mate::new(Unknown, vec![])));
+        return Some(SolveResult::Proven(Mate::new(Unknown, vec![])));
     }
-    Ok(())
+    None
 }
 
 #[cfg(test)]
@@ -799,6 +812,22 @@ mod tests {
         }
         assert!(SolveMode::try_from(2).is_err());
         assert!("dfpn".parse::<SolveMode>().is_err());
+    }
+
+    /// The reserved modes search nothing, so they must not claim there is
+    /// no mate: not where there is one, nor where the board decides it.
+    #[test]
+    fn test_reserved_modes_are_aborted() -> Result<(), String> {
+        let four = "H8,I8,J8,K8/G8".parse::<Board>()?;
+        for board in [vct_board(), four] {
+            for mode in [VCFIDDFS, VCTIDDFS] {
+                let limits = SolveLimits::new(4).with_threat_limit(3);
+                let (result, stats) = solve_with_stats(mode, &board, Black, limits);
+                assert_eq!(result, SolveResult::Aborted, "{mode:?}");
+                assert_eq!(stats, SolveStats::default());
+            }
+        }
+        Ok(())
     }
 
     /// A search that gave up must not leave anything behind that hides the

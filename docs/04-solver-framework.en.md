@@ -14,7 +14,7 @@ It assumes [03](03-solver-api.en.md) (what a solver is asked, `limit`,
 ```
 src/mate.rs          module root: re-exports, the overview doc comment
 src/mate/
-├── solve.rs         solve, SolveMode, SolveLimits, SolveResult, validate
+├── solve.rs         solve, SolveMode, SolveLimits, SolveResult, decided
 │                    + the solver regression tests
 ├── solver.rs        trait Solver                      (§4)
 ├── game.rs          Game, Event, End                  (§2)

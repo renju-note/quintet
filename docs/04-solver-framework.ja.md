@@ -11,7 +11,7 @@
 ```
 src/mate.rs          モジュールルート: 再エクスポート、全体像のドキュメントコメント
 src/mate/
-├── solve.rs         solve、SolveMode、SolveLimits、SolveResult、validate
+├── solve.rs         solve、SolveMode、SolveLimits、SolveResult、decided
 │                    + ソルバーの回帰テスト
 ├── solver.rs        trait Solver                      (§4)
 ├── game.rs          Game、Event、End                  (§2)

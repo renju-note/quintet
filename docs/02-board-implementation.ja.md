@@ -379,7 +379,7 @@ fn truthy_double_three(next, p) -> bool {
 | ルール | コード |
 | --- | --- |
 | 五連で勝ち | `rows(r, Five)`（`mate::solve` / `Game` で判定）。 |
-| 長連は白の勝ち、黒は不可 | 黒のセグメントだけがマージンを見るので、白の六も `Five`。黒の長連は禁手（`Overlining` = 六腐）。`mate::solve::validate` は五や黒の `Overlined` を既に含む入力局面を拒否する。 |
+| 長連は白の勝ち、黒は不可 | 黒のセグメントだけがマージンを見るので、白の六も `Five`。黒の長連は禁手（`Overlining` = 六腐）。`mate::solve::decided` は五や黒の `Overlined` を既に含む入力局面に、探索せず答える。 |
 | 四 / 棒四 | `Four`（点数 4 のセグメント）/ `Straight`（点数 4 のセグメント 2 つ）。棒四 = 隣接する 2 つの `Four`。 |
 | 三（達四できること） | `Three`（点数 3 のセグメント 2 つ）。唯一の眼 = 達四点。 |
 | 黒の「長連を作らずに」 | `Segment::alive`: マージンに黒石がないこと。 |

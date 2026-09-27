@@ -28,7 +28,7 @@ scripts/bench-compare.sh main                     # this tree vs. a git ref
 
 # CLI for manual experiments (examples/solve.rs)
 cargo run --release --example solve <mode> <limit> <threat_limit> <x|o> <moves>
-#   mode: vcf | vcf_iddfs | vct | vct_iddfs | vct_pns | vct_dfpns
+#   mode: vcf | vct | vct_pns | vct_dfpns (vcf_iddfs, vct_iddfs are reserved)
 #   moves: comma-separated like H8,H7,F6 (alternating Black, White, ...)
 ```
 

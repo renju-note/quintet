@@ -561,7 +561,7 @@ and passing the board along when they sync or read it.
 | Rule | Code |
 | --- | --- |
 | Five wins | `rows(r, Five)` (checked in `mate::solve` / `Game`). |
-| Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::validate` rejects input positions that already contain a five or a Black `Overlined`. |
+| Overline wins for White, not Black | `Five` is exact only for Black, so a White six is still a `Five`; a Black overline is a forbidden move (`Overlining`). `mate::solve::decided` answers input positions that already contain a five or a Black `Overlined`. |
 | Four / straight four | `Four` (a segment scoring 4) / `Straight` (two scoring 4); a straight four = two adjacent `Four`s. |
 | Three (must reach a straight four) | `Three` (two segments scoring 3), single eye = the straight-four point. |
 | "Without making an overline" for Black | `Segment::alive`: no black stone in the margins. |

@@ -70,9 +70,9 @@ changes by, which is what the benchmark does (07).
 | `SolveMode` | Code | CLI name | What it searches |
 | --- | --- | --- | --- |
 | `VCFDFS` | 0 | `vcf` | VCF, depth-first. `threat_limit` is ignored. |
-| `VCFIDDFS` | 1 | `vcf_iddfs` | Reserved; `solve` returns `Disproven`. |
+| `VCFIDDFS` | 1 | `vcf_iddfs` | Reserved; `solve` searches nothing and returns `Aborted`. |
 | `VCTDFS` | 10 | `vct` | VCT, depth-first traversal of the proof-number tree. |
-| `VCTIDDFS` | 11 | `vct_iddfs` | Reserved; `solve` returns `Disproven`. |
+| `VCTIDDFS` | 11 | `vct_iddfs` | Reserved; `solve` searches nothing and returns `Aborted`. |
 | `VCTPNS` | 15 | `vct_pns` | VCT, proof-number search. |
 | `VCTDFPNS` | 16 | `vct_dfpns` | VCT, depth-first proof-number search (df-pn). **The one to use.** |
 
@@ -109,7 +109,8 @@ pub enum SolveResult { Proven(Mate), Disproven, Aborted }
 
 `Option<Mate>` cannot say *why* there is no mate. `SolveResult` can, and the
 difference matters: `Disproven` means there is none within the limits,
-`Aborted` means the budget ran out and the position is still open. An engine
+`Aborted` means the budget ran out (or, for a reserved mode, nothing was
+searched) and the position is still open. An engine
 that takes `Aborted` for "safe" walks into mates. `is_proven()`,
 `is_disproven()`, `is_aborted()`, `mate()` and `into_mate()` are the
 accessors.
@@ -240,9 +241,10 @@ it. `end` says why the defender is lost after the last move:
 | `Forbidden(p)` | a single four whose only block `p` is a forbidden move. | Black only. |
 | `Unknown` | The win was proven but the line could not be completed: the attacker already had a four before the search (§6), or the extractor found no proven child to follow (06, §6). | — |
 
-## 6. What is checked before searching: `validate`
+## 6. What is checked before searching: `decided`
 
-`solve` first rejects positions the solvers do not handle:
+`solve` first answers, without searching, the positions the solvers do not
+handle (after a reserved mode, which is `Aborted` whatever the board):
 
 | Position | Result |
 | --- | --- |

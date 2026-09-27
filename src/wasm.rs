@@ -1,5 +1,6 @@
 use super::board::*;
 use super::mate;
+use super::mate::SolveMode::{self, VCFDFS, VCTDFPNS, VCTDFS};
 use std::convert::{From, TryFrom};
 use wasm_bindgen::prelude::*;
 
@@ -12,32 +13,41 @@ pub fn solve(
     black: bool,
     threat_limit: u8,
 ) -> Option<Box<[u8]>> {
-    let mode = mate::SolveMode::try_from(mode);
-    let blacks = Points::try_from(blacks);
-    let whites = Points::try_from(whites);
-    if mode.is_err() || blacks.is_err() || whites.is_err() {
-        return None;
-    }
-    let board = Board::from_stones(&blacks.unwrap(), &whites.unwrap());
-    let player = Player::from(black);
-    let limits = mate::SolveLimits::new(limit).with_threat_limit(threat_limit);
-    let solution = mate::solve(mode.unwrap(), &board, player, limits).into_mate();
-    solution.map(|s| <Vec<u8>>::from(Points(s.path)).into_boxed_slice())
+    let mode = SolveMode::try_from(mode).ok()?;
+    solve_mode(mode, limit, blacks, whites, black, threat_limit)
 }
 
 #[wasm_bindgen]
 pub fn solve_vcf(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> Option<Box<[u8]>> {
-    solve(0, limit, blacks, whites, black, limit)
+    solve_mode(VCFDFS, limit, blacks, whites, black, limit)
 }
 
 #[wasm_bindgen]
 pub fn solve_vct(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> Option<Box<[u8]>> {
-    solve(10, limit, blacks, whites, black, limit)
+    solve_mode(VCTDFS, limit, blacks, whites, black, limit)
 }
 
 #[wasm_bindgen]
 pub fn solve_vct_dfpn(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> Option<Box<[u8]>> {
-    solve(16, limit, blacks, whites, black, limit)
+    solve_mode(VCTDFPNS, limit, blacks, whites, black, limit)
+}
+
+/// [`solve`] with the mode already decoded. Bad point codes are `None`, as
+/// is every result but a proven mate.
+fn solve_mode(
+    mode: SolveMode,
+    limit: u8,
+    blacks: &[u8],
+    whites: &[u8],
+    black: bool,
+    threat_limit: u8,
+) -> Option<Box<[u8]>> {
+    let blacks = Points::try_from(blacks).ok()?;
+    let whites = Points::try_from(whites).ok()?;
+    let board = Board::from_stones(&blacks, &whites);
+    let limits = mate::SolveLimits::new(limit).with_threat_limit(threat_limit);
+    let mate = mate::solve(mode, &board, Player::from(black), limits).into_mate()?;
+    Some(<Vec<u8>>::from(Points(mate.path)).into_boxed_slice())
 }
 
 #[wasm_bindgen]
@@ -85,6 +95,17 @@ mod tests {
         let result = solve_vcf(&blacks, &whites, true, 3).unwrap();
         assert_eq!(result.to_vec(), expected);
         assert_eq!(solve(0, 3, &blacks, &whites, true, 3), Some(result));
+
+        // The fixed-mode functions are the codes 10 and 16.
+        let vct = solve_vct(&blacks, &whites, true, 3);
+        assert!(vct.is_some());
+        assert_eq!(solve(10, 3, &blacks, &whites, true, 3), vct);
+        let dfpn = solve_vct_dfpn(&blacks, &whites, true, 3);
+        assert!(dfpn.is_some());
+        assert_eq!(solve(16, 3, &blacks, &whites, true, 3), dfpn);
+
+        // A reserved mode answers nothing.
+        assert_eq!(solve(1, 3, &blacks, &whites, true, 3), None);
 
         // No mate for White.
         assert_eq!(solve_vcf(&blacks, &whites, false, 3), None);
