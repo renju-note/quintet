@@ -275,6 +275,8 @@ is proven or disproven. `lookup_next(state, m)` reads the child after `m` by
 limit or a disproof at a larger one still answers (04, §3). Through
 `decided`, a search at limit 5 reuses what a search at limit 4 settled, and
 a proof found from one root answers under another root at any deeper limit.
+`lookup_children(state, candidates)` is `lookup_next` for each candidate,
+what an expansion starts from (§5, *Expansion*).
 
 `transfer_from` is where `decided` starts to apply. The generators ask the
 nested VCF solvers with `min(limit, depth)`, so below that depth the
@@ -308,13 +310,14 @@ search_defences(state, threshold):             # AND node, defender to move
 
 ### Selection
 
-`select_attack(state, attacks)` expands nothing; it reads the children's
-table entries and returns a `Selection`:
+`select_attack(limit, attacks, children)` expands nothing; it reads the
+children's numbers as the attacker table has them (`children`, kept by the
+expansion below) and returns a `Selection`:
 
 | Field | |
 | --- | --- |
 | `node` | the node's own numbers: `min_pn_sum_dn` over the children, a child not yet in the table counting as `unexpanded_defence(estimate)` (§3; `1` for a forced move) |
-| `best` | the child with the smallest `pn` — the most-proving child |
+| `best` | the child with the smallest `pn` — the most-proving child — as an index into the candidates |
 | `fresh` | whether `best` is not in the table yet: it has never been searched |
 | `best_child`, `second_child` | the numbers of the best and second-best child |
 
@@ -356,18 +359,31 @@ The default set takes 6% more in total because of `vct_small_but_long`
 
 ```
 expand_attacks(state, attacks, threshold):
+    children = attacker_table.lookup_children(state, attacks)
     loop:
-        s = select_attack(state, attacks)
+        s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if budget exhausted:                                     return s
         if s.fresh and s.best is forbidden:
             into_play(s.best): attacker_table.insert(child, disproven)
+            children[s.best] = disproven
             continue
         next = P::next_threshold_attack(s, threshold)
         into_play(s.best):
             result = search_defences(child, next)
             if budget not exhausted: attacker_table.insert(child, result)
+        children[s.best] = result
 ```
+
+The children's numbers are read from the table once, when the expansion
+starts, and after that the loop writes back only the child it has just
+searched. That is exactly what reading the table again would give:
+searching one child cannot change a sibling's entry, as every position
+under the child holds the child's stone and no sibling does (the VCT
+search never passes). When the loop read the table for every child at
+every step, the lookups were a tenth of the time in a profile of
+`vct_small_but_long`; reading them once takes 4% off the whole benchmark
+(5% off the default set), with the same nodes.
 
 `compute_attacks` leaves forbidden moves among the candidates: few are
 forbidden (about one in three hundred on the benchmark), and most

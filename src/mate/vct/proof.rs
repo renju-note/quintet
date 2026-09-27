@@ -1,3 +1,4 @@
+use super::generator::Candidate;
 use super::state::VCTState;
 use crate::board::Point;
 use crate::mate::memo::Memo;
@@ -65,6 +66,18 @@ impl ProofTable {
             return Some(node);
         }
         self.decided_at(key)
+    }
+
+    /// [`Self::lookup_next`] for each of `candidates`, in their order.
+    pub fn lookup_children(
+        &self,
+        state: &mut VCTState,
+        candidates: &[Candidate],
+    ) -> Vec<Option<Node>> {
+        candidates
+            .iter()
+            .map(|c| self.lookup_next(state, Some(c.point)))
+            .collect()
     }
 
     fn record(&mut self, key: Key, node: Node) {
