@@ -208,6 +208,7 @@ pub const INF: u32 = u32::MAX;
 
 - `insert(state, node)`: `estimates` には常に書く。ノードが証明済み / 反証済みなら `decided` にも書く。
 - `lookup_next(state, m)`: `m` の後の子を `next_key` で引く。まず `estimates`、次に `decided`。`decided` では、より小さい limit での証明や、より大きい limit での反証も答えになる（04 §3）。これにより limit 5 の探索は limit 4 の結果を再利用でき、ある根で見つけた証明は別の根でも使える。
+- `lookup_children(state, candidates)`: 候補それぞれに `lookup_next` したもの。展開はここから始まる（§5「展開」）。
 - `transfer_from`: `decided` を使い始める limit。生成器は内部四追いを `min(limit, depth)` の深さで問うので、limit がそれより小さいと候補リストが limit によって変わり、limit ごとに別の木になる。値は `VCTSolver::with_carry_capacity` が `max(attacker_vcf_depth, defender_vcf_depth + 1, 2)` に設定する。limit がこれより小さいノードは `decided` に書きも読みもしない。
 
 ## 5. 探索（`searcher.rs`、`threshold.rs`、`solver.rs`）
@@ -233,12 +234,12 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 
 ### 選択
 
-`select_attack(state, attacks)` は何も展開しない。子の表エントリを読んで `Selection` を返す。
+`select_attack(limit, attacks, children)` は何も展開しない。攻め方の表にある子の数値（下の展開が持っている `children`）を読んで `Selection` を返す。
 
 | フィールド | 内容 |
 | --- | --- |
 | `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(estimate)` とみなす（§3。強制手なら `1`） |
-| `best` | `pn` が最小の子（最有望の子） |
+| `best` | `pn` が最小の子（最有望の子）。候補の中での位置 |
 | `fresh` | `best` がまだ表にないか。一度も探索されていない |
 | `best_child`、`second_child` | 最良と 2 番目の子の数値 |
 
@@ -263,18 +264,23 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 
 ```
 expand_attacks(state, attacks, threshold):
+    children = attacker_table.lookup_children(state, attacks)
     loop:
-        s = select_attack(state, attacks)
+        s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if 予算切れ:                                              return s
         if s.fresh かつ s.best が禁手:
             into_play(s.best): attacker_table.insert(child, disproven)
+            children[s.best] = disproven
             continue
         next = P::next_threshold_attack(s, threshold)
         into_play(s.best):
             result = search_defences(child, next)
             if 予算が残っていれば: attacker_table.insert(child, result)
+        children[s.best] = result
 ```
+
+子の数値は展開の始めに一度だけ表から読み、その後ループは直前に探索した子の値だけを書き戻す。これは毎回表を読み直した場合とまったく同じ値になる。ある子を探索しても兄弟のエントリは変わらないからである。その子の下の局面はすべてその子の石を含み、兄弟の局面は含まない（VCT の探索はパスしない）。毎周すべての子の表を引き直していた頃は、`vct_small_but_long` のプロファイルでその表引きが時間の 1 割を占めていた。一度だけ読むようにすると、ノード数は変わらずにベンチマーク全体の時間が 4%（既定の集合で 5%）減る。
 
 `compute_attacks` は禁手を候補から除かない。禁手は少なく（ベンチマークでおよそ 300 に 1 つ）、ほとんどの候補は一度も探索されないからである。攻め手が禁手かどうかは、それを初めて探索しようとするときにだけ確かめ、禁手ならノードを使わずに表で反証済みとする。それまでは、ほかの未展開の子と同じく親の数値に数えられる。そのため探索は、禁手を事前に除いていたときとは違う手順をたどる。
 
