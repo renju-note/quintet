@@ -1,6 +1,6 @@
 use super::generator::Candidates;
 use super::nested_vcf::NestedVCF;
-use super::proof::{DEFAULT_CARRY_CAPACITY, ProofTable};
+use super::proof::{DEFAULT_CARRY_CAPACITY, Node, ProofTable};
 use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
 use crate::mate::budget::NodeBudget;
@@ -32,6 +32,9 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     pub(super) attacks_cache: CandidatesCache,
     /// What `generate_defences` found, by position.
     pub(super) defences_cache: CandidatesCache,
+    /// The children's numbers of the expansions under way, each on top of
+    /// its parent's (`expand_attacks` / `expand_defences`).
+    pub(super) children: Vec<Option<Node>>,
     policy: PhantomData<P>,
 }
 
@@ -87,6 +90,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             defender_vcf: NestedVCF::new(false, defender_vcf_depth, carry_capacity),
             attacks_cache: candidates_cache(),
             defences_cache: candidates_cache(),
+            children: Vec::new(),
             policy: PhantomData,
         }
     }

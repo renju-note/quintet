@@ -17,7 +17,8 @@ use crate::mate::vct::proof::*;
 /// pick that child, expanding nothing.
 ///
 /// An expansion reads its children's numbers from the tables once and
-/// then keeps them itself, writing back only the child it has just
+/// then keeps them itself (on `children`, one stack for all the expansions
+/// under way, rather than a `Vec` of its own), writing back only the child it has just
 /// searched, rather than looking every child up again at each step.
 /// Nothing else can change them in the meantime: every position under
 /// that child holds its stone, which none of its siblings does (the search
@@ -108,14 +109,17 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         threshold: Node,
         budget: &mut NodeBudget,
     ) -> Selection {
-        let mut children = self.attacker_table.lookup_children(state, attacks);
-        loop {
-            let selection = Self::select_attack(state.limit(), attacks, &children);
+        let base = self.children.len();
+        self.attacker_table
+            .lookup_children(state, attacks, &mut self.children);
+        let selection = loop {
+            let children = &self.children[base..];
+            let selection = Self::select_attack(state.limit(), attacks, children);
             if Self::exceeds_threshold(selection.node, threshold) {
-                return selection;
+                break selection;
             }
             if budget.is_exhausted() {
-                return selection;
+                break selection;
             }
             let best = attacks[selection.best].point;
             // Few attacks are forbidden, so each is only asked about when
@@ -128,7 +132,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                     self.attacker_table.insert(child, result);
                     result
                 });
-                children[selection.best] = Some(result);
+                self.children[base + selection.best] = Some(result);
                 continue;
             }
             let next_threshold = P::next_threshold_attack(&selection, threshold);
@@ -143,8 +147,10 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             });
             // The loop ends at the next check if the budget ran out, so the
             // result is only read back when it is also in the table.
-            children[selection.best] = Some(result);
-        }
+            self.children[base + selection.best] = Some(result);
+        };
+        self.children.truncate(base);
+        selection
     }
 
     fn expand_defences(
@@ -154,14 +160,17 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         threshold: Node,
         budget: &mut NodeBudget,
     ) -> Selection {
-        let mut children = self.defender_table.lookup_children(state, defences);
-        loop {
-            let selection = Self::select_defence(state.limit(), defences, &children);
+        let base = self.children.len();
+        self.defender_table
+            .lookup_children(state, defences, &mut self.children);
+        let selection = loop {
+            let children = &self.children[base..];
+            let selection = Self::select_defence(state.limit(), defences, children);
             if Self::exceeds_threshold(selection.node, threshold) {
-                return selection;
+                break selection;
             }
             if budget.is_exhausted() {
-                return selection;
+                break selection;
             }
             let best = defences[selection.best].point;
             let next_threshold = P::next_threshold_defence(&selection, threshold);
@@ -174,8 +183,10 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 }
                 result
             });
-            children[selection.best] = Some(result);
-        }
+            self.children[base + selection.best] = Some(result);
+        };
+        self.children.truncate(base);
+        selection
     }
 
     /// Chooses among `attacks` by their numbers in `children`, as the
