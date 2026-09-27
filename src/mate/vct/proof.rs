@@ -68,16 +68,19 @@ impl ProofTable {
         self.decided_at(key)
     }
 
-    /// [`Self::lookup_next`] for each of `candidates`, in their order.
+    /// [`Self::lookup_next`] for each of `candidates`, in their order,
+    /// pushed onto `out`.
     pub fn lookup_children(
         &self,
         state: &mut VCTState,
         candidates: &[Candidate],
-    ) -> Vec<Option<Node>> {
-        candidates
-            .iter()
-            .map(|c| self.lookup_next(state, Some(c.point)))
-            .collect()
+        out: &mut Vec<Option<Node>>,
+    ) {
+        out.extend(
+            candidates
+                .iter()
+                .map(|c| self.lookup_next(state, Some(c.point))),
+        );
     }
 
     fn record(&mut self, key: Key, node: Node) {

@@ -76,8 +76,10 @@ the fours of the side that *just moved* mean for the side *to move*?
 | one winning point `p` | `Forced(p)` | must play `p` |
 | none | `None` | free to choose |
 
-Only fours through the last move are examined (`rows_on(last_move,
-opponent, Four)`): an older four would already have forced a reply. After a
+Only fours through the last move are examined (the eyes of `rows_on(last_move,
+opponent, Four)`, read off each line's bitmasks by `four_eyes_on` without
+building the rows, as this runs at every node): an older four would already
+have forced a reply. After a
 pass there is no last move, so every four of the opponent is scanned
 instead. A straight four shows up as two `Four`s with different eyes and is
 handled by the same two-point test (`take_distinct_two`) as a double-four.
