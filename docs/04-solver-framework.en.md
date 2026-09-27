@@ -26,6 +26,7 @@ src/mate/
 └── vct.rs, vct/     the VCT solver                    (06)
 src/feature/area.rs        Area: a set of points, for the VCF zone (05, §2)
 src/feature/shape.rs       ShapeMap: what a move would make, for VCT move ordering (06, §8)
+src/feature/stale.rs       StaleLines: the lines ShapeMap and SwordMap have yet to recompute
 src/feature/sword.rs       SwordMap: cached swords for VCF (02 §7, 05)
 ```
 

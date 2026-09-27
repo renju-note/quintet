@@ -1,7 +1,5 @@
-use crate::board::{Point, RANGE};
+use crate::board::{POINTS, Point, RANGE};
 use std::ops::BitOrAssign;
-
-const POINTS: usize = RANGE as usize * RANGE as usize;
 
 /// A set of points, one bit per point by its `u8` code (`x * RANGE + y`).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -12,9 +10,13 @@ impl Area {
         Self([0; 4])
     }
 
-    pub fn insert(&mut self, p: Point) {
+    /// Adds `p`, telling whether it was not there yet.
+    pub fn insert(&mut self, p: Point) -> bool {
         let i = u8::from(p) as usize;
-        self.0[i / 64] |= 1 << (i % 64);
+        let (word, bit) = (i / 64, 1 << (i % 64));
+        let new = self.0[word] & bit == 0;
+        self.0[word] |= bit;
+        new
     }
 
     pub fn contains(&self, p: Point) -> bool {
@@ -88,8 +90,9 @@ mod tests {
         let mut set = Area::new();
         let points = [Point(0, 0), Point(4, 3), Point(8, 7), Point(14, 14)];
         for p in points {
-            set.insert(p);
+            assert!(set.insert(p));
         }
+        assert!(!set.insert(points[0]));
         assert!(points.iter().all(|&p| set.contains(p)));
         assert!(!set.contains(Point(7, 7)));
 

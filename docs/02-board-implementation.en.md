@@ -547,7 +547,9 @@ and passing the board along when they sync or read it.
   `Grid::lines`), a `u16` with bit `j` set if a sword's segment starts at
   cell `j`, and a `u128` of the lines that have any.
 - A move only marks the (at most four) lines through the point stale
-  (`SwordMap::mark_stale`); `SwordMap::sync` recomputes the stale lines. The searches move
+  (`SwordMap::mark_stale`, kept in a `StaleLines` from
+  `src/feature/stale.rs`, which `ShapeMap` shares); `SwordMap::sync`
+  recomputes the stale lines. The searches move
   far more often than they read, so recomputing at every move would cost
   more than the scan it replaces.
 - A line is recomputed by `Line::row_starts(r, Sword)`, which checks

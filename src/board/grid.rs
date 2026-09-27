@@ -398,8 +398,6 @@ fn diagonal_lines() -> DiagonalLines {
 mod tests {
     use super::*;
 
-    const ALL_DIRECTIONS: [Direction; 4] = [Vertical, Horizontal, Ascending, Descending];
-
     fn points(it: impl Iterator<Item = Point>) -> String {
         Points(it.collect()).to_string()
     }
@@ -411,7 +409,7 @@ mod tests {
             for y in 0..RANGE {
                 let p = Point(x, y);
                 let want = expected.iter().find(|(q, _)| *q == p).map(|&(_, r)| r);
-                for d in ALL_DIRECTIONS {
+                for d in Direction::ALL {
                     if let Some(line) = grid.line_on(p, d) {
                         assert_eq!(line.stone(p.to_index(d).j), want, "{p} {d:?}");
                     }

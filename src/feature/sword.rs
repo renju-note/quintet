@@ -1,4 +1,4 @@
-use crate::board::Direction::*;
+use super::stale::StaleLines;
 use crate::board::Player::*;
 use crate::board::RowKind::Sword;
 use crate::board::*;
@@ -11,10 +11,9 @@ use crate::board::*;
 /// line for them was most of its cost. This keeps, per player and per line
 /// (by [`Grid::line_key`]), the cells where a sword's window starts.
 ///
-/// Updates are lazy. A move only changes the (at most four) lines through
-/// it, so [`Self::mark_stale`] just notes those, and [`Self::sync`]
-/// recomputes them from the board before the next read. Marking rather than recomputing at
-/// once matters: the searches move far more often than they read.
+/// Updates are lazy ([`StaleLines`]): [`Self::mark_stale`] notes the lines
+/// through a move, and [`Self::sync`] recomputes them from the board before
+/// the next read.
 ///
 /// [`Self::swords`] / [`Self::swords_on`] return what
 /// `Board::rows(r, Sword)` / `rows_on(p, r, Sword)` would, in
@@ -23,8 +22,8 @@ use crate::board::*;
 pub struct SwordMap {
     /// Black's and White's, in that order.
     players: [Swords; 2],
-    /// Lines changed since the last [`Self::sync`], one bit per line.
-    stale: u128,
+    /// Lines changed since the last [`Self::sync`].
+    stale: StaleLines,
 }
 
 /// One player's swords.
@@ -45,21 +44,17 @@ impl SwordMap {
         };
         Self {
             players: [empty.clone(), empty],
-            stale: (1 << LINE_NUM) - 1,
+            stale: StaleLines::all(),
         }
     }
 
     /// Notes that a stone was put on or taken off `p`.
     pub fn mark_stale(&mut self, p: Point) {
-        for d in [Vertical, Horizontal, Ascending, Descending] {
-            if let Some(k) = Grid::line_key(d, p.to_index(d).i) {
-                self.stale |= 1 << k;
-            }
-        }
+        self.stale.mark(p);
     }
 
     pub fn is_synced(&self) -> bool {
-        self.stale == 0
+        self.stale.is_empty()
     }
 
     /// A map in sync with `board`.
@@ -71,7 +66,7 @@ impl SwordMap {
 
     /// Recomputes the stale lines from `board`.
     pub fn sync(&mut self, board: &Board) {
-        for k in Bits(std::mem::take(&mut self.stale)) {
+        for k in self.stale.take() {
             self.update(k as usize, board);
         }
     }
@@ -79,7 +74,7 @@ impl SwordMap {
     /// `r`'s swords. The map must be in sync with `board`.
     pub fn swords<'a>(&'a self, board: &'a Board, r: Player) -> impl Iterator<Item = Row> + 'a {
         debug_assert!(self.is_synced());
-        let swords = &self.players[player_index(r)];
+        let swords = &self.players[r.index()];
         Bits(swords.lines).flat_map(move |k| {
             let k = k as usize;
             swords_in(board, r, k, swords.starts[k])
@@ -95,8 +90,8 @@ impl SwordMap {
         r: Player,
     ) -> impl Iterator<Item = Row> + 'a {
         debug_assert!(self.is_synced());
-        let swords = &self.players[player_index(r)];
-        [Vertical, Horizontal, Ascending, Descending]
+        let swords = &self.players[r.index()];
+        Direction::ALL
             .into_iter()
             .filter_map(move |d| {
                 let index = p.to_index(d);
@@ -114,7 +109,7 @@ impl SwordMap {
         let (d, i) = Grid::line_of_key(k);
         let line = board.line(d, i).unwrap();
         for r in [Black, White] {
-            let swords = &mut self.players[player_index(r)];
+            let swords = &mut self.players[r.index()];
             swords.starts[k] = line.row_starts(r, Sword);
             if swords.starts[k] != 0 {
                 swords.lines |= 1 << k;
@@ -136,10 +131,6 @@ fn swords_in(board: &Board, r: Player, k: usize, starts: u16) -> impl Iterator<I
     let (d, i) = Grid::line_of_key(k);
     let line = board.line(d, i).unwrap();
     Bits(starts).map(move |j| Row::new(Index::new(d, i, j), r, Sword, line.segment(j)))
-}
-
-fn player_index(r: Player) -> usize {
-    if r.is_black() { 0 } else { 1 }
 }
 
 #[cfg(test)]

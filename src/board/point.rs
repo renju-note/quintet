@@ -4,6 +4,10 @@ use std::str::FromStr;
 
 pub const RANGE: u8 = 15;
 
+/// How many points the board has, which is also how many `u8` point codes
+/// there are.
+pub const POINTS: usize = RANGE as usize * RANGE as usize;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Point(pub u8, pub u8);
 
@@ -218,6 +222,10 @@ pub enum Direction {
 
 pub use Direction::*;
 
+impl Direction {
+    pub const ALL: [Self; 4] = [Vertical, Horizontal, Ascending, Descending];
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,7 +282,7 @@ mod tests {
         for x in 0..RANGE {
             for y in 0..RANGE {
                 let p = Point(x, y);
-                for d in [Vertical, Horizontal, Ascending, Descending] {
+                for d in Direction::ALL {
                     let index = p.to_index(d);
                     assert!(index.j <= index.maxj(), "{p} {d:?}");
                     assert_eq!(index.to_point(), p, "{p} {d:?}");

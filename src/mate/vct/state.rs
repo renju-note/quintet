@@ -10,8 +10,8 @@ use crate::mate::vcf::VCFState;
 
 pub struct VCTState {
     game: Game,
-    pub attacker: Player,
-    pub limit: u8,
+    attacker: Player,
+    limit: u8,
     shapes: ShapeMap,
     /// The swords, kept only to hand to the nested VCF states.
     swords: SwordMap,
@@ -60,14 +60,6 @@ impl VCTState {
     fn synced_swords(&mut self) -> SwordMap {
         self.swords.sync(self.game.board());
         self.swords.clone()
-    }
-
-    pub fn is_forbidden_move(&self, p: Point) -> bool {
-        self.game().is_forbidden_move(p)
-    }
-
-    pub fn check_event(&self) -> Option<Event> {
-        self.game().check_event()
     }
 
     /// The key the child after `next_move` would have, without building it.
@@ -127,16 +119,10 @@ impl VCTState {
     /// equal ones keep their order.
     fn sort_by_priority(&mut self, points: Vec<Point>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
-        let mut seen = [0u64; 4];
+        let mut seen = Area::new();
         let mut result: Vec<_> = points
             .into_iter()
-            .filter(|&p| {
-                let i = u8::from(p) as usize;
-                let (word, bit) = (i / 64, 1 << (i % 64));
-                let new = seen[word] & bit == 0;
-                seen[word] |= bit;
-                new
-            })
+            .filter(|&p| seen.insert(p))
             .map(|p| (p, self.priority(p)))
             .collect();
         result.sort_by_key(|&(_, key)| std::cmp::Reverse(key));
@@ -363,7 +349,7 @@ mod tests {
         attacking_black.play(Some(next));
         let attacking_white = VCTState::init(&board.put(Black, next), White, 4);
         assert_eq!(attacking_black.game().turn, attacking_white.game().turn);
-        assert_eq!(attacking_black.limit, attacking_white.limit);
+        assert_eq!(attacking_black.limit(), attacking_white.limit());
         assert_eq!(
             attacking_black.game().board().zobrist_hash(),
             attacking_white.game().board().zobrist_hash()

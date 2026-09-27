@@ -4,6 +4,7 @@ use crate::feature::area::Area;
 use crate::mate::budget::NodeBudget;
 use crate::mate::mate::*;
 use crate::mate::solver::Solver;
+use crate::mate::state::State;
 
 /// Iterative-deepening VCF search: a [`DFSSolver`] run at each of `limits`
 /// in turn, then at the state's own limit.
@@ -50,19 +51,19 @@ impl IDDFSSolver {
         budget: &mut NodeBudget,
         zone: &mut Area,
     ) -> Option<Mate> {
-        let max_limit = state.limit;
+        let max_limit = state.limit();
         for &limit in &self.limits {
             if limit >= max_limit {
                 break;
             }
-            state.limit = limit;
+            state.set_limit(limit);
             let result = self.solver.search_zone(state, budget, zone);
             if result.is_some() || budget.is_exhausted() {
-                state.limit = max_limit;
+                state.set_limit(max_limit);
                 return result;
             }
         }
-        state.limit = max_limit;
+        state.set_limit(max_limit);
         self.solver.search_zone(state, budget, zone)
     }
 }
@@ -117,6 +118,6 @@ mod tests {
         let mut solver = IDDFSSolver::init(vec![1, 2, 3]);
         assert_eq!(path(solver.solve(state, budget)), "G8");
         // The limit it deepened through is put back.
-        assert_eq!(state.limit, 5);
+        assert_eq!(state.limit(), 5);
     }
 }

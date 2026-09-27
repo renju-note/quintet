@@ -16,7 +16,7 @@ pub use forbidden::ForbiddenKind;
 pub use grid::{Grid, LINE_NUM};
 pub use line::{Line, Rows};
 pub use player::Player;
-pub use point::{Direction, Index, Point, Points, RANGE};
+pub use point::{Direction, Index, POINTS, Point, Points, RANGE};
 pub use row::{Row, RowKind};
 pub use segment::{Segment, VICTORY};
 // Search-key helpers: the turn and a search's attacker are not properties of

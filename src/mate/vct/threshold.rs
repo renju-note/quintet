@@ -33,15 +33,18 @@ pub struct PNSThreshold;
 
 impl ThresholdPolicy for PNSThreshold {
     fn next_threshold_attack(selection: &Selection, _threshold: Node) -> Node {
-        let best = selection.best_child;
-        Node::new(
-            best.pn.saturating_add(1),
-            best.dn.saturating_add(1),
-            best.limit,
-        )
+        Self::just_past_best(selection)
     }
 
     fn next_threshold_defence(selection: &Selection, _threshold: Node) -> Node {
+        Self::just_past_best(selection)
+    }
+}
+
+impl PNSThreshold {
+    /// One more than the best child's numbers, on both sides alike: exceeded
+    /// by any change to them.
+    fn just_past_best(selection: &Selection) -> Node {
         let best = selection.best_child;
         Node::new(
             best.pn.saturating_add(1),

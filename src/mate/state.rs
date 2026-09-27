@@ -40,6 +40,16 @@ pub trait State {
         self.game().turn == self.attacker()
     }
 
+    /// See [`Game::is_forbidden_move`].
+    fn is_forbidden_move(&self, p: Point) -> bool {
+        self.game().is_forbidden_move(p)
+    }
+
+    /// See [`Game::check_event`].
+    fn check_event(&self) -> Option<Event> {
+        self.game().check_event()
+    }
+
     /// What every memo in the solvers is keyed by: the position — the stones
     /// and the turn from [`Game::position_hash`], plus the attacker — and
     /// the remaining limit.

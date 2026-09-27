@@ -52,7 +52,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     fn compute_attacks(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
         // This is not necessary but improves speed
         let zone = match self.attacker_vcf.vcf_or_zone(state, budget) {
-            Ok(_) => return Terminal(Node::proven(state.limit)),
+            Ok(_) => return Terminal(Node::proven(state.limit())),
             Err(zone) => zone,
         };
 
@@ -72,7 +72,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         result.retain(|&p| !state.is_forbidden_move(p));
 
         if result.is_empty() {
-            return Terminal(Node::disproven(state.limit));
+            return Terminal(Node::disproven(state.limit()));
         }
 
         // An attack is expanded in the order of its estimated proof number
@@ -101,12 +101,12 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     fn compute_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
         let maybe_threat = self.attacker_vcf.threat(state, budget);
         if maybe_threat.is_none() {
-            return Terminal(Node::disproven(state.limit));
+            return Terminal(Node::disproven(state.limit()));
         }
 
         // This is not necessary but improves speed
         if self.defender_vcf.vcf(state, budget).is_some() {
-            return Terminal(Node::disproven(state.limit));
+            return Terminal(Node::disproven(state.limit()));
         }
 
         let threat = maybe_threat.unwrap();
@@ -115,7 +115,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         result.retain(|&p| !state.is_forbidden_move(p));
 
         if result.is_empty() {
-            return Terminal(Node::proven(state.limit));
+            return Terminal(Node::proven(state.limit()));
         }
 
         let width = result.len() as u32;

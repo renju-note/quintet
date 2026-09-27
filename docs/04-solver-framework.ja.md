@@ -23,6 +23,7 @@ src/mate/
 └── vct.rs, vct/     追い詰めソルバー                  (06)
 src/feature/area.rs        Area: 点の集合、四追いの関連領域用 (05 §2)
 src/feature/shape.rs       ShapeMap: 着手で何ができるか、追い詰めの手の並べ替え用 (06 §8)
+src/feature/stale.rs       StaleLines: ShapeMap と SwordMap がまだ計算し直していない線
 src/feature/sword.rs       SwordMap: 四追い用の剣先キャッシュ (02 §7, 05)
 ```
 

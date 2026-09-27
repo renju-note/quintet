@@ -26,7 +26,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     /// A proof is never spurious, so a `true` that was reached just before the
     /// budget ran out still holds.
     pub fn search(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> bool {
-        if state.limit == 0 {
+        if state.limit() == 0 {
             return false;
         }
         self.search_attacks(state, Node::no_threshold(), budget)
@@ -45,7 +45,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
         if let Some(event) = state.check_event() {
             return match event {
-                Defeated(_) => Node::disproven(state.limit),
+                Defeated(_) => Node::disproven(state.limit()),
                 Forced(next_move) => {
                     let attacks = &[Candidate::new(next_move, 1)];
                     self.expand_attacks(state, attacks, threshold, budget).node
@@ -72,10 +72,10 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
         if let Some(event) = state.check_event() {
             return match event {
-                Defeated(_) => Node::proven(state.limit),
+                Defeated(_) => Node::proven(state.limit()),
                 Forced(next_move) => {
-                    if state.limit <= 1 {
-                        Node::disproven(state.limit)
+                    if state.limit() <= 1 {
+                        Node::disproven(state.limit())
                     } else {
                         let defences = &[Candidate::new(next_move, 1)];
                         self.expand_defences(state, defences, threshold, budget)
@@ -85,8 +85,8 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             };
         }
 
-        if state.limit <= 1 {
-            return Node::disproven(state.limit);
+        if state.limit() <= 1 {
+            return Node::disproven(state.limit());
         }
 
         let defences = match self.generate_defences(state, budget) {
@@ -152,7 +152,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     }
 
     fn select_attack(&self, state: &mut VCTState, attacks: &[Candidate]) -> Selection {
-        let limit = state.limit;
+        let limit = state.limit();
         let mut best: Option<Point> = Some(attacks[0].point);
         let mut node = Node::disproven(limit);
         let mut best_child = Node::disproven(limit);
@@ -186,7 +186,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     }
 
     fn select_defence(&self, state: &mut VCTState, defences: &[Candidate]) -> Selection {
-        let limit = state.limit;
+        let limit = state.limit();
         let mut best: Option<Point> = Some(defences[0].point);
         let mut node = Node::proven(limit - 1);
         let mut best_child = Node::proven(limit - 1);
