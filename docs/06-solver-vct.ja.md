@@ -137,8 +137,8 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 2. `defender_vcf.threat`: 攻め方がパスすると受け方に四追いがあるなら、攻め手はそれも受ける必要がある。候補を `threat_defences(threat)` に絞る。
 3. 候補 = `ShapeMap` で攻め方がどれかの線に `Two` 以上を作る点（`sorted_attacks(only)`）を `priority`（§8）の順に並べたもの。その数が `width`。
 4. そのうち追い手になりうる手（`may_threaten`）だけを残す: 関連領域にあるか、攻め方の石をすでに 2 つ含む区間にある手（`ShapeMap` でどれかの線が `Sword` 以上、§8。関連領域が呼び出し側に任せる部分）。それ以外の手は、パスされても攻め方に四追いを生まないので追い手ではない。予算切れのときは関連領域が不完全なので行わない。
-5. 禁手を除く。空なら `Terminal(disproven)`。
-6. 各候補に、それが作るいちばん大きな形（`best_shape`。`ShapeMap` から、§8）から見積もりを付ける。四なら `width / 4`、三なら `width / 2`、それ以外は `width`（§5「選択」）。
+   空なら `Terminal(disproven)`。
+5. 各候補に、それが作るいちばん大きな形（`best_shape`。`ShapeMap` から、§8）から見積もりを付ける。四なら `width / 4`、三なら `width / 2`、それ以外は `width`（§5「選択」）。
 
 それ以外に、ここでは候補が追い手かどうかを調べない。1 手下の受け方ノードで調べ、追い手でなければそこで反証される。その都度内部四追い探索とノード 1 つがかかるが、ベンチマークでは、ステップ 4 は追い手でない手のおよそ半分についてそれを省く（関連領域の外に追い手があったことはない）。
 
@@ -239,6 +239,7 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 | --- | --- |
 | `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(estimate)` とみなす（§3。強制手なら `1`） |
 | `best` | `pn` が最小の子（最有望の子） |
+| `fresh` | `best` がまだ表にないか。一度も探索されていない |
 | `best_child`、`second_child` | 最良と 2 番目の子の数値 |
 
 証明済みの子があれば、`node` はその場で `(0, INF)` になる。
@@ -266,11 +267,16 @@ expand_attacks(state, attacks, threshold):
         s = select_attack(state, attacks)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if 予算切れ:                                              return s
+        if s.fresh かつ s.best が禁手:
+            into_play(s.best): attacker_table.insert(child, disproven)
+            continue
         next = P::next_threshold_attack(s, threshold)
         into_play(s.best):
             result = search_defences(child, next)
             if 予算が残っていれば: attacker_table.insert(child, result)
 ```
+
+`compute_attacks` は禁手を候補から除かない。禁手は少なく（ベンチマークでおよそ 300 に 1 つ）、ほとんどの候補は一度も探索されないからである。攻め手が禁手かどうかは、それを初めて探索しようとするときにだけ確かめ、禁手ならノードを使わずに表で反証済みとする。それまでは、ほかの未展開の子と同じく親の数値に数えられる。そのため探索は、禁手を事前に除いていたときとは違う手順をたどる。
 
 `expand_defences` は `select_defence`、`defender_table`、`P::next_threshold_defence`、`search_attacks` で同じことをする。ノードは、自分の数値が親から渡された閾値を超えるまで、最有望の子を展開し続ける。根の閾値は `no_threshold` なので、根は決着するまでループする。
 
@@ -395,7 +401,7 @@ extract_defences(state):                       # 受け方の手番
 | `Sword` 以上になる方向、2 つ目から 1 つごと | +5 | 複数の線で同時に脅かす（四三、両狙い） |
 | 白: 黒が禁手に見える点に目がある四 / 三 1 つごと | +20 / +10 | 黒はそこで受けられない |
 | 黒: 達四点が禁手に見える三 1 つごと | −2 | その三は偽かもしれない |
-| 黒: その点自体が `looks_forbidden` | −20 | 本当の禁手はそもそも候補にならないので、残るのは外れた推測。三は見かけより少ない |
+| 黒: その点自体が `looks_forbidden` | −20 | 本当に禁手なら黒は打てない。それが分かるのは初めて探索するとき（§5）。禁手でなければ、三は見かけより少ない |
 
 受けでは最初の項を除く。ここでの受けはどれも何らかの形で追い手を止める（`threat_defences`）。それらを攻め方がその点をどれだけ欲しいか（そこでの攻め方の石の数や形）で並べると、ベンチマーク（07）ではこれらの項だけの場合より探索が大きくなった。重みもベンチマークで調整した。
 

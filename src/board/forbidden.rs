@@ -20,11 +20,21 @@ pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind> {
 }
 
 pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind> {
-    if overline(g, p) {
+    // Each line through `p` is read once, for all three kinds of rows.
+    let mut overlinings = [0; 4];
+    let mut swords = [0; 4];
+    let mut twos = [0; 4];
+    for (n, (d, _, l)) in g.lines_on(p).enumerate() {
+        let i = p.to_index(d).j;
+        overlinings[n] = l.row_starts_on(i, Black, Overlining);
+        swords[n] = l.row_starts_on(i, Black, Sword);
+        twos[n] = l.row_starts_on(i, Black, Two);
+    }
+    if overline(overlinings) {
         Some(Overline)
-    } else if double_four(g, p) {
+    } else if double_four(swords) {
         Some(DoubleFour)
-    } else if double_three(g, p) {
+    } else if double_three(g, p, twos) {
         Some(DoubleThree)
     } else {
         None
@@ -40,16 +50,18 @@ pub enum ForbiddenKind {
 
 pub use ForbiddenKind::*;
 
-fn overline(g: &Grid, p: Point) -> bool {
-    any(g.row_starts_on(p, Black, Overlining))
+/// The functions below take, per line through `p`, where Black's rows of
+/// one kind through `p` start ([`Grid::row_starts_on`]).
+fn overline(overlinings: [u16; 4]) -> bool {
+    any(overlinings)
 }
 
-fn double_four(g: &Grid, p: Point) -> bool {
-    distinctive_starts(g.row_starts_on(p, Black, Sword))
+fn double_four(swords: [u16; 4]) -> bool {
+    distinctive_starts(swords)
 }
 
-fn double_three(g: &Grid, p: Point) -> bool {
-    if !distinctive_starts(g.row_starts_on(p, Black, Two)) {
+fn double_three(g: &Grid, p: Point, twos: [u16; 4]) -> bool {
+    if !distinctive_starts(twos) {
         return false;
     }
     let mut next = g.clone();
@@ -66,15 +78,15 @@ fn truthy_double_three(next: &Grid, p: Point) -> bool {
 }
 
 /// Whether any line has a row start: [`Grid::row_starts_on`] finds a row.
-fn any(mut starts: impl Iterator<Item = u16>) -> bool {
-    starts.any(|s| s != 0)
+fn any(starts: impl IntoIterator<Item = u16>) -> bool {
+    starts.into_iter().any(|s| s != 0)
 }
 
 /// [`distinctive`] on the rows' starts, line by line: rows on two lines,
 /// or on one line starting other than at the first start and the next cell.
-fn distinctive_starts(starts: impl Iterator<Item = u16>) -> bool {
+fn distinctive_starts(starts: impl IntoIterator<Item = u16>) -> bool {
     let mut found = false;
-    for s in starts.filter(|&s| s != 0) {
+    for s in starts.into_iter().filter(|&s| s != 0) {
         if found || s & !(0b11 << s.trailing_zeros()) != 0 {
             return true;
         }

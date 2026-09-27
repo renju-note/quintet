@@ -68,8 +68,9 @@ search_move_pairs(state):
                       None
 
 search_attack(state, attack, defence):
-    if attack が禁手: return None
-    into_play(attack): search_defence(defence)   → 結果の先頭に attack を付ける
+    result = into_play(attack): search_defence(defence)   → 結果の先頭に attack を付ける
+    if result が Some かつ attack が禁手: return None
+    return result
 
 search_defence(state, defence):                # 受け方の手番
     if check_event() が Defeated(end): return Mate { end, path: [] }
@@ -80,7 +81,7 @@ search_defence(state, defence):                # 受け方の手番
 要点:
 
 - **メモするのは失敗だけ。** 成功はそのまま返す。四追いがない局面は、それが分かった最大の limit として、その探索の関連領域（後述）と一緒に `deadends` に記録する。手の生成が `limit` を読まないので、limit *n* の木は limit *n+1* の木を途中で切ったもの。「*n* 以内に四追いなし」は *n* 以下のすべての limit で正しく、キーは `Key::position` だけでよい（04 §3）。
-- **禁手の攻め手は飛ばす。** 黒はここで四四や長連を打たない。黒の `Fours` が常に棒四なのはこのため（03 §5）。
+- **禁手の攻め手では勝てない。** ここで見つかる四追いで、黒は四四や長連を打たない。黒の `Fours` が常に棒四なのはこのため（03 §5）。禁手の攻め手は少ない（ベンチマークでおよそ 70 に 1 つ）ので、攻め手はまず探索し、その先で四追いが見つかったときにだけ禁手かどうかを確かめる。禁手なら失敗とする。禁手の攻め手の先の探索は無駄になるが、すべての攻め手を事前に確かめるほうが高くついた。
 - **ノリ手は特別扱いしない。** 止めが四になれば、攻め方の次のノードは `Forced(p)` を見る。`forced_move_pair(p)` が成功するのは `p` が四を作る眼のときだけ。`test_vcf_counter`、`test_vcf_not_opponent_double_four` が検証している。
 - **攻め方のノードでの `Defeated` は枝の終わり。** 受け方の止めが四四（または黒が止められない四）を作った。攻め方に応じる四はないので、この手順は失敗。
 
@@ -94,6 +95,8 @@ search_defence(state, defence):                # 受け方の手番
 | 攻め方のノードでの `Forced(p)` | `p`（受け方の四の眼） |
 | 攻め方のノードでの `Defeated(Fours(e1, e2))` | `e1`、`e2` |
 | 攻め方のノードでの `Defeated(Forbidden(e))`、禁手と分かった黒の攻め手、白が攻めるときの黒の止めそれぞれ | `Area::around(_, 5)` |
+
+黒の攻め手が禁手と分かるのは、その先で四追いが見つかったときだけである。その探索の関連領域は不完全なので、攻め手自身の `Area::around(_, 5)` がそれを補う。先で何も見つからなかった禁手の攻め手には、何も足さなくてよい。禁手であってもなくても、その探索が集めた関連領域の外の石は、その探索が何も見つけないことを変えないからである。
 
 入っていないのは、根の時点で攻め方の石を 2 つ含む区間の残りの点。そこに石を置けば新しい剣先ができるので、呼び出し側が自分で調べる（`VCTState::may_threaten` が `ShapeMap` から読む）。理由: その両方の外にある石は、根でも木のどの攻め手の後でも、攻め方が四や五を作れる区間に加わらない。後のノードで加わりうる区間は、根の時点の区間か、木の攻め手を含む区間のどちらかだからである。受け方の四も止めない。四の空点は眼だけだからである。よって木は同じで、答えも同じ。最後の行は `VCTState::threat_defences` と同じく近似である。三の四ノビ点がさらに禁手であるためにその三が本物の三でなくなる場合など、石は離れた場所から禁手かどうかを変えうる。
 

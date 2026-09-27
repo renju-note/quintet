@@ -69,7 +69,6 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         if !budget.is_exhausted() {
             result.retain(|&p| state.may_threaten(p, &zone));
         }
-        result.retain(|&p| !state.is_forbidden_move(p));
 
         if result.is_empty() {
             return Terminal(Node::disproven(state.limit()));

@@ -387,8 +387,10 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
   already occupied, or playing `p` makes a five (`row_starts_on(p, Black,
   Four)` has a start), the move is *not* forbidden. Otherwise it delegates
   to `forbidden`.
-- `forbidden` checks overline, double-four and double-three in that order;
-  a point matching several kinds is reported as the first one found.
+- `forbidden` reads each line through `p` once, taking the starts of
+  Black's `Overlining`s, `Sword`s and `Two`s together, and checks
+  overline, double-four and double-three in that order; a point matching
+  several kinds is reported as the first one found.
 - `forbiddens` lists every forbidden empty point on the board.
 
 The solvers (`Game::is_forbidden_move` in `src/mate/game.rs`) call the
@@ -398,13 +400,15 @@ by the search itself before the forbidden check matters.
 ### Overline (rule 9.2 a)
 
 ```rust
-fn overline(g, p) -> bool { any(g.row_starts_on(p, Black, Overlining)) }
+fn overline(overlinings: [u16; 4]) -> bool { any(overlinings) }
 ```
 
-`Grid::row_starts_on(p, r, kind)` gives, per line through `p`, the mask
-`Line::row_starts_on` of where the rows `rows_on(p, r, kind)` would give
-start (§3.1), without building them. Asking whether there is one (`any`),
-or more than one (`distinctive_starts`, below), is then a test on bits.
+The three checks take, per line through `p`, the mask
+`Line::row_starts_on(i, Black, kind)` of where the rows `rows_on(p, Black,
+kind)` would give start (§3.1), without building them; `forbidden` reads
+all three kinds from each line in one pass (`Grid::row_starts_on` gives
+the same for one kind). Asking whether there is one (`any`), or more than
+one (`distinctive_starts`, below), is then a test on bits.
 
 An `Overlining` is two adjacent segments, each holding 4 black stones and
 both containing the empty point `p`. Together they span 6 cells with 5
@@ -413,8 +417,8 @@ stones, so playing `p` completes a run of six or more.
 ### Double-four (rule 9.2 b)
 
 ```rust
-fn double_four(g, p) -> bool {
-    distinctive_starts(g.row_starts_on(p, Black, Sword))
+fn double_four(swords: [u16; 4]) -> bool {
+    distinctive_starts(swords)
 }
 ```
 
@@ -439,9 +443,9 @@ used on the `Three`s below, which have to be looked at one by one.
 ### Double-three (rules 9.2 c and 9.3)
 
 ```rust
-fn double_three(g, p) -> bool {
+fn double_three(g, p, twos: [u16; 4]) -> bool {
     // cheap pre-filter: at least two "three-to-be" rows through p
-    if !distinctive_starts(g.row_starts_on(p, Black, Two)) { return false; }
+    if !distinctive_starts(twos) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
