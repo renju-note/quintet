@@ -419,7 +419,32 @@ policies are zero-sized types, and `DFSVCTSolver`, `PNSVCTSolver`,
 | --- | --- | --- |
 | `DFSThreshold` | `no_threshold` | the chosen child is searched to a decision before the parent looks at another: plain depth-first search, proof numbers used only for move ordering |
 | `PNSThreshold` | `(best_child.pn + 1, best_child.dn + 1)` | the child returns as soon as its numbers change, so the most-proving child is re-selected at every level after every expansion: best-first proof-number search inside a recursion |
-| `DFPNSThreshold` | OR node: `pn = min(threshold.pn, second_child.pn + 1)`, `dn = threshold.dn − node.dn + best_child.dn`; AND node mirrored | df-pn (Nagai & Imai, 2002): stay in the best child as long as it stays best, never beyond the parent's own threshold |
+| `DFPNSThreshold` | OR node: `pn = min(threshold.pn, second_child.pn + 1 + second_child.pn / 8)`, `dn = threshold.dn − node.dn + best_child.dn`; AND node mirrored | df-pn (Nagai & Imai, 2002): stay in the best child as long as it stays best, give or take a margin, never beyond the parent's own threshold |
+
+The margin of `second_child.pn / 8` is the "1 + ε trick" (Pawlewicz & Lew,
+2006) with ε = 1/8. Plain df-pn lets the best child grow only one past the
+second-best, so when the two are close the search keeps switching between
+them, going back up to the parent and down again each time. With the margin
+it stays a while longer in the one it is in. On the benchmark (07) that took
+the whole set, `heavy` included, from 137.3M nodes to 99.4M (−28%): −19% on
+the default set, −27% on the other `heavy` cases, and `vct_unstable` 40.2M →
+25.4M. Three cases got 6 to 14% dearer, none of them over 170k nodes.
+
+The other ε tried, as the change in nodes over the whole set:
+
+| ε | whole set | default set | `vct_small_but_long` | `vct_unstable` |
+| --- | --- | --- | --- | --- |
+| 1/16 | −14% | −8% | +5% | −7% |
+| 1/8 | −28% | −19% | −14% | −37% |
+| 1/6 | −20% | −18% | −9% | −7% |
+| 1/4 | −8% | −25% | −25% | +47% |
+| 1/3 | −25% | −11% | +11% | −23% |
+| 1/2 | −10% | −25% | −22% | +41% |
+
+From 1/4 up the cases other than those two gain a little more (about −32%
+against −26% at 1/8), but the two swing widely: they are the ones whose
+search follows a long line of fours, where any change to the order of
+expansion sends it down another. 1/8 is the one that does well on both.
 
 ### The solver struct
 
