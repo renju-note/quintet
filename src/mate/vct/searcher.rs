@@ -47,16 +47,18 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 Defeated(_) => Node::disproven(state.limit),
                 Forced(next_move) => {
                     let attacks = &[next_move];
-                    self.expand_attacks(state, attacks, threshold, budget).node
+                    self.expand_attacks(state, attacks, 1, threshold, budget)
+                        .node
                 }
             };
         }
 
-        let attacks = match self.generate_attacks(state, budget) {
-            Moves(v) => v,
+        let (attacks, width) = match self.generate_attacks(state, budget) {
+            Moves { moves, width } => (moves, width),
             Terminal(node) => return node,
         };
-        self.expand_attacks(state, &attacks, threshold, budget).node
+        self.expand_attacks(state, &attacks, width, threshold, budget)
+            .node
     }
 
     pub fn search_defences(
@@ -89,7 +91,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
 
         let defences = match self.generate_defences(state, budget) {
-            Moves(v) => v,
+            Moves { moves, .. } => moves,
             Terminal(node) => return node,
         };
         self.expand_defences(state, &defences, threshold, budget)
@@ -100,11 +102,12 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         &mut self,
         state: &mut VCTState,
         attacks: &[Point],
+        width: u32,
         threshold: Node,
         budget: &mut NodeBudget,
     ) -> Selection {
         loop {
-            let selection = self.select_attack(state, attacks);
+            let selection = self.select_attack(state, attacks, width);
             if Self::exceeds_threshold(selection.node, threshold) {
                 return selection;
             }
@@ -150,13 +153,13 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
     }
 
-    fn select_attack(&self, state: &mut VCTState, attacks: &[Point]) -> Selection {
+    fn select_attack(&self, state: &mut VCTState, attacks: &[Point], width: u32) -> Selection {
         let limit = state.limit;
         let mut best: Option<Point> = Some(attacks[0]);
         let mut node = Node::disproven(limit);
         let mut best_child = Node::disproven(limit);
         let mut second_child = Node::disproven(limit);
-        let init = Node::unexpanded_defence(attacks.len() as u32, limit); // trick
+        let init = Node::unexpanded_defence(width, limit); // trick
         for &attack in attacks {
             let maybe_child = self.attacker_table.lookup_next(state, Some(attack));
             let child = maybe_child.unwrap_or(init);

@@ -1,5 +1,6 @@
 use super::dfs::DFSSolver;
 use super::state::VCFState;
+use crate::feature::area::Area;
 use crate::mate::budget::NodeBudget;
 use crate::mate::mate::*;
 use crate::mate::solver::Solver;
@@ -38,20 +39,31 @@ impl IDDFSSolver {
     /// times within one question, and the outermost caller decides where one
     /// question ends and the next begins.
     pub fn search(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
+        self.search_zone(state, budget, &mut Area::new())
+    }
+
+    /// [`Self::search`], also adding to `zone` what
+    /// [`DFSSolver::search_zone`] does at each limit.
+    pub fn search_zone(
+        &mut self,
+        state: &mut VCFState,
+        budget: &mut NodeBudget,
+        zone: &mut Area,
+    ) -> Option<Mate> {
         let max_limit = state.limit;
         for &limit in &self.limits {
             if limit >= max_limit {
                 break;
             }
             state.limit = limit;
-            let result = self.solver.search(state, budget);
+            let result = self.solver.search_zone(state, budget, zone);
             if result.is_some() || budget.is_exhausted() {
                 state.limit = max_limit;
                 return result;
             }
         }
         state.limit = max_limit;
-        self.solver.search(state, budget)
+        self.solver.search_zone(state, budget, zone)
     }
 }
 

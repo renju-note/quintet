@@ -31,9 +31,10 @@ VCTSolver::solve = advance_generation; search; extract
 │   search_attacks（OR ノード、攻め方の手番）                              §5
 │   ├── check_event: Defeated → disproven; Forced(p) → attacks = [p]
 │   ├── generate_attacks                                                  §3
-│   │     attacker_vcf.vcf      四追いがある？           → Terminal(proven)
+│   │     attacker_vcf.vcf      四追いがある？           → Terminal(proven)。なければ関連領域
 │   │     defender_vcf.threat   追い手を受ける必要がある？ → threat_defences に絞る
 │   │     ポテンシャル ≥ 3 の点、priority 順                              §8
+│   │     関連領域から追い手になりえない手を除く
 │   └── expand_attacks: loop { select_attack; 最良の子を打つ; search_defences; attacker_table に保存 }
 │
 │   search_defences（AND ノード、受け方の手番）
@@ -98,6 +99,7 @@ pub struct VCTState {
 pub struct NestedVCF { solver: IDDFSSolver, depth: u8, for_attacker: bool }
 impl NestedVCF {
     pub fn vcf(&mut self, state: &mut VCTState, budget) -> Option<Mate>;     // この側の手番。今すぐ四追いがあるか
+    pub fn vcf_or_zone(&mut self, state: &mut VCTState, budget) -> Result<Mate, Area>; // 同じ問い。なければどこに石を置けば生まれうるか
     pub fn threat(&mut self, state: &mut VCTState, budget) -> Option<Mate>;  // 相手がパスしたら、この側に四追いがあるか
 }
 ```
@@ -120,7 +122,7 @@ impl NestedVCF {
 
 ```rust
 pub enum Candidates {
-    Moves(Vec<Point>),   // 内部ノード: 試す手、良い順
+    Moves { moves: Vec<Point>, width: u32 }, // 内部ノード: 試す手、良い順
     Terminal(Node),      // 展開せずに決着: Node::proven または Node::disproven
 }
 ```
@@ -129,11 +131,15 @@ pub enum Candidates {
 
 **`compute_attacks`**（攻め方の手番）
 
-1. `attacker_vcf.vcf`: 今すぐ四追いがあれば `Terminal(proven)`。正しさのためには不要（本探索でも `Forced` をたどれば四追いは見つかる）だが、大幅に速くなる。
+1. `attacker_vcf.vcf_or_zone`: 今すぐ四追いがあれば `Terminal(proven)`。正しさのためには不要（本探索でも `Forced` をたどれば四追いは見つかる）だが、大幅に速くなる。なければ、その探索の関連領域（05 §2）を返す。攻め方がもう 1 石置けば四追いが生まれうる点の集合である。
 2. `defender_vcf.threat`: 攻め方がパスすると受け方に四追いがあるなら、攻め手はそれも受ける必要がある。候補を `threat_defences(threat)` に絞る。
-3. 候補 = 攻め方の場でポテンシャル `≥ 3` の点（`sorted_attacks(only)`）を `priority`（§8）の順に並べ、禁手を除いたもの。空なら `Terminal(disproven)`。
+3. 候補 = 攻め方の場でポテンシャル `≥ 3` の点（`sorted_attacks(only)`）を `priority`（§8）の順に並べたもの。その数が `width`。
+4. そのうち追い手になりうる手（`may_threaten`）だけを残す: 関連領域にあるか、攻め方の石をすでに 2 つ含む区間にある手（`ShapeMap` でどれかの線が `Sword` 以上、§8。関連領域が呼び出し側に任せる部分）。それ以外の手は、パスされても攻め方に四追いを生まないので追い手ではない。予算切れのときは関連領域が不完全なので行わない。
+5. 禁手を除く。空なら `Terminal(disproven)`。
 
-ここでは候補が追い手かどうかを調べない。1 手下の受け方ノードで調べ、追い手でなければそこで反証される。
+それ以外に、ここでは候補が追い手かどうかを調べない。1 手下の受け方ノードで調べ、追い手でなければそこで反証される。その都度内部四追い探索とノード 1 つがかかるが、ベンチマークでは、ステップ 4 は追い手でない手のおよそ半分についてそれを省く（関連領域の外に追い手があったことはない）。
+
+`width` をステップ 4 の前に取るのは、それが未展開の子の証明数の初期値になるから（§5）。追い手でない手は反証されるだけで、兄弟の証明を易しくはしない。除いた後の数を初期値にすると、探索は本来と違う手順に傾く。
 
 **`compute_defences`**（受け方の手番）
 
@@ -227,7 +233,7 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 
 | フィールド | 内容 |
 | --- | --- |
-| `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(attacks.len())` とみなす |
+| `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(width)` とみなす（`width` は `Candidates::Moves` のもの、§3。強制手なら `1`） |
 | `best` | `pn` が最小の子（最有望の子） |
 | `best_child`、`second_child` | 最良と 2 番目の子の数値 |
 
@@ -433,6 +439,7 @@ extract_defences(state):                       # 受け方の手番
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。`search_defences` は `limit ≤ 1` で `disproven` |
 | 追い手として認識されない | `compute_defences` のステップ 1（`attacker_vcf.threat`、深さ `threat_limit`）。内部四追いは `Sword` の眼しか見ない |
 | 受けが見つからない | `VCTState::threat_defences`: 手順、`end_breakers`、`counter_defences`、`four_moves` |
+| 攻め手が見つからない | ポテンシャル `≥ 3`（`sorted_attacks`）、次に `DFSSolver::search_zone` の関連領域に対する `VCTState::may_threaten`（05 §2） |
 | 逆襲による反証が見つからない | `defender_vcf.vcf` の深さは `defender_vcf_depth`（2）。より深い逆襲四追いは、ノリ手が `threat_defences` に入っている場合しか見つからない。`SolveLimits::with_defender_vcf_depth` で深くできる |
 | 手の並べ替え | `PotentialField`（`min = 2`）と `ShapeMap` の上の `VCTState::priority`（§8）。攻め手の候補はポテンシャルの合計 `≥ 3` |
 | モードごとの違い | `threshold.rs` の `ThresholdPolicy`。それ以外は共通 |

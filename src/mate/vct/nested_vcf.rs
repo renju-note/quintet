@@ -1,4 +1,5 @@
 use super::state::VCTState;
+use crate::feature::area::Area;
 use crate::mate::budget::NodeBudget;
 use crate::mate::mate::Mate;
 use crate::mate::solver::Solver;
@@ -42,6 +43,23 @@ impl NestedVCF {
         assert_eq!(state.attacking(), self.for_attacker);
         let state = &mut state.vcf_state(self.depth);
         self.solver.search(state, budget)
+    }
+
+    /// [`Self::vcf`], or when there is none, the points where one more
+    /// stone of this side's could give it one: the zone of
+    /// [`DFSSolver::search_zone`](crate::mate::DFSSolver::search_zone).
+    /// The zone is only complete if the budget did not run out.
+    pub fn vcf_or_zone(
+        &mut self,
+        state: &mut VCTState,
+        budget: &mut NodeBudget,
+    ) -> Result<Mate, Area> {
+        assert_eq!(state.attacking(), self.for_attacker);
+        let state = &mut state.vcf_state(self.depth);
+        let mut zone = Area::new();
+        self.solver
+            .search_zone(state, budget, &mut zone)
+            .ok_or(zone)
     }
 
     /// Would this side have a VCF if the other side, to move now, passed?

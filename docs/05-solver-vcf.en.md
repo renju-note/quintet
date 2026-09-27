@@ -99,9 +99,9 @@ search_defence(state, defence):                # defender to move
 Things to notice:
 
 - **Only failures are memoized.** A success is returned immediately; a
-  position shown to have no VCF is recorded in `deadends: Memo<u8>` as the
-  largest limit it was shown for. Because nothing here reads `limit` when
-  generating moves, the tree at limit *n* is the tree at limit *n+1* cut
+  position shown to have no VCF is recorded in `deadends` as the
+  largest limit it was shown for, with the zone of that search (below).
+  Because nothing here reads `limit` when generating moves, the tree at limit *n* is the tree at limit *n+1* cut
   short, so "no VCF within *n*" is exact for every limit up to *n*, and the
   memo is keyed by `Key::position` alone (04, §3).
 - **Forbidden attacks are skipped**, so Black never plays a double-four or
@@ -114,6 +114,41 @@ Things to notice:
 - **`Defeated` at an attacker node ends the branch.** The defender's block
   made a double four (or a four Black cannot block); the attacker has no
   four that answers, so the line fails.
+
+### The zone
+
+`search_zone(state, budget, &mut zone)` is `search` that also collects a
+**zone**: when it finds no VCF, the empty points where one more attacker
+stone could give the attacker one. The VCT solver uses it to rule out
+attacks that cannot be threats (06, §3). It is an `Area`
+(`src/feature/area.rs`, a bit per point) built from what the search looks
+at:
+
+| Where | Added |
+| --- | --- |
+| each attack `a` played | `Area::around(a, 4)`: the four lines through `a`, four cells either way — any segment `a` is in |
+| `Forced(p)` at an attacker node | `p`, the eye of the defender's four |
+| `Defeated(Fours(e1, e2))` at an attacker node | `e1`, `e2` |
+| `Defeated(Forbidden(e))` at an attacker node, a Black attack found forbidden, and each of Black's blocks when White attacks | `Area::around(_, 5)` |
+
+What it leaves out is the rest of the segments that already hold two
+attacker stones at the root: a stone there makes a new sword, so the
+caller checks those itself (`VCTState::may_threaten` reads them off the
+`ShapeMap`). The argument: a stone outside both joins no segment the
+attacker could make a four or five in, at the root or after any attack of
+the tree, since every segment it might join at a later node is either one
+at the root or holds one of the tree's attacks; and it blocks no
+defender's four, whose only empty cell is the eye. So the tree is the same
+with it, and so is the answer. The last row is an approximation, as in
+`VCTState::threat_defences`: a stone may change whether a point is
+forbidden from further away, when a three there is no real three because
+its straight-four point is forbidden in turn.
+
+A deadend keeps its zone next to its limit, `Memo<(u8, Area)>`, and a
+search that runs into it adds that zone to its own. A deadend is only
+overwritten by a search at a larger limit, whose tree — and zone — holds
+the smaller one's. `search` is `search_zone` with the zone thrown away:
+the tree searched, and so the nodes counted, are the same.
 
 ## 3. `IDDFSSolver`
 
@@ -172,6 +207,7 @@ and `search` stops before `J9` is tried. Three fours need `limit >= 3`.
 | A four-making move is not generated | `VCFState::move_pairs` sees only `Sword` eyes; for Black, the `exact` margins exclude fours that would be overlines |
 | A counter-four is mishandled | `Game::check_event` at the attacker's node → `Forced(p)`, then `VCFState::forced_move_pair` |
 | Which fours are tried first? | `neighbor_move_pairs` (through the attacker's last stone), then `move_pairs` |
-| The memo | `DFSSolver::deadends`: largest limit with no VCF, keyed by `Key::position`; never written after the budget ran out |
+| The memo | `DFSSolver::deadends`: largest limit with no VCF and that search's zone, keyed by `Key::position`; never written after the budget ran out |
+| Which points could give the attacker a VCF? | `DFSSolver::search_zone` (§2, "The zone") |
 | Why `solve` and `search`? | `solve` opens a generation; `search` is what `IDDFSSolver` and the VCT solver call repeatedly (04, §4) |
 | How deep may a VCF be? | `limit` attacker moves; each is a four, so a VCF of *k* fours needs `limit >= k` |

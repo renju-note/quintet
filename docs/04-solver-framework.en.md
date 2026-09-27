@@ -24,6 +24,7 @@ src/mate/
 ├── mate.rs          Mate: the result
 ├── vcf.rs, vcf/     the VCF solver                    (05)
 └── vct.rs, vct/     the VCT solver                    (06)
+src/feature/area.rs        Area: a set of points, for the VCF zone (05, §2)
 src/feature/potential.rs   PotentialField: move ordering for VCT (06, §8)
 src/feature/shape.rs       ShapeMap: what a move would make, for VCT move ordering (06, §8)
 src/feature/sword.rs       SwordMap: cached swords for VCF (02 §8, 05)

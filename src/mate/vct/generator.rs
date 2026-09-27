@@ -50,21 +50,34 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 
     fn compute_attacks(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
         // This is not necessary but improves speed
-        if self.attacker_vcf.vcf(state, budget).is_some() {
-            return Terminal(Node::proven(state.limit));
-        }
+        let zone = match self.attacker_vcf.vcf_or_zone(state, budget) {
+            Ok(_) => return Terminal(Node::proven(state.limit)),
+            Err(zone) => zone,
+        };
 
         // This is not necessary but narrows candidates
         let maybe_threat = self.defender_vcf.threat(state, budget);
         let maybe_threat_defences = maybe_threat.map(|t| state.threat_defences(&t));
         let mut result = state.sorted_attacks(maybe_threat_defences);
+        let width = result.len() as u32;
+
+        // An attack must be a threat, and a move the zone rules out is not
+        // one: this is not necessary either, but saves a nested VCF search
+        // for each. A zone the budget cut short proves nothing, but then
+        // nothing generated here is kept anyway.
+        if !budget.is_exhausted() {
+            result.retain(|&p| state.may_threaten(p, &zone));
+        }
         result.retain(|&p| !state.is_forbidden_move(p));
 
         if result.is_empty() {
             return Terminal(Node::disproven(state.limit));
         }
 
-        Moves(result)
+        Moves {
+            moves: result,
+            width,
+        }
     }
 
     fn compute_defences(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Candidates {
@@ -87,15 +100,28 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             return Terminal(Node::proven(state.limit));
         }
 
-        Moves(result)
+        let width = result.len() as u32;
+        Moves {
+            moves: result,
+            width,
+        }
     }
 }
 
 /// What move generation found for a node.
 #[derive(Clone)]
 pub enum Candidates {
-    /// The moves to expand, best first.
-    Moves(Vec<Point>),
+    /// An inner node.
+    Moves {
+        /// The moves to expand, best first.
+        moves: Vec<Point>,
+        /// How many moves there were before those that cannot be threats
+        /// were ruled out (see `compute_attacks`), which is what an
+        /// unexpanded child's proof number is guessed from. Leaving out
+        /// moves that would only be disproven at once does not make the
+        /// others any easier to prove.
+        width: u32,
+    },
     /// The node is decided without expansion (e.g. the attacker has a VCF, or
     /// there is no move at all); this is its value.
     Terminal(Node),
