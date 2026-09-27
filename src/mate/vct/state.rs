@@ -148,7 +148,8 @@ impl VCTState {
     ///   than its lines one by one;
     /// - for Black, a move that looks like a double-three or double-four,
     ///   or makes a three whose straight-four point does, is weak (the
-    ///   move itself, if really forbidden, is not a candidate at all);
+    ///   move itself, if really forbidden, is disproven when it is first
+    ///   searched);
     /// - for White, a four or three with an eye where Black's stone looks
     ///   forbidden is strong, as Black cannot answer there.
     ///

@@ -20,11 +20,21 @@ pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind> {
 }
 
 pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind> {
-    if overline(g, p) {
+    // Each line through `p` is read once, for all three kinds of rows.
+    let mut overlinings = [0; 4];
+    let mut swords = [0; 4];
+    let mut twos = [0; 4];
+    for (n, (d, _, l)) in g.lines_on(p).enumerate() {
+        let i = p.to_index(d).j;
+        overlinings[n] = l.row_starts_on(i, Black, Overlining);
+        swords[n] = l.row_starts_on(i, Black, Sword);
+        twos[n] = l.row_starts_on(i, Black, Two);
+    }
+    if overline(overlinings) {
         Some(Overline)
-    } else if double_four(g, p) {
+    } else if double_four(swords) {
         Some(DoubleFour)
-    } else if double_three(g, p) {
+    } else if double_three(g, p, twos) {
         Some(DoubleThree)
     } else {
         None
@@ -40,16 +50,18 @@ pub enum ForbiddenKind {
 
 pub use ForbiddenKind::*;
 
-fn overline(g: &Grid, p: Point) -> bool {
-    any(g.row_starts_on(p, Black, Overlining))
+/// The functions below take, per line through `p`, where Black's rows of
+/// one kind through `p` start ([`Grid::row_starts_on`]).
+fn overline(overlinings: [u16; 4]) -> bool {
+    any(overlinings.into_iter())
 }
 
-fn double_four(g: &Grid, p: Point) -> bool {
-    distinctive_starts(g.row_starts_on(p, Black, Sword))
+fn double_four(swords: [u16; 4]) -> bool {
+    distinctive_starts(swords.into_iter())
 }
 
-fn double_three(g: &Grid, p: Point) -> bool {
-    if !distinctive_starts(g.row_starts_on(p, Black, Two)) {
+fn double_three(g: &Grid, p: Point, twos: [u16; 4]) -> bool {
+    if !distinctive_starts(twos.into_iter()) {
         return false;
     }
     let mut next = g.clone();

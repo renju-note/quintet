@@ -175,17 +175,22 @@ impl DFSSolver {
         budget: &mut NodeBudget,
         zone: &mut Area,
     ) -> Option<Mate> {
-        if state.is_forbidden_move(attack) {
+        // The defence is on the same segment, within four cells.
+        *zone |= Area::around(attack, 4);
+        let result = state.into_play(Some(attack), |s| {
+            self.search_defence(s, defence, budget, zone)
+                .map(|m| m.unshift(attack))
+        });
+
+        // Few attacks are forbidden, so whether this one is is only asked
+        // once it would win. A forbidden attack whose search found nothing
+        // has its zone all the same: whether or not it is forbidden, a stone
+        // outside it leaves the search finding nothing.
+        if result.is_some() && state.is_forbidden_move(attack) {
             *zone |= Area::around(attack, 5);
             return None;
         }
-
-        // The defence is on the same segment, within four cells.
-        *zone |= Area::around(attack, 4);
-        state.into_play(Some(attack), |s| {
-            self.search_defence(s, defence, budget, zone)
-                .map(|m| m.unshift(attack))
-        })
+        result
     }
 
     fn search_defence(

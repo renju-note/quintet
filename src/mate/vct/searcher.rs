@@ -110,6 +110,17 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             if budget.is_exhausted() {
                 return selection;
             }
+            // Few attacks are forbidden, so each is only asked about when
+            // it is first searched rather than when it is generated
+            // (`compute_attacks`). A forbidden one is disproven: the
+            // attacker cannot play it.
+            if selection.fresh && selection.best.is_some_and(|p| state.is_forbidden_move(p)) {
+                state.into_play(selection.best, |child| {
+                    self.attacker_table
+                        .insert(child, Node::disproven(child.limit()));
+                });
+                continue;
+            }
             let next_threshold = P::next_threshold_attack(&selection, threshold);
             state.into_play(selection.best, |child| {
                 let result = self.search_defences(child, next_threshold, budget);
@@ -152,6 +163,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     fn select_attack(&self, state: &mut VCTState, attacks: &[Candidate]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(attacks[0].point);
+        let mut fresh = false;
         let mut node = Node::disproven(limit);
         let mut best_child = Node::disproven(limit);
         let mut second_child = Node::disproven(limit);
@@ -165,6 +177,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             node = node.min_pn_sum_dn(child);
             if child.pn < best_child.pn {
                 best.replace(attack);
+                fresh = maybe_child.is_none();
                 second_child = best_child;
                 best_child = child;
             } else if child.pn < second_child.pn {
@@ -177,6 +190,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
         Selection {
             best,
+            fresh,
             node,
             best_child,
             second_child,
@@ -186,6 +200,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     fn select_defence(&self, state: &mut VCTState, defences: &[Candidate]) -> Selection {
         let limit = state.limit();
         let mut best: Option<Point> = Some(defences[0].point);
+        let mut fresh = false;
         let mut node = Node::proven(limit - 1);
         let mut best_child = Node::proven(limit - 1);
         let mut second_child = Node::proven(limit - 1);
@@ -199,6 +214,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             node = node.min_dn_sum_pn(child);
             if child.dn < best_child.dn {
                 best.replace(defence);
+                fresh = maybe_child.is_none();
                 second_child = best_child;
                 best_child = child;
             } else if child.dn < second_child.dn {
@@ -211,6 +227,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
         Selection {
             best,
+            fresh,
             node,
             best_child,
             second_child,
@@ -226,6 +243,9 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
 pub struct Selection {
     /// The most-proving child (the move to search next).
     pub best: Option<Point>,
+    /// Whether the tables know nothing of `best` yet: it has not been
+    /// searched.
+    pub fresh: bool,
     /// The parent's own numbers, aggregated from the children.
     pub node: Node,
     /// The numbers of `best`.

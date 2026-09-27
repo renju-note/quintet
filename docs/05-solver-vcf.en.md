@@ -87,8 +87,9 @@ search_move_pairs(state):
                       None
 
 search_attack(state, attack, defence):
-    if attack is forbidden: return None
-    into_play(attack): search_defence(defence)   then prepend attack
+    result = into_play(attack): search_defence(defence)   then prepend attack
+    if result is Some and attack is forbidden: return None
+    return result
 
 search_defence(state, defence):                # defender to move
     if check_event() is Defeated(end): return Mate { end, path: [] }
@@ -104,9 +105,13 @@ Things to notice:
   Because nothing here reads `limit` when generating moves, the tree at limit *n* is the tree at limit *n+1* cut
   short, so "no VCF within *n*" is exact for every limit up to *n*, and the
   memo is keyed by `Key::position` alone (04, §3).
-- **Forbidden attacks are skipped**, so Black never plays a double-four or
-  overline here. That is also why Black's `Fours` end is always a straight
-  four (03, §5).
+- **Forbidden attacks never win**, so Black never plays a double-four or
+  overline in a VCF found here. That is also why Black's `Fours` end is
+  always a straight four (03, §5). Few attacks are forbidden (about one in
+  seventy on the benchmark), so an attack is searched first and only asked
+  about once its search has found a VCF; a forbidden one then fails. The
+  search below a forbidden attack is wasted, but asking about every attack
+  beforehand cost more.
 - **Counter-fours are ordinary.** When the block makes a four, the attacker's
   next node sees `Forced(p)`; `forced_move_pair(p)` succeeds only if `p` is
   itself a four-making eye. `test_vcf_counter` and
@@ -130,6 +135,13 @@ at:
 | `Forced(p)` at an attacker node | `p`, the eye of the defender's four |
 | `Defeated(Fours(e1, e2))` at an attacker node | `e1`, `e2` |
 | `Defeated(Forbidden(e))` at an attacker node, a Black attack found forbidden, and each of Black's blocks when White attacks | `Area::around(_, 5)` |
+
+A Black attack is only found forbidden once its search found a VCF, which
+leaves that search's zone incomplete, so the attack's own
+`Area::around(_, 5)` is what makes up for it. A forbidden attack whose
+search found nothing needs nothing more: whether or not it is forbidden, a
+stone outside the zone its search collected leaves that search finding
+nothing.
 
 What it leaves out is the rest of the segments that already hold two
 attacker stones at the root: a stone there makes a new sword, so the

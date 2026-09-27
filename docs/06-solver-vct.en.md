@@ -179,8 +179,8 @@ Results are cached in an `LruCache` of 1000 entries per generator, keyed by
    to the caller. Any other move leaves the attacker without a VCF after
    a pass, so it is no threat. Skipped when the budget ran out, as the
    zone is then incomplete.
-5. Minus forbidden moves. None left → `Terminal(disproven)`.
-6. Each gets its estimate from the biggest shape it makes (`best_shape`,
+   None left → `Terminal(disproven)`.
+5. Each gets its estimate from the biggest shape it makes (`best_shape`,
    from the `ShapeMap`, §8): `width / 4` for a four, `width / 2` for a
    three, `width` for any other (§5, *Selection*).
 
@@ -315,6 +315,7 @@ table entries and returns a `Selection`:
 | --- | --- |
 | `node` | the node's own numbers: `min_pn_sum_dn` over the children, a child not yet in the table counting as `unexpanded_defence(estimate)` (§3; `1` for a forced move) |
 | `best` | the child with the smallest `pn` — the most-proving child |
+| `fresh` | whether `best` is not in the table yet: it has never been searched |
 | `best_child`, `second_child` | the numbers of the best and second-best child |
 
 If a proven child turns up, `node` becomes `(0, INF)` on the spot.
@@ -359,11 +360,22 @@ expand_attacks(state, attacks, threshold):
         s = select_attack(state, attacks)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if budget exhausted:                                     return s
+        if s.fresh and s.best is forbidden:
+            into_play(s.best): attacker_table.insert(child, disproven)
+            continue
         next = P::next_threshold_attack(s, threshold)
         into_play(s.best):
             result = search_defences(child, next)
             if budget not exhausted: attacker_table.insert(child, result)
 ```
+
+`compute_attacks` leaves forbidden moves among the candidates: few are
+forbidden (about one in three hundred on the benchmark), and most
+candidates are never searched. An attack is only asked about when it is
+first about to be searched, and a forbidden one is disproven in the table
+without a node. Until then it counts in its parent's numbers like any
+other unexpanded child, so the search takes other lines than when the
+forbidden moves were left out beforehand.
 
 `expand_defences` is the same with `select_defence`, the defender table,
 `P::next_threshold_defence` and `search_attacks`. A node keeps expanding
@@ -528,7 +540,7 @@ the side to move, after the way a player sizes up a move:
 | each direction at `Sword` or more, beyond the first | +5 | threats along several lines at once (four-three, double threats) |
 | White: each four / three with an eye Black looks forbidden at | +20 / +10 | Black cannot answer there |
 | Black: each three whose straight-four point looks forbidden | −2 | the three may be fake |
-| Black: the point itself `looks_forbidden` | −20 | a real forbidden point is not a candidate at all, so what is left is a guess that failed: the threes are fewer than they look |
+| Black: the point itself `looks_forbidden` | −20 | Black cannot play it if it really is forbidden, which is only found when it is first searched (§5); if it is not, the threes are fewer than they look |
 
 For a defence the first term is left out. Every defence here stops the
 threat one way or another (`threat_defences`), and ordering them by how

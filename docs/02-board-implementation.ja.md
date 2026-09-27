@@ -269,7 +269,7 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 `ForbiddenKind` は `Overline`（長連）、`DoubleFour`（四四）、`DoubleThree`（三三）のいずれかである。
 
 - `forbidden_strict` はまずルール 9.2 の例外を適用する。`p` にすでに石がある場合、または `p` に打つと五ができる場合（`row_starts_on(p, Black, Four)` に始点がある）は禁手*ではない*と判定する。それ以外の場合は `forbidden` に委譲する。
-- `forbidden` は長連、四四、三三の順に調べ、複数に該当する点は最初に見つかったものを報告する。
+- `forbidden` は `p` を通る各線を 1 度だけ読み、黒の `Overlining`・`Sword`・`Two` の始点をまとめて求めたうえで、長連、四四、三三の順に調べる。複数に該当する点は最初に見つかったものを報告する。
 - `forbiddens` は盤上の禁手となる空点をすべて列挙する。
 
 ソルバー（`src/mate/game.rs` の `Game::is_forbidden_move`）は非 strict の `forbidden` を呼ぶ。五を作る手は、禁手判定が問題になる前に探索自身が勝ちとして認識するためである。
@@ -277,18 +277,18 @@ pub fn forbiddens(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ### 長連（9.2 a）
 
 ```rust
-fn overline(g, p) -> bool { any(g.row_starts_on(p, Black, Overlining)) }
+fn overline(overlinings: [u16; 4]) -> bool { any(overlinings.into_iter()) }
 ```
 
-`Grid::row_starts_on(p, r, kind)` は、`p` を通る線ごとに、`rows_on(p, r, kind)` が返す連の始点のマスク `Line::row_starts_on`（§3.1）を、連を組み立てずに返す。連があるか（`any`）、2 つ以上あるか（後述の `distinctive_starts`）は、ビットの判定で済む。
+3 つの判定は、`p` を通る線ごとに、`rows_on(p, Black, kind)` が返す連の始点のマスク `Line::row_starts_on(i, Black, kind)`（§3.1）を、連を組み立てずに受け取る。`forbidden` は各線から 3 種類をまとめて 1 パスで読む（1 種類だけなら `Grid::row_starts_on` が同じものを返す）。連があるか（`any`）、2 つ以上あるか（後述の `distinctive_starts`）は、ビットの判定で済む。
 
 `Overlining`（六腐）は、隣り合う 2 つのセグメントがそれぞれ黒 4 石を持ち、どちらも空点 `p` を含む形である。合わせて 6 マスに 5 石があるので、`p` に打てば 6 以上の連が完成する。
 
 ### 四四（9.2 b）
 
 ```rust
-fn double_four(g, p) -> bool {
-    distinctive_starts(g.row_starts_on(p, Black, Sword))
+fn double_four(swords: [u16; 4]) -> bool {
+    distinctive_starts(swords.into_iter())
 }
 ```
 
@@ -302,9 +302,9 @@ fn double_four(g, p) -> bool {
 ### 三三（9.2 c および 9.3）
 
 ```rust
-fn double_three(g, p) -> bool {
+fn double_three(g, p, twos: [u16; 4]) -> bool {
     // 軽い前段フィルタ: p を通る二連（Two）が 2 つ以上
-    if !distinctive_starts(g.row_starts_on(p, Black, Two)) { return false; }
+    if !distinctive_starts(twos.into_iter()) { return false; }
     let mut next = g.clone();
     next.put_mut(Black, p);
     truthy_double_three(&next, p)
