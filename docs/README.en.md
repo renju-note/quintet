@@ -16,6 +16,7 @@ version. Japanese index: [README.ja.md](README.ja.md).
 | [05-solver-vcf.en.md](05-solver-vcf.en.md) / [ja](05-solver-vcf.ja.md) | The VCF search in `src/mate/vcf/`: four-making move pairs, `DFSSolver` and its dead-end memo, `IDDFSSolver`, a worked example. |
 | [06-solver-vct.en.md](06-solver-vct.en.md) / [ja](06-solver-vct.ja.md) | The VCT search in `src/mate/vct/`: threats, nested VCF searches, move generation, proof numbers, the DFS / PNS / df-pn threshold policies, path extraction, a worked example, move ordering (`ShapeMap`). |
 | [07-benchmarks.en.md](07-benchmarks.en.md) / [ja](07-benchmarks.ja.md) | The solver benchmark in `benches/`: what it measures (nodes, memo entries, time), running it, comparing two versions, adding cases. |
+| [08-performance.en.md](08-performance.en.md) / [ja](08-performance.ja.md) | Performance history: how much faster the solvers got since 2024, each PR's effect on nodes and time, cases that got slower, where the time goes now, what was tried and what is left. |
 
 Where to start:
 
@@ -25,6 +26,7 @@ Where to start:
 - Calling the solvers from the app, the CLI or Rust: read 03.
 - Changing the search in `src/mate/` or `src/feature/`: read 04, then 05
   and 06, and measure with the benchmark in 07.
+- Looking for what to speed up next, or whether an idea was tried: 08.
 - Looking for one thing: each document ends with a cheat sheet from
   questions to identifiers (02 §8, 03 §7, 04 §7, 05 §5, 06 §9).
 
