@@ -84,8 +84,9 @@ slower and some cases time out.
   `docs/05-solver-vcf.en.md` and `docs/06-solver-vct.en.md` for the two
   searches), the benchmark (`docs/07-benchmarks.en.md`), and the
   performance history: each PR's effect, what was tried and what is left
-  (`docs/08-performance.en.md`). Read these before touching rule logic (rows, forbidden
-  moves) or the search code, and keep them in sync when changing it.
+  (`docs/08-performance.en.md`). Read these before touching rule logic
+  (rows, forbidden moves) or the search code, and keep them in sync when
+  changing it.
   Every document has an English `*.en.md` and a Japanese `*.ja.md` version;
   always add or edit both together. How to write them (also in
   `docs/README.*.md`):
