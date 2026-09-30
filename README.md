@@ -71,11 +71,16 @@ quintet = { git = "https://github.com/renju-note/quintet" }
 use quintet::board::*;
 use quintet::mate::*;
 
-let board: Board = "H8,H7,F6".parse()?; // moves alternating Black, White, ...
-let limits = SolveLimits::new(10).with_threat_limit(3);
-let result = solve(SolveMode::VCTDFPNS, &board, Player::Black, limits);
-if let Some(m) = result.into_mate() {
-    println!("{}", Points(m.path));
+fn main() -> Result<(), &'static str> {
+    // Moves alternating Black, White, ...: Black H8, I9, J8, G9 and
+    // White H7, G7, J9, F10.
+    let board: Board = "H8,H7,I9,G7,J8,J9,G9,F10".parse()?;
+    let limits = SolveLimits::new(5).with_threat_limit(3);
+    let result = solve(SolveMode::VCTDFPNS, &board, Player::Black, limits);
+    if let Some(m) = result.into_mate() {
+        println!("{}", Points(m.path)); // I8,G8,K7,H10,J6,E10,I7,K5,I6
+    }
+    Ok(())
 }
 ```
 
