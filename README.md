@@ -71,11 +71,16 @@ quintet = { git = "https://github.com/renju-note/quintet" }
 use quintet::board::*;
 use quintet::mate::*;
 
-let board: Board = "H8,H7,F6".parse()?; // moves alternating Black, White, ...
-let limits = SolveLimits::new(10).with_threat_limit(3);
-let result = solve(SolveMode::VCTDFPNS, &board, Player::Black, limits);
-if let Some(m) = result.into_mate() {
-    println!("{}", Points(m.path));
+fn main() -> Result<(), &'static str> {
+    // Moves alternating Black, White, ...: Black H8, I9, J8, G9 and
+    // White H7, G7, J9, F10.
+    let board: Board = "H8,H7,I9,G7,J8,J9,G9,F10".parse()?;
+    let limits = SolveLimits::new(5).with_threat_limit(3);
+    let result = solve(SolveMode::VCTDFPNS, &board, Player::Black, limits);
+    if let Some(m) = result.into_mate() {
+        println!("{}", Points(m.path)); // I8,G8,K7,H10,J6,E10,I7,K5,I6
+    }
+    Ok(())
 }
 ```
 
@@ -101,7 +106,7 @@ cargo run --release --example solve <mode> <limit> <threat_limit> <o|x> <positio
 - `position`: a move list `H8,H7,F6,...` (alternating from Black), or a
   stone list `H8,F6/H7` written as `blacks/whites`
 
-Example — White has a 15-move VCT ending in a forbidden move for Black:
+Example — White has a 14-move VCT ending in a forbidden move for Black:
 
 ```
 % cargo run --release --example solve vct_dfpns 255 3 x \
@@ -130,10 +135,10 @@ Board:
 
 Solving...
 
-Elapsed: 889.191875ms
-End: Forbidden(L7)
-Times (Length): 15 (29)
-Moves: K11,K10,N12,M11,N8,H5,H6,L8,J5,J7,M5,L4,M6,K5,J4,K3,J3,J2,K4,L5,M4,L3,L2,F3,I6,E2,D1,M3,N5
+Elapsed: 226.198543ms
+End: Forbidden(I4)
+Times (Length): 14 (27)
+Moves: N12,M11,K11,K10,N8,H5,H6,L8,J5,J7,M5,F3,I6,E2,D1,L4,M6,N5,L5,K5,J3,N7,J2,J4,I2,K4,I3
 ```
 
 (Original game: <https://www.renju.net/media/games.php?gameid=92337>)
