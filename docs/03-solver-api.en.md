@@ -227,7 +227,7 @@ What reuse gives:
   its tables as a `ProofTree`: one attack where the attacker moves, every
   defence worth trying where the defender does. On the position with one
   more stone of the defender's, `proves(&mut state, &tree, &mut budget)`
-  checks that same proof node by node, at a fraction of a new search. A
+  checks that same proof node by node, for about 1/100 of a new search. A
   stone outside `tree.zone()` needs not even that: the proof stands. So a
   move outside the zone, or one `proves` accepts, does not stop the VCT;
   the others are the moves to search again (06, §6).

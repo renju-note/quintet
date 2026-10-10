@@ -655,25 +655,13 @@ mod tests {
     }
 
     /// The proof of each case, read off the tables, proves the case; and
-    /// with one more stone of the defender's outside its zone, it still
-    /// does. Where `proves` holds inside the zone, a new search finds a
-    /// VCT too (for the first few such points of each case: the search is
-    /// what `proves` saves, and it is slow, so within 100,000 nodes). Every point of every case
-    /// whose proof has at most 100 positions; the rest in
-    /// [`test_proof_tree_zone_and_proves_all`].
+    /// with one more stone of the defender's outside its zone, at every
+    /// point, it still does. Where `proves` holds inside the zone, a new
+    /// search finds a VCT too (for the first few such points of each case,
+    /// within 100,000 nodes: the search is what `proves` saves, and it is
+    /// slow).
     #[test]
     fn test_proof_tree_zone_and_proves() {
-        check_zone_and_proves(100);
-    }
-
-    /// [`test_proof_tree_zone_and_proves`] on every case: half an hour.
-    #[test]
-    #[ignore]
-    fn test_proof_tree_zone_and_proves_all() {
-        check_zone_and_proves(usize::MAX);
-    }
-
-    fn check_zone_and_proves(max_size: usize) {
         let (mut points, mut outside, mut held_inside) = (0, 0, 0);
         for case in quick_proven_cases() {
             let mut searched = 0;
@@ -695,9 +683,6 @@ mod tests {
                 "{}: the proof does not prove its own position",
                 case.name
             );
-            if tree.size() > max_size {
-                continue;
-            }
             let defender = case.attacker.opponent();
             for p in case.board.empty_points() {
                 if defender.is_black() && case.board.forbidden(p).is_some() {

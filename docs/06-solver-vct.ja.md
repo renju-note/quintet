@@ -478,6 +478,16 @@ tree_defences(state):                          # 受け方の手番
 
 それ以外の点の石なら `proves` は真のまま。禁点のまわりの扱いは `search_zone` や `threat_defences` と同じ近似。`test_proof_tree_zone_and_proves` が、ベンチマークの証明済みの `quick` ケースすべての全点で確かめる。
 
+その 43 ケースでの効き（`examples/proof_tree.rs`）:
+
+| | |
+| --- | --- |
+| zone の外の点（確かめ不要） | 受け方の合法な点の 31% |
+| zone の中で `proves` が通る点 | 57% |
+| zone の中の 1 点あたりの `proves` | 中央値 67 ノード（探索し直すと 6,572） |
+| `proof_tree`、直前の解く探索との比 | 中央値 8%。DAG は 78 局面 |
+| `proves` が通さないが追い詰めが残る点 | 2,501 点中 513（別の証明がある） |
+
 ## 7. 手順を追う
 
 `test_vct_black`（岡部寛氏の五手詰め問題 No. 02）、黒番:

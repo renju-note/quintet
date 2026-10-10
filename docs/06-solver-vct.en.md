@@ -616,6 +616,16 @@ approximation as in `search_zone` and `threat_defences`.
 `test_proof_tree_zone_and_proves` checks this on every proven `quick` case
 of the benchmark, at every point.
 
+What it buys, on those 43 cases (`examples/proof_tree.rs`):
+
+| | |
+| --- | --- |
+| Points outside the zone (free) | 31% of the defender's legal points |
+| Points inside it that `proves` accepts | 57% |
+| `proves`, per point inside the zone | median 67 nodes (a new search: 6,572) |
+| `proof_tree`, against the solve before it | median 8% of its nodes; DAG of 78 positions |
+| Points `proves` turns down that still have a VCT | 513 of 2,501 (another proof) |
+
 ## 7. Walk-through
 
 `test_vct_black` (No. 02 of Hiroshi Okabe's five-move problems), Black to
