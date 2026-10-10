@@ -170,6 +170,7 @@ pub trait Solver {
 ### ほかに問えること
 
 - **この詰みをどう受けるか。** `VCTState::threat_defences(&mate)` が、見つかった詰みに対して試す価値のある受けを返す。内訳は、詰み手順の各点、詰め上がりを崩す点、ノリ手、受け方自身の四を作る手。追い詰め探索も受けの候補を同じリストから作る（06 §3）。
+- **どの手がこの追い詰めを止めるか。** `VCTSolver` が局面を証明した直後に `proof_tree(&mut state, &mut budget)` を呼ぶと、表から証明全体を `ProofTree` として取り出せる。攻め方の手番では攻め手 1 つ、受け方の手番では試す価値のある受けすべてを持つ木。受け方の石を 1 つ足した局面で `proves(&mut state, &tree, &mut budget)` を呼ぶと、同じ証明が成り立つかをノードごとに確かめる。探索し直す 100 分の 1 程度で済む。`tree.zone()` の外の石ならそれも要らず、証明はそのまま成り立つ。zone の外の手と `proves` が通る手は追い詰めを止めない。探索し直すのは残りの手だけ（06 §6）。
 - **この手は追い手か。** 手番側をパスさせて（`Game::play(None)`）、相手の四追いを問う。パスした `game` から `VCFState::new(game, limit)` を作り、`DFSSolver::new().solve(..)`。`test_threat_after_pass` が 1 手ずつ確認している。
 
 ## 5. `Mate` と `End`
@@ -213,6 +214,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | 多くの問いを安く投げる | `DFPNSVCTSolver` を保持し、問いごとに新しい `VCTState` を渡し、`NodeBudget` は 1 つを共有 |
 | 両方の色について問う | 同じソルバーでよい。攻め方はキーに入っている |
 | 受けの候補を知る | `VCTState::threat_defences(&mate)` |
+| どの手が追い詰めを止めるかを 1 手ずつ知る | 解いた直後に `VCTSolver::proof_tree`、手ごとに `ProofTree::zone` と `VCTSolver::proves` |
 | 直前の手が追い手か知る | `Game::play(None)` でパスし、相手の四追いを問う |
 | JS から詰み手順を読む | `wasm::solve` は手順を `u8` の点コード（02 §1）で返す。`decode_x` / `decode_y` |
 | モードを追加する | `SolveMode` と、その `TryFrom<u8>`、`FromStr`、`solve` の `match`（`solve.rs`） |

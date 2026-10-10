@@ -52,5 +52,5 @@ pub use state::{Key, State};
 pub use vcf::{DFSSolver, IDDFSSolver, VCFState};
 pub use vct::{
     DFPNSThreshold, DFPNSVCTSolver, DFSThreshold, DFSVCTSolver, PNSThreshold, PNSVCTSolver, PnDn,
-    ThresholdPolicy, VCTSolver, VCTState,
+    ProofTree, ThresholdPolicy, VCTSolver, VCTState,
 };

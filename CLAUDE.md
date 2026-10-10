@@ -30,6 +30,9 @@ scripts/bench-compare.sh main                     # this tree vs. a git ref
 cargo run --release --example solve <mode> <limit> <threat_limit> <x|o> <moves>
 #   mode: vcf | vct | vct_pns | vct_dfpns (vcf_iddfs, vct_iddfs are reserved)
 #   moves: comma-separated like H8,H7,F6 (alternating Black, White, ...)
+
+# What VCTSolver::proof_tree / proves cost against searching again (examples/proof_tree.rs)
+cargo run --release --example proof_tree      # benchmark cases tagged `quick`; ~12 minutes
 ```
 
 Always run tests in `--release`; the debug build is an order of magnitude
@@ -65,12 +68,14 @@ slower and some cases time out.
   - `vct/` — Victory by Continuous Threats: one `VCTSolver<P>` (`solver`)
     whose DFS / PNS / df-pn variants differ only in the `threshold` policy;
     its methods are split across `searcher` (search and child selection),
-    `generator` (move generation) and `extractor` (path recovery), with
+    `generator` (move generation), `extractor` (path recovery) and `tree`
+    (`ProofTree`, the whole proof, checked on other positions), with
     `nested_vcf` (`NestedVCF`, the per-side VCF sub-search) and `proof`
     (proof/disproof numbers) as the things they use.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
   `solve_vct`, `solve_vct_dfpn`, `encode_xy`/`decode_x`/`decode_y`).
-- `examples/solve.rs` — CLI wrapper over `mate::solve`.
+- `examples/solve.rs` — CLI wrapper over `mate::solve`; `examples/proof_tree.rs`
+  measures `VCTSolver::proof_tree` and `proves` on the benchmark cases.
 - `benches/` — the solver benchmark: `solvers.rs` (runner, `harness = false`)
   over the positions in `cases/*.txt`, which it also checks the answers of.
   `scripts/bench-compare.sh` runs it on a git ref and on the working tree.
