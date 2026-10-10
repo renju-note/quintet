@@ -39,11 +39,13 @@ mod searcher;
 mod solver;
 mod state;
 mod threshold;
+mod tree;
 
 pub use proof::PnDn;
 pub use solver::VCTSolver;
 pub use state::VCTState;
 pub use threshold::{DFPNSThreshold, DFSThreshold, PNSThreshold, ThresholdPolicy};
+pub use tree::ProofTree;
 
 pub type DFSVCTSolver = VCTSolver<DFSThreshold>;
 pub type PNSVCTSolver = VCTSolver<PNSThreshold>;

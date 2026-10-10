@@ -65,7 +65,8 @@ slower and some cases time out.
   - `vct/` — Victory by Continuous Threats: one `VCTSolver<P>` (`solver`)
     whose DFS / PNS / df-pn variants differ only in the `threshold` policy;
     its methods are split across `searcher` (search and child selection),
-    `generator` (move generation) and `extractor` (path recovery), with
+    `generator` (move generation), `extractor` (path recovery) and `tree`
+    (`ProofTree`, the whole proof, checked on other positions), with
     `nested_vcf` (`NestedVCF`, the per-side VCF sub-search) and `proof`
     (proof/disproof numbers) as the things they use.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,

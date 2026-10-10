@@ -20,7 +20,8 @@ src/mate/vct/
 │                       select_attack / select_defence → Selection
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
-└── extractor.rs        extract: the winning line from the tables                             (§6)
+├── extractor.rs        extract: the winning line from the tables                             (§6)
+└── tree.rs             ProofTree: the whole proof from the tables; proves, zone              (§6)
 src/feature/shape.rs       ShapeMap: what a stone would make, per point, player and direction    (§8)
 ```
 
@@ -434,6 +435,48 @@ extract_defences(state):                       # 受け方の手番
 
 証明済みの受けのうち `limit` が最小のものは、攻め方に最も多くの手を使わせた受け。だから報告される手順は、最も粘る受けに対するもの。
 
+### 証明全体（`tree.rs`）
+
+`proof_tree` は同じ表をたどるが、枝をすべて残して `ProofTree` にする。多くの受けを比べたい呼び出し側が、「この手のあとも証明は成り立つか」を 1 手ずつ探索し直さずに問える。
+
+```
+tree_attacks(state):                           # 攻め方の手番
+    Forced(p)  → p (none if forbidden)
+    else       → the first empty point, not forbidden, whose attacker_table entry is proven
+    none       → attacker_vcf.vcf(state): a VCF leaf
+
+tree_defences(state):                          # 受け方の手番
+    Defeated   → Won
+    Forced(p)  → p
+    else       → threat = attacker_vcf.threat; every legal point of threat_defences(threat),
+                 each proven in defender_table (searched if missing)
+```
+
+- **禁手の攻め手は飛ばす。** 表がその子を証明済みとしていても。表のキーは局面なので、同じ局面に別の手順で、その点がまだ禁手でなかったときに打った経路から来ていることがある。
+- **表に無い受けは探索する。** 訊き直した追い手が、探索が受けの候補を作ったときのものと違うことがある。探索が試さなかった受けは探索自身の追い手を止めないので、すぐ証明される。
+
+`proves(state, tree)` は、別の局面（ふつうは受け方の石を 1 つ足した局面）で木を確かめる。§5 のノード関数をなぞる:
+
+| ノード | 確かめること |
+| --- | --- |
+| 攻め方、攻め手 | まだ空点で禁手でない。受け方に四があればその止め |
+| 攻め方、四追いの葉 | 手順が四追いとして打ち直せる |
+| 受け方、`Forced` | 止めが木にある |
+| 受け方、追い手 | 保存した追い手がパスのあと四追いとして打ち直せる。受け方に四追いが無い（`defender_vcf.vcf`、唯一の探索）。この局面の `threat_defences` の合法な点がすべて木にある |
+
+`true` は探索自身のものと同じだけ確かな証明。`false` は、この証明が持ち越せないことしか意味しない。
+
+`ProofTree::zone` は受け方の石が木を崩しうる点。たどる途中で集める:
+
+- 証明が打つすべての点と、その中の四追いの手
+- 攻め方の各手のまわり、各線 4 マス（黒は 5 マス）
+- 各四追いの詰め上がり（五の点 2 つ、または禁点のまわり 5 マス）
+- 禁手で外した受けのまわり 5 マス
+- 受け方の各手のあと、受け方の石を 2 つ含む Segment に加わる点（受けや勝ちに使える新しい四）
+- 受け方の手番の各ノードで、`defender_vcf.vcf_or_zone` の関連領域（05 §2）
+
+それ以外の点の石なら `proves` は真のまま。禁点のまわりの扱いは `search_zone` や `threat_defences` と同じ近似。`test_proof_tree_zone_and_proves` が、ベンチマークの証明済みの `quick` ケースすべての全点で確かめる。
+
 ## 7. 手順を追う
 
 `test_vct_black`（岡部寛氏の五手詰め問題 No. 02）、黒番:
@@ -539,6 +582,7 @@ extract_defences(state):                       # 受け方の手番
 | 置換表 | `attacker_table` / `defender_table`（`ProofTable`）、2 つの `LruCache`、内部ソルバーの `dead_ends`。キーはすべて `State::key()`、決着は局面のみ |
 | 決着が limit をまたいで効くのが一定の深さ以上である理由 | `ProofTable` の `transfer_from`（§4） |
 | 手順の復元 | `extract`。`End::Unknown` = たどれる証明済みの子がなかった |
+| 証明がどの受けのあとも成り立つか | `proof_tree` のあと `ProofTree::zone` と `proves`（§6） |
 | 回帰テストの追加 | `solve.rs` に ASCII 盤面と期待する手順。関係する `SolveMode` ごとに 1 アサーション |
 
 *来歴*: 追い手の判定を本探索に織り込む実験的な「lazy」追い詰めソルバー（`vct_lazy/`、長井歩 GPW 2011 に基づく）が、かつて `vct/` の隣にあった。[renju-note/quintet#133](https://github.com/renju-note/quintet/pull/133) で削除した。当時の状態と、削除の根拠になった計測はその PR にある。

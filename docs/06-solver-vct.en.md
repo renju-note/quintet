@@ -25,7 +25,8 @@ src/mate/vct/
 │                       select_attack / select_defence → Selection
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
-└── extractor.rs        extract: the winning line from the tables                             (§6)
+├── extractor.rs        extract: the winning line from the tables                             (§6)
+└── tree.rs             ProofTree: the whole proof from the tables; proves, zone              (§6)
 src/feature/shape.rs       ShapeMap: what a stone would make, per point, player and direction    (§8)
 ```
 
@@ -554,6 +555,63 @@ The proven defence with the smallest `limit` is the one that made the
 attacker use the most moves. So the reported line is against the most
 stubborn defence.
 
+### The whole proof (`tree.rs`)
+
+`proof_tree` walks the same tables but keeps every branch: a `ProofTree`.
+It answers, for a caller weighing many defences, "does the proof survive
+this move?" without a new search each.
+
+```
+tree_attacks(state):                           # attacker to move
+    Forced(p)  → p (none if forbidden)
+    else       → the first empty point, not forbidden, whose attacker_table entry is proven
+    none       → attacker_vcf.vcf(state): a VCF leaf
+
+tree_defences(state):                          # defender to move
+    Defeated   → Won
+    Forced(p)  → p
+    else       → threat = attacker_vcf.threat; every legal point of threat_defences(threat),
+                 each proven in defender_table (searched if missing)
+```
+
+- **Forbidden attacks are skipped** even when the table has their child
+  proven. The table is keyed by position, and the same position may have
+  been reached by another order of the moves, one that played the point
+  before it became forbidden.
+- **Missing defences are searched.** The threat asked again may not be the
+  one the search generated its defences from. A defence the search did not
+  try leaves the search's own threat standing, so it proves quickly.
+
+`proves(state, tree)` checks a tree on another position, typically one
+with a defender's stone added. It mirrors the node functions of §5:
+
+| Node | Checked |
+| --- | --- |
+| Attacker, attack | Still empty and not forbidden; the forced move if the defender has a four |
+| Attacker, VCF leaf | Its path replays as a VCF |
+| Defender, `Forced` | The reply is in the tree |
+| Defender, threat | The stored threat replays as a VCF after a pass; the defender has no VCF (`defender_vcf.vcf`, the only search); every legal point of `threat_defences` on this position is in the tree |
+
+`true` is a proof as good as the search's own. `false` only says this proof
+does not carry over.
+
+`ProofTree::zone` is where a defender's stone may break the tree. It is
+collected on the walk:
+
+- every point the proof plays, and the moves of every VCF in it;
+- around each attacker move, its lines up to 4 cells (5 for Black);
+- the ends of each VCF (both fives, or 5 cells around a forbidden one);
+- 5 cells around each defence left out as forbidden;
+- the points where a defender's stone joins a segment holding two of the
+  defender's stones, after each defender move (new fours to defend or win
+  with);
+- at each defender node, the zone of `defender_vcf.vcf_or_zone` (05, §2).
+
+A stone elsewhere leaves `proves` true. The forbidden rings are the same
+approximation as in `search_zone` and `threat_defences`.
+`test_proof_tree_zone_and_proves` checks this on every proven `quick` case
+of the benchmark, at every point.
+
 ## 7. Walk-through
 
 `test_vct_black` (No. 02 of Hiroshi Okabe's five-move problems), Black to
@@ -686,6 +744,7 @@ side to move, the way a player sizes up a move:
 | Transposition tables | `attacker_table` / `defender_table` (`ProofTable`), the two `LruCache`s, the nested solvers' `dead_ends`; all keyed by `State::key()`, decisions by position alone |
 | Why do decisions carry between limits only from some depth? | `transfer_from` in `ProofTable` (§4) |
 | Path extraction | `extract`; `End::Unknown` means no proven child to follow |
+| Which defences a proof survives | `proof_tree`, then `ProofTree::zone` and `proves` (§6) |
 | Adding a regression case | ASCII board + expected path in `solve.rs`, one assertion per relevant `SolveMode` |
 
 *History.* An experimental "lazy" VCT solver (`vct_lazy/`, after 長井歩,

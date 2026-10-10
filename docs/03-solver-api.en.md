@@ -222,6 +222,15 @@ What reuse gives:
   found mate: its own path, the points that break its end, counter-fours,
   and the defender's own four-making moves. The VCT search generates
   defences from the same list (06, §3).
+- **Which moves stop this VCT?** Right after a `VCTSolver` proved a
+  position, `proof_tree(&mut state, &mut budget)` reads the whole proof off
+  its tables as a `ProofTree`: one attack where the attacker moves, every
+  defence worth trying where the defender does. On the position with one
+  more stone of the defender's, `proves(&mut state, &tree, &mut budget)`
+  checks that same proof node by node, at a fraction of a new search. A
+  stone outside `tree.zone()` needs not even that: the proof stands. So a
+  move outside the zone, or one `proves` accepts, does not stop the VCT;
+  the others are the moves to search again (06, §6).
 - **Is this move a threat?** Let the side to move pass
   (`Game::play(None)`) and ask for the opponent's VCF: `VCFState::new(game,
   limit)` on the passed game, then `DFSSolver::new().solve(..)`.
@@ -271,6 +280,7 @@ what it needs itself.
 | Ask many questions cheaply | Keep a `DFPNSVCTSolver`, give it a fresh `VCTState` per question, share one `NodeBudget` |
 | Ask about both colours | The same solver; the attacker is part of every key |
 | Know which defences to try | `VCTState::threat_defences(&mate)` |
+| Know which moves stop a VCT, move by move | `VCTSolver::proof_tree` after the solve, then `ProofTree::zone` and `VCTSolver::proves` per move |
 | Know whether the last move was a threat | Pass with `Game::play(None)`, then ask for the opponent's VCF |
 | Read the winning line from JS | `wasm::solve` returns the path as `u8` point codes (02, §1); `decode_x` / `decode_y` |
 | Add a solve mode | `SolveMode`, its `TryFrom<u8>` and `FromStr`, and the `match` in `solve` (`solve.rs`) |
