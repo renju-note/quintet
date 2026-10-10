@@ -574,6 +574,9 @@ tree_defences(state):                          # defender to move
                  each proven in defender_table (searched if missing)
 ```
 
+- **Transpositions are one node.** Nodes are keyed by `State::zobrist_hash`
+  (position and limit), as in the tables, so the tree is a DAG. Unfolded,
+  a proof of 10 or more attacks can have tens of millions of lines.
 - **Forbidden attacks are skipped** even when the table has their child
   proven. The table is keyed by position, and the same position may have
   been reached by another order of the moves, one that played the point
@@ -592,8 +595,9 @@ with a defender's stone added. It mirrors the node functions of §5:
 | Defender, `Forced` | The reply is in the tree |
 | Defender, threat | The stored threat replays as a VCF after a pass; the defender has no VCF (`defender_vcf.vcf`, the only search); every legal point of `threat_defences` on this position is in the tree |
 
-`true` is a proof as good as the search's own. `false` only says this proof
-does not carry over.
+Each node is checked once, however many lines reach it. `true` is a proof
+as good as the search's own. `false` only says this proof does not carry
+over.
 
 `ProofTree::zone` is where a defender's stone may break the tree. It is
 collected on the walk:
