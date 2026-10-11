@@ -1,5 +1,7 @@
 # 追い詰め（VCT）探索（`src/mate/vct/`）
 
+初めて読む場合は [追い手と AND/OR 木](#section-1) → [手順例](#section-7) → [証明数](#section-4) → [探索](#section-5) の順で全体をつかむ。手の生成を変更する場合は [§2](#section-2)・[§3](#section-3)、並べ替えは [§8](#section-8)、証明の再利用は [§6](#section-6)。性能実験は [08](08-performance.ja.md#section-8) にまとめる。
+
 **追い詰め**（VCT: victory by continuous threats）は、攻め手がすべて**追い手**である手順。追い手とは、四、三、または「受け方が何もしなければ攻め方に四追いが生じる手」。
 
 - 四追いと違って受け方は応手を選べるので、木は本物の AND/OR 木になる。
@@ -7,6 +9,31 @@
 - このドキュメントはその探索と、手の並べ替えに使う `ShapeMap` を説明する。
 
 前提: [04](04-solver-framework.ja.md) と [05](05-solver-vcf.ja.md)。特に `State`、`Key`、`Memo`、`Solver` トレイト、`DFSSolver`。
+
+<a id="section-1"></a>
+
+## 1. 追い手と AND/OR 木
+
+ある手が**追い手**であるとは、受け方がパスしたとき、攻め方に `threat_limit` 個以下の四による四追いがあること。
+
+| `threat_limit` | 追い手と認識されるもの |
+| --- | --- |
+| 0 | 四だけ。内部四追いの深さが 0 なので追い手の判定は常に失敗し、`Forced`（四を止めるしかない）受け方ノードだけが先へ進む。 |
+| 1 | 加えて三。パスの後、達四点が 1 手の四追いになる。 |
+| 2 | 加えて、四 2 つの四追いを準備する手（四三を用意する手など）。 |
+| 3 以上 | さらに深い含み手。`test_vct_fukumi_move` は 3 が必要。 |
+
+受け方は、狙われた四追いを止める手なら何でも打てる。ノリ手や、受け方自身の逆襲四追いも含む。
+
+木は 2 種類のノードが交互に現れる:
+
+- **OR ノード**（攻め方の手番）: 勝つ攻め手が *1 つ*あればよい。
+- **AND ノード**（受け方の手番）: *すべての*受けが負ける必要がある。
+
+<details>
+<summary>ファイル構成と探索の呼び出し関係</summary>
+
+### 実装の見取り図
 
 ```
 src/mate/vct.rs         module doc: the algorithm in one page, re-exports, the three aliases
@@ -54,27 +81,13 @@ VCTSolver::solve = advance_generation; search; extract
 └── extract ──► follow proven children through the tables               §6
 ```
 
-- 証明数（§4）が、`select_*` の選ぶ子を決める。
-- 閾値ポリシー（§5）が、`expand_*` がその子に留まってから親へ戻るまでの長さを決める。
+- 証明数（[§4](#section-4)）が、`select_*` の選ぶ子を決める。
+- 閾値ポリシー（[§5](#section-5)）が、`expand_*` がその子に留まってから親へ戻るまでの長さを決める。
 - DFS / PNS / df-pn の違いはこのポリシーだけ。
 
-## 1. 追い手と AND/OR 木
+</details>
 
-ある手が**追い手**であるとは、受け方がパスしたとき、攻め方に `threat_limit` 個以下の四による四追いがあること。
-
-| `threat_limit` | 追い手と認識されるもの |
-| --- | --- |
-| 0 | 四だけ。内部四追いの深さが 0 なので追い手の判定は常に失敗し、`Forced`（四を止めるしかない）受け方ノードだけが先へ進む。 |
-| 1 | 加えて三。パスの後、達四点が 1 手の四追いになる。 |
-| 2 | 加えて、四 2 つの四追いを準備する手（四三を用意する手など）。 |
-| 3 以上 | さらに深い含み手。`test_vct_fukumi_move` は 3 が必要。 |
-
-受け方は、狙われた四追いを止める手なら何でも打てる。ノリ手や、受け方自身の逆襲四追いも含む。
-
-木は 2 種類のノードが交互に現れる:
-
-- **OR ノード**（攻め方の手番）: 勝つ攻め手が *1 つ*あればよい。
-- **AND ノード**（受け方の手番）: *すべての*受けが負ける必要がある。
+<a id="section-2"></a>
 
 ## 2. `VCTState` と内部の四追い探索
 
@@ -86,14 +99,14 @@ pub struct VCTState {
 ```
 
 - `threat_limit` は `limit` と同じく問いの一部: `VCTState::from_board(&board, attacker, limit, threat_limit)`。
-  - `key()` はそれを局面に混ぜる（`apply_threat_limit`、04 §3）。だから証明数表と候補手キャッシュは `threat_limit` ごとに別エントリを持つ。`threat_limit` が違えば追い手と数える手が違い、別の木になる。
+  - `key()` はそれを局面に混ぜる（`apply_threat_limit`、[04 §3](04-solver-framework.ja.md#section-3)）。だから証明数表と候補手キャッシュは `threat_limit` ごとに別エントリを持つ。`threat_limit` が違えば追い手と数える手が違い、別の木になる。
   - これで 1 つの `VCTSolver` が、どの `threat_limit` でも、どの順で問われても答えられる（`test_reused_solver_matches_fresh_across_threat_limits`）。
 
-- `shapes` は両プレイヤーの `ShapeMap`（§8）。
+- `shapes` は両プレイヤーの `ShapeMap`（[§8](#section-8)）。
   - `after_play` / `after_undo` は着手の線に「古い」印を付けるだけ。
   - 次に読むとき（`sorted_attacks` / `sorted_defences`）に計算し直す。読むのは候補手キャッシュがミスしたときだけ。
 - `next_key(m)` は `m` の後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
-- `swords` は `SwordMap`（02 §7）で、同じように印を付ける。
+- `swords` は `SwordMap`（[02 §7](02-board-implementation.ja.md#section-7)）で、同じように印を付ける。
   - `vcf_state` / `threat_state` はそれを同期してから、クローンを内部の `VCFState` に渡す。
   - 内部の四追いは同期済みの状態から始まり、次の四追いはこの計算を再利用できる。
 
@@ -139,7 +152,9 @@ impl NestedVCF {
 | `defender_vcf.vcf` | 受け方 | 受け方は今すぐ四追いで勝てるか。（受け方が先に勝つか。） |
 
 - `vcf` は自分の側の手番であること、`threat` は相手の手番であることを assert する。逆向きの呼び出しは探索のバグで、問いではない。
-- 中身は `IDDFSSolver`（`limits = [1]`）で、`search` で呼ぶ。そのため行き止まりメモ（04 §5）は追い詰め探索の間ずっと、そして探索をまたいでも残り、ノードは同じ `NodeBudget` から消費する。
+- 中身は `IDDFSSolver`（`limits = [1]`）で、`search` で呼ぶ。そのため行き止まりメモ（[04 §5](04-solver-framework.ja.md#section-5)）は追い詰め探索の間ずっと、そして探索をまたいでも残り、ノードは同じ `NodeBudget` から消費する。
+
+<a id="section-3"></a>
 
 ## 3. 手の生成（`generator.rs`）
 
@@ -153,60 +168,41 @@ pub enum Candidates {
 pub struct Candidate { pub point: Point, pub estimate: u32 }
 ```
 
-`Candidate` の `estimate` は、表にまだ何もない間にその子が始める数値。攻め手なら証明数、受け手なら反証数（§5「選択」）。
+`Candidate` の `estimate` は、表にまだ何もない間にその子が始める数値。攻め手なら証明数、受け手なら反証数（[§5](#section-5)「選択」）。
 
 ### 候補手キャッシュ
 
 - 結果は生成器ごとに 65,536 エントリの `LruCache` に入れる。
-- キーは `zobrist_hash()`: 局面 + limit。内部四追いの深さが `min(limit, depth)` なので limit が要る。局面には、内部四追いが何を見つけるかを決める `threat_limit` も入っている（§2）。
+- キーは `zobrist_hash()`: 局面 + limit。内部四追いの深さが `min(limit, depth)` なので limit が要る。局面には、内部四追いが何を見つけるかを決める `threat_limit` も入っている（[§2](#section-2)）。
 - 予算切れのときは入れない。
 
-大きくしている理由:
-
-- df-pn は同じノードに何度も戻ってくる。容量 1000 では、攻め方ノードでの参照の 3 分の 1、受け方ノードでの参照の半分以上がミスした。ミスのたびに、内部四追いも含めて手を生成し直す。
-- ミスの多くは初めて出会う局面で、これはどんな容量でも防げない。
-- 1 エントリは、攻め手のキャッシュで約 280 バイト（エントリ 48、表のスロット 34、約 30 手 × 8 バイト。6 分の 1 は `Terminal` で手を持たない）。受け手のキャッシュで約 110 バイト（約 6 手。半分以上が `Terminal`）。
-
-ベンチマーク（07）の全 121 ケースで:
-
-| 容量 | 2 つとも満杯のとき | ノード数 | 時間 |
-| --- | --- | --- | --- |
-| 1000 | 0.4 MB | | |
-| 4096 | 1.6 MB | −5% | −4% |
-| 16384 | 6 MB | −3% | −6% |
-| **65536** | **25 MB** | **−7%** | **−10%** |
-| 262144 | 100 MB | −8% | −10% |
-| 1048576 | 400 MB（実際は `vct_unstable` の 220 MB が最大） | −8% | −12% |
-
-- 65536 で満杯になるのは 121 ケース中 18 ケース。どれも 100 万ノードを超え、キャッシュなしでもプロセスが 75 MB〜1 GB を使う。
-- キャッシュは空で始まり、埋まるにつれて大きくなる（`candidates_cache`）。小さな探索は容量の分を払わない。`LruCache::with_hasher` だと表全体を最初に確保してしまう。
-- キャッシュを大きくすると、ノード数だけでなく手順が変わるケースもある。生成器の結果は内部四追いのメモの中身に左右されうる（行き止まりは、それを記録した探索の関連領域を返す）。そのため手を生成し直したノードは、最初と違う手を見ることがある。
+容量は再生成のコストとメモリのバランスで選ぶ。キャッシュは空で始まり、小さな探索では容量分を先に確保しない。比較結果は [08 の容量実験](08-performance.ja.md#cache-capacity) を参照。
 
 ### `compute_attacks`（攻め方の手番）
 
 1. `attacker_vcf.vcf_or_zone`: 今すぐ四追いがあれば `Terminal(proven)`。
    - 正しさには不要（本探索でも `Forced` を 1 手ずつたどれば四は見つかる）だが、大幅に速い。
-   - なければ、その探索の関連領域（05 §2）を返す。攻め方がもう 1 石置けば四追いが生まれうる点の集合。
+   - なければ、その探索の関連領域（[05 §2](05-solver-vcf.ja.md#section-2)）を返す。攻め方がもう 1 石置けば四追いが生まれうる点の集合。
 2. `defender_vcf.threat`: 攻め方がパスすると受け方に四追いがあるか。あれば攻め手はそれも受ける必要があるので、候補を `threat_defences(threat)` に絞る。
-3. 候補は、`ShapeMap` で攻め方がどれかの線に `Two` 以上を作る点（`sorted_attacks(only)`）を `priority`（§8）の順に並べたもの。その数が `width`。
+3. 候補は、`ShapeMap` で攻め方がどれかの線に `Two` 以上を作る点（`sorted_attacks(only)`）を `priority`（[§8](#section-8)）の順に並べたもの。その数が `width`。
 4. 追い手になりうるもの（`may_threaten`）だけ残す:
    - 関連領域にある、または
-   - 攻め方の石をすでに 2 つ含むセグメントにある（`ShapeMap` でどれかの線が `Sword` 以上、§8）。関連領域が呼び出し側に任せる部分。
+   - 攻め方の石をすでに 2 つ含むセグメントにある（`ShapeMap` でどれかの線が `Sword` 以上、[§8](#section-8)）。関連領域が呼び出し側に任せる部分。
    - それ以外の手はパスされても攻め方に四追いを生まないので、追い手ではない。
    - 予算切れのときは関連領域が不完全なので行わない。
    - 空なら `Terminal(disproven)`。
-5. 各候補に、それが作る最も大きい形（`best_shape`。`ShapeMap` から、§8）で見積もりを付ける。四なら `width / 4`、三なら `width / 2`、それ以外は `width`（§5「選択」）。
+5. 各候補に、それが作る最も大きい形（`best_shape`。`ShapeMap` から、[§8](#section-8)）で見積もりを付ける。四なら `width / 4`、三なら `width / 2`、それ以外は `width`（[§5](#section-5)「選択」）。
 
 補足:
 
 - これ以外に、ここでは候補が追い手かを調べない。1 手下の受け方ノードで調べ、追い手でなければそこで反証する。その都度、内部四追い探索とノード 1 つがかかる。ステップ 4 はベンチマークで追い手でない手のおよそ半分についてこれを省く（関連領域の外に追い手があったことはない）。
-- `width` をステップ 4 の前に取るのは、それが未展開の子の証明数の初期値になるため（§5）。追い手でない手は反証されるだけで、兄弟の証明を易しくはしない。除いた後の数を初期値にすると、探索が別の手順に傾く。
+- `width` をステップ 4 の前に取るのは、それが未展開の子の証明数の初期値になるため（[§5](#section-5)）。追い手でない手は反証されるだけで、兄弟の証明を易しくはしない。除いた後の数を初期値にすると、探索が別の手順に傾く。
 
 ### `compute_defences`（受け方の手番）
 
 1. `attacker_vcf.threat`: 受け方がパスしたら攻め方に四追いがあるか。なければ直前の攻め手は追い手ではない → `Terminal(disproven)`。
 2. `defender_vcf.vcf`: 受け方自身に（`defender_vcf_depth` 以内の）四追いがあれば、受け方が先に勝つ → `Terminal(disproven)`。
-3. 候補は `threat_defences(threat)` を `priority`（§8）の順に並べ（`sorted_defences`）、禁手を除いたもの。空なら `Terminal(proven)`: 追い手に応手がない。
+3. 候補は `threat_defences(threat)` を `priority`（[§8](#section-8)）の順に並べ（`sorted_defences`）、禁手を除いたもの。空なら `Terminal(proven)`: 追い手に応手がない。
 4. 各候補の見積もりは候補の数 `n`。
 
 ### `threat_defences`
@@ -221,6 +217,8 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 | `four_moves()` | 受け方が今持っている四を作る手（`Sword` の眼）。攻め方に応手を強いるノリ手。 |
 
 同じ点が重複しうる。`sorted_defences` は最初の 1 つだけを残す。
+
+<a id="section-4"></a>
 
 ## 4. 証明数（`proof.rs`）
 
@@ -239,7 +237,7 @@ pub const INF: u32 = u32::MAX;
 | `PnDn::no_threshold()` | `(INF, INF)` | 決して超えない閾値（決着まで探索）。`unknown` と同じ値、別の役割。 |
 | `PnDn::proven(limit)` | `(0, INF)` | 攻め方の勝ち。 |
 | `PnDn::disproven(limit)` | `(INF, 0)` | `limit` 以内に攻め方は勝てない。 |
-| `PnDn::unexpanded_defence(n, limit)` | `(n, 1)` | OR ノードの未展開の子（受け方の手番）の初期値。`n` = その攻め手の見積もり（§3）。 |
+| `PnDn::unexpanded_defence(n, limit)` | `(n, 1)` | OR ノードの未展開の子（受け方の手番）の初期値。`n` = その攻め手の見積もり（[§3](#section-3)）。 |
 | `PnDn::unexpanded_attack(n, limit)` | `(1, n)` | AND ノードの未展開の子（攻め方の手番）の初期値。`n` = その受け手の見積もり。 |
 
 子の合成は 2 通り（和は飽和加算）:
@@ -247,8 +245,8 @@ pub const INF: u32 = u32::MAX;
 - **OR** ノード: `min_pn_sum_dn`。証明のコストは最も安い子の分（pn の最小）、反証にはすべての子の反証が必要（dn の和）。
 - **AND** ノード: `min_dn_sum_pn`。その鏡像。
 
-- 根から、OR ノードでは最小の `pn`、AND ノードでは最小の `dn` の子をたどると、結果が根を最も動かす葉（**最有望ノード**）に着く。選択器はこれをたどる（§5）。
-- `limit` は子の最小値として伝わる。部分木が決着した地点に残っていた limit の最小値で、手順の復元に使う（§6）。
+- 根から、OR ノードでは最小の `pn`、AND ノードでは最小の `dn` の子をたどると、結果が根を最も動かす葉（**最有望ノード**）に着く。選択器はこれをたどる（[§5](#section-5)）。
+- `limit` は子の最小値として伝わる。部分木が決着した地点に残っていた limit の最小値で、手順の復元に使う（[§6](#section-6)）。
 
 ### `ProofTable`
 
@@ -265,9 +263,9 @@ pub const INF: u32 = u32::MAX;
 | `decided: Memo<Decided>` | `Key::position` のみ | その局面で証明された最小 limit と、反証された最大 limit。 |
 
 - `insert(state, node)`: `estimates` には常に書く。証明済み / 反証済みなら `decided` にも書く。
-- `lookup_next(state, m)`: `m` の後の子を `next_key` で引く。まず `estimates`、次に `decided`。`decided` では、より小さい limit での証明や、より大きい limit での反証も答えになる（04 §3）。
+- `lookup_next(state, m)`: `m` の後の子を `next_key` で引く。まず `estimates`、次に `decided`。`decided` では、より小さい limit での証明や、より大きい limit での反証も答えになる（[04 §3](04-solver-framework.ja.md#section-3)）。
   - これで limit 5 の探索は limit 4 で決着したものを再利用でき、ある根で見つけた証明は、別の根の下でもそれ以上の limit で使える。
-- `lookup_children(state, candidates)`: 候補それぞれへの `lookup_next`。展開はここから始まる（§5「展開」）。
+- `lookup_children(state, candidates)`: 候補それぞれへの `lookup_next`。展開はここから始まる（[§5](#section-5)「展開」）。
 
 `transfer_from` は `decided` を使い始める limit:
 
@@ -275,6 +273,8 @@ pub const INF: u32 = u32::MAX;
 - 値は `max(threat_limit, defender_vcf_depth + 1, 2)`。`VCTSolver::with_carry_capacity` が動かない部分 `max(defender_vcf_depth + 1, 2)`（`transfer_floor`）を設定し、`ProofTable::transfer_from` が状態の `threat_limit` まで引き上げる。
 - `decided` のキーの局面には `threat_limit` が入っているので、決着が `threat_limit` をまたいで効くことはない。
 - それより小さい limit では、`decided` に書きも読みもしない。
+
+<a id="section-5"></a>
 
 ## 5. 探索（`searcher.rs`、`threshold.rs`、`solver.rs`）
 
@@ -303,7 +303,7 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 
 | フィールド | 内容 |
 | --- | --- |
-| `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(estimate)` とみなす（§3。強制手なら `1`）。 |
+| `node` | このノード自身の数値。子に対する `min_pn_sum_dn`。表にない子は `unexpanded_defence(estimate)` とみなす（[§3](#section-3)。強制手なら `1`）。 |
 | `best` | `pn` が最小の子（最有望の子）。候補の中での位置。 |
 | `unvisited` | `best` がまだ表にないか。一度も探索されていない。 |
 | `best_child`、`second_child` | 最良と 2 番目の子の数値。 |
@@ -311,26 +311,13 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 - 証明済みの子があれば、`node` はその場で `(0, INF)` になる。
 - `select_defence` はその鏡像: 最小の `dn`、`min_dn_sum_pn`、表にない子は `unexpanded_attack(estimate)`、`node.limit` は `limit − 1`。
 
-見積もり（§3）は意図的な仕掛け:
+見積もり（[§3](#section-3)）は意図的な仕掛け:
 
 - 兄弟の数から始めるので、候補の少ないノードほど易しく見え、探索は強制的な手順を好む。
 - 攻め手の見積もりは、その手が受け方の応手をどれだけ絞るかでさらに下げる。四は応手を 1 つにするので兄弟の数の 4 分の 1 から、三は数手にするので半分から始める。
 - こうして探索は、候補の並び順のどこにあっても、四と三を先に深く追ってから静かな攻め手に移る。
 
-ベンチマーク（07）で、兄弟の数だけの場合と比べて試したこと:
-
-- 効果の大半は四の優遇によるもので、唯一の代償もそこから来る。
-  - 優遇しない（三だけ半分にする）と、`heavy` のケースが 17% 高くついた。
-  - 優遇すると、ほかの重みによらず `vct_small_but_long` が約 3 倍高くつく。`limit` 255 では、探索が四をどこまでも深く追うのを止めるものがない。
-- それ以外の攻め手の見積もりを兄弟の数より上げる（1.5 倍）のは、追い手になりえない攻め手を除く前は得だったが、除いてからは損になるだけ。
-- 証明数はノードをまたいで比べられるので、比だけでなく尺度も効く。すべての見積もりを一律に半分にすると探索は高くつく。
-- 受け手を、それが作る四や三で重み付けしても得にならなかった。
-
-この重みでの結果:
-
-- `heavy` を含む全ケース: ノード数 38% 減。
-- `heavy` のケース: 47% 減（`vct_unstable` 109.5M → 41.6M）。
-- 既定の集合: `vct_small_but_long`（5.8M → 16.7M）のために合計 6% 増。このケースを除けば 26% 減。
+四と三の優遇は重い局面で有効だが、長い四の連続を深追いする局面では遠回りになる。[08 の見積もり実験](08-performance.ja.md#initial-estimates) に比較と代償をまとめる。
 
 ### 展開
 
@@ -371,14 +358,7 @@ expand_attacks(state, attacks, threshold):
 - ノードは、自分の数値が親から渡された閾値を超えるまで、最有望の子を展開し続ける。
 - 根の閾値は `no_threshold` なので、根は決着するまでループする。
 
-閾値は最初の展開の前にも確かめる:
-
-- 初期値の時点で閾値を超えているノードは、手を生成しただけで戻る。親はそれで自分の数値を知る。
-- #108 から #110 まで（2022 年）の `expand_attacks` はこの最初の確認を飛ばし、最有望の攻め手を必ず 1 回展開していた。得になるかは局面によって大きく違う。ベンチマーク（07）では:
-  - `vct_unstable`: 345 分の 1（119.5M ノード → 346k）。
-  - 既定の集合: 39% 増（24.4M → 34.0M）。
-  - `vct_black_long_short`: 53% 増（17.4M → 26.7M）。
-- そのため採用していない（issue #148）。
+閾値は最初の展開の前にも確かめる。初期値がすでに閾値を超えていれば、手を生成しただけで戻る。常に 1 回展開する案は局面による損得が大きく、採用していない（[08 の比較](08-performance.ja.md#first-expansion)）。
 
 ### 閾値ポリシー
 
@@ -388,31 +368,23 @@ expand_attacks(state, attacks, threshold):
 | --- | --- | --- |
 | `DFSThreshold` | `no_threshold` | 選んだ子を決着まで探索してから、親が次の子を見る。素朴な深さ優先探索で、証明数は手の並べ替えにだけ使う。 |
 | `PNSThreshold` | `(best_child.pn + 1, best_child.dn + 1)` | 子の数値が変わるとすぐ戻るので、展開のたびに全階層で最有望の子を選び直す。再帰で書いた最良優先の証明数探索。 |
-| `DFPNSThreshold` | OR ノード: `pn = min(threshold.pn, second_child.pn + 1 + second_child.pn / 8)`、`dn = threshold.dn − node.dn + best_child.dn`。AND ノードはその鏡像 | df-pn（Nagai & Imai, 2002）。最良の子が（余裕の範囲で）最良である限りそこに留まり、親の閾値は超えない。 |
+| `DFPNSThreshold` | 下記の式 | 最良の子に余裕を持って留まる。親の閾値は超えない。 |
+
+df-pn（Nagai & Imai, 2002）の OR ノードの子の閾値:
+
+```text
+pn = min(threshold.pn, second_child.pn + 1 + second_child.pn / 8)
+dn = threshold.dn - node.dn + best_child.dn
+```
+
+AND ノードは `pn` と `dn` を入れ替える。
 
 `second_child.pn / 8` の余裕は、ε = 1/8 の「1 + ε トリック」（Pawlewicz & Lew, 2006）:
 
 - 素の df-pn では、最良の子は 2 番目より 1 大きくなるまでしか探索されない。両者が近いと探索は 2 つの間を行き来し、そのたびに親まで戻ってまた降りる。
 - 余裕を持たせると、今いる子にもう少し長く留まる。
-- ベンチマーク（07）では、`heavy` を含む全ケースが 137.3M ノードから 99.4M（−28%）になった:
-  - 既定の集合で −19%、ほかの `heavy` で −27%。
-  - `vct_unstable`: 40.2M → 25.4M。
-  - 6〜14% 重くなったケースが 3 つあるが、どれも 170k ノード以下。
 
-ほかに試した ε（ノード数の変化）:
-
-| ε | 全ケース | 既定の集合 | `vct_small_but_long` | `vct_unstable` |
-| --- | --- | --- | --- | --- |
-| 1/16 | −14% | −8% | +5% | −7% |
-| 1/8 | −28% | −19% | −14% | −37% |
-| 1/6 | −20% | −18% | −9% | −7% |
-| 1/4 | −8% | −25% | −25% | +47% |
-| 1/3 | −25% | −11% | +11% | −23% |
-| 1/2 | −10% | −25% | −22% | +41% |
-
-- 1/4 以上では、この 2 つ以外のケースがもう少し減る（1/8 の約 −26% に対して約 −32%）。
-- しかしこの 2 つは大きく振れる。どちらも探索が長い四の連続をたどるケースで、展開の順序が変わるだけで別の手順に入る。
-- 両方でよいのが 1/8。
+ε = 1/8 は、既定の集合と長い四の連続をたどる局面の両方で効果があった。[08 の ε の比較](08-performance.ja.md#dfpn-margin) を参照。
 
 ### ソルバーの構造体
 
@@ -426,9 +398,9 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 }
 ```
 
-- `children` は進行中のすべての展開が共有する 1 本のスタックで、各展開は親の上に積まれる（§5「展開」）。
+- `children` は進行中のすべての展開が共有する 1 本のスタックで、各展開は親の上に積まれる（[§5](#section-5)「展開」）。
 - 上のメソッドは、段階ごとに 1 ファイルずつ、この型への `impl` ブロックとして書かれている。
-- `Solver`（04 §4）の実装:
+- `Solver`（[04 §4](04-solver-framework.ja.md#section-4)）の実装:
   - `solve`: 両方の表と両方の内部ソルバーに `advance_generation` → `search` → 成功なら無制限の予算で `extract`。
   - `clear`: 表、内部ソルバー、キャッシュを空にする。
   - `memo_len`: 4 つのメモの合計（キャッシュはもともと有界）。
@@ -453,7 +425,7 @@ solve_auto:
 ```
 
 - **limit はない。** 255 で探索し、どこまで深く読むかは証明数に任せる。
-  - limit は木を切るだけ。1 ずつ深めると、詰みより浅い limit での反証が一番高くつく。反証は下の limit にしか引き継げない（§4）。
+  - limit は木を切るだけ。1 ずつ深めると、詰みより浅い limit での反証が一番高くつく。反証は下の limit にしか引き継げない（[§4](#section-4)）。
   - `quick` のケースで limit を 1 から深めると、正しい limit で 1 回探索する場合の中央値 1.9 倍、最大 26 倍かかった。
   - 255 での探索は正しい limit とほぼ同じコスト（中央値 1.0 倍）だが、多くはより長い手順を見つける。
 - **`threat_limit` は複数。** どれが安いかは局面によって大きく違い、`t` の大小とも揃わない:
@@ -461,7 +433,7 @@ solve_auto:
   - `vct_game_black_l05_2`: 2 では 17k、1 では 785k。
   - `vct_fukumi` は 3 でしか詰まない。`vct_game_black_l08_2` は 1 で見つかり、2 だけでは 5M ノードで終わらない。
 - **回を分けても損は小さい。** 予算を使い切った回も、終えた部分木は表に残り、次の回はその続きから探索する。
-  - `threat_limit` はすべてのキーに入っている（§2）ので、ある `threat_limit` の回が別の `threat_limit` の表を読むことはない。内部四追いのメモは共有する。
+  - `threat_limit` はすべてのキーに入っている（[§2](#section-2)）ので、ある `threat_limit` の回が別の `threat_limit` の表を読むことはない。内部四追いのメモは共有する。
   - 世代は呼び出し全体で 1 つ。回ごとに開くと、ほかの `threat_limit` の回が見つけたものをメモが捨ててしまう。
 - **答えの意味。**
   - `Some(mate)`: 追い詰め。最短とは限らない。
@@ -476,6 +448,8 @@ solve_auto:
 | ノード数。ケース自身の `limit` と `threat_limit` での `vct_dfpns` と比べて（両方が証明した 60 局面） | 中央値 1.02 倍、合計 1.85 倍 |
 | ノード数。`limit` 255、`threat_limit` 2 だけの場合と比べて（両方が証明した 95 局面） | 中央値 1.39 倍、合計 1.27 倍。ほかに 2 局面を証明 |
 | 手順。ケース自身の `limit` と比べて | 平均 2.9 手長い。60 中 16 は同じ |
+
+<a id="section-6"></a>
 
 ## 6. 手順の復元（`extractor.rs`）
 
@@ -517,7 +491,7 @@ tree_defences(state):                          # 受け方の手番
 - **禁手の攻め手は飛ばす。** 表がその子を証明済みとしていても。表のキーは局面なので、同じ局面に別の手順で、その点がまだ禁手でなかったときに打った経路から来ていることがある。
 - **表に無い受けは探索する。** 訊き直した追い手が、探索が受けの候補を作ったときのものと違うことがある。探索が試さなかった受けは探索自身の追い手を止めないので、すぐ証明される。
 
-`proves(state, tree)` は、別の局面（ふつうは受け方の石を 1 つ足した局面）で木を確かめる。§5 のノード関数をなぞる:
+`proves(state, tree)` は、別の局面（ふつうは受け方の石を 1 つ足した局面）で木を確かめる。[§5](#section-5) のノード関数をなぞる:
 
 | ノード | 確かめること |
 | --- | --- |
@@ -535,7 +509,7 @@ tree_defences(state):                          # 受け方の手番
 - 各四追いの詰め上がり（五の点 2 つ、または禁点のまわり 5 マス）
 - 禁手で外した受けのまわり 5 マス
 - 受け方の各手のあと、受け方の石を 2 つ含む Segment に加わる点（受けや勝ちに使える新しい四）
-- 受け方の手番の各ノードで、`defender_vcf.vcf_or_zone` の関連領域（05 §2）
+- 受け方の手番の各ノードで、`defender_vcf.vcf_or_zone` の関連領域（[05 §2](05-solver-vcf.ja.md#section-2)）
 
 それ以外の点の石なら `proves` は真のまま。禁点のまわりの扱いは `search_zone` や `threat_defences` と同じ近似。`test_proof_tree_zone_and_proves` が、ベンチマークの証明済みの `quick` ケースすべての全点で確かめる。
 
@@ -549,9 +523,13 @@ tree_defences(state):                          # 受け方の手番
 | `proof_tree`、直前の解く探索との比 | 中央値 8%。DAG は 78 局面 |
 | `proves` が通さないが追い詰めが残る点 | 2,501 点中 513（別の証明がある） |
 
+<a id="section-7"></a>
+
 ## 7. 手順を追う
 
 `test_vct_black`（岡部寛氏の五手詰め問題 No. 02）、黒番:
+
+座標で読む場合: 黒 `H10,H9,J9,H8,I7`、白 `I11,I9,G8,J8,H7`。図は最上段が 15 行目、左端が A 列。
 
 ```
  . . . . . . . . . . . . . . .
@@ -583,21 +561,23 @@ tree_defences(state):                          # 受け方の手番
 | `H12`（白） | `Forced` | 1 |
 | `G12`（黒） | `G12,H11,I10,J9`。`F13` と `K8` が空いた `Fours` | 1 |
 
-根で `generate_attacks` は候補を `priority`（§8）の順に並べる:
+根で `generate_attacks` は候補を `priority`（[§8](#section-8)）の順に並べる:
 
 - `H11`（10: 四と二で 5、四で +5）、`H12`（9）、`F10`（6: 三と二で 4、三で +2）、`G9`、`J6`、`K5`（各 5）、…
 - 深さ優先モードはまず `H11` を試す。白の `H12` は必然で、その四を使った黒には残り 3 手の追い詰めがない。`H11` は反証される。
 - 反証は `attacker_table` に入り、`select_attack` は次に進む。`H12` も実らず、`F10` が証明される。
 
+<a id="section-8"></a>
+
 ## 8. 手の並べ替え（`src/feature/`、`VCTState::priority`）
 
-見積もり（§3）が同じ候補の間では、順序が、探索がどの子を最初に展開するかを決める。点の特徴は `src/feature/` のキャッシュが表し、`VCTState::priority` が重み付けする。
+見積もり（[§3](#section-3)）が同じ候補の間では、順序が、探索がどの子を最初に展開するかを決める。点の特徴は `src/feature/` のキャッシュが表し、`VCTState::priority` が重み付けする。
 
 ### `ShapeMap`（`src/feature/shape.rs`）
 
 `ShapeMap` は、プレイヤーごと・空点ごとに、そこに石を置くと通る 4 本の線それぞれに何ができるか（`Shape`）を持つ:
 
-| `Shape` | その点は | 求め方（02 §3.1） |
+| `Shape` | その点は | 求め方（[02 §5.1](02-board-implementation.ja.md#section-5-1)） |
 | --- | --- | --- |
 | `Five` | `Four` の眼 | `row_eyes(r, Four)` |
 | `Four` | `Sword` の眼 | `row_eyes(r, Sword)` |
@@ -607,7 +587,7 @@ tree_defences(state):                          # 受け方の手番
 | `Nothing` | 上のどれでもない、または石がある | |
 
 - 当てはまるうち最も大きいものを取る。
-- `SwordMap`（02 §7）と同じく線ごとに持ち、着手で古い印を付けて `sync` で計算し直す。線・プレイヤーごとに数回のビット演算で済む。
+- `SwordMap`（[02 §7](02-board-implementation.ja.md#section-7)）と同じく線ごとに持ち、着手で古い印を付けて `sync` で計算し直す。線・プレイヤーごとに数回のビット演算で済む。
 
 `get(p, r)` は 4 方向分を `Shapes` で返す。`Shapes` は:
 
@@ -634,11 +614,13 @@ tree_defences(state):                          # 受け方の手番
 | `Sword` 以上になる方向、2 つ目から 1 つごと | +5 | 複数の線で同時に脅かす（四三、両狙い）。 |
 | 白: 黒が禁手に見える点に眼がある四 / 三 1 つごと | +20 / +10 | 黒はそこで受けられない。 |
 | 黒: 達四点が禁手に見える三 1 つごと | −2 | その三は偽かもしれない。 |
-| 黒: その点自体が `looks_forbidden` | −20 | 本当に禁手なら黒は打てない。それが分かるのは初めて探索するとき（§5）。禁手でなければ、三は見かけより少ない。 |
+| 黒: その点自体が `looks_forbidden` | −20 | 本当に禁手なら黒は打てない。それが分かるのは初めて探索するとき（[§5](#section-5)）。禁手でなければ、三は見かけより少ない。 |
 
 - 受けでは最初の項を除く。ここでの受けはどれも何らかの形で追い手を止める（`threat_defences`）。それらを攻め方がその点をどれだけ欲しいか（そこでの石や形）で並べると、ベンチマーク（07）ではこれらの項だけより探索が大きくなった。
 - 重みもベンチマークで調整した。
 - 最初の項は `PotentialField`（点ごとに、そこを通る生きたセグメントにある攻め方の石の数）を置き換えたもので、以前は受けもこれで並べていた。上の四・三の項がある今では攻め手の順序をほとんど変えず、受けはないほうがよく、盤面に合わせた更新に探索時間の約 5 分の 1 を使っていた。
+
+<a id="section-9"></a>
 
 ## 9. チートシート
 
@@ -647,15 +629,15 @@ tree_defences(state):                          # 受け方の手番
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。`search_defences` は `limit ≤ 1` で `disproven` |
 | 追い手として認識されない | `compute_defences` のステップ 1（`attacker_vcf.threat`、深さ `threat_limit`）。内部四追いは `Sword` の眼しか見ない |
 | 受けが見つからない | `VCTState::threat_defences`: 手順、`end_breakers`、`counter_defences`、`four_moves` |
-| 攻め手が見つからない | どれかの線に `Two` 以上（`sorted_attacks`）、次に `DFSSolver::search_zone` の関連領域に対する `VCTState::may_threaten`（05 §2） |
+| 攻め手が見つからない | どれかの線に `Two` 以上（`sorted_attacks`）、次に `DFSSolver::search_zone` の関連領域に対する `VCTState::may_threaten`（[05 §2](05-solver-vcf.ja.md#section-2)） |
 | 逆襲による反証が見つからない | `defender_vcf.vcf` の深さは `defender_vcf_depth`（2）。より深い逆襲四追いは、ノリ手が `threat_defences` に入っている場合しか見つからない。`SolveLimits::with_defender_vcf_depth` で深くできる |
-| 手の並べ替え | `ShapeMap` の上の `VCTState::priority`（§8）。攻め手の候補はどれかの線に `Two` 以上 |
+| 手の並べ替え | `ShapeMap` の上の `VCTState::priority`（[§8](#section-8)）。攻め手の候補はどれかの線に `Two` 以上 |
 | モードごとの違い | `threshold.rs` の `ThresholdPolicy`。それ以外は共通 |
 | 置換表 | `attacker_table` / `defender_table`（`ProofTable`）、2 つの `LruCache`、内部ソルバーの `dead_ends`。キーはすべて `State::key()`、決着は局面のみ |
-| 決着が limit をまたいで効くのが一定の深さ以上である理由 | `ProofTable` の `transfer_from`（§4） |
-| 予算だけで解く | `auto.rs` の `solve_auto`（§5） |
+| 決着が limit をまたいで効くのが一定の深さ以上である理由 | `ProofTable` の `transfer_from`（[§4](#section-4)） |
+| 予算だけで解く | `auto.rs` の `solve_auto`（[§5](#section-5)） |
 | 手順の復元 | `extract`。`End::Unknown` = たどれる証明済みの子がなかった |
-| 証明がどの受けのあとも成り立つか | `proof_tree` のあと `ProofTree::zone` と `proves`（§6） |
+| 証明がどの受けのあとも成り立つか | `proof_tree` のあと `ProofTree::zone` と `proves`（[§6](#section-6)） |
 | 回帰テストの追加 | `solve.rs` に ASCII 盤面と期待する手順。関係する `SolveMode` ごとに 1 アサーション |
 
 *来歴*: 追い手の判定を本探索に織り込む実験的な「lazy」追い詰めソルバー（`vct_lazy/`、長井歩 GPW 2011 に基づく）が、かつて `vct/` の隣にあった。[renju-note/quintet#133](https://github.com/renju-note/quintet/pull/133) で削除した。当時の状態と、削除の根拠になった計測はその PR にある。

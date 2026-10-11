@@ -1,5 +1,10 @@
 # Benchmarking the solvers
 
+For a quick check, use `cargo bench --bench solvers -- --tag quick`.
+Read [§3](#section-3) to compare a change and [§4](#section-4) to add a
+position. [§1](#section-1) explains the columns; [§2](#section-2) lists
+the runner options.
+
 How to tell whether a change made a solver faster.
 
 - The benchmark is a runner, `benches/solvers.rs`, over a set of positions,
@@ -17,11 +22,13 @@ benches/
 scripts/bench-compare.sh    the runner on a git ref and on the working tree (§3)
 ```
 
+<a id="section-1"></a>
+
 ## 1. What is measured
 
 | Column | What it is | Deterministic |
 | --- | --- | --- |
-| `nodes` | Nodes visited: `SolveStats::nodes`, counted as `NodeBudget` counts them (03 §3), nested VCF searches included. | yes |
+| `nodes` | Nodes visited: `SolveStats::nodes`, counted as `NodeBudget` counts them ([03 §3](03-solver-api.en.md#section-3)), nested VCF searches included. | yes |
 | `memo` | Entries left in the solver's memos: `SolveStats::memo_len`. A measure of the memory the search needed. | yes |
 | `time` | Wall-clock time of `solve_with_stats`, the median of `--runs` runs. | no |
 
@@ -39,6 +46,8 @@ Nodes are the number to compare changes by:
 The runner checks that every run of a case gives the same verdict and the
 same numbers, and reports the case as failed if not.
 
+<a id="section-2"></a>
+
 ## 2. Running it
 
 ```sh
@@ -54,7 +63,7 @@ the runner:
 | `--tag TAG` | Only the cases tagged `TAG`. Repeatable; a case must have all of them. |
 | `--skip-tag TAG` | Leave out the cases tagged `TAG`. Repeatable. |
 | `--all` | Also run the cases tagged `heavy`, which are left out unless this or `--tag heavy` is given. |
-| `--mode MODE` | Run every case in `MODE` (`vcf`, `vct`, `vct_pns`, `vct_dfpns`, `vct_auto`) instead of its own. The verdict is still checked; the exact line is not, since VCT modes may report different winning lines (03 §2). |
+| `--mode MODE` | Run every case in `MODE` (`vcf`, `vct`, `vct_pns`, `vct_dfpns`, `vct_auto`) instead of its own. The verdict is still checked; the exact line is not, since VCT modes may report different winning lines ([03 §2](03-solver-api.en.md#section-2)). |
 | `--runs N` | Time each case `N` times and report the median. Default 3. |
 | `--save PATH` | Write the results as TSV. |
 | `--baseline PATH` | Compare with a file written by `--save`: each row gets its change in nodes, memo entries and time, with a total at the end. |
@@ -72,6 +81,8 @@ cargo bench --bench solvers                         # everything but `heavy`: a 
 cargo bench --bench solvers -- --tag vct --tag disproven
 cargo bench --bench solvers -- --mode vct_pns --tag vct   # the same positions with PNS
 ```
+
+<a id="section-3"></a>
 
 ## 3. Comparing two versions
 
@@ -123,6 +134,8 @@ When a PR changes a solver, paste the comparison into its description:
 - If time changes noticeably with nodes at `=` in a PR that did not aim for
   it, run the comparison again before believing it.
 
+<a id="section-4"></a>
+
 ## 4. Cases
 
 One file per position; the file name without `.txt` is the case name.
@@ -143,7 +156,7 @@ board:
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `mode` | yes | A `SolveMode` CLI name (03 §2). A case whose mode the solver does not know is reported `SKIPPED`, not failed, so that `bench-compare.sh` can run new cases on an older ref. |
+| `mode` | yes | A `SolveMode` CLI name ([03 §2](03-solver-api.en.md#section-2)). A case whose mode the solver does not know is reported `SKIPPED`, not failed, so that `bench-compare.sh` can run new cases on an older ref. |
 | `attacker` | yes | `o` (Black) or `x` (White). |
 | `limit` | yes | `SolveLimits::limit`. |
 | `threat_limit` | no | `SolveLimits::with_threat_limit`; default 0. |
@@ -162,8 +175,8 @@ Tags in use:
 | `quick` | Well under a second. The set to run on every change. |
 | `slow` | Seconds to tens of seconds. |
 | `heavy` | Too slow for the default set: a minute or more, or 3 s or more among the `game` cases. Left out unless asked for. |
-| `game` | Taken from a played game (§4.1). |
-| `auto` | Mode `vct_auto`: only a node budget (06 §5). `limit` is required but ignored. |
+| `game` | Taken from a played game ([§4.1](#section-4-1)). |
+| `auto` | Mode `vct_auto`: only a node budget ([06 §5](06-solver-vct.en.md#section-5)). `limit` is required but ignored. |
 
 Adding a case:
 
@@ -177,6 +190,8 @@ Adding a case:
   author and number, or a link.
 - Keep `quick` quick, and the default set (everything but `heavy`) within a
   few minutes: the Bench workflow runs it on every pull request.
+
+<a id="section-4-1"></a>
 
 ### 4.1 Positions from games (`vct_game_*`)
 
@@ -213,15 +228,17 @@ positions met in play instead.
 - Each file's comment gives the game's players and the moves up to the
   position.
 
+<a id="section-5"></a>
+
 ## 5. Cheat sheet
 
 | I want to… | Use |
 | --- | --- |
-| Know the nodes one solve took, in code | `solve_with_stats` (03 §2) |
+| Know the nodes one solve took, in code | `solve_with_stats` ([03 §2](03-solver-api.en.md#section-2)) |
 | Run the everyday set | `cargo bench --bench solvers` |
 | Check my change quickly | `cargo bench --bench solvers -- --tag quick` |
 | Compare with `main` | `scripts/bench-compare.sh main` |
 | Compare two VCT modes on the same positions | `--mode vct_pns --tag vct`, then `--mode vct_dfpns --tag vct` |
 | Keep a result to compare with later | `--save PATH`, later `--baseline PATH` |
-| Run the positions from games | `cargo bench --bench solvers -- --tag game --all` (§4.1) |
-| Add a position | A new `benches/cases/NAME.txt` (§4) |
+| Run the positions from games | `cargo bench --bench solvers -- --tag game --all` ([§4.1](#section-4-1)) |
+| Add a position | A new `benches/cases/NAME.txt` ([§4](#section-4)) |

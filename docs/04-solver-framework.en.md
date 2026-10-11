@@ -1,5 +1,10 @@
 # Inside `src/mate/`: the search framework
 
+Start with the [component relationships](#section-1) and [Game](#section-2),
+then read about [state and keys](#section-3) and [solver entry points](#section-4).
+[§5](#section-5) covers memo retention and budget exhaustion;
+[§6](#section-6) explains how nodes are counted.
+
 Read this before changing anything under `src/mate/`. It covers the pieces
 every solver is built from — the game, the state, the memo, the `Solver`
 trait — and the rules they all follow. The searches themselves are
@@ -10,6 +15,8 @@ Assumed:
 - [03](03-solver-api.en.md): what a solver is asked, `limit`, `NodeBudget`.
 - The board terms of [02](02-board-implementation.en.md): `Four`, `Sword`,
   `eyes()`, forbidden moves, `zobrist_hash`.
+
+<a id="section-1"></a>
 
 ## 1. Layout
 
@@ -49,6 +56,8 @@ Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solve
   question, all keyed by the state's **`Key`**.
 - **`NodeBudget`**: bounds the work of one question, or of a series.
 
+<a id="section-2"></a>
+
 ## 2. `Game`: the board during a search
 
 ```rust
@@ -64,9 +73,9 @@ never clones:
   Every solver walks its tree with it.
 
 A move is an `Option<Point>`. `play(None)` is a **pass**: the turn flips,
-the board stays. Renju has no passes, but a threat is defined by one ("what
-could the other side do if I did nothing?"), so it is a first-class move
-here.
+the board stays. Renju rules allow passes, but the solver does not search
+passes as game moves. Here a pass is a hypothetical operation used to recognise a threat:
+"what could the other side do if I did nothing?"
 
 ### `check_event`: fours already on the board
 
@@ -90,7 +99,9 @@ the fours of the side that *just moved* mean for the side *to move*?
 - A straight four shows up as two `Four`s with different eyes, handled by
   the same two-point test as a double-four (`first_two_distinct`).
 
-`End` is the `Defeated` payload, and what a `Mate` ends with (03, §5).
+`End` is the `Defeated` payload, and what a `Mate` ends with ([03 §5](03-solver-api.en.md#section-5)).
+
+<a id="section-3"></a>
 
 ## 3. `State`: the limit and the key
 
@@ -117,7 +128,7 @@ the limit bookkeeping, the one rule about `limit` to remember:
 Down a line: root (attacker to move) `limit = 3` → after the first attack,
 still `3` → after the defence, `2` → after the second attack, `2` → … →
 `0`: the attacker may not move again. The walk-through of `test_vcf_counter`
-in 05, §4 shows this on a board.
+in [05 §4](05-solver-vcf.en.md#section-4) shows this on a board.
 
 ### `Key`: what every memo is keyed by
 
@@ -142,7 +153,7 @@ same stones and side to move can be "Black mates" for one question and
 `VCTState` overrides `key()` to fold in a fourth: **the `threat_limit`**
 (`apply_threat_limit`). Under another `threat_limit` other moves count as
 threats, so the same position is another node, and one VCT solver can be
-asked under several (`test_key_separates_the_threat_limit`, 06 §2).
+asked under several (`test_key_separates_the_threat_limit`, [06 §2](06-solver-vct.en.md#section-2)).
 
 The two parts are kept apart because they are remembered differently:
 
@@ -158,9 +169,11 @@ The two parts are kept apart because they are remembered differently:
   combined (`ProofTable::estimates`, the VCT candidate caches).
 
 - For VCF the bound is exact: nothing it generates reads `limit`.
-- For VCT it holds from `transfer_from` up (06, §4).
+- For VCT it holds from `transfer_from` up ([06 §4](06-solver-vct.en.md#section-4)).
 - `test_verdict_is_monotone_in_limit` (`--ignored`) checks that the verdict
   never flips back from "mate" to "no mate" as the limit grows.
+
+<a id="section-4"></a>
 
 ## 4. `Solver`: one question, one generation
 
@@ -192,6 +205,8 @@ Why the split: a solver can sit inside another.
 `clear()` forgets everything; `memo_len()` counts what is held. Both are
 for callers; nothing inside the solvers needs them.
 
+<a id="section-5"></a>
+
 ## 5. `Memo`: remembering across searches
 
 ```rust
@@ -203,7 +218,7 @@ Three rules govern what goes in and when it leaves.
 
 **What is stored stays true.** Every entry is a fact about its key: a dead
 end, a proof, a disproof, a proof-number estimate. The key contains
-everything the fact depends on (§3), so a memo never needs invalidating,
+everything the fact depends on ([§3](#section-3)), so a memo never needs invalidating,
 only bounding.
 
 **Generations bound it.**
@@ -226,13 +241,17 @@ only bounding.
 
 And one rule about what is *not* stored, from `NodeBudget`:
 
-**An aborted search writes nothing.**
+**Results left incomplete by budget exhaustion are not written.**
 
 - When the budget runs out, `None` / "unknown" propagates up, and every
   insert on the way is skipped: no dead end in `DFSSolver`, no node in a
   `ProofTable`, no list in a candidate cache.
-- An entry from a search that gave up would be a guess dressed as a fact.
+- Results of subtrees completed before the budget ran out remain in the
+  memos; aborting the whole search does not roll them back. Recording an
+  incomplete result would turn a guess into a fact.
 - The checks are the `!budget.is_exhausted()` guards next to every insert.
+
+<a id="section-6"></a>
 
 ## 6. `NodeBudget`: counting work
 
@@ -248,6 +267,8 @@ And one rule about what is *not* stored, from `NodeBudget`:
 proven, reading the line back is bounded by its length, and giving up on a
 proof for want of budget would be pointless.
 
+<a id="section-7"></a>
+
 ## 7. Cheat sheet
 
 | Question | Where to look |
@@ -255,10 +276,10 @@ proof for want of budget would be pointless.
 | What is a solver, minimally? | `Solver` in `solver.rs`: `solve` = `advance_generation` + the solver's own `search` |
 | Why did the search stop at depth N? | `limit` counts attacker moves; `State::play` decrements it after each defender move |
 | Why is the attacker in the hash? | `State::key`: one solver answers about both sides |
-| Why is the `threat_limit` in the hash? | `VCTState::key`: one VCT solver answers under several (06 §2) |
-| Why are decisions keyed without the limit? | A decision is a bound over limits (§3); `DFSSolver::dead_ends`, `ProofTable::decided` |
+| Why is the `threat_limit` in the hash? | `VCTState::key`: one VCT solver answers under several ([06 §2](06-solver-vct.en.md#section-2)) |
+| Why are decisions keyed without the limit? | A decision is a bound over limits ([§3](#section-3)); `DFSSolver::dead_ends`, `ProofTable::decided` |
 | Why did the memo not grow? | `Memo::advance_generation` drops all but the previous generation once over `carry_capacity` |
-| Why is something not memoized? | Aborted searches write nothing: the `!budget.is_exhausted()` guards |
+| Why is something not memoized? | Incomplete results are not written; completed subtrees remain. See the `!budget.is_exhausted()` guards |
 | What is one node? | One call of `DFSSolver::search` / `search_attacks` / `search_defences` |
 | How are fours on the board detected? | `Game::check_event` → `Defeated` / `Forced` |
 | How is a pass represented? | `Game::play(None)`: the turn flips, the board does not |

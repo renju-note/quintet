@@ -1,11 +1,16 @@
 # VCF: the four-chasing search (`src/mate/vcf/`)
 
+Read the [worked example](#section-4) first to see the attacks and blocks,
+then follow [move generation](#section-1) and [search](#section-2).
+The zone matters when VCF is used inside VCT.
+
 A **VCF** (victory by continuous fours) is a line in which every attacking
 move makes a four.
 
 - The defender never has a choice: each four must be blocked at once.
-- So the whole line is forced from the first move, and the tree is a chain
-  of `(attack, block)` pairs.
+- The attacker can choose among several four-making moves. The search
+  branches on attacks; within each branch the block is forced. It advances
+  in `(attack, block)` pairs.
 - This makes VCF the simplest solver in the crate, and the one the VCT
   solver relies on to recognise threats.
 
@@ -19,6 +24,8 @@ src/mate/vcf/
 ├── dfs.rs              DFSSolver: the depth-first search and its dead-end memo      (§2)
 └── iddfs.rs            IDDFSSolver: DFSSolver at increasing limits                (§3)
 ```
+
+<a id="section-1"></a>
 
 ## 1. `VCFState`: where the fours are
 
@@ -61,7 +68,7 @@ Notes:
   reports `Defeated(Fours(..))` before the stored block is played. So the
   stored eye only matters for a single four.
 - None of the three scans the board. They read the swords `VCFState` caches
-  in its `SwordMap` (02 §7):
+  in its `SwordMap` ([02 §7](02-board-implementation.en.md#section-7)):
   - `after_play` / `after_undo` mark it; it is synced before each read,
     recomputing the lines touched since the last read.
   - The order is exactly that of `rows` / `rows_on`, so the tree searched
@@ -69,6 +76,8 @@ Notes:
 - A nested VCF inside the VCT search starts from a clone of the `SwordMap`
   that `VCTState` keeps. `VCTState` syncs it before cloning, so the nested
   state starts with nothing stale.
+
+<a id="section-2"></a>
 
 ## 2. `DFSSolver`
 
@@ -113,10 +122,10 @@ Things to notice:
   - Nothing here reads `limit` when generating moves, so the tree at limit
     *n* is the tree at *n+1* cut short. "No VCF within *n*" is exact for
     every limit up to *n*, and the memo is keyed by `Key::position` alone
-    (04, §3).
+    ([04 §3](04-solver-framework.en.md#section-3)).
 - **Forbidden attacks never win.**
   - So Black never plays a double-four or overline in a VCF found here,
-    and Black's `Fours` end is always a straight four (03, §5).
+    and Black's `Fours` end is always a straight four ([03 §5](03-solver-api.en.md#section-5)).
   - Few attacks are forbidden (about one in seventy on the benchmark). So
     an attack is searched first, and asked about only once its search has
     found a VCF; a forbidden one then fails.
@@ -137,7 +146,7 @@ Things to notice:
 stone could give the attacker one.
 
 - The VCT solver uses it to rule out attacks that cannot be threats
-  (06, §3).
+  ([06 §3](06-solver-vct.en.md#section-3)).
 - It is an `Area` (`src/feature/area.rs`, a bit per point), built from what
   the search looks at:
 
@@ -182,6 +191,8 @@ Zones in the memo:
 - `search` is `search_zone` with the zone thrown away. The tree searched,
   and so the nodes counted, are the same.
 
+<a id="section-3"></a>
+
 ## 3. `IDDFSSolver`
 
 `IDDFSSolver::new(limits)`:
@@ -195,11 +206,16 @@ memo is exact per limit, so they cost the deeper passes nothing.
 
 It implements `Solver` with the same `solve` / `search` split. The VCT
 solver keeps one per side with `limits = [1]` ("check for a one-move win
-first") and calls its `search` (06, §2).
+first") and calls its `search` ([06 §2](06-solver-vct.en.md#section-2)).
+
+<a id="section-4"></a>
 
 ## 4. Walk-through
 
 The board from `test_vcf_counter`, Black to move:
+
+Coordinates: Black `H8,J8,K8,I7,L7,I6`; White `H9,L8,J7,K6,I5,L5`.
+The top row is 15 and the left column is A.
 
 ```
  . . . . . . . . . . . . . . .
@@ -235,6 +251,8 @@ The board from `test_vcf_counter`, Black to move:
 With `limit = 2` the same call returns `None`: after `I9` the limit is 0,
 and `search` stops before trying `J9`. Three fours need `limit >= 3`.
 
+<a id="section-5"></a>
+
 ## 5. Cheat sheet
 
 | Question | Where to look |
@@ -243,6 +261,6 @@ and `search` stops before trying `J9`. Three fours need `limit >= 3`.
 | A counter-four is mishandled | `Game::check_event` at the attacker's node → `Forced(p)`, then `VCFState::forced_move_pair` |
 | Which fours are tried first? | `neighbor_move_pairs` (through the attacker's last stone), then `move_pairs` |
 | The memo | `DFSSolver::dead_ends`: the largest limit with no VCF and that search's zone, keyed by `Key::position`; never written after the budget ran out |
-| Which points could give the attacker a VCF? | `DFSSolver::search_zone` (§2, "The zone") |
-| Why `solve` and `search`? | `solve` opens a generation; `search` is what `IDDFSSolver` and the VCT solver call repeatedly (04, §4) |
+| Which points could give the attacker a VCF? | `DFSSolver::search_zone` ([§2](#section-2), "The zone") |
+| Why `solve` and `search`? | `solve` opens a generation; `search` is what `IDDFSSolver` and the VCT solver call repeatedly ([04 §4](04-solver-framework.en.md#section-4)) |
 | How deep may a VCF be? | `limit` attacker moves, each a four: a VCF of *k* fours needs `limit >= k` |

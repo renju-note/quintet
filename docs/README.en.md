@@ -23,12 +23,19 @@ Where to start:
 - New to Renju: read 01 first. The solver documents use its terms (four,
   straight four, three, forbidden move).
 - Changing rule logic in `src/board/` (rows, forbidden moves): read 02.
-- Calling the solvers from the app, the CLI or Rust: read 03.
-- Changing the search in `src/mate/` or `src/feature/`: read 04, then 05
-  and 06, and measure with the benchmark in 07.
-- Looking for what to speed up next, or whether an idea was tried: 08.
+- Calling the solvers from the app, the CLI or Rust: start with the
+  [examples in 03](03-solver-api.en.md#quick-start).
+- Changing search in `src/mate/` or `src/feature/`: start with the
+  [components in 04](04-solver-framework.en.md#section-1), the
+  [VCF example in 05](05-solver-vcf.en.md#section-4), and the
+  [VCT example in 06](06-solver-vct.en.md#section-7). Measure changes with
+  [07](07-benchmarks.en.md#section-3).
+- Looking for what to speed up next: [08 §6](08-performance.en.md#section-6).
+  To check whether an idea was tried, read the
+  [rejected ideas](08-performance.en.md#section-5) and
+  [tuning experiments](08-performance.en.md#section-8).
 - Looking for one thing: each document ends with a cheat sheet from
-  questions to identifiers (02 §8, 03 §7, 04 §7, 05 §5, 06 §9).
+  questions to identifiers ([02 §8](02-board-implementation.en.md#section-8), [03 §7](03-solver-api.en.md#section-7), [04 §7](04-solver-framework.en.md#section-7), [05 §5](05-solver-vcf.en.md#section-5), [06 §9](06-solver-vct.en.md#section-9)).
 
 Conventions for writing documents:
 

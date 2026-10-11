@@ -1,9 +1,11 @@
 # 四追い（VCF）探索（`src/mate/vcf/`）
 
+先に [手順例](#section-4) で攻めと受けを確認すると、[手の生成](#section-1) と [探索](#section-2) を追いやすい。関連領域の説明は、VCF を VCT の中で使う場合に必要となる。
+
 **四追い**（VCF: victory by continuous fours）は、攻め手がすべて四を作る手順。
 
 - 受け方に選択肢はない。四はその場で止めるしかない。
-- そのため手順は初手から強制で、木は `(攻め, 止め)` ペアの一本道になる。
+- 攻め方は複数の四を作る手から選べる。探索木は攻め手で分岐し、各枝では受け方の止めが強制される。探索は `(攻め, 止め)` ペアを単位に進む。
 - クレートで最も単純なソルバーで、追い詰めソルバーが追い手の判定に頼るものでもある。
 
 前提: [04](04-solver-framework.ja.md)（`Game`、`State`、`Key`、`Memo`、`Solver`）。
@@ -15,6 +17,8 @@ src/mate/vcf/
 ├── dfs.rs              DFSSolver: the depth-first search and its dead-end memo      (§2)
 └── iddfs.rs            IDDFSSolver: DFSSolver at increasing limits                (§3)
 ```
+
+<a id="section-1"></a>
 
 ## 1. `VCFState`: 四を作る手
 
@@ -48,10 +52,12 @@ pairs:  (H11, H12)   play H11: four H8–H11, White must answer H12
 補足:
 
 - 止めの点は剣先から取り、攻め手を打った後の盤面から求め直さない。攻め手が四を 2 つ作れば、止めを打つ前に受け方の `check_event` が `Defeated(Fours(..))` を返す。だから保持している止めが効くのは四が 1 つのときだけ。
-- 3 つとも盤面を走査しない。`VCFState` が `SwordMap`（02 §7）にキャッシュしている剣先を読む:
+- 3 つとも盤面を走査しない。`VCFState` が `SwordMap`（[02 §7](02-board-implementation.ja.md#section-7)）にキャッシュしている剣先を読む:
   - `after_play` / `after_undo` で印を付け、読む前に同期して、前回から触れられた線だけ計算し直す。
   - 返す順序は `rows` / `rows_on` とまったく同じ。探索する木は全走査した場合と同じ。
 - 追い詰め探索の中の四追いは、`VCTState` が持つ `SwordMap` のクローンから始まる。`VCTState` はクローンの前に同期するので、計算し直しの必要な線は残っていない。
+
+<a id="section-2"></a>
 
 ## 2. `DFSSolver`
 
@@ -92,9 +98,9 @@ search_defence(state, defence):                # 受け方の手番
 - **メモするのは失敗だけ。**
   - 成功はそのまま返す。
   - 四追いがない局面は `dead_ends` に記録する。それが分かった最大の limit と、その探索の関連領域（後述）。
-  - 手の生成が `limit` を読まないので、limit *n* の木は *n+1* の木を途中で切ったもの。「*n* 以内に四追いなし」は *n* 以下のすべての limit で正確で、キーは `Key::position` だけでよい（04 §3）。
+  - 手の生成が `limit` を読まないので、limit *n* の木は *n+1* の木を途中で切ったもの。「*n* 以内に四追いなし」は *n* 以下のすべての limit で正確で、キーは `Key::position` だけでよい（[04 §3](04-solver-framework.ja.md#section-3)）。
 - **禁手の攻め手では勝てない。**
-  - ここで見つかる四追いで、黒は四四や長連を打たない。黒の `Fours` が常に棒四なのはこのため（03 §5）。
+  - ここで見つかる四追いで、黒は四四や長連を打たない。黒の `Fours` が常に棒四なのはこのため（[03 §5](03-solver-api.ja.md#section-5)）。
   - 禁手の攻め手は少ない（ベンチマークでおよそ 70 に 1 つ）。だから攻め手はまず探索し、その先で四追いが見つかったときだけ禁手かを確かめる。禁手なら失敗とする。
   - 禁手の攻め手の先の探索は無駄になるが、すべての攻め手を事前に確かめるほうが高くついた。
 - **ノリ手は特別扱いしない。** 止めが四になれば、攻め方の次のノードは `Forced(p)` を見る。`forced_move_pair(p)` が成功するのは `p` 自体が四を作る眼のときだけ。`test_vcf_counter`、`test_vcf_not_opponent_double_four` が検証している。
@@ -104,7 +110,7 @@ search_defence(state, defence):                # 受け方の手番
 
 `search_zone(state, budget, &mut zone)` は、`search` に加えて**関連領域**を集める。四追いが見つからなかったとき、攻め方がもう 1 石置けば四追いが生まれうる空点の集合。
 
-- 追い詰めソルバーはこれで、追い手になりえない攻め手を除く（06 §3）。
+- 追い詰めソルバーはこれで、追い手になりえない攻め手を除く（[06 §3](06-solver-vct.ja.md#section-3)）。
 - 点ごとに 1 ビットの `Area`（`src/feature/area.rs`）で、探索が見たものから作る:
 
 | どこで | 加えるもの |
@@ -133,6 +139,8 @@ search_defence(state, defence):                # 受け方の手番
 - 行き止まりを上書きするのは、より大きな limit の探索だけ。その木（と関連領域）は小さい limit のものを含む。
 - `search` は関連領域を捨てる `search_zone`。探索する木も、数えるノードも同じ。
 
+<a id="section-3"></a>
+
 ## 3. `IDDFSSolver`
 
 `IDDFSSolver::new(limits)` は:
@@ -142,11 +150,15 @@ search_defence(state, defence):                # 受け方の手番
 
 浅い探索は、木全体をたどらずに短い四追いを見つける。行き止まりメモは limit ごとに正確なので、浅い探索は深い探索に何のコストも残さない。
 
-`Solver` を実装し、`solve` / `search` の分け方も同じ。追い詰めソルバーは各側に `limits = [1]`（「まず 1 手で勝てるか」）のものを 1 つずつ持ち、その `search` を呼ぶ（06 §2）。
+`Solver` を実装し、`solve` / `search` の分け方も同じ。追い詰めソルバーは各側に `limits = [1]`（「まず 1 手で勝てるか」）のものを 1 つずつ持ち、その `search` を呼ぶ（[06 §2](06-solver-vct.ja.md#section-2)）。
+
+<a id="section-4"></a>
 
 ## 4. 手順を追う
 
 `test_vcf_counter` の盤面、黒番:
+
+座標で読む場合: 黒 `H8,J8,K8,I7,L7,I6`、白 `H9,L8,J7,K6,I5,L5`。図は最上段が 15 行目、左端が A 列。
 
 ```
  . . . . . . . . . . . . . . .
@@ -180,6 +192,8 @@ search_defence(state, defence):                # 受け方の手番
 
 `limit = 2` では `None` になる。`I9` の後で limit が 0 になり、`J9` を試す前に `search` が止まるため。四 3 つには `limit >= 3` が必要。
 
+<a id="section-5"></a>
+
 ## 5. チートシート
 
 | 知りたいこと | 見る場所 |
@@ -188,6 +202,6 @@ search_defence(state, defence):                # 受け方の手番
 | ノリ手の扱いがおかしい | 攻め方のノードの `Game::check_event` → `Forced(p)`、次に `VCFState::forced_move_pair` |
 | どの四が先に試されるか | `neighbor_move_pairs`（攻め方の直前の石を通るもの）→ `move_pairs` |
 | メモ | `DFSSolver::dead_ends`: 四追いのない最大 limit とその探索の関連領域。キーは `Key::position`。予算切れ後は書かない |
-| どの点で攻め方に四追いが生まれうるか | `DFSSolver::search_zone`（§2「関連領域」） |
-| `solve` と `search` の違い | `solve` は世代を開く。`search` は `IDDFSSolver` と追い詰めソルバーが繰り返し呼ぶ（04 §4） |
+| どの点で攻め方に四追いが生まれうるか | `DFSSolver::search_zone`（[§2](#section-2)「関連領域」） |
+| `solve` と `search` の違い | `solve` は世代を開く。`search` は `IDDFSSolver` と追い詰めソルバーが繰り返し呼ぶ（[04 §4](04-solver-framework.ja.md#section-4)） |
 | 四追いの深さ | 攻め手 `limit` 手。各手が四なので、四 *k* 個には `limit >= k` |

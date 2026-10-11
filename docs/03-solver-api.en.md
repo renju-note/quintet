@@ -8,7 +8,76 @@ needed here.
 
 - Terms from [01](01-renju-rules.en.md) are assumed: four, straight four,
   three, forbidden move.
-- Everything below is in `src/mate/`, re-exported from `quintet::mate`.
+- The Rust solver API is in `src/mate/`, re-exported from `quintet::mate`.
+  The JS entry points are in `src/wasm.rs`.
+
+<a id="quick-start"></a>
+
+## Solve one position first
+
+The Rust, CLI and JavaScript examples solve the same position for Black.
+They allow five attacking moves and three moves in the nested VCF threat
+check. The result is `I8,G8,K7,H10,J6,E10,I7,K5,I6`.
+
+### Rust
+
+```rust
+use quintet::board::{Board, Player, Points};
+use quintet::mate::{solve, SolveLimits, SolveMode, SolveResult};
+
+fn main() -> Result<(), &'static str> {
+    let board: Board = "H8,H7,I9,G7,J8,J9,G9,F10".parse()?;
+    let limits = SolveLimits::new(5)
+        .with_threat_limit(3)
+        .with_max_nodes(100_000);
+    match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
+        SolveResult::Proven(mate) => println!("{}", Points(mate.path)),
+        SolveResult::Disproven => println!("No mate within these limits"),
+        SolveResult::Aborted => println!("Unknown: budget exhausted"),
+    }
+    Ok(())
+}
+```
+
+### CLI
+
+Run from the repository root. `o` means Black and `x` means White. The
+position string lists alternating moves, starting with Black.
+
+```sh
+cargo run --release --example solve -- vct_dfpns 5 3 o H8,H7,I9,G7,J8,J9,G9,F10
+```
+
+### JavaScript
+
+Install the published package with `npm install @renju-note/quintet` and
+run in an environment that can load WebAssembly. Coordinates start at zero:
+`H8` is `(7, 7)`. `16` selects df-pn; `true` selects Black as the attacker.
+
+```js
+import init, { solve, encode_xy, decode_x, decode_y } from "@renju-note/quintet";
+
+await init();
+const blacks = [[7, 7], [8, 8], [9, 7], [6, 8]].map(([x, y]) => encode_xy(x, y));
+const whites = [[7, 6], [6, 6], [9, 8], [5, 9]].map(([x, y]) => encode_xy(x, y));
+const path = solve(16, 5, blacks, whites, true, 3);
+if (path !== undefined) {
+  console.log(Array.from(path, p => [decode_x(p), decode_y(p)]));
+}
+```
+
+In Rust, `Proven` means a mate exists, `Disproven` means none within the
+specified bounds, and `Aborted` means unknown. JS returns a winning line or
+`undefined`; it does not distinguish no mate, budget exhaustion, invalid
+point codes, and similar failures. The JS example has no node budget; use
+`solve_vct_auto` to specify one.
+
+Read [§5](#section-5) to interpret the line and [§6](#section-6) for special
+input positions. For ordinary use, continue with [§1](#section-1) and
+[§2](#section-2). Read [§4](#section-4) only when keeping a solver for
+repeated queries.
+
+<a id="section-1"></a>
 
 ## 1. The question a solver answers
 
@@ -29,6 +98,8 @@ Every call asks:
 A positive answer is a [`Mate`](#5-mate-and-end): the winning line, and why
 the defender is lost at its end.
 
+<a id="section-2"></a>
+
 ## 2. One-shot: `solve`
 
 ```rust
@@ -40,18 +111,7 @@ pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimi
 - The answer has three values. `wasm.rs` calls it too, and reduces the
   answer to the winning line or nothing.
 
-```rust
-use quintet::board::{Board, Player};
-use quintet::mate::{SolveLimits, SolveMode, SolveResult, solve};
-
-let board: Board = "H8,I9,J9,H7".parse().unwrap();
-let limits = SolveLimits::new(5).with_threat_limit(2).with_max_nodes(100_000);
-match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
-    SolveResult::Proven(mate) => { /* mate.path is the winning line */ }
-    SolveResult::Disproven => { /* no mate within the limits */ }
-    SolveResult::Aborted => { /* out of budget: still unknown */ }
-}
-```
+See the [Rust quick start](#quick-start) for a complete calling example.
 
 `solve_with_stats` is the same call, plus what the search cost:
 
@@ -64,6 +124,21 @@ stats.memo_len   // entries left in the solver's memos (Solver::memo_len, §4)
 Both numbers are deterministic: the same arguments give the same numbers on
 every run and machine. So they are what solver changes are compared by, as
 the benchmark does (07).
+
+### `SolveResult`
+
+```rust
+pub enum SolveResult { Proven(Mate), Disproven, Aborted }
+```
+
+`Option<Mate>` cannot say *why* there is no mate; `SolveResult` can.
+
+- `Disproven`: there is no mate within the limits.
+- `Aborted`: the budget ran out (or a reserved mode searched nothing). The
+  position is still open. An engine that takes `Aborted` as "safe" walks
+  into mates.
+- Accessors: `is_proven()`, `is_disproven()`, `is_aborted()`, `mate()`,
+  `into_mate()`.
 
 ### `SolveMode`
 
@@ -96,9 +171,9 @@ SolveLimits::new(limit)
 | Field | Bounds | Applies to |
 | --- | --- | --- |
 | `limit` | Attacker moves in the main line. | every mode |
-| `threat_limit` | Attacker moves in the nested VCF that decides whether a move is a *threat* (06, §2). `0`: fours only. `1`: fours and threes. `2`+: also moves that set up a four-three, and deeper preparation (`test_vct_fukumi_move` needs `3`). | VCT |
+| `threat_limit` | Attacker moves in the nested VCF that decides whether a move is a *threat* ([06 §2](06-solver-vct.en.md#section-2)). `0`: fours only. `1`: fours and threes. `2`+: also moves that set up a four-three, and deeper preparation (`test_vct_fukumi_move` needs `3`). | VCT |
 | `defender_vcf_depth` | Attacker moves in the nested VCF that looks for the *defender's* counter-VCF. | VCT |
-| `max_nodes` | Total work, in nodes (§3). | every mode |
+| `max_nodes` | Total work, in nodes ([§3](#section-3)). | every mode |
 
 The `with_*` methods return a new value, so fields added later do not break
 callers that build limits this way.
@@ -107,7 +182,7 @@ callers that build limits this way.
 
 `VCTAUTO` asks a VCT with no `limit` or `threat_limit` to choose: give it
 `with_max_nodes` and nothing else matters (`defender_vcf_depth` still
-applies). It is `DFPNSVCTSolver::solve_auto` (06 §5), and from JS
+applies). It is `DFPNSVCTSolver::solve_auto` ([06 §5](06-solver-vct.en.md#section-5)), and from JS
 `solve_vct_auto(blacks, whites, black, max_nodes)`.
 
 ```rust
@@ -124,20 +199,7 @@ let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
   It never says "none within N moves".
 - `Aborted`: unknown, as usual.
 
-### `SolveResult`
-
-```rust
-pub enum SolveResult { Proven(Mate), Disproven, Aborted }
-```
-
-`Option<Mate>` cannot say *why* there is no mate; `SolveResult` can.
-
-- `Disproven`: there is no mate within the limits.
-- `Aborted`: the budget ran out (or a reserved mode searched nothing). The
-  position is still open. An engine that takes `Aborted` as "safe" walks
-  into mates.
-- Accessors: `is_proven()`, `is_disproven()`, `is_aborted()`, `mate()`,
-  `into_mate()`.
+<a id="section-3"></a>
 
 ## 3. Budgets: `NodeBudget`
 
@@ -164,10 +226,13 @@ Two guarantees make a budget safe:
 
 - **A proof is never spurious.** A mate found just before the budget ran
   out is real, and is returned.
-- **An aborted search leaves nothing false behind.** What it computed is
-  not written to any memo (04, §5), so the solver can be reused at once.
+- **Incomplete results are not reused.** Results left incomplete by budget
+  exhaustion are not written to the memos. Completed subtrees remain
+  ([04 §5](04-solver-framework.en.md#section-5)), so the solver can be reused at once.
   `test_abort_leaves_no_wrong_memo` aborts one solver at a range of small
   budgets and checks it still answers right afterwards.
+
+<a id="section-4"></a>
 
 ## 4. Keeping a solver: the `Solver` trait
 
@@ -212,6 +277,9 @@ Build a fresh state per question with `VCFState::from_board(&board,
 attacker, limit)` or `VCTState::from_board(&board, attacker, limit,
 threat_limit)`. The solver is what carries over.
 
+<details>
+<summary>Reuse guarantees and memo management (implementation details)</summary>
+
 What reuse gives:
 
 - **Any question, in any order.** Every memo is keyed by the position, the
@@ -222,7 +290,7 @@ What reuse gives:
     one solver answers under several
     (`test_reused_solver_matches_fresh_across_threat_limits`).
   - Only the nested VCF searches share across `threat_limit`s; the proof
-    tables do not (06 §2).
+    tables do not ([06 §2](06-solver-vct.en.md#section-2)).
 - **Bounded memory.** Each `solve` opens a new *generation*. Once a memo
   has grown past its carry capacity, entries older than the previous search
   are dropped, so the memos settle at about two searches' worth
@@ -232,7 +300,9 @@ What reuse gives:
   - `memo_len()` reports what is held.
 - **The same question again is nearly free**: a few nodes instead of the
   whole search (`test_reused_solver`).
-- **The same position at another limit is cheap.** A decision is a bound:
+- **Decisions can carry to another limit.** This holds at every limit for
+  VCF, and from `transfer_from` up for VCT ([06 §4](06-solver-vct.en.md#section-4)). Within that range, a
+  decision is a bound:
   a mate within 4 is a mate within 5 and 6; no mate within 3 is no mate
   within 2 and 1. Deepening one position over limits 1..6 costs about a
   fifth of six fresh searches (`test_decisions_carry_between_limits`).
@@ -242,15 +312,17 @@ What reuse gives:
 - `clear()` forgets everything. Never required: use it to hand a solver on
   with a clean slate, or to give memory back.
 - `advance_generation()` is what `solve` calls first. Only a caller driving
-  a solver's lower-level `search` / `extract` by hand needs it (04, §4).
+  a solver's lower-level `search` / `extract` by hand needs it ([04 §4](04-solver-framework.en.md#section-4)).
 
-### Two more questions a caller can ask
+</details>
+
+### Other questions a caller can ask
 
 - **Which moves defend against this mate?**
   `VCTState::threat_defences(&mate)` lists the moves worth trying against a
   found mate: its own path, the points that break its end, counter-fours,
   and the defender's own four-making moves. The VCT search generates
-  defences from the same list (06, §3).
+  defences from the same list ([06 §3](06-solver-vct.en.md#section-3)).
 - **Which moves stop this VCT?** Right after a `VCTSolver` proved a
   position, `proof_tree(&mut state, &mut budget)` reads the whole proof off
   its tables as a `ProofTree`: one attack where the attacker moves, every
@@ -259,11 +331,13 @@ What reuse gives:
   checks that same proof node by node, for about 1/100 of a new search. A
   stone outside `tree.zone()` needs not even that: the proof stands. So a
   move outside the zone, or one `proves` accepts, does not stop the VCT;
-  the others are the moves to search again (06, §6).
+  the others are the moves to search again ([06 §6](06-solver-vct.en.md#section-6)).
 - **Is this move a threat?** Let the side to move pass
   (`Game::play(None)`) and ask for the opponent's VCF: `VCFState::new(game,
   limit)` on the passed game, then `DFSSolver::new().solve(..)`.
   `test_threat_after_pass` does it move by move.
+
+<a id="section-5"></a>
 
 ## 5. `Mate` and `End`
 
@@ -280,7 +354,9 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | --- | --- | --- |
 | `Fours(p1, p2)` | Fours with two different winning points `p1`, `p2`: one block is not enough. A straight four (`Grid` reports two `Four`s with different eyes) or a double-four. | Either. An attacking Black gets it only from a straight four: a double-four is forbidden for Black and never played. |
 | `Forbidden(p)` | A single four whose only block `p` is a forbidden move. | Black only. |
-| `Unknown` | The win is proven but the line could not be completed: the attacker already had a four before the search (§6), or the extractor found no proven child to follow (06, §6). | — |
+| `Unknown` | The win is proven but the line could not be completed: the attacker already had a four before the search ([§6](#section-6)), or the extractor found no proven child to follow ([06 §6](06-solver-vct.en.md#section-6)). | — |
+
+<a id="section-6"></a>
 
 ## 6. What is checked before searching: `trivial_result`
 
@@ -294,8 +370,10 @@ the board.)
 | Black already has an `Overlined` | `Disproven` |
 | The attacker already has a `Four` | `Proven(Mate { end: Unknown, path: [] })`: already won, nothing to prove |
 
-A caller using a solver directly (§4) gets none of this, and should check
+A caller using a solver directly ([§4](#section-4)) gets none of this, and should check
 what it needs itself.
+
+<a id="section-7"></a>
 
 ## 7. Cheat sheet
 
@@ -312,5 +390,5 @@ what it needs itself.
 | Know which defences to try | `VCTState::threat_defences(&mate)` |
 | Know which moves stop a VCT, move by move | `VCTSolver::proof_tree` after the solve, then `ProofTree::zone` and `VCTSolver::proves` per move |
 | Know whether the last move was a threat | Pass with `Game::play(None)`, then ask for the opponent's VCF |
-| Read the winning line from JS | `wasm::solve` returns the path as `u8` point codes (02, §1); `decode_x` / `decode_y` |
+| Read the winning line from JS | `wasm::solve` returns the path as `u8` point codes ([02 §1](02-board-implementation.en.md#section-1)); `decode_x` / `decode_y` |
 | Add a solve mode | `SolveMode`, its `TryFrom<u8>` and `FromStr`, and the `match` in `solve` (`solve.rs`) |
