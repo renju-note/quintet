@@ -1,5 +1,12 @@
 # VCT: the threat search (`src/mate/vct/`)
 
+For a first reading, start with [threats and AND/OR nodes](#section-1),
+then the [worked example](#section-7), [proof numbers](#section-4),
+and [search](#section-5). For move generation, read [§2](#section-2)
+and [§3](#section-3); for ordering, [§8](#section-8); for reusing a proof,
+[§6](#section-6). Tuning experiments are collected in
+[08](08-performance.en.md#section-8).
+
 A **VCT** (victory by continuous threats) is a line in which every attacking
 move is a *threat*: a four, a three, or any move after which the attacker
 would have a VCF if the defender did nothing.
@@ -12,6 +19,33 @@ would have a VCF if the defender did nothing.
 
 Assumes [04](04-solver-framework.en.md) and [05](05-solver-vcf.en.md), in
 particular `State`, `Key`, `Memo`, the `Solver` trait and `DFSSolver`.
+
+<a id="section-1"></a>
+
+## 1. Threats and the AND/OR tree
+
+A move is a **threat** if, were the defender to pass, the attacker would
+have a VCF of at most `threat_limit` fours.
+
+| `threat_limit` | Recognised as threats |
+| --- | --- |
+| 0 | Fours only. The nested VCF has no depth, so the threat check always fails; only `Forced` defender nodes (blocking a four) go on. |
+| 1 | Also threes: after a pass, the straight-four point is a one-move VCF. |
+| 2 | Also moves that prepare a two-four VCF, such as one setting up a four-three. |
+| 3+ | Deeper preparation. `test_vct_fukumi_move` needs 3. |
+
+The defender may answer with any move that stops the threatened VCF,
+including a counter-four or a counter-VCF of their own.
+
+The tree alternates two kinds of node:
+
+- **OR node**, attacker to move: *one* winning attack suffices.
+- **AND node**, defender to move: *every* defence must lose.
+
+<details>
+<summary>Source layout and search calls</summary>
+
+### Implementation map
 
 ```
 src/mate/vct.rs         module doc: the algorithm in one page, re-exports, the three aliases
@@ -60,30 +94,14 @@ VCTSolver::solve = advance_generation; search; extract
 └── extract ──► follow proven children through the tables               §6
 ```
 
-- Proof numbers (§4) decide which child `select_*` picks.
-- The threshold policy (§5) decides how long `expand_*` stays in it before
+- Proof numbers ([§4](#section-4)) decide which child `select_*` picks.
+- The threshold policy ([§5](#section-5)) decides how long `expand_*` stays in it before
   returning to the parent.
 - That policy is the only difference between the DFS, PNS and df-pn modes.
 
-## 1. Threats and the AND/OR tree
+</details>
 
-A move is a **threat** if, were the defender to pass, the attacker would
-have a VCF of at most `threat_limit` fours.
-
-| `threat_limit` | Recognised as threats |
-| --- | --- |
-| 0 | Fours only. The nested VCF has no depth, so the threat check always fails; only `Forced` defender nodes (blocking a four) go on. |
-| 1 | Also threes: after a pass, the straight-four point is a one-move VCF. |
-| 2 | Also moves that prepare a two-four VCF, such as one setting up a four-three. |
-| 3+ | Deeper preparation. `test_vct_fukumi_move` needs 3. |
-
-The defender may answer with any move that stops the threatened VCF,
-including a counter-four or a counter-VCF of their own.
-
-The tree alternates two kinds of node:
-
-- **OR node**, attacker to move: *one* winning attack suffices.
-- **AND node**, defender to move: *every* defence must lose.
+<a id="section-2"></a>
 
 ## 2. `VCTState` and the nested VCF searches
 
@@ -96,21 +114,21 @@ pub struct VCTState {
 
 - `threat_limit` is part of the question, like `limit`:
   `VCTState::from_board(&board, attacker, limit, threat_limit)`.
-  - `key()` mixes it into the position (`apply_threat_limit`, 04 §3), so
+  - `key()` mixes it into the position (`apply_threat_limit`, [04 §3](04-solver-framework.en.md#section-3)), so
     the proof tables and candidate caches keep one entry per
     `threat_limit`. Under another one, other moves count as threats and
     the tree is another one.
   - So one `VCTSolver` answers under any `threat_limit`, in any order
     (`test_reused_solver_matches_fresh_across_threat_limits`).
 
-- `shapes` is the `ShapeMap` (§8) of both players.
+- `shapes` is the `ShapeMap` ([§8](#section-8)) of both players.
   - `after_play` / `after_undo` only mark the move's lines stale.
   - They are recomputed when next read (`sorted_attacks` /
     `sorted_defences`), which happens only on a candidate-cache miss.
 - `next_key(m)` is `key()` of the child after `m`, computed by XOR from the
   board's Zobrist hash without playing `m`. This keeps table lookups for
   unexpanded children cheap.
-- `swords` is a `SwordMap` (02 §7), marked the same way.
+- `swords` is a `SwordMap` ([02 §7](02-board-implementation.en.md#section-7)), marked the same way.
   - `vcf_state` / `threat_state` sync it and hand a clone to the nested
     `VCFState`.
   - So each nested VCF starts in sync, and the next one reuses what this
@@ -165,8 +183,10 @@ Two objects × two questions give the four calls the generators make:
 - `vcf` asserts that its own side is to move, `threat` that the other side
   is. A call the other way round is a bug in the search, not a question.
 - The solver inside is an `IDDFSSolver` with `limits = [1]`, called through
-  `search`. So its dead-end memo (04, §5) lives for the whole VCT search and
+  `search`. So its dead-end memo ([04 §5](04-solver-framework.en.md#section-5)) lives for the whole VCT search and
   across searches, and its nodes are charged to the same `NodeBudget`.
+
+<a id="section-3"></a>
 
 ## 3. Move generation (`generator.rs`)
 
@@ -182,62 +202,33 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 
 A `Candidate`'s `estimate` is the number its child starts from while the
 tables know nothing about it: the proof number of an attack, the disproof
-number of a defence (§5, *Selection*).
+number of a defence ([§5](#section-5), *Selection*).
 
 ### The candidate caches
 
 - Results are cached in an `LruCache` of 65,536 entries per generator.
 - The key is `zobrist_hash()`: position *and* limit, because the nested VCF
   depth is `min(limit, depth)`. The position includes the `threat_limit`
-  (§2), which decides what the nested VCF finds.
+  ([§2](#section-2)), which decides what the nested VCF finds.
 - Nothing is cached when the budget ran out.
 
-Why so large:
-
-- df-pn comes back to the same nodes over and over. With 1000 entries, a
-  third of the lookups at attack nodes and over half at defence nodes
-  missed. Each miss generates the moves anew, nested VCF searches and all.
-- Most misses are positions met for the first time, which no capacity
-  saves.
-- An entry takes about 280 bytes in the attacks cache (48 for the entry, 34
-  for its table slot, and some 30 moves of 8 bytes; a sixth are `Terminal`
-  with none), and about 110 in the defences cache (some 6 moves; over half
-  are `Terminal`).
-
-On the benchmark (07), all 121 cases:
-
-| Capacity | Both caches full | Nodes | Time |
-| --- | --- | --- | --- |
-| 1000 | 0.4 MB | | |
-| 4096 | 1.6 MB | −5% | −4% |
-| 16384 | 6 MB | −3% | −6% |
-| **65536** | **25 MB** | **−7%** | **−10%** |
-| 262144 | 100 MB | −8% | −10% |
-| 1048576 | 400 MB (220 MB at most, on `vct_unstable`) | −8% | −12% |
-
-- At 65536 the caches fill in 18 of the 121 cases. All are over a million
-  nodes, where the process already takes 75 MB to 1 GB without them.
-- The caches start empty and grow as they fill (`candidates_cache`), so a
-  small search pays nothing for the capacity. `LruCache::with_hasher` would
-  allocate the whole table up front.
-- A larger cache also changes some lines, not only the node count. What the
-  generators produce can depend on what the nested VCF memos hold (a dead
-  end hands back the zone of the search that stored it). So a node whose
-  moves are generated again may see other moves than the first time.
+The capacity balances regeneration cost and memory. Caches start empty;
+small searches do not allocate the full capacity up front. See the
+[capacity experiments in 08](08-performance.en.md#cache-capacity).
 
 ### `compute_attacks` (attacker to move)
 
 1. `attacker_vcf.vcf_or_zone`: a VCF now? → `Terminal(proven)`.
    - Not needed for correctness (the main search would find the fours one
      `Forced` reply at a time), but much faster.
-   - If not, it hands back the search's zone (05, §2): the points where one
+   - If not, it hands back the search's zone ([05 §2](05-solver-vcf.en.md#section-2)): the points where one
      more attacker stone could give the attacker a VCF.
 2. `defender_vcf.threat`: would the defender have a VCF if the attacker
    passed? If so, the attack must also parry it: candidates are restricted
    to `threat_defences(threat)`.
 3. Candidates are the points where the attacker makes at least a `Two`
    along some line in the `ShapeMap` (`sorted_attacks(only)`), in order of
-   `priority` (§8). Their number is the `width`.
+   `priority` ([§8](#section-8)). Their number is the `width`.
 4. Keep only those that may be threats (`may_threaten`):
    - in the zone, or
    - in a segment already holding two attacker stones (at least a `Sword`
@@ -249,7 +240,7 @@ On the benchmark (07), all 121 cases:
    - None left → `Terminal(disproven)`.
 5. Each gets its estimate from the biggest shape it makes (`best_shape`,
    from the `ShapeMap`, §8): `width / 4` for a four, `width / 2` for a
-   three, `width` for any other (§5, *Selection*).
+   three, `width` for any other ([§5](#section-5), *Selection*).
 
 Notes:
 
@@ -259,7 +250,7 @@ Notes:
   about half the non-threats on the benchmark (where no threat ever fell
   outside the zone).
 - The `width` is taken before step 4 because it seeds the proof numbers of
-  the unexpanded children (§5). A move that is no threat would only be
+  the unexpanded children ([§5](#section-5)). A move that is no threat would only be
   disproven, never make its siblings easier to prove. Seeding with the
   count after pruning tips the search towards other lines.
 
@@ -270,7 +261,7 @@ Notes:
 2. `defender_vcf.vcf`: does the defender have a VCF of their own (within
    `defender_vcf_depth`)? Then the defender wins first →
    `Terminal(disproven)`.
-3. Candidates are `threat_defences(threat)` in order of `priority` (§8)
+3. Candidates are `threat_defences(threat)` in order of `priority` ([§8](#section-8))
    (`sorted_defences`), minus forbidden moves. None left →
    `Terminal(proven)`: the threat cannot be answered.
 4. Each gets the estimate `n`, the number of candidates.
@@ -288,6 +279,8 @@ might stop a threatened VCF, in this order:
 | `four_moves()` | Every four-making move (`Sword` eye) the defender has now: counter-fours that force the attacker to answer. |
 
 The list may repeat a point; `sorted_defences` keeps only the first.
+
+<a id="section-4"></a>
 
 ## 4. Proof numbers (`proof.rs`)
 
@@ -307,7 +300,7 @@ pub const INF: u32 = u32::MAX;
 | `PnDn::no_threshold()` | `(INF, INF)` | A threshold never exceeded: "search until decided". Same value as `unknown`, different role. |
 | `PnDn::proven(limit)` | `(0, INF)` | The attacker wins. |
 | `PnDn::disproven(limit)` | `(INF, 0)` | The attacker cannot win within `limit`. |
-| `PnDn::unexpanded_defence(n, limit)` | `(n, 1)` | First guess for an unexpanded child of an OR node (defender to move); `n` = the attack's estimate (§3). |
+| `PnDn::unexpanded_defence(n, limit)` | `(n, 1)` | First guess for an unexpanded child of an OR node (defender to move); `n` = the attack's estimate ([§3](#section-3)). |
 | `PnDn::unexpanded_attack(n, limit)` | `(1, n)` | First guess for an unexpanded child of an AND node (attacker to move); `n` = the defence's estimate. |
 
 Children combine in two ways, with saturating sums:
@@ -319,9 +312,9 @@ Children combine in two ways, with saturating sums:
 
 - From the root, taking the smallest `pn` at OR nodes and the smallest `dn`
   at AND nodes leads to the leaf whose result would change the root most:
-  the *most-proving node*. The selectors follow it (§5).
+  the *most-proving node*. The selectors follow it ([§5](#section-5)).
 - `limit` rides along as the minimum over the children: the least budget
-  left where the subtree was decided. The extractor uses it (§6).
+  left where the subtree was decided. The extractor uses it ([§6](#section-6)).
 
 ### `ProofTable`
 
@@ -341,12 +334,12 @@ Each is a `ProofTable`, two `Memo`s under one roof:
   the node is proven or disproven.
 - `lookup_next(state, m)` reads the child after `m` by `next_key`: first
   `estimates`, then `decided`, where a proof at a smaller limit or a
-  disproof at a larger one still answers (04, §3).
+  disproof at a larger one still answers ([04 §3](04-solver-framework.en.md#section-3)).
   - Through `decided`, a search at limit 5 reuses what a search at limit 4
     settled, and a proof found from one root answers under another root at
     any deeper limit.
 - `lookup_children(state, candidates)` is `lookup_next` for each candidate:
-  what an expansion starts from (§5, *Expansion*).
+  what an expansion starts from ([§5](#section-5), *Expansion*).
 
 `transfer_from` is where `decided` starts to apply.
 
@@ -360,6 +353,8 @@ Each is a `ProofTable`, two `Memo`s under one roof:
 - `decided` is keyed by a position that includes the `threat_limit`, so a
   decision never carries from one `threat_limit` to another.
 - Below it, nothing is recorded in or read from `decided`.
+
+<a id="section-5"></a>
 
 ## 5. Search (`searcher.rs`, `threshold.rs`, `solver.rs`)
 
@@ -392,7 +387,7 @@ expansion below) and returns a `Selection`:
 
 | Field | |
 | --- | --- |
-| `node` | The node's own numbers: `min_pn_sum_dn` over the children. A child not yet in the table counts as `unexpanded_defence(estimate)` (§3; `1` for a forced move). |
+| `node` | The node's own numbers: `min_pn_sum_dn` over the children. A child not yet in the table counts as `unexpanded_defence(estimate)` ([§3](#section-3); `1` for a forced move). |
 | `best` | The child with the smallest `pn` (the most-proving child), as an index into the candidates. |
 | `unvisited` | Whether `best` is not in the table yet: it has never been searched. |
 | `best_child`, `second_child` | The numbers of the best and second-best child. |
@@ -402,7 +397,7 @@ expansion below) and returns a `Selection`:
   children count as `unexpanded_attack(estimate)`, and `node.limit` is
   `limit − 1`.
 
-The estimates (§3) are a deliberate trick:
+The estimates ([§3](#section-3)) are a deliberate trick:
 
 - They start from the number of siblings, so narrow nodes look easier and
   the search prefers forcing lines.
@@ -412,25 +407,9 @@ The estimates (§3) are a deliberate trick:
 - So the search follows fours and threes further before it turns to quieter
   attacks, wherever they stand in the candidate order.
 
-What was tried on the benchmark (07), against the sibling count alone:
-
-- Favouring fours is most of the gain, and also its one cost.
-  - Without it (threes only at half), the `heavy` cases got 17% dearer.
-  - With it, `vct_small_but_long` gets about three times dearer, whatever
-    the other weights: at `limit` 255 nothing stops the search from
-    following fours ever deeper.
-- Raising the other attacks' estimates above the sibling count (to 1.5×)
-  paid before the non-threat attacks were ruled out, and only costs since.
-- Proof numbers are compared across nodes, so the scale matters as well as
-  the ratio: halving every estimate alike makes the search dearer.
-- Weighting defences by the fours and threes they make did not pay.
-
-Result with these weights:
-
-- The whole set, `heavy` included: 38% fewer nodes.
-- The `heavy` cases: 47% fewer (`vct_unstable` 109.5M → 41.6M).
-- The default set: 6% more in total because of `vct_small_but_long`
-  (5.8M → 16.7M); without it, 26% fewer.
+Favouring fours and threes helps on heavy cases, but can lead to detours
+when the search follows long chains of fours. See the
+[estimate experiments in 08](08-performance.en.md#initial-estimates).
 
 ### Expansion
 
@@ -485,17 +464,10 @@ Forbidden attacks:
   the threshold its parent handed down.
 - The root's threshold is `no_threshold`, so the root loops until decided.
 
-The threshold is checked before the first expansion too:
-
-- A node whose seeded numbers already cross it returns at once, having only
-  generated its moves. Its parent learns its numbers that way.
-- From #108 to #110 (2022) `expand_attacks` skipped that first check and
-  always expanded its best attack once. Whether that pays depends a lot on
-  the position. On the benchmark (07):
-  - `vct_unstable`: 345 times cheaper (119.5M nodes → 346k).
-  - The default set: 39% dearer (24.4M → 34.0M).
-  - `vct_black_long_short`: 53% dearer (17.4M → 26.7M).
-- So it stays out (issue #148).
+The threshold is checked before the first expansion too. A node whose
+initial numbers already cross it returns after generating its moves.
+Always expanding once has large, position-dependent tradeoffs and was
+left out; see the [comparison in 08](08-performance.en.md#first-expansion).
 
 ### Threshold policies
 
@@ -507,7 +479,16 @@ policies are zero-sized types; `DFSVCTSolver`, `PNSVCTSolver`,
 | --- | --- | --- |
 | `DFSThreshold` | `no_threshold` | The chosen child is searched to a decision before the parent looks at another: plain depth-first search, with proof numbers only for move ordering. |
 | `PNSThreshold` | `(best_child.pn + 1, best_child.dn + 1)` | The child returns as soon as its numbers change, so the most-proving child is re-selected at every level after every expansion: best-first proof-number search inside a recursion. |
-| `DFPNSThreshold` | OR node: `pn = min(threshold.pn, second_child.pn + 1 + second_child.pn / 8)`, `dn = threshold.dn − node.dn + best_child.dn`; AND node mirrored | df-pn (Nagai & Imai, 2002): stay in the best child as long as it stays best, give or take a margin, never beyond the parent's own threshold. |
+| `DFPNSThreshold` | Formula below | Stay in the best child with a margin, without crossing the parent threshold. |
+
+The child threshold at an OR node in df-pn (Nagai & Imai, 2002):
+
+```text
+pn = min(threshold.pn, second_child.pn + 1 + second_child.pn / 8)
+dn = threshold.dn - node.dn + best_child.dn
+```
+
+At an AND node, exchange `pn` and `dn`.
 
 The margin `second_child.pn / 8` is the "1 + ε trick" (Pawlewicz & Lew,
 2006) with ε = 1/8.
@@ -516,28 +497,9 @@ The margin `second_child.pn / 8` is the "1 + ε trick" (Pawlewicz & Lew,
   the two are close, the search keeps switching between them, going back up
   to the parent and down again each time.
 - With the margin it stays a while longer in the one it is in.
-- On the benchmark (07), the whole set (`heavy` included) went from 137.3M
-  nodes to 99.4M (−28%):
-  - −19% on the default set, −27% on the other `heavy` cases.
-  - `vct_unstable`: 40.2M → 25.4M.
-  - Three cases got 6 to 14% dearer, none over 170k nodes.
 
-The other ε tried, as the change in nodes:
-
-| ε | whole set | default set | `vct_small_but_long` | `vct_unstable` |
-| --- | --- | --- | --- | --- |
-| 1/16 | −14% | −8% | +5% | −7% |
-| 1/8 | −28% | −19% | −14% | −37% |
-| 1/6 | −20% | −18% | −9% | −7% |
-| 1/4 | −8% | −25% | −25% | +47% |
-| 1/3 | −25% | −11% | +11% | −23% |
-| 1/2 | −10% | −25% | −22% | +41% |
-
-- From 1/4 up, the cases other than those two gain a little more (about
-  −32% against −26% at 1/8).
-- But those two swing widely. Their search follows a long line of fours,
-  where any change to the order of expansion sends it down another.
-- 1/8 does well on both.
+ε = 1/8 helped both the default set and cases with long chains of fours.
+See the [margin comparison in 08](08-performance.en.md#dfpn-margin).
 
 ### The solver struct
 
@@ -552,9 +514,9 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 ```
 
 - `children` is one stack for all the expansions under way, each on top of
-  its parent's (§5, *Expansion*).
+  its parent's ([§5](#section-5), *Expansion*).
 - The methods above are `impl` blocks on it, one file per phase.
-- It implements `Solver` (04, §4):
+- It implements `Solver` ([04 §4](04-solver-framework.en.md#section-4)):
   - `solve` is `advance_generation` on both tables and both nested solvers,
     then `search`, then on success `extract` with an unlimited budget.
   - `clear` empties the tables, nested solvers and caches.
@@ -584,7 +546,7 @@ solve_auto:
 - **No limit.** At 255 the proof numbers decide how deep to go.
   - A limit only cuts the tree. Deepening it one by one costs most in the
     disproofs at the limits below the mate, which carry downwards only
-    (§4).
+    ([§4](#section-4)).
   - Deepening `limit` from 1 on the `quick` cases cost 1.9 times one
     search at the right limit (median), and up to 26 times.
   - Searching at 255 cost about the same as at the right limit (median
@@ -597,7 +559,7 @@ solve_auto:
     under 1, while 2 alone does not finish within 5M nodes.
 - **Rounds lose little.** A slice that runs out leaves its finished
   subtrees in the tables, and the next round goes on from them.
-  - The `threat_limit` is in every key (§2), so the rounds under one never
+  - The `threat_limit` is in every key ([§2](#section-2)), so the rounds under one never
     read the tables of another. The nested VCF memos they share.
   - One generation for the whole call: one per slice would let the memos
     drop what the rounds under the other `threat_limit`s found.
@@ -617,6 +579,8 @@ mate and is proven here.
 | Nodes, against `vct_dfpns` at the case's own `limit` and `threat_limit` (60 positions proven by both) | median 1.02 times, total 1.85 times |
 | Nodes, against `limit` 255 under `threat_limit` 2 alone (95 proven by both) | median 1.39 times, total 1.27 times; 2 more proven |
 | Line, against the case's own `limit` | 2.9 attacks longer on average; the same on 16 of 60 |
+
+<a id="section-6"></a>
 
 ## 6. Extraction (`extractor.rs`)
 
@@ -694,7 +658,7 @@ collected on the walk:
 - the points where a defender's stone joins a segment holding two of the
   defender's stones, after each defender move (new fours to defend or win
   with);
-- at each defender node, the zone of `defender_vcf.vcf_or_zone` (05, §2).
+- at each defender node, the zone of `defender_vcf.vcf_or_zone` ([05 §2](05-solver-vcf.en.md#section-2)).
 
 A stone elsewhere leaves `proves` true. The forbidden rings are the same
 approximation as in `search_zone` and `threat_defences`.
@@ -711,10 +675,15 @@ What it buys, on those 43 cases (`examples/proof_tree.rs`):
 | `proof_tree`, against the solve before it | median 8% of its nodes; DAG of 78 positions |
 | Points `proves` turns down that still have a VCT | 513 of 2,501 (another proof) |
 
+<a id="section-7"></a>
+
 ## 7. Walk-through
 
 `test_vct_black` (No. 02 of Hiroshi Okabe's five-move problems), Black to
 move:
+
+Coordinates: Black `H10,H9,J9,H8,I7`; White `I11,I9,G8,J8,H7`.
+The top row is 15 and the left column is A.
 
 ```
  . . . . . . . . . . . . . . .
@@ -749,7 +718,7 @@ is `Disproven`.
 | `H12` (White) | `Forced` | 1 |
 | `G12` (Black) | `G12,H11,I10,J9` with `F13` and `K8` open: `Fours` | 1 |
 
-At the root, `generate_attacks` orders the candidates by `priority` (§8):
+At the root, `generate_attacks` orders the candidates by `priority` ([§8](#section-8)):
 
 - `H11` (10: a four and a two, 5, plus 5 for the four), `H12` (9), `F10`
   (6: a three and a two, 4, plus 2 for the three), `G9`, `J6`, `K5` (5
@@ -760,9 +729,11 @@ At the root, `generate_attacks` orders the candidates by `priority` (§8):
 - The refutation goes into `attacker_table`, and `select_attack` moves on.
   `H12` fares no better, and `F10` is proven.
 
+<a id="section-8"></a>
+
 ## 8. Move ordering (`src/feature/`, `VCTState::priority`)
 
-Among candidates with the same estimate (§3), the order decides which child
+Among candidates with the same estimate ([§3](#section-3)), the order decides which child
 the search expands first. A cache in `src/feature/` describes the points,
 and `VCTState::priority` weighs them.
 
@@ -771,7 +742,7 @@ and `VCTState::priority` weighs them.
 The `ShapeMap` says, per player and per empty point, what a stone there
 would make on each of the four lines through it, a `Shape`:
 
-| `Shape` | The point is | From (02 §3.1) |
+| `Shape` | The point is | From ([02 §5.1](02-board-implementation.en.md#section-5-1)) |
 | --- | --- | --- |
 | `Five` | the eye of a `Four` | `row_eyes(r, Four)` |
 | `Four` | an eye of a `Sword` | `row_eyes(r, Sword)` |
@@ -781,7 +752,7 @@ would make on each of the four lines through it, a `Shape`:
 | `Nothing` | none of the above, or occupied | |
 
 - A cell takes the biggest that applies.
-- It is kept like the `SwordMap` (02 §7): per line, marked stale on a move
+- It is kept like the `SwordMap` ([02 §7](02-board-implementation.en.md#section-7)): per line, marked stale on a move
   and recomputed on `sync`, a few bit operations per line and player.
 
 `get(p, r)` returns the four as `Shapes`, which:
@@ -816,7 +787,7 @@ side to move, the way a player sizes up a move:
 | each direction at `Sword` or more, beyond the first | +5 | Threats along several lines at once (four-three, double threats). |
 | White: each four / three with an eye Black looks forbidden at | +20 / +10 | Black cannot answer there. |
 | Black: each three whose straight-four point looks forbidden | −2 | The three may be fake. |
-| Black: the point itself `looks_forbidden` | −20 | Black cannot play it if it really is forbidden, which is found only when it is first searched (§5). If it is not, the threes are fewer than they look. |
+| Black: the point itself `looks_forbidden` | −20 | Black cannot play it if it really is forbidden, which is found only when it is first searched ([§5](#section-5)). If it is not, the threes are fewer than they look. |
 
 - For a defence the first term is left out. Every defence here stops the
   threat one way or another (`threat_defences`). Ordering them by how much
@@ -829,6 +800,8 @@ side to move, the way a player sizes up a move:
   the defences did better without it, and keeping it in step with the
   board took about a fifth of the search's time.
 
+<a id="section-9"></a>
+
 ## 9. Cheat sheet
 
 | Question | Where to look |
@@ -836,15 +809,15 @@ side to move, the way a player sizes up a move:
 | Why did the search stop at depth N? | `limit` counts attacker moves; `search_defences` returns `disproven` at `limit ≤ 1` |
 | A threat is not recognised | `compute_defences` step 1, `attacker_vcf.threat` with depth `threat_limit`; the nested VCF sees only `Sword` eyes |
 | A defence is missing | `VCTState::threat_defences`: path, `end_breakers`, `counter_defences`, `four_moves` |
-| An attack is missing | A `Two` or more along some line (`sorted_attacks`), then `VCTState::may_threaten` over the zone of `DFSSolver::search_zone` (05, §2) |
+| An attack is missing | A `Two` or more along some line (`sorted_attacks`), then `VCTState::may_threaten` over the zone of `DFSSolver::search_zone` ([05 §2](05-solver-vcf.en.md#section-2)) |
 | A counter-attack refutation is missing | `defender_vcf.vcf` is bounded by `defender_vcf_depth` (2); deeper counter-VCFs are found only if a counter-four is in `threat_defences`. Raise it with `SolveLimits::with_defender_vcf_depth` |
-| Move ordering | `VCTState::priority` over the `ShapeMap` (§8); attack candidates need a `Two` or more along some line |
+| Move ordering | `VCTState::priority` over the `ShapeMap` ([§8](#section-8)); attack candidates need a `Two` or more along some line |
 | Which mode does what | `ThresholdPolicy` in `threshold.rs`; everything else is shared |
 | Transposition tables | `attacker_table` / `defender_table` (`ProofTable`), the two `LruCache`s, the nested solvers' `dead_ends`; all keyed by `State::key()`, decisions by position alone |
-| Why do decisions carry between limits only from some depth? | `transfer_from` in `ProofTable` (§4) |
-| Solving with only a budget | `solve_auto` in `auto.rs` (§5) |
+| Why do decisions carry between limits only from some depth? | `transfer_from` in `ProofTable` ([§4](#section-4)) |
+| Solving with only a budget | `solve_auto` in `auto.rs` ([§5](#section-5)) |
 | Path extraction | `extract`; `End::Unknown` means no proven child to follow |
-| Which defences a proof survives | `proof_tree`, then `ProofTree::zone` and `proves` (§6) |
+| Which defences a proof survives | `proof_tree`, then `ProofTree::zone` and `proves` ([§6](#section-6)) |
 | Adding a regression case | ASCII board + expected path in `solve.rs`, one assertion per relevant `SolveMode` |
 
 *History.* An experimental "lazy" VCT solver (`vct_lazy/`, after 長井歩,

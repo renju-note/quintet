@@ -1,11 +1,15 @@
 # `src/mate/` の内側: 探索の骨格
 
+まず [部品の関係](#section-1) と [Game](#section-2) を読み、次に [状態とキー](#section-3)、[ソルバーの入口](#section-4) に進む。メモの保持と予算切れの規則は [§5](#section-5)、ノードの数え方は [§6](#section-6)。
+
 `src/mate/` を変更する前に読む。すべてのソルバーが共有する部品（`Game`、`State`、`Memo`、`Solver` トレイト）と、それらが守る規則を説明する。探索そのものは [05](05-solver-vcf.ja.md)（四追い）と [06](06-solver-vct.ja.md)（追い詰め）。
 
 前提:
 
 - [03](03-solver-api.ja.md): 問いの形、`limit`、`NodeBudget`。
 - [02](02-board-implementation.ja.md) の用語: `Four`、`Sword`、`eyes()`、禁手、`zobrist_hash`。
+
+<a id="section-1"></a>
 
 ## 1. 構成
 
@@ -42,6 +46,8 @@ Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solve
 - **`Solver`**: `State` を探索する。問いをまたいで生きる **`Memo`** を持ち、キーはすべて `State` の **`Key`**。
 - **`NodeBudget`**: 1 つの問い（または一連の問い）の仕事量の上限。
 
+<a id="section-2"></a>
+
 ## 2. `Game`: 探索中の盤面
 
 ```rust
@@ -54,7 +60,7 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 - `undo()`: それを戻す。
 - `with_move(m, f)`: play → `f(self)` → undo を行い、`f` の結果を返す。すべてのソルバーはこれで木を歩く。
 
-手は `Option<Point>`。`play(None)` は**パス**で、手番だけ反転し盤面はそのまま。連珠にパスはないが、追い手の定義（「何もしなければ相手はどうできるか」）に必要なので、ここでは普通の手として扱う。
+手は `Option<Point>`。`play(None)` は**パス**で、手番だけ反転し盤面はそのまま。連珠のルールにもパスはあるが、ソルバーは対局中のパスを探索しない。ここでのパスは、追い手の判定で「何もしなければ相手はどうできるか」を調べるための仮想的な操作である。
 
 ### `check_event`: 盤上にすでにある四
 
@@ -72,7 +78,9 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 - パスの後は直前の手がないので、相手のすべての四を見る。
 - 棒四は眼の異なる 2 つの `Four` として現れ、四四と同じ 2 点判定（`first_two_distinct`）で扱う。
 
-`End` は `Defeated` の中身で、`Mate` の末尾になる（03 §5）。
+`End` は `Defeated` の中身で、`Mate` の末尾になる（[03 §5](03-solver-api.ja.md#section-5)）。
+
+<a id="section-3"></a>
 
 ## 3. `State`: limit とキー
 
@@ -93,7 +101,7 @@ pub trait State {
 
 > `limit` は攻め方がまだ打てる手数。手番が攻め方に**戻る**とき（受けの手の後）に 1 減る。受け方のノードでは、直前の攻め手がまだ数に入っている。
 
-例: 根（攻め方の手番）`limit = 3` → 攻め手の後も `3` → 受けの後 `2` → 攻め手の後も `2` → … → `0` で攻め方はもう打てない。盤面つきの例は 05 §4 の `test_vcf_counter`。
+例: 根（攻め方の手番）`limit = 3` → 攻め手の後も `3` → 受けの後 `2` → 攻め手の後も `2` → … → `0` で攻め方はもう打てない。盤面つきの例は [05 §4](05-solver-vcf.ja.md#section-4) の `test_vcf_counter`。
 
 ### `Key`: すべてのメモのキー
 
@@ -111,7 +119,7 @@ pub struct Key { pub position: u64, pub limit: u8 }
 
 攻め方がキーに入るのは、1 つのソルバーで両方の色について問えるようにするため。同じ石・同じ手番でも「黒は詰む」と「白は詰まない」は別の問いで、エントリを共有してはいけない（`test_zobrist_hash_separates_the_attacker`）。
 
-`VCTState` は `key()` を上書きし、4 つ目として **`threat_limit`**（`apply_threat_limit`）も混ぜる。`threat_limit` が違えば追い手と数える手が違うので、同じ局面でも別のノードになる。これで 1 つの追い詰めソルバーに複数の `threat_limit` で問える（`test_key_separates_the_threat_limit`、06 §2）。
+`VCTState` は `key()` を上書きし、4 つ目として **`threat_limit`**（`apply_threat_limit`）も混ぜる。`threat_limit` が違えば追い手と数える手が違うので、同じ局面でも別のノードになる。これで 1 つの追い詰めソルバーに複数の `threat_limit` で問える（`test_key_separates_the_threat_limit`、[06 §2](06-solver-vct.ja.md#section-2)）。
 
 `position` と `limit` を分けるのは、覚え方が違うため:
 
@@ -121,8 +129,10 @@ pub struct Key { pub position: u64, pub limit: u8 }
 - **決着していない情報**（証明数、候補手リスト）は、1 つの limit の木についてだけ成り立つ。だから両方を合わせた `Key::hash()` をキーにする（`ProofTable::estimates`、候補手キャッシュ）。
 
 - 四追いでは、生成する手が `limit` を読まないので、この範囲は正確に成り立つ。
-- 追い詰めでは、`transfer_from` 以上で成り立つ（06 §4）。
+- 追い詰めでは、`transfer_from` 以上で成り立つ（[06 §4](06-solver-vct.ja.md#section-4)）。
 - `test_verdict_is_monotone_in_limit`（`--ignored`）が、limit を増やしても「詰み」が「詰みなし」に戻らないことを確認している。
+
+<a id="section-4"></a>
 
 ## 4. `Solver`: 1 つの問い、1 つの世代
 
@@ -152,6 +162,8 @@ pub trait Solver {
 
 `clear()` はすべて忘れ、`memo_len()` は保持数を返す。どちらも呼び出し側向けで、ソルバー内部では使わない。
 
+<a id="section-5"></a>
+
 ## 5. `Memo`: 探索をまたいで覚える
 
 ```rust
@@ -160,7 +172,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 
 ソルバーの表はすべて `Memo`、またはその 2 つ組（`ProofTable`）。何を入れ、いつ捨てるかの規則は 3 つ。
 
-**入っているものは常に正しい。** エントリはキーについての事実（行き止まり、証明、反証、証明数の見積もり）で、キーはその事実が依存するすべてを含む（§3）。だから無効化は不要で、大きさを抑えるだけでよい。
+**入っているものは常に正しい。** エントリはキーについての事実（行き止まり、証明、反証、証明数の見積もり）で、キーはその事実が依存するすべてを含む（[§3](#section-3)）。だから無効化は不要で、大きさを抑えるだけでよい。
 
 **世代で大きさを抑える。**
 
@@ -177,11 +189,13 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 
 そして `NodeBudget` から来る、*入れない*ものの規則:
 
-**打ち切られた探索は何も書かない。**
+**予算切れで未完了になった結果は書かない。**
 
 - 予算が尽きると `None` /「不明」が上へ伝わり、途中の挿入はすべてスキップされる。`DFSSolver` の行き止まりも、`ProofTable` のノードも、候補手キャッシュのリストも書かない。
-- 諦めた探索の結果をメモすると、推測が事実として残ってしまう。
+- 予算切れになる前に完了した部分木の結果は残る。探索全体の打ち切りで、それらを取り消すことはない。未完了の結果をメモすると、推測が事実として残ってしまう。
 - 各挿入の前にある `!budget.is_exhausted()` がこの検査。
+
+<a id="section-6"></a>
 
 ## 6. `NodeBudget`: 仕事量を数える
 
@@ -191,6 +205,8 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 
 `VCTSolver::solve` は `extract` を無制限の予算で走らせる。根が証明できたなら、手順の復元は手順の長さで抑えられる。予算不足で証明を捨てるのは無意味。
 
+<a id="section-7"></a>
+
 ## 7. チートシート
 
 | 知りたいこと | 見る場所 |
@@ -198,10 +214,10 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 | ソルバーとは何か | `solver.rs` の `Solver`。`solve` = `advance_generation` + 各ソルバーの `search` |
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。受けの手ごとに `State::play` が 1 減らす |
 | ハッシュに攻め方が入る理由 | `State::key`。1 つのソルバーで両方の色に答えるため |
-| ハッシュに `threat_limit` が入る理由 | `VCTState::key`。1 つの追い詰めソルバーで複数の `threat_limit` に答えるため（06 §2） |
-| 決着のキーに limit がない理由 | 決着は limit にまたがる範囲（§3）。`DFSSolver::dead_ends`、`ProofTable::decided` |
+| ハッシュに `threat_limit` が入る理由 | `VCTState::key`。1 つの追い詰めソルバーで複数の `threat_limit` に答えるため（[06 §2](06-solver-vct.ja.md#section-2)） |
+| 決着のキーに limit がない理由 | 決着は limit にまたがる範囲（[§3](#section-3)）。`DFSSolver::dead_ends`、`ProofTable::decided` |
 | メモが育たない理由 | `Memo::advance_generation` が `carry_capacity` 超えで直前の世代以外を捨てる |
-| メモされない理由 | 打ち切られた探索は何も書かない。`!budget.is_exhausted()` のガード |
+| メモされない理由 | 予算切れで未完了の結果は書かない。完了済みの部分木は残る。`!budget.is_exhausted()` のガード |
 | 1 ノードとは | `DFSSolver::search` / `search_attacks` / `search_defences` の 1 回の呼び出し |
 | 盤上の四の検出 | `Game::check_event` → `Defeated` / `Forced` |
 | パスの表現 | `Game::play(None)`。手番だけ反転し、盤面はそのまま |

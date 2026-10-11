@@ -1,5 +1,10 @@
 # How `src/board/` implements the Renju rules
 
+Reading order: [coordinates](#section-1), [lines](#section-2),
+[segments](#section-3), [the board](#section-4), [row kinds](#section-5),
+then [forbidden moves](#section-6). The batch bit operations are in
+[§5.1](#section-5-1); search caching has its own [SwordMap section](#sword-cache).
+
 How the board is represented, and how the rule concepts of
 [01-renju-rules.en.md](01-renju-rules.en.md) are detected: row, five,
 overline, four, straight four, three, double-four, double-three, forbidden
@@ -24,18 +29,20 @@ Modules (declared in `src/board.rs`):
 
 The layers, bottom up, and the sections that describe them:
 
-1. `Line` stores one line as bitmasks (§2).
+1. `Line` stores one line as bitmasks ([§2](#section-2)).
 2. `Segment` is one place for a five, and how far each player is from it
-   (§3).
+   ([§3](#section-3)).
 3. `Grid` holds all lines and finds rows on the board or through a point
-   (§4).
+   ([§4](#section-4)).
 4. `RowKind` names the rows in rule terms — `Five`, `Four`, `Three`, ... —
-   each as one or two segments with the right score (§5).
+   each as one or two segments with the right score ([§5](#section-5)).
 5. `forbidden.rs` builds the forbidden-move rules from a few `rows_on`
-   queries (§6).
-6. `zobrist.rs` hashes the board (§7).
+   queries ([§6](#section-6)).
+6. `zobrist.rs` hashes the board ([§7](#section-7)).
 
 ---
+
+<a id="section-1"></a>
 
 ## 1. Points and coordinates
 
@@ -76,6 +83,8 @@ The triple `(Direction, i, j)` is an `Index`:
 - `Index::max_j()` is the last position on the line. Diagonals get shorter
   towards the corners, so it varies by line.
 
+<a id="section-2"></a>
+
 ## 2. `Line`: one line as bitmasks
 
 ```rust
@@ -91,10 +100,12 @@ pub struct Line { blacks: u16, whites: u16, pub size: u8 }
   search loop cheap.
 - `score_bound(r)` is an upper bound for skipping whole lines: 0 if five
   stones cannot fit between the opponent's, else "own stones + 1".
-- `segment(j)` cuts out the segment (§3) whose five cells start at cell
+- `segment(j)` cuts out the segment ([§3](#section-3)) whose five cells start at cell
   `j`; `segments()` lists them all, `j` from 0 to `size - 5`. Everything
-  else a `Line` answers, such as `rows(r, kind)` (§3.1, §5), is built on
+  else a `Line` answers, such as `rows(r, kind)` ([§5.1](#section-5-1), §5), is built on
   them.
+
+<a id="section-3"></a>
 
 ## 3. `Segment`: one place for a five
 
@@ -135,10 +146,109 @@ The margins implement Black's rule:
   overline, so the segment is dead for Black.
 - White's margins do not matter: an overline is a win for White.
 
-### 3.1 Finding rows on a line, all segments at once
+<a id="section-4"></a>
+
+## 4. `Grid`: the full board
+
+```rust
+pub struct Grid {
+    vlines: [Line; 15],  // vertical lines,   indexed by x
+    hlines: [Line; 15],  // horizontal lines, indexed by y
+    alines: [Line; 21],  // ascending  diagonals with length >= 5
+    dlines: [Line; 21],  // descending diagonals with length >= 5
+}
+```
+
+- A stone is stored in all four lines through its point (`put` updates each
+  of them).
+- Diagonals shorter than five cells can never hold a five, so the four
+  shortest diagonals at each corner are omitted:
+  - Diagonal `i` for `i` from 4 to 24 is stored at `alines[i - 4]`
+    (`DIAGONAL_LINE_SKIP = 4`, `DIAGONAL_LINE_COUNT = 21`).
+  - For the others `line_idx` returns `None`, and row queries skip them.
+
+Main queries:
+
+- `stone(p)`, `stones(player)`, `empty_points()`,
+  `neighbors(p, distance, only_empty)`: stones and empty points.
+- `rows(r, kind)`: every `Row` of kind `kind` for `r` on the board.
+- `rows_on(p, r, kind)`: only the rows through `p` ([§5.1](#section-5-1); only the four
+  lines through `p` are read). The hot path for "what does playing `p`
+  make?".
+- `four_eyes_on(p, r)`: the points where `r` makes a five, on the lines
+  through `p`, each once per line. Count these, not `Four` rows, to tell
+  one four from two (see `Four` in §5).
+- `line(d, i)` / `line_on(p, d)`: the stored `Line`, `None` for the short
+  diagonals. `lines()` and `lines_on(p)` iterate them as
+  `(Direction, i, &Line)`. A consumer with its own per-point tables can read
+  these instead of keeping a second copy of all 72 lines.
+
+Parsing (`FromStr for Grid`, reused by `Board`) accepts three formats:
+
+- A move list, alternating from Black: `H8,H7,F6`.
+- A stone list, `blacks/whites`: `H8,F6/H7`.
+- A 15-line ASCII picture: `o` Black, `x` White, `.` empty, line 15 first.
+  The format the tests use.
+
+<a id="section-5"></a>
+
+## 5. `RowKind`: the rule vocabulary
+
+A `RowKind` is one segment, or two neighbouring ones, with the right
+scores.
+
+- Two segments are `j - 1` and `j`, spanning the six cells
+  `j - 1..=j + 4`.
+- `RowKind::matches(r, prev, cur)` states the condition for segment `cur`
+  and the one before it, `prev`.
+- A row of two segments is reported at the later one.
+
+| `RowKind` | Segments | Pattern (Black, `_` = eye) | Rule concept |
+| --- | --- | --- | --- |
+| `Five` | one scoring 5 | `ooooo` | **Five**. For Black a score needs empty margins, so overlines are excluded. |
+| `Overlined` | two, each `is_free` with 5 stones | `oooooo` (6+) | **Overline**. |
+| `Four` | one scoring 4 | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: a stone at the eye makes a five. A straight four shows as **two** adjacent `Four`s. White's `xxxx.x` does too, both with the same eye (which makes six), yet is one four: count distinct eyes, not rows. |
+| `Straight` | two scoring 4, stones in the four shared cells | `.oooo.` | **Straight four**. |
+| `Sword` | one scoring 3 | `ooo__`, `o_oo_`, … (3 stones in a segment) | A "four-to-be" (Japanese *kensaki*, "sword tip"): either eye makes a `Four`. Includes open threes, so it is not a "closed three". Not a rule term; VCF/VCT use it to list four-making moves. |
+| `Three` | two scoring 3, stones in the four shared cells | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: the single eye makes a `Straight`. |
+| `Two` | two scoring 2, stones in the four shared cells | `.oo__.`, `.o_o_.`, … | A "three-to-be": an eye makes a `Three`. |
+| `Overlining` | two, each `is_free` with 4 stones | `oo_ooo`, `ooo_oo`, … | The eye makes an overline (6+). |
+
+Notes on the table:
+
+- Open rows (`Two`, `Three`, `Straight`): "stones in the four shared cells"
+  means the later segment's last cell is empty. Both segments are alive,
+  so the six cells then have both ends empty.
+- Overline rows use `is_free` segments, not `is_alive` ones:
+  - An overline always has a black stone next to each of its segments,
+    which is exactly what makes a segment dead for Black.
+  - Two `is_free` segments with four black stones each are either five
+    stones in six cells (the empty one makes six) or an open four
+    `.oooo.`.
+  - Through an empty point only the former can be found: an open four's
+    segments share only stones.
+
+A segment is alive for Black only with empty margins, so `Four`, `Three`
+etc. already include "without also making an overline". For example,
+`o.oooo.`:
+
+- `o.ooo` and `.oooo` are dead: a black stone is in their margin, so
+  filling the left gap makes six.
+- Only `oooo.` counts: the right end makes exactly five.
+
+A `Row` holds where its (later) segment starts, as an `Index`, and the masks
+of its stones and eyes.
+
+- `stones()` and `eyes()` yield board `Point`s.
+- For open rows only the four shared cells can be eyes: the fifth is an
+  open end, not a point to play.
+
+<a id="section-5-1"></a>
+
+### 5.1 Finding rows on a line, all segments at once
 
 `Line::rows(r, kind)` gives the segments where `r` has a row of that kind
-(§5), as `(j, Segment)`.
+([§5](#section-5)), as `(j, Segment)`.
 
 - `RowKind::matches` states the condition segment by segment.
 - The solvers ask at nearly every node, so the line checks all segments at
@@ -160,7 +270,7 @@ The masks:
   cell mask: where a stone takes a row one step further.
   - `eyes_of(starts, cells)` spreads start bits over the given cells of each
     segment and keeps the empty ones.
-  - The VCT move ordering reads it (`ShapeMap`, 06 §8).
+  - The VCT move ordering reads it (`ShapeMap`, [06 §8](06-solver-vct.en.md#section-8)).
 - A test checks `row_starts` against `RowKind::matches`, and `row_eyes`
   against the eyes of `rows`, on every line of up to nine cells and on
   random full-length lines.
@@ -277,98 +387,7 @@ free        110000000
 
 </details>
 
-## 4. `Grid`: the full board
-
-```rust
-pub struct Grid {
-    vlines: [Line; 15],  // vertical lines,   indexed by x
-    hlines: [Line; 15],  // horizontal lines, indexed by y
-    alines: [Line; 21],  // ascending  diagonals with length >= 5
-    dlines: [Line; 21],  // descending diagonals with length >= 5
-}
-```
-
-- A stone is stored in all four lines through its point (`put` updates each
-  of them).
-- Diagonals shorter than five cells can never hold a five, so the four
-  shortest diagonals at each corner are omitted:
-  - Diagonal `i` for `i` from 4 to 24 is stored at `alines[i - 4]`
-    (`DIAGONAL_LINE_SKIP = 4`, `DIAGONAL_LINE_COUNT = 21`).
-  - For the others `line_idx` returns `None`, and row queries skip them.
-
-Main queries:
-
-- `stone(p)`, `stones(player)`, `empty_points()`,
-  `neighbors(p, distance, only_empty)`: stones and empty points.
-- `rows(r, kind)`: every `Row` of kind `kind` for `r` on the board.
-- `rows_on(p, r, kind)`: only the rows through `p` (§3.1; only the four
-  lines through `p` are read). The hot path for "what does playing `p`
-  make?".
-- `four_eyes_on(p, r)`: the points where `r` makes a five, on the lines
-  through `p`, each once per line. Count these, not `Four` rows, to tell
-  one four from two (see `Four` in §5).
-- `line(d, i)` / `line_on(p, d)`: the stored `Line`, `None` for the short
-  diagonals. `lines()` and `lines_on(p)` iterate them as
-  `(Direction, i, &Line)`. A consumer with its own per-point tables can read
-  these instead of keeping a second copy of all 72 lines.
-
-Parsing (`FromStr for Grid`, reused by `Board`) accepts three formats:
-
-- A move list, alternating from Black: `H8,H7,F6`.
-- A stone list, `blacks/whites`: `H8,F6/H7`.
-- A 15-line ASCII picture: `o` Black, `x` White, `.` empty, line 15 first.
-  The format the tests use.
-
-## 5. `RowKind`: the rule vocabulary
-
-A `RowKind` is one segment, or two neighbouring ones, with the right
-scores.
-
-- Two segments are `j - 1` and `j`, spanning the six cells
-  `j - 1..=j + 4`.
-- `RowKind::matches(r, prev, cur)` states the condition for segment `cur`
-  and the one before it, `prev`.
-- A row of two segments is reported at the later one.
-
-| `RowKind` | Segments | Pattern (Black, `_` = eye) | Rule concept |
-| --- | --- | --- | --- |
-| `Five` | one scoring 5 | `ooooo` | **Five**. For Black a score needs empty margins, so overlines are excluded. |
-| `Overlined` | two, each `is_free` with 5 stones | `oooooo` (6+) | **Overline**. |
-| `Four` | one scoring 4 | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: a stone at the eye makes a five. A straight four shows as **two** adjacent `Four`s. White's `xxxx.x` does too, both with the same eye (which makes six), yet is one four: count distinct eyes, not rows. |
-| `Straight` | two scoring 4, stones in the four shared cells | `.oooo.` | **Straight four**. |
-| `Sword` | one scoring 3 | `ooo__`, `o_oo_`, … (3 stones in a segment) | A "four-to-be" (Japanese *kensaki*, "sword tip"): either eye makes a `Four`. Includes open threes, so it is not a "closed three". Not a rule term; VCF/VCT use it to list four-making moves. |
-| `Three` | two scoring 3, stones in the four shared cells | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: the single eye makes a `Straight`. |
-| `Two` | two scoring 2, stones in the four shared cells | `.oo__.`, `.o_o_.`, … | A "three-to-be": an eye makes a `Three`. |
-| `Overlining` | two, each `is_free` with 4 stones | `oo_ooo`, `ooo_oo`, … | The eye makes an overline (6+). |
-
-Notes on the table:
-
-- Open rows (`Two`, `Three`, `Straight`): "stones in the four shared cells"
-  means the later segment's last cell is empty. Both segments are alive,
-  so the six cells then have both ends empty.
-- Overline rows use `is_free` segments, not `is_alive` ones:
-  - An overline always has a black stone next to each of its segments,
-    which is exactly what makes a segment dead for Black.
-  - Two `is_free` segments with four black stones each are either five
-    stones in six cells (the empty one makes six) or an open four
-    `.oooo.`.
-  - Through an empty point only the former can be found: an open four's
-    segments share only stones.
-
-A segment is alive for Black only with empty margins, so `Four`, `Three`
-etc. already include "without also making an overline". For example,
-`o.oooo.`:
-
-- `o.ooo` and `.oooo` are dead: a black stone is in their margin, so
-  filling the left gap makes six.
-- Only `oooo.` counts: the right end makes exactly five.
-
-A `Row` holds where its (later) segment starts, as an `Index`, and the masks
-of its stones and eyes.
-
-- `stones()` and `eyes()` yield board `Point`s.
-- For open rows only the four shared cells can be eyes: the fifth is an
-  open end, not a point to play.
+<a id="section-6"></a>
 
 ## 6. Forbidden moves (`forbidden.rs`)
 
@@ -405,7 +424,7 @@ How the three checks get their input:
 
 - Per line through `p`, they take the mask
   `Line::row_starts_on(i, Black, kind)`: where the rows of
-  `rows_on(p, Black, kind)` start (§3.1), without building them.
+  `rows_on(p, Black, kind)` start ([§5.1](#section-5-1)), without building them.
 - `forbidden` reads all three kinds from each line in one pass
   (`Grid::row_starts_on` gives one kind).
 - "Is there one?" (`any`) and "more than one?" (`has_multiple_starts`,
@@ -490,6 +509,9 @@ Notes on step 3:
 
 Example from the tests (`test_double_three`): playing `H8` here.
 
+Coordinates: Black `H9,G8,I8,H7`; White `E8,K8`.
+The top row is 15 and the left column is A.
+
 ```
  . . . . . . . . . . . . . . .
  . . . . . . . . . . . . . . .
@@ -520,6 +542,8 @@ Example from the tests (`test_double_three`): playing `H8` here.
 More cases, including the nested "fake three" positions from the referenced
 Twitter thread, are in `forbidden.rs`'s tests.
 
+<a id="section-7"></a>
+
 ## 7. Zobrist hashing (`zobrist.rs`) and `Board`
 
 `Board` wraps a `Grid` and a `u64` Zobrist hash; `put` / `remove` keep the
@@ -535,6 +559,10 @@ two in sync.
 - `Board::put` / `remove` change the board in place. `with_stone` /
   `without_stone` return changed copies; the solvers avoid them so as not
   to clone in the search loop.
+
+<a id="sword-cache"></a>
+
+### Search cache: `SwordMap`
 
 The VCF search asks for each player's swords (`Sword`, §5) at nearly every
 node, so it caches them in a `SwordMap` (`src/feature/sword.rs`).
@@ -552,10 +580,12 @@ node, so it caches them in a `SwordMap` (`src/feature/sword.rs`).
   - The searches move far more often than they read, so recomputing at
     every move would cost more than the scan it replaces.
 - A line is recomputed by `Line::row_starts(r, Sword)`, all segments at
-  once (§3.1).
+  once ([§5.1](#section-5-1)).
 - `SwordMap::swords(board, r)` / `swords_on(board, p, r)` return what
   `rows(r, Sword)` / `rows_on(p, r, Sword)` would, in the same order. They
   need `sync(board)` first.
+
+<a id="section-8"></a>
 
 ## 8. Cheat sheet: rule → code
 

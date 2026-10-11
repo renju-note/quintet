@@ -19,10 +19,10 @@
 
 - 連珠を知らない: まず 01。ソルバーのドキュメントはその用語（四、棒四、三、禁手）を前提にする。
 - `src/board/` のルール周り（連、禁手）を変える: 02。
-- アプリ、CLI、Rust からソルバーを呼ぶ: 03。
-- `src/mate/` や `src/feature/` の探索を変える: 04、続いて 05 と 06。効果は 07 のベンチマークで測る。
-- 次に何を速くするか、ある案を試したことがあるかを知りたい: 08。
-- 特定のことだけ知りたい: 各ドキュメント末尾のチートシート（02 §8、03 §7、04 §7、05 §5、06 §9）が、知りたいことから識別子を引く表になっている。
+- アプリ、CLI、Rust からソルバーを呼ぶ: [03 の最小例](03-solver-api.ja.md#quick-start) から始める。
+- `src/mate/` や `src/feature/` の探索を変える: [04 の部品の関係](04-solver-framework.ja.md#section-1)、[05 の手順例](05-solver-vcf.ja.md#section-4)、[06 の手順例](06-solver-vct.ja.md#section-7) から全体をつかむ。効果は [07](07-benchmarks.ja.md#section-3) のベンチマークで測る。
+- 次に何を速くするか: [08 の改善候補](08-performance.ja.md#section-6)。ある案を試したことがあるか: [採用しなかった案](08-performance.ja.md#section-5) と [調整実験](08-performance.ja.md#section-8)。
+- 特定のことだけ知りたい: 各ドキュメント末尾のチートシート（[02 §8](02-board-implementation.ja.md#section-8)、[03 §7](03-solver-api.ja.md#section-7)、[04 §7](04-solver-framework.ja.md#section-7)、[05 §5](05-solver-vcf.ja.md#section-5)、[06 §9](06-solver-vct.ja.md#section-9)）が、知りたいことから識別子を引く表になっている。
 
 ドキュメントの書き方:
 

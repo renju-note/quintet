@@ -1,5 +1,7 @@
 # ソルバーのベンチマーク
 
+普段の確認は `cargo bench --bench solvers -- --tag quick`。変更前後を比べるなら [§3](#section-3)、局面を追加するなら [§4](#section-4)。各列の読み方は [§1](#section-1)、オプション一覧は [§2](#section-2)。
+
 ソルバーへの変更で速くなったかを確かめる方法。
 
 - ベンチマークは、局面の集合 `benches/cases/*.txt` と、それを解くランナー `benches/solvers.rs` からなる。
@@ -14,11 +16,13 @@ benches/
 scripts/bench-compare.sh    the runner on a git ref and on the working tree (§3)
 ```
 
+<a id="section-1"></a>
+
 ## 1. 何を測るか
 
 | 列 | 内容 | 決定的か |
 | --- | --- | --- |
-| `nodes` | 訪れたノード数。`SolveStats::nodes` で、`NodeBudget` と同じ数え方（03 §3）。内部の四追い探索も含む。 | はい |
+| `nodes` | 訪れたノード数。`SolveStats::nodes` で、`NodeBudget` と同じ数え方（[03 §3](03-solver-api.ja.md#section-3)）。内部の四追い探索も含む。 | はい |
 | `memo` | 探索後にソルバーのメモに残るエントリ数。`SolveStats::memo_len`。探索に必要だったメモリの目安。 | はい |
 | `time` | `solve_with_stats` の実時間。`--runs` 回の中央値。 | いいえ |
 
@@ -29,6 +33,8 @@ scripts/bench-compare.sh    the runner on a git ref and on the working tree (§3
 - 時間は、同じマシンで続けて走らせたもの同士でしか比べられない。
 
 ランナーは、同じケースを何回走らせても判定と数値が同じことを確かめ、違えばそのケースを失敗として報告する。
+
+<a id="section-2"></a>
 
 ## 2. 実行方法
 
@@ -44,7 +50,7 @@ cargo bench --bench solvers -- [OPTIONS] [NAME_FILTER...]
 | `--tag TAG` | `TAG` の付いたケースだけ。複数指定でき、すべてを持つケースが選ばれる。 |
 | `--skip-tag TAG` | `TAG` の付いたケースを除く。複数指定できる。 |
 | `--all` | `heavy` の付いたケースも走らせる。これか `--tag heavy` がなければ `heavy` は除かれる。 |
-| `--mode MODE` | 各ケースを自身のモードではなく `MODE`（`vcf`、`vct`、`vct_pns`、`vct_dfpns`、`vct_auto`）で解く。判定は検査するが、手順は検査しない。追い詰めのモードごとに報告する詰み手順が違いうるため（03 §2）。 |
+| `--mode MODE` | 各ケースを自身のモードではなく `MODE`（`vcf`、`vct`、`vct_pns`、`vct_dfpns`、`vct_auto`）で解く。判定は検査するが、手順は検査しない。追い詰めのモードごとに報告する詰み手順が違いうるため（[03 §2](03-solver-api.ja.md#section-2)）。 |
 | `--runs N` | 各ケースを `N` 回計測し、中央値を報告する。既定は 3。 |
 | `--save PATH` | 結果を TSV で書き出す。 |
 | `--baseline PATH` | `--save` で書いたファイルと比べる。各行にノード数・メモのエントリ数・時間の増減が付き、最後に合計が出る。 |
@@ -60,6 +66,8 @@ cargo bench --bench solvers                         # heavy 以外すべて。�
 cargo bench --bench solvers -- --tag vct --tag disproven
 cargo bench --bench solvers -- --mode vct_pns --tag vct   # 同じ局面を PNS で
 ```
+
+<a id="section-3"></a>
 
 ## 3. 2 つの版を比べる
 
@@ -100,6 +108,8 @@ GitHub では **Bench** ワークフロー（`.github/workflows/bench.yml`）が
 - 定数倍の最適化なら時間の列。ノード数は `=` のまま、時間が減っているはず。
 - 時間を狙っていない PR で、ノード数が `=` なのに時間が目立って変わったら、比較をやり直してから判断する。
 
+<a id="section-4"></a>
+
 ## 4. ケース
 
 1 ファイルに 1 局面。ファイル名から `.txt` を除いたものがケース名。
@@ -120,7 +130,7 @@ board:
 
 | キー | 必須 | 意味 |
 | --- | --- | --- |
-| `mode` | はい | `SolveMode` の CLI 名（03 §2）。ソルバーが知らないモードのケースは失敗ではなく `SKIPPED` と表示する。`bench-compare.sh` が新しいケースを古い ref でも走らせられるように。 |
+| `mode` | はい | `SolveMode` の CLI 名（[03 §2](03-solver-api.ja.md#section-2)）。ソルバーが知らないモードのケースは失敗ではなく `SKIPPED` と表示する。`bench-compare.sh` が新しいケースを古い ref でも走らせられるように。 |
 | `attacker` | はい | `o`（黒）か `x`（白）。 |
 | `limit` | はい | `SolveLimits::limit`。 |
 | `threat_limit` | いいえ | `SolveLimits::with_threat_limit`。既定は 0。 |
@@ -139,8 +149,8 @@ board:
 | `quick` | 1 秒よりずっと短い。変更のたびに走らせる集合。 |
 | `slow` | 数秒から数十秒。 |
 | `heavy` | 既定の集合には重すぎるもの。1 分以上、`game` のケースでは 3 秒以上。指定しない限り除かれる。 |
-| `game` | 実戦の棋譜から取った局面（§4.1）。 |
-| `auto` | モード `vct_auto`: ノード予算だけで解く（06 §5）。`limit` は必須だが無視される。 |
+| `game` | 実戦の棋譜から取った局面（[§4.1](#section-4-1)）。 |
+| `auto` | モード `vct_auto`: ノード予算だけで解く（[06 §5](06-solver-vct.ja.md#section-5)）。`limit` は必須だが無視される。 |
 
 ケースの追加:
 
@@ -148,6 +158,8 @@ board:
 - `expect` の手順は、ソルバーがどの詰み手順を見つけるかまで固定する。検査として役立つが、手の並べ替えを変えると正当に別の手順が見つかることがある。そのときは新しい手順が詰みであることを確かめてファイルを更新し、PR にその旨を書く。
 - 出典の分かる局面を使い、出典（詰め連珠の作者と番号、リンクなど）をコメントに書く。
 - `quick` は速く保つ。既定の集合（`heavy` 以外すべて）は Bench ワークフローがプルリクエストごとに走らせるので、数分に収める。
+
+<a id="section-4-1"></a>
 
 ### 4.1 実戦の局面（`vct_game_*`）
 
@@ -168,15 +180,17 @@ board:
 - **コスト。** 100 問を 1 回解くと Apple M1 で約 140 秒。3 秒以上の 14 問に `heavy` を付けたので、既定の集合に入るのは約 40 秒。全部は `--tag game --all`。
 - 各ファイルのコメントに、対局者と局面までの手順を書いた。
 
+<a id="section-5"></a>
+
 ## 5. チートシート
 
 | したいこと | 使うもの |
 | --- | --- |
-| 1 回の探索のノード数をコードで知る | `solve_with_stats`（03 §2） |
+| 1 回の探索のノード数をコードで知る | `solve_with_stats`（[03 §2](03-solver-api.ja.md#section-2)） |
 | 普段の集合を走らせる | `cargo bench --bench solvers` |
 | 変更をすばやく確かめる | `cargo bench --bench solvers -- --tag quick` |
 | `main` と比べる | `scripts/bench-compare.sh main` |
 | 同じ局面で追い詰めの 2 つのモードを比べる | `--mode vct_pns --tag vct` と `--mode vct_dfpns --tag vct` |
 | 結果を残して後で比べる | `--save PATH`、後で `--baseline PATH` |
-| 実戦の局面を走らせる | `cargo bench --bench solvers -- --tag game --all`（§4.1） |
-| 局面を追加する | `benches/cases/NAME.txt` を新しく作る（§4） |
+| 実戦の局面を走らせる | `cargo bench --bench solvers -- --tag game --all`（[§4.1](#section-4-1)） |
+| 局面を追加する | `benches/cases/NAME.txt` を新しく作る（[§4](#section-4)） |

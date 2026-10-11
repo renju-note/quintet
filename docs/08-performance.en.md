@@ -1,5 +1,10 @@
 # Performance history
 
+Read the [summary](#section-1) for the overall improvement and
+[§6](#section-6) for the next tuning opportunities. Effects by change
+are in [§2](#section-2), rejected ideas in [§5](#section-5), and detailed
+experiments in [§8](#section-8). Measurements refer to the stated revisions.
+
 How fast the solvers got, what made them so, and what is left.
 
 - A record of the work from [#149](https://github.com/renju-note/quintet/pull/149) (2026-09-23) to [#170](https://github.com/renju-note/quintet/pull/170) (2026-09-28), measured
@@ -9,6 +14,8 @@ How fast the solvers got, what made them so, and what is left.
 
 Prerequisites: [07](07-benchmarks.en.md) (the benchmark, nodes against
 time), [06](06-solver-vct.en.md) (the VCT search).
+
+<a id="section-1"></a>
 
 ## 1. Summary
 
@@ -46,22 +53,24 @@ Cases that changed the most:
 | `vct_game_black_l09_3` | 16.0 s | 0.8 s | 20× |
 | `vct_small_but_long` | 23.4 s | 6.4 s | 3.6× (the least) |
 
+<a id="section-2"></a>
+
 ## 2. What made the difference
 
 Each merged commit from [#149](https://github.com/renju-note/quintet/pull/149) to [#170](https://github.com/renju-note/quintet/pull/170), run with the current `benches/`
-(§7). [#159](https://github.com/renju-note/quintet/pull/159) only adds cases.
+([§7](#section-7)). [#159](https://github.com/renju-note/quintet/pull/159) only adds cases.
 
 Changes to the search (nodes, all 121 cases):
 
 | PR | What | Nodes, all | Default set | `heavy` | Details |
 | --- | --- | --- | --- | --- | --- |
-| [#160](https://github.com/renju-note/quintet/pull/160) | Order VCT candidates by the shapes a move makes | 309.4M → 285.6M (−8%) | −16% | −6% | 06 §8 |
-| [#161](https://github.com/renju-note/quintet/pull/161) | Rule out attacks that cannot be threats (the VCF zone) | → 221.2M (−23%) | −32% | −20% | 06 §3 |
-| [#162](https://github.com/renju-note/quintet/pull/162) | Lower the proof-number estimates of fours and threes | → 137.4M (−38%) | +6% | −47% | 06 §5 |
-| [#163](https://github.com/renju-note/quintet/pull/163) | `ShapeMap` replaces `PotentialField` | → 137.0M (−0.3%) | −1% | 0% | 06 §8 |
-| [#165](https://github.com/renju-note/quintet/pull/165) | Fewer forbidden move checks | → 137.3M (+0.2%) | 0% | +0.3% | 06 §5 |
-| [#167](https://github.com/renju-note/quintet/pull/167) | 1 + ε in the df-pn threshold | → 99.4M (−28%) | −19% | −31% | 06 §5 |
-| [#168](https://github.com/renju-note/quintet/pull/168) | Candidates caches to 65536 entries | → 92.3M (−7%) | −2% | −9% | 06 §3 |
+| [#160](https://github.com/renju-note/quintet/pull/160) | Order VCT candidates by the shapes a move makes | 309.4M → 285.6M (−8%) | −16% | −6% | [06 §8](06-solver-vct.en.md#section-8) |
+| [#161](https://github.com/renju-note/quintet/pull/161) | Rule out attacks that cannot be threats (the VCF zone) | → 221.2M (−23%) | −32% | −20% | [06 §3](06-solver-vct.en.md#section-3) |
+| [#162](https://github.com/renju-note/quintet/pull/162) | Lower the proof-number estimates of fours and threes | → 137.4M (−38%) | +6% | −47% | [06 §5](06-solver-vct.en.md#section-5) |
+| [#163](https://github.com/renju-note/quintet/pull/163) | `ShapeMap` replaces `PotentialField` | → 137.0M (−0.3%) | −1% | 0% | [06 §8](06-solver-vct.en.md#section-8) |
+| [#165](https://github.com/renju-note/quintet/pull/165) | Fewer forbidden move checks | → 137.3M (+0.2%) | 0% | +0.3% | [06 §5](06-solver-vct.en.md#section-5) |
+| [#167](https://github.com/renju-note/quintet/pull/167) | 1 + ε in the df-pn threshold | → 99.4M (−28%) | −19% | −31% | [06 §5](06-solver-vct.en.md#section-5) |
+| [#168](https://github.com/renju-note/quintet/pull/168) | Candidates caches to 65536 entries | → 92.3M (−7%) | −2% | −9% | [06 §3](06-solver-vct.en.md#section-3) |
 
 - The other PRs leave every case's nodes as they were.
 - [#162](https://github.com/renju-note/quintet/pull/162)'s +6% on the default set is `vct_small_but_long` (5.8M → 16.7M);
@@ -97,7 +106,7 @@ another on one cloud machine):
 
 - The renames ([#154](https://github.com/renju-note/quintet/pull/154), [#157](https://github.com/renju-note/quintet/pull/157), [#170](https://github.com/renju-note/quintet/pull/170)) show the noise: about ±3%.
 - [#163](https://github.com/renju-note/quintet/pull/163) cut time far more than nodes: keeping `PotentialField` in step with
-  the board took about a fifth of the search's time (06 §8).
+  the board took about a fifth of the search's time ([06 §8](06-solver-vct.en.md#section-8)).
 - The default set is mostly small cases. Changes aimed at the large ones
   show little here: [#168](https://github.com/renju-note/quintet/pull/168) is −1% (−2% nodes) against −9% nodes on `heavy`.
 - On this machine the 2024 version takes 190.4 s on the same set: 5.7
@@ -111,6 +120,8 @@ In short:
 - Cost per node (time at the same nodes): child keys by XOR ([#152](https://github.com/renju-note/quintet/pull/152)), bit
   operations ([#156](https://github.com/renju-note/quintet/pull/156), [#158](https://github.com/renju-note/quintet/pull/158)), dropping `PotentialField` ([#163](https://github.com/renju-note/quintet/pull/163)), fewer
   forbidden checks ([#165](https://github.com/renju-note/quintet/pull/165)), and the smaller ones in [#153](https://github.com/renju-note/quintet/pull/153), [#166](https://github.com/renju-note/quintet/pull/166) and [#169](https://github.com/renju-note/quintet/pull/169).
+
+<a id="section-3"></a>
 
 ## 3. Cases that got slower
 
@@ -138,6 +149,8 @@ set on the cloud machine of §2, median of 3 runs):
 - On the Mac of §1 there were 9. Cases of a millisecond or two cross over
   with the noise.
 
+<a id="section-4"></a>
+
 ## 4. Where the time goes now
 
 A profile of the whole benchmark on `main` just before [#169](https://github.com/renju-note/quintet/pull/169):
@@ -159,14 +172,18 @@ A profile of the whole benchmark on `main` just before [#169](https://github.com
 - The nested VCF searches are still over half. Most of them answer "is this
   a threat?" (`attacker_vcf.threat`) or "does the attacker have a VCF?".
 
+<a id="section-5"></a>
+
 ## 5. Tried and left out
 
 | Idea | Result | Why it stays out |
 | --- | --- | --- |
-| ε = 1/4 to 1/2 in the df-pn threshold | `vct_unstable` +47% (1/4), +41% (1/2) nodes | Better on the default set, but unstable on the long cases. 1/8 does well on both (06 §5). |
+| ε = 1/4 to 1/2 in the df-pn threshold | `vct_unstable` +47% (1/4), +41% (1/2) nodes | Better on the default set, but unstable on the long cases. 1/8 does well on both ([06 §5](06-solver-vct.en.md#section-5)). |
 | Sync the `SwordMap` only for the attacker | −0.6% time | Within the noise. |
-| Always expand the best attack once ([#108](https://github.com/renju-note/quintet/pull/108)) | `vct_unstable` 345× cheaper, default set 39% dearer | Depends too much on the position (06 §5, issue [#148](https://github.com/renju-note/quintet/issues/148)). |
-| A candidates cache over 65536 entries | 262144: −8% nodes, 100 MB | Little more for 4 times the memory (06 §3). |
+| Always expand the best attack once ([#108](https://github.com/renju-note/quintet/pull/108)) | `vct_unstable` 345× cheaper, default set 39% dearer | Depends too much on the position ([06 §5](06-solver-vct.en.md#section-5), issue [#148](https://github.com/renju-note/quintet/issues/148)). |
+| A candidates cache over 65536 entries | 262144: −8% nodes, 100 MB | Little more for 4 times the memory ([06 §3](06-solver-vct.en.md#section-3)). |
+
+<a id="section-6"></a>
 
 ## 6. What is left to try
 
@@ -179,12 +196,14 @@ A profile of the whole benchmark on `main` just before [#169](https://github.com
 - `vct_small_but_long` gained the least (3.6×). Its search is a long line of
   fours, where the order of expansion matters most.
 
+<a id="section-7"></a>
+
 ## 7. Reproducing it
 
 Nodes of a commit (any machine):
 
 1. Check the commit out into a `git worktree`, and replace its `benches/`
-   with the current one (as `scripts/bench-compare.sh` does, 07 §3).
+   with the current one (as `scripts/bench-compare.sh` does, [07 §3](07-benchmarks.en.md#section-3)).
 2. In the copied cases, change every `expect:` line that is a move list to
    `expect: proven`. An older solver may find another winning line; only the
    verdict is checked.
@@ -199,3 +218,115 @@ The 2024 version ([#120](https://github.com/renju-note/quintet/pull/120)) needs 
   Option<Mate>`, with no `solve_with_stats` and no node counts.
 - Time it with a small temporary example that reads a case file and calls
   that function, one case per process.
+
+<a id="section-8"></a>
+
+## 8. Tuning experiments
+
+These measurements were made while evaluating each change. Each comparison
+uses its own baseline; these are not measurements of the current HEAD. See
+[06](06-solver-vct.en.md) for the current algorithm.
+
+<a id="cache-capacity"></a>
+
+### Candidate cache capacity
+
+Why so large:
+
+- df-pn comes back to the same nodes over and over. With 1000 entries, a
+  third of the lookups at attack nodes and over half at defence nodes
+  missed. Each miss generates the moves anew, nested VCF searches and all.
+- Most misses are positions met for the first time, which no capacity
+  saves.
+- An entry takes about 280 bytes in the attacks cache (48 for the entry, 34
+  for its table slot, and some 30 moves of 8 bytes; a sixth are `Terminal`
+  with none), and about 110 in the defences cache (some 6 moves; over half
+  are `Terminal`).
+
+On the benchmark (07), all 121 cases:
+
+| Capacity | Both caches full | Nodes | Time |
+| --- | --- | --- | --- |
+| 1000 | 0.4 MB | | |
+| 4096 | 1.6 MB | −5% | −4% |
+| 16384 | 6 MB | −3% | −6% |
+| **65536** | **25 MB** | **−7%** | **−10%** |
+| 262144 | 100 MB | −8% | −10% |
+| 1048576 | 400 MB (220 MB at most, on `vct_unstable`) | −8% | −12% |
+
+- At 65536 the caches fill in 18 of the 121 cases. All are over a million
+  nodes, where the process already takes 75 MB to 1 GB without them.
+- The caches start empty and grow as they fill (`candidates_cache`), so a
+  small search pays nothing for the capacity. `LruCache::with_hasher` would
+  allocate the whole table up front.
+- A larger cache also changes some lines, not only the node count. What the
+  generators produce can depend on what the nested VCF memos hold (a dead
+  end hands back the zone of the search that stored it). So a node whose
+  moves are generated again may see other moves than the first time.
+
+<a id="initial-estimates"></a>
+
+### Initial proof-number estimates
+
+What was tried on the benchmark (07), against the sibling count alone:
+
+- Favouring fours is most of the gain, and also its one cost.
+  - Without it (threes only at half), the `heavy` cases got 17% dearer.
+  - With it, `vct_small_but_long` gets about three times dearer, whatever
+    the other weights: at `limit` 255 nothing stops the search from
+    following fours ever deeper.
+- Raising the other attacks' estimates above the sibling count (to 1.5×)
+  paid before the non-threat attacks were ruled out, and only costs since.
+- Proof numbers are compared across nodes, so the scale matters as well as
+  the ratio: halving every estimate alike makes the search dearer.
+- Weighting defences by the fours and threes they make did not pay.
+
+Result with these weights:
+
+- The whole set, `heavy` included: 38% fewer nodes.
+- The `heavy` cases: 47% fewer (`vct_unstable` 109.5M → 41.6M).
+- The default set: 6% more in total because of `vct_small_but_long`
+  (5.8M → 16.7M); without it, 26% fewer.
+
+<a id="first-expansion"></a>
+
+### Threshold check before the first expansion
+
+The threshold is checked before the first expansion too:
+
+- A node whose seeded numbers already cross it returns at once, having only
+  generated its moves. Its parent learns its numbers that way.
+- From #108 to #110 (2022) `expand_attacks` skipped that first check and
+  always expanded its best attack once. Whether that pays depends a lot on
+  the position. On the benchmark (07):
+  - `vct_unstable`: 345 times cheaper (119.5M nodes → 346k).
+  - The default set: 39% dearer (24.4M → 34.0M).
+  - `vct_black_long_short`: 53% dearer (17.4M → 26.7M).
+- So it stays out (issue #148).
+
+<a id="dfpn-margin"></a>
+
+### Comparing df-pn margins
+
+- On the benchmark (07), the whole set (`heavy` included) went from 137.3M
+  nodes to 99.4M (−28%):
+  - −19% on the default set, −27% on the other `heavy` cases.
+  - `vct_unstable`: 40.2M → 25.4M.
+  - Three cases got 6 to 14% dearer, none over 170k nodes.
+
+The other ε tried, as the change in nodes:
+
+| ε | whole set | default set | `vct_small_but_long` | `vct_unstable` |
+| --- | --- | --- | --- | --- |
+| 1/16 | −14% | −8% | +5% | −7% |
+| 1/8 | −28% | −19% | −14% | −37% |
+| 1/6 | −20% | −18% | −9% | −7% |
+| 1/4 | −8% | −25% | −25% | +47% |
+| 1/3 | −25% | −11% | +11% | −23% |
+| 1/2 | −10% | −25% | −22% | +41% |
+
+- From 1/4 up, the cases other than those two gain a little more (about
+  −32% against −26% at 1/8).
+- But those two swing widely. Their search follows a long line of fours,
+  where any change to the order of expansion sends it down another.
+- 1/8 does well on both.
