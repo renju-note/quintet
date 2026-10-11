@@ -26,19 +26,31 @@ pub const INF: u32 = u32::MAX;
 /// below that depth the moves generated still change with the limit, and two
 /// limits are then answering about different trees. From `transfer_from` up,
 /// generation no longer moves and the bound holds.
+///
+/// The `threat_limit` is in the key's position ([`VCTState`]'s `State::key`),
+/// so nothing is carried from one `threat_limit` to another: under each,
+/// other moves count as threats and the tree is another one.
 pub struct ProofTable {
     estimates: Memo<PnDn>,
     decided: Memo<Decided>,
-    transfer_from: u8,
+    /// `transfer_from` for a `threat_limit` below it: what the
+    /// defender's nested VCF and the cut-off of `search_defences` need.
+    transfer_floor: u8,
 }
 
 impl ProofTable {
-    pub fn with_carry_capacity(carry_capacity: usize, transfer_from: u8) -> Self {
+    pub fn with_carry_capacity(carry_capacity: usize, transfer_floor: u8) -> Self {
         Self {
             estimates: Memo::new(carry_capacity),
             decided: Memo::new(carry_capacity),
-            transfer_from,
+            transfer_floor,
         }
+    }
+
+    /// The smallest limit from which a decision bounds other limits, for
+    /// a search under `threat_limit`, the depth of the attacker's nested VCF.
+    fn transfer_from(&self, threat_limit: u8) -> u8 {
+        threat_limit.max(self.transfer_floor)
     }
 
     pub fn clear(&mut self) {
@@ -57,7 +69,8 @@ impl ProofTable {
     }
 
     pub fn insert(&mut self, state: &VCTState, node: PnDn) {
-        self.record(state.key(), node);
+        let transfer_from = self.transfer_from(state.threat_limit());
+        self.record(state.key(), node, transfer_from);
     }
 
     pub fn lookup_next(&self, state: &mut VCTState, next_move: Option<Point>) -> Option<PnDn> {
@@ -65,7 +78,7 @@ impl ProofTable {
         if let Some(&node) = self.estimates.get(key.hash()) {
             return Some(node);
         }
-        self.decided_at(key)
+        self.decided_at(key, self.transfer_from(state.threat_limit()))
     }
 
     /// [`Self::lookup_next`] for each of `candidates`, in their order,
@@ -83,9 +96,9 @@ impl ProofTable {
         );
     }
 
-    fn record(&mut self, key: Key, node: PnDn) {
+    fn record(&mut self, key: Key, node: PnDn, transfer_from: u8) {
         self.estimates.insert(key.hash(), node);
-        if key.limit < self.transfer_from {
+        if key.limit < transfer_from {
             return;
         }
         // The bound is the limit the node was *asked* at. `node.limit` is an
@@ -102,8 +115,8 @@ impl ProofTable {
         self.decided.insert(key.position, decided);
     }
 
-    fn decided_at(&self, key: Key) -> Option<PnDn> {
-        if key.limit < self.transfer_from {
+    fn decided_at(&self, key: Key, transfer_from: u8) -> Option<PnDn> {
+        if key.limit < transfer_from {
             return None;
         }
         let decided = self.decided.get(key.position)?;
@@ -221,54 +234,90 @@ struct Decided {
 mod tests {
     use super::*;
 
-    fn table(transfer_from: u8) -> ProofTable {
-        ProofTable::with_carry_capacity(64, transfer_from)
+    /// What `transfer_from` is in these tests.
+    const FROM: u8 = 3;
+
+    fn table() -> ProofTable {
+        ProofTable::with_carry_capacity(64, FROM)
     }
 
     #[test]
     fn test_a_proof_answers_at_every_larger_limit() {
-        let mut t = table(3);
-        t.record(Key::new(0xabc, 5), PnDn::proven(5));
-        assert_eq!(t.decided_at(Key::new(0xabc, 5)), Some(PnDn::proven(5)));
-        assert_eq!(t.decided_at(Key::new(0xabc, 9)), Some(PnDn::proven(5)));
+        let mut t = table();
+        t.record(Key::new(0xabc, 5), PnDn::proven(5), FROM);
+        assert_eq!(
+            t.decided_at(Key::new(0xabc, 5), FROM),
+            Some(PnDn::proven(5))
+        );
+        assert_eq!(
+            t.decided_at(Key::new(0xabc, 9), FROM),
+            Some(PnDn::proven(5))
+        );
         // Nothing is claimed below the limit it was proven at.
-        assert_eq!(t.decided_at(Key::new(0xabc, 4)), None);
+        assert_eq!(t.decided_at(Key::new(0xabc, 4), FROM), None);
         // A shallower proof tightens the bound.
-        t.record(Key::new(0xabc, 4), PnDn::proven(4));
-        assert_eq!(t.decided_at(Key::new(0xabc, 4)), Some(PnDn::proven(4)));
-        assert_eq!(t.decided_at(Key::new(0xabc, 9)), Some(PnDn::proven(4)));
+        t.record(Key::new(0xabc, 4), PnDn::proven(4), FROM);
+        assert_eq!(
+            t.decided_at(Key::new(0xabc, 4), FROM),
+            Some(PnDn::proven(4))
+        );
+        assert_eq!(
+            t.decided_at(Key::new(0xabc, 9), FROM),
+            Some(PnDn::proven(4))
+        );
     }
 
     #[test]
     fn test_a_disproof_answers_at_every_smaller_limit() {
-        let mut t = table(3);
-        t.record(Key::new(0xabc, 4), PnDn::disproven(4));
-        assert_eq!(t.decided_at(Key::new(0xabc, 4)), Some(PnDn::disproven(4)));
-        assert_eq!(t.decided_at(Key::new(0xabc, 3)), Some(PnDn::disproven(3)));
-        assert_eq!(t.decided_at(Key::new(0xabc, 5)), None);
+        let mut t = table();
+        t.record(Key::new(0xabc, 4), PnDn::disproven(4), FROM);
+        assert_eq!(
+            t.decided_at(Key::new(0xabc, 4), FROM),
+            Some(PnDn::disproven(4))
+        );
+        assert_eq!(
+            t.decided_at(Key::new(0xabc, 3), FROM),
+            Some(PnDn::disproven(3))
+        );
+        assert_eq!(t.decided_at(Key::new(0xabc, 5), FROM), None);
         // A deeper disproof widens the bound.
-        t.record(Key::new(0xabc, 6), PnDn::disproven(6));
-        assert_eq!(t.decided_at(Key::new(0xabc, 5)), Some(PnDn::disproven(5)));
+        t.record(Key::new(0xabc, 6), PnDn::disproven(6), FROM);
+        assert_eq!(
+            t.decided_at(Key::new(0xabc, 5), FROM),
+            Some(PnDn::disproven(5))
+        );
     }
 
     #[test]
     fn test_nothing_carries_below_transfer_from() {
-        let mut t = table(3);
+        let mut t = table();
         // Recorded below the threshold, so not carried at all.
-        t.record(Key::new(0xabc, 2), PnDn::proven(2));
-        assert_eq!(t.decided_at(Key::new(0xabc, 2)), None);
-        assert_eq!(t.decided_at(Key::new(0xabc, 8)), None);
+        t.record(Key::new(0xabc, 2), PnDn::proven(2), FROM);
+        assert_eq!(t.decided_at(Key::new(0xabc, 2), FROM), None);
+        assert_eq!(t.decided_at(Key::new(0xabc, 8), FROM), None);
         // Recorded above it, but not read below it.
-        t.record(Key::new(0xdef, 4), PnDn::disproven(4));
-        assert_eq!(t.decided_at(Key::new(0xdef, 2)), None);
-        assert_eq!(t.decided_at(Key::new(0xdef, 4)), Some(PnDn::disproven(4)));
+        t.record(Key::new(0xdef, 4), PnDn::disproven(4), FROM);
+        assert_eq!(t.decided_at(Key::new(0xdef, 2), FROM), None);
+        assert_eq!(
+            t.decided_at(Key::new(0xdef, 4), FROM),
+            Some(PnDn::disproven(4))
+        );
+    }
+
+    /// A larger `threat_limit` moves the start up with it.
+    #[test]
+    fn test_transfer_from_follows_the_threat_limit() {
+        let t = table();
+        assert_eq!(t.transfer_from(1), FROM);
+        assert_eq!(t.transfer_from(FROM), FROM);
+        assert_eq!(t.transfer_from(5), 5);
     }
 
     #[test]
     fn test_undecided_numbers_are_not_carried() {
-        let mut t = table(3);
-        t.record(Key::new(0xabc, 5), PnDn::new(3, 7, 5));
-        assert_eq!(t.decided_at(Key::new(0xabc, 5)), None);
-        assert_eq!(t.decided_at(Key::new(0xabc, 9)), None);
+        let mut t = table();
+        t.record(Key::new(0xabc, 5), PnDn::new(3, 7, 5), FROM);
+        assert_eq!(t.decided_at(Key::new(0xabc, 5), FROM), None);
+        assert_eq!(t.decided_at(Key::new(0xabc, 9), FROM), None);
     }
 }

@@ -19,6 +19,7 @@ pub use player::Player;
 pub use point::{Direction, Index, POINT_COUNT, Point, Points, SIZE};
 pub use row::{Row, RowKind};
 pub use segment::{FIVE, Segment};
-// Search-key helpers: the turn and a search's attacker are not properties of
-// the board, so the mate solvers mix them into the position hash themselves.
-pub(crate) use zobrist::{apply_attacker, apply_limit, apply_move, apply_turn};
+// Search-key helpers: the turn, a search's attacker and the VCT search's
+// threat limit are not properties of the board, so the mate solvers mix them
+// into the position hash themselves.
+pub(crate) use zobrist::{apply_attacker, apply_limit, apply_move, apply_threat_limit, apply_turn};

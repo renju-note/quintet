@@ -78,8 +78,9 @@ fn main() {
         if !wanted(&tags) {
             continue;
         }
-        let solver = &mut DFPNSVCTSolver::new(case.threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
-        let state = &mut VCTState::from_board(&case.board, case.attacker, case.limit);
+        let solver = &mut DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let state =
+            &mut VCTState::from_board(&case.board, case.attacker, case.limit, case.threat_limit);
         let budget = &mut NodeBudget::unlimited();
         if solver.solve(state, budget).is_none() {
             println!("{}\tnot proven", case.name);
@@ -107,7 +108,8 @@ fn main() {
         let (mut holds, mut proves_nodes) = (0, 0);
         for &p in &inside {
             let board = case.board.with_stone(defender, p);
-            let state = &mut VCTState::from_board(&board, case.attacker, case.limit);
+            let state =
+                &mut VCTState::from_board(&board, case.attacker, case.limit, case.threat_limit);
             let budget = &mut NodeBudget::unlimited();
             if solver.proves(state, &tree, budget) {
                 holds += 1;
@@ -117,7 +119,8 @@ fn main() {
         let (mut resolved, mut resolve_nodes) = (0, 0);
         for &p in &inside {
             let board = case.board.with_stone(defender, p);
-            let state = &mut VCTState::from_board(&board, case.attacker, case.limit);
+            let state =
+                &mut VCTState::from_board(&board, case.attacker, case.limit, case.threat_limit);
             let budget = &mut NodeBudget::unlimited();
             if solver.solve(state, budget).is_some() {
                 resolved += 1;

@@ -111,6 +111,8 @@ pub struct Key { pub position: u64, pub limit: u8 }
 
 攻め方がキーに入るのは、1 つのソルバーで両方の色について問えるようにするため。同じ石・同じ手番でも「黒は詰む」と「白は詰まない」は別の問いで、エントリを共有してはいけない（`test_zobrist_hash_separates_the_attacker`）。
 
+`VCTState` は `key()` を上書きし、4 つ目として **`threat_limit`**（`apply_threat_limit`）も混ぜる。`threat_limit` が違えば追い手と数える手が違うので、同じ局面でも別のノードになる。これで 1 つの追い詰めソルバーに複数の `threat_limit` で問える（`test_key_separates_the_threat_limit`、06 §2）。
+
 `position` と `limit` を分けるのは、覚え方が違うため:
 
 - **決着**（証明済み / 反証済み）は 1 つの limit の事実ではなく、limit にまたがる*範囲*。`limit` 以内の詰みはそれより大きい limit でも詰み、`limit` 以内で詰みなしならそれより小さい limit でもなし。だから `position` だけをキーにし、limit はデータとして持つ:
@@ -196,6 +198,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 | ソルバーとは何か | `solver.rs` の `Solver`。`solve` = `advance_generation` + 各ソルバーの `search` |
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。受けの手ごとに `State::play` が 1 減らす |
 | ハッシュに攻め方が入る理由 | `State::key`。1 つのソルバーで両方の色に答えるため |
+| ハッシュに `threat_limit` が入る理由 | `VCTState::key`。1 つの追い詰めソルバーで複数の `threat_limit` に答えるため（06 §2） |
 | 決着のキーに limit がない理由 | 決着は limit にまたがる範囲（§3）。`DFSSolver::dead_ends`、`ProofTable::decided` |
 | メモが育たない理由 | `Memo::advance_generation` が `carry_capacity` 超えで直前の世代以外を捨てる |
 | メモされない理由 | 打ち切られた探索は何も書かない。`!budget.is_exhausted()` のガード |

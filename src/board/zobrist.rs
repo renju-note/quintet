@@ -41,6 +41,14 @@ pub fn apply_attacker(current: u64, attacker: Player) -> u64 {
     current ^ ATTACKER_TABLE[attacker.index()]
 }
 
+/// Mixes in the VCT search's `threat_limit`, how deep the nested VCF that
+/// decides whether a move is a threat may look. Also not a property of the
+/// board: the same position is a different question under another
+/// `threat_limit`, as other moves count as threats.
+pub fn apply_threat_limit(current: u64, threat_limit: u8) -> u64 {
+    current ^ THREAT_LIMIT_TABLE[threat_limit as usize]
+}
+
 const TURN_TABLE: [u64; 2] = [0x3de2a0c0dee98e6b, 0x30c10a5c09690093];
 
 const ATTACKER_TABLE: [u64; 2] = [0xd3d80ead13e95e73, 0xde27f4c90ba4596a];
@@ -501,6 +509,23 @@ const CODE_TABLE: [u64; TABLE_SIZE] = [
     0x0f1d0ba66f9ccd77,
     0x8d34b1a9eafa6b57,
 ];
+
+/// Generated rather than written out like the others: splitmix64 from a
+/// fixed seed, so the codes are as random as theirs and never change.
+const THREAT_LIMIT_TABLE: [u64; 256] = {
+    let mut table = [0; 256];
+    let mut state: u64 = 0x5f1a_9a7c_3e0d_b4c1;
+    let mut i = 0;
+    while i < table.len() {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        table[i] = z ^ (z >> 31);
+        i += 1;
+    }
+    table
+};
 
 const LIMIT_TABLE: [u64; 256] = [
     0xd5c4d8a490fd8689,

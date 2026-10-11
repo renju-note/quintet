@@ -139,6 +139,11 @@ same stones and side to move can be "Black mates" for one question and
 "White has no mate" for another; they must not share an entry
 (`test_zobrist_hash_separates_the_attacker`).
 
+`VCTState` overrides `key()` to fold in a fourth: **the `threat_limit`**
+(`apply_threat_limit`). Under another `threat_limit` other moves count as
+threats, so the same position is another node, and one VCT solver can be
+asked under several (`test_key_separates_the_threat_limit`, 06 §2).
+
 The two parts are kept apart because they are remembered differently:
 
 - A **decision** (proven or disproven) is a *bound*, not a fact about one
@@ -250,6 +255,7 @@ proof for want of budget would be pointless.
 | What is a solver, minimally? | `Solver` in `solver.rs`: `solve` = `advance_generation` + the solver's own `search` |
 | Why did the search stop at depth N? | `limit` counts attacker moves; `State::play` decrements it after each defender move |
 | Why is the attacker in the hash? | `State::key`: one solver answers about both sides |
+| Why is the `threat_limit` in the hash? | `VCTState::key`: one VCT solver answers under several (06 §2) |
 | Why are decisions keyed without the limit? | A decision is a bound over limits (§3); `DFSSolver::dead_ends`, `ProofTable::decided` |
 | Why did the memo not grow? | `Memo::advance_generation` drops all but the previous generation once over `carry_capacity` |
 | Why is something not memoized? | Aborted searches write nothing: the `!budget.is_exhausted()` guards |

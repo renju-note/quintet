@@ -21,16 +21,32 @@ use crate::mate::vcf::IDDFSSolver;
 ///
 /// The solver is an [`IDDFSSolver`] with `limits = [1]`, and its memo lives
 /// as long as the VCT solver does.
+///
+/// The attacker's is as deep as the state's
+/// [`threat_limit`](VCTState::threat_limit), so one solver serves every
+/// `threat_limit`: its memo is keyed by the depth it was asked at, which says
+/// nothing about the `threat_limit` it came from.
 pub struct NestedVCF {
     solver: IDDFSSolver,
-    /// How many attacker moves the nested VCF may take, at most.
-    depth: u8,
+    /// How many attacker moves the nested VCF may take, at most: fixed for
+    /// the defender's, the state's `threat_limit` for the attacker's.
+    depth: Option<u8>,
     /// Whether this is the VCT attacker's VCF or the defender's.
     for_attacker: bool,
 }
 
 impl NestedVCF {
-    pub fn new(for_attacker: bool, depth: u8, carry_capacity: usize) -> Self {
+    /// The attacker's, as deep as each state's `threat_limit`.
+    pub fn attacker(carry_capacity: usize) -> Self {
+        Self::new(true, None, carry_capacity)
+    }
+
+    /// The defender's, `depth` deep whatever the state.
+    pub fn defender(depth: u8, carry_capacity: usize) -> Self {
+        Self::new(false, Some(depth), carry_capacity)
+    }
+
+    fn new(for_attacker: bool, depth: Option<u8>, carry_capacity: usize) -> Self {
         Self {
             solver: IDDFSSolver::with_carry_capacity([1].to_vec(), carry_capacity),
             depth,
@@ -38,10 +54,14 @@ impl NestedVCF {
         }
     }
 
+    fn depth(&self, state: &VCTState) -> u8 {
+        self.depth.unwrap_or(state.threat_limit())
+    }
+
     /// Does this side, to move now, have a VCF?
     pub fn vcf(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
         assert_eq!(state.attacking(), self.for_attacker);
-        let state = &mut state.vcf_state(self.depth);
+        let state = &mut state.vcf_state(self.depth(state));
         self.solver.search(state, budget)
     }
 
@@ -55,7 +75,7 @@ impl NestedVCF {
         budget: &mut NodeBudget,
     ) -> Result<Mate, Area> {
         assert_eq!(state.attacking(), self.for_attacker);
-        let state = &mut state.vcf_state(self.depth);
+        let state = &mut state.vcf_state(self.depth(state));
         let mut zone = Area::new();
         self.solver
             .search_zone(state, budget, &mut zone)
@@ -65,7 +85,7 @@ impl NestedVCF {
     /// Would this side have a VCF if the other side, to move now, passed?
     pub fn threat(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
         assert_ne!(state.attacking(), self.for_attacker);
-        let state = &mut state.threat_state(self.depth);
+        let state = &mut state.threat_state(self.depth(state));
         self.solver.search(state, budget)
     }
 
