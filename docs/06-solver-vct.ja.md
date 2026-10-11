@@ -22,7 +22,8 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 ├── extractor.rs        extract: the winning line from the tables                             (§6)
-└── tree.rs             ProofTree: the whole proof from the tables; proves, zone              (§6)
+├── tree.rs             ProofTree: the whole proof from the tables; proves, zone              (§6)
+└── auto.rs             solve_auto: only a node budget, several threat_limits in turn         (§5)
 src/feature/shape.rs       ShapeMap: what a stone would make, per point, player and direction    (§8)
 ```
 
@@ -432,6 +433,50 @@ pub struct VCTSolver<P: ThresholdPolicy> {
   - `clear`: 表、内部ソルバー、キャッシュを空にする。
   - `memo_len`: 4 つのメモの合計（キャッシュはもともと有界）。
 
+### 予算だけで解く（`auto.rs`）
+
+`VCTSolver::solve_auto(board, attacker, budget)` は `limit` も `threat_limit` も取らない。探索を縛るのは予算だけ。`SolveMode::VCTAuto`（コード 17）と `wasm::solve_vct_auto` がこれを呼ぶ。
+
+```
+solve_auto:
+    advance_generation                       # once, for every round
+    slice = AUTO_FIRST_SLICE (1000)
+    loop:
+        for t in AUTO_THREAT_LIMITS (2, 3, 1), unless t is disproven:
+            part = budget.slice(slice)
+            search(VCTState(board, attacker, AUTO_LIMIT (255), t), part)
+            budget.absorb(part)
+            proven              -> extract, done
+            finished unproven   -> t is disproven
+        all disproven -> None (budget left); budget out -> None
+        slice *= 2
+```
+
+- **limit はない。** 255 で探索し、どこまで深く読むかは証明数に任せる。
+  - limit は木を切るだけ。1 ずつ深めると、詰みより浅い limit での反証が一番高くつく。反証は下の limit にしか引き継げない（§4）。
+  - `quick` のケースで limit を 1 から深めると、正しい limit で 1 回探索する場合の中央値 1.9 倍、最大 26 倍かかった。
+  - 255 での探索は正しい limit とほぼ同じコスト（中央値 1.0 倍）だが、多くはより長い手順を見つける。
+- **`threat_limit` は複数。** どれが安いかは局面によって大きく違い、`t` の大小とも揃わない:
+  - `vct_game_black_l07_3`: 3 では 1.6k ノード、2 では 47k。
+  - `vct_game_black_l05_2`: 2 では 17k、1 では 785k。
+  - `vct_fukumi` は 3 でしか詰まない。`vct_game_black_l08_2` は 1 で見つかり、2 だけでは 5M ノードで終わらない。
+- **回を分けても損は小さい。** 予算を使い切った回も、終えた部分木は表に残り、次の回はその続きから探索する。
+  - `threat_limit` はすべてのキーに入っている（§2）ので、ある `threat_limit` の回が別の `threat_limit` の表を読むことはない。内部四追いのメモは共有する。
+  - 世代は呼び出し全体で 1 つ。回ごとに開くと、ほかの `threat_limit` の回が見つけたものをメモが捨ててしまう。
+- **答えの意味。**
+  - `Some(mate)`: 追い詰め。最短とは限らない。
+  - `None` で予算が残っている: `AUTO_THREAT_LIMITS` のどれでも、長さに関係なく追い詰めはない。
+  - `None` で予算切れ: 不明。
+
+`heavy` を除くベンチマークのケースで、各 5M ノードまで（99 局面）。`_short` は証明側のケースと同じ局面なので、より長い詰みがあり、ここでは証明される。
+
+| | |
+| --- | --- |
+| 証明 | 97。`vct_small_but_long` と `vct_game_white_l15_1_short` 以外 |
+| ノード数。ケース自身の `limit` と `threat_limit` での `vct_dfpns` と比べて（両方が証明した 60 局面） | 中央値 1.02 倍、合計 1.85 倍 |
+| ノード数。`limit` 255、`threat_limit` 2 だけの場合と比べて（両方が証明した 95 局面） | 中央値 1.39 倍、合計 1.27 倍。ほかに 2 局面を証明 |
+| 手順。ケース自身の `limit` と比べて | 平均 2.9 手長い。60 中 16 は同じ |
+
 ## 6. 手順の復元（`extractor.rs`）
 
 `search` は勝ちの存在を証明するだけ。`extract` が表をたどり直して手順を復元する:
@@ -608,6 +653,7 @@ tree_defences(state):                          # 受け方の手番
 | モードごとの違い | `threshold.rs` の `ThresholdPolicy`。それ以外は共通 |
 | 置換表 | `attacker_table` / `defender_table`（`ProofTable`）、2 つの `LruCache`、内部ソルバーの `dead_ends`。キーはすべて `State::key()`、決着は局面のみ |
 | 決着が limit をまたいで効くのが一定の深さ以上である理由 | `ProofTable` の `transfer_from`（§4） |
+| 予算だけで解く | `auto.rs` の `solve_auto`（§5） |
 | 手順の復元 | `extract`。`End::Unknown` = たどれる証明済みの子がなかった |
 | 証明がどの受けのあとも成り立つか | `proof_tree` のあと `ProofTree::zone` と `proves`（§6） |
 | 回帰テストの追加 | `solve.rs` に ASCII 盤面と期待する手順。関係する `SolveMode` ごとに 1 アサーション |
