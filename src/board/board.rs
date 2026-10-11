@@ -98,12 +98,22 @@ impl Board {
         self.grid.lines_on(p)
     }
 
+    /// `r`'s rows of kind `k` on the board. As for [`Self::rows_on`], two
+    /// `Four` rows can share their eye.
     pub fn rows(&self, r: Player, k: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.grid.rows(r, k)
     }
 
+    /// See [`Grid::rows_on`]: a count of `Four` rows is not a count of
+    /// fours.
     pub fn rows_on(&self, p: Point, r: Player, k: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.grid.rows_on(p, r, k)
+    }
+
+    /// The points where `r` makes a five through `p`: see
+    /// [`Grid::four_eyes_on`].
+    pub fn four_eyes_on(&self, p: Point, r: Player) -> impl Iterator<Item = Point> + '_ {
+        self.grid.four_eyes_on(p, r)
     }
 
     pub fn to_pretty_string(&self) -> String {

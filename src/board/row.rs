@@ -57,6 +57,12 @@ pub enum RowKind {
     /// Three stones that can become a four: a segment scoring 3.
     Sword,
     /// A segment scoring 4, one stone short of a five.
+    ///
+    /// One five point can carry two such rows: White's `xxxx.x` has two
+    /// segments scoring 4 with the same eye, as a straight four has two with
+    /// different eyes. To tell a four from two, count distinct eyes
+    /// ([`Line::row_eyes`](super::Line::row_eyes),
+    /// [`Board::four_eyes_on`](super::Board::four_eyes_on)), not rows.
     Four,
     /// A segment scoring 5.
     Five,

@@ -83,8 +83,8 @@ the fours of the side that *just moved* mean for the side *to move*?
 - Only fours through the last move are examined: an older four would
   already have forced a reply.
   - These are the eyes of `rows_on(last_move, opponent, Four)`, read off
-    each line's bitmasks by `four_eyes_on` without building the rows (this
-    runs at every node).
+    each line's bitmasks by `Board::four_eyes_on` without building the rows
+    (this runs at every node).
 - After a pass there is no last move, so every four of the opponent is
   scanned.
 - A straight four shows up as two `Four`s with different eyes, handled by

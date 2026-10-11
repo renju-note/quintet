@@ -108,29 +108,10 @@ impl Game {
     fn last_four_eyes(&self) -> (Option<Point>, Option<Point>) {
         let opponent = self.turn.opponent();
         if let Some(last_move) = self.last_move() {
-            Self::first_two_distinct(self.four_eyes_on(last_move, opponent))
+            Self::first_two_distinct(self.board.four_eyes_on(last_move, opponent))
         } else {
             Self::first_two_distinct(self.board.rows(opponent, Four).flat_map(|r| r.eyes()))
         }
-    }
-
-    /// The eyes of `r`'s fours through `p`, line by line: those of
-    /// `rows_on(p, r, Four)`, read off each line's bitmasks without building
-    /// the rows. This runs at every node of every search.
-    ///
-    /// On one line, two fours through `p` give their eyes in the order the
-    /// rows come, as the rows start: were the later row's eye before the
-    /// earlier one's, both would be empty cells of the earlier row, which
-    /// then would have two and be no four.
-    fn four_eyes_on(&self, p: Point, r: Player) -> impl Iterator<Item = Point> + '_ {
-        self.board
-            .lines_on(p)
-            .filter(move |(_, _, l)| l.score_bound(r) > Four.stones())
-            .flat_map(move |(d, i, l)| {
-                let starts = l.row_starts_on(p.to_index(d).j, r, Four);
-                Bits(l.eyes_of(starts, Four.eye_cells()))
-                    .map(move |j| Index::new(d, i, j).to_point())
-            })
     }
 
     /// The first two distinct points of `eyes`, in the order they come.

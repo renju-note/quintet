@@ -1,3 +1,4 @@
+use super::bits::Bits;
 use super::line::*;
 use super::player::*;
 use super::point::*;
@@ -211,6 +212,12 @@ impl Grid {
             })
     }
 
+    /// `r`'s rows of kind `k` through `p`: see [`Line::rows_on`].
+    ///
+    /// One row per segment, so a count of [`Four`] rows is not a count of
+    /// fours: White's `xxxx.x` has two segments scoring 4 with the same eye,
+    /// which makes six. To count the points that complete a five, use
+    /// [`Self::four_eyes_on`].
     pub fn rows_on(&self, p: Point, r: Player, k: RowKind) -> impl Iterator<Item = Row> + '_ {
         self.lines_on(p)
             .filter(move |(_, _, l)| l.score_bound(r) > k.stones())
@@ -226,6 +233,28 @@ impl Grid {
         self.lines_on(p)
             .filter(move |(_, _, l)| l.score_bound(r) > k.stones())
             .map(move |(d, _, l)| l.row_starts_on(p.to_index(d).j, r, k))
+    }
+
+    /// The eyes of `r`'s fours through `p`, line by line: the points
+    /// where `r` makes a five, each once per line, read off the lines'
+    /// bitmasks without building the rows of `rows_on(p, r, Four)`.
+    ///
+    /// Two lines through `p` share no point but `p`, so the points are
+    /// distinct when `p` holds a stone. Two of them mean `r` has two ways to
+    /// a five, a double four or a straight four.
+    ///
+    /// On one line, two fours through `p` give their eyes in the order the
+    /// rows come, as the rows start: were the later row's eye before the
+    /// earlier one's, both would be empty cells of the earlier row, which
+    /// then would have two and be no four.
+    pub fn four_eyes_on(&self, p: Point, r: Player) -> impl Iterator<Item = Point> + '_ {
+        self.lines_on(p)
+            .filter(move |(_, _, l)| l.score_bound(r) > Four.stones())
+            .flat_map(move |(d, i, l)| {
+                let starts = l.row_starts_on(p.to_index(d).j, r, Four);
+                Bits(l.eyes_of(starts, Four.eye_cells()))
+                    .map(move |j| Index::new(d, i, j).to_point())
+            })
     }
 
     pub fn to_pretty_string(&self) -> String {
@@ -525,6 +554,47 @@ mod tests {
         let on_h9: Vec<_> = grid.rows_on(Point(7, 8), White, Sword).collect();
         assert_eq!(on_h9, swords);
         assert_eq!(grid.rows_on(Point(7, 8), Black, Two).count(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_four_eyes_on() -> Result<(), String> {
+        let grid = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         x x x x . x . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . x x x x . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Grid>()?;
+
+        // White's `xxxx.x`: two segments score 4, both with the eye E8,
+        // which makes six. One four, not a double four.
+        let fours: Vec<_> = grid.rows_on(Point(1, 7), White, Four).collect();
+        assert_eq!(fours.len(), 2);
+        assert_eq!(points(fours[0].eyes()), "E8");
+        assert_eq!(points(fours[1].eyes()), "E8");
+        assert_eq!(points(grid.four_eyes_on(Point(1, 7), White)), "E8");
+
+        // A straight four: two segments scoring 4 too, with distinct eyes.
+        assert_eq!(grid.rows_on(Point(4, 3), White, Four).count(), 2);
+        assert_eq!(points(grid.four_eyes_on(Point(4, 3), White)), "A4,F4");
+
+        // Black's `oooo.o` is no four: the segments have a black margin.
+        let black = grid.to_string().replace('x', "o").parse::<Grid>()?;
+        assert_eq!(black.rows_on(Point(1, 7), Black, Four).count(), 0);
+        assert_eq!(black.four_eyes_on(Point(1, 7), Black).count(), 0);
 
         Ok(())
     }
