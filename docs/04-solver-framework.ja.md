@@ -68,7 +68,7 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 | なし | `None` | 自由 |
 
 - 見るのは直前の手を通る四だけ。それより古い四は、すでに応手を強いているはず。
-  - `rows_on(last_move, opponent, Four)` の眼。全ノードで呼ばれるので、`four_eyes_on` が連を組み立てずに各線のビットマスクから読む。
+  - `rows_on(last_move, opponent, Four)` の眼。全ノードで呼ばれるので、`Board::four_eyes_on` が連を組み立てずに各線のビットマスクから読む。
 - パスの後は直前の手がないので、相手のすべての四を見る。
 - 棒四は眼の異なる 2 つの `Four` として現れ、四四と同じ 2 点判定（`first_two_distinct`）で扱う。
 

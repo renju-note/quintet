@@ -304,6 +304,9 @@ Main queries:
 - `rows_on(p, r, kind)`: only the rows through `p` (§3.1; only the four
   lines through `p` are read). The hot path for "what does playing `p`
   make?".
+- `four_eyes_on(p, r)`: the points where `r` makes a five, on the lines
+  through `p`, each once per line. Count these, not `Four` rows, to tell
+  one four from two (see `Four` in §5).
 - `line(d, i)` / `line_on(p, d)`: the stored `Line`, `None` for the short
   diagonals. `lines()` and `lines_on(p)` iterate them as
   `(Direction, i, &Line)`. A consumer with its own per-point tables can read
@@ -331,7 +334,7 @@ scores.
 | --- | --- | --- | --- |
 | `Five` | one scoring 5 | `ooooo` | **Five**. For Black a score needs empty margins, so overlines are excluded. |
 | `Overlined` | two, each `is_free` with 5 stones | `oooooo` (6+) | **Overline**. |
-| `Four` | one scoring 4 | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: a stone at the eye makes a five. A straight four shows as **two** adjacent `Four`s. |
+| `Four` | one scoring 4 | `oooo_`, `ooo_o`, `oo_oo`, … | **Four**: a stone at the eye makes a five. A straight four shows as **two** adjacent `Four`s. White's `xxxx.x` does too, both with the same eye (which makes six), yet is one four: count distinct eyes, not rows. |
 | `Straight` | two scoring 4, stones in the four shared cells | `.oooo.` | **Straight four**. |
 | `Sword` | one scoring 3 | `ooo__`, `o_oo_`, … (3 stones in a segment) | A "four-to-be" (Japanese *kensaki*, "sword tip"): either eye makes a `Four`. Includes open threes, so it is not a "closed three". Not a rule term; VCF/VCT use it to list four-making moves. |
 | `Three` | two scoring 3, stones in the four shared cells | `.ooo_.`, `.oo_o.`, `.o_oo.`, `._ooo.` | **Three**: the single eye makes a `Straight`. |
