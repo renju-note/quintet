@@ -1,0 +1,26 @@
+# https://twitter.com/nachirenju/status/1487315157382414336
+# vct_fukumi with only a node budget (SolveMode::VCTAUTO): limit and
+# threat_limit are ignored. Under threat_limit 3 only
+# (vct_fukumi_threat2): found under 3 once the search under 2 is
+# disproven.
+mode: vct_auto
+attacker: o
+limit: 255
+tags: vct proven auto slow
+expect: G12,D10,I12,J12,H13,H14,K11,G14,F12,E12,J13,K14,I14,F11,L11,J11,K12
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . x . . . . . .
+. . . . . . . o . . . . . . .
+. . . . . . x o o . . . . . .
+. . . . . o o o x x . . . . .
+. . . . o x x x x o . . . . .
+. . . x . x o o . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

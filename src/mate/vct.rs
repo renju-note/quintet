@@ -18,6 +18,7 @@
 //! | generate | `generator.rs` | `generate_attacks` / `generate_defences` list a node's candidate moves, best first, or decide the node outright ([`Candidates`]) |
 //! | nested VCF | `nested_vcf.rs` | [`NestedVCF`]: the VCF sub-searches the generator asks — has a side a VCF now, would it have one after a pass (a threat) |
 //! | extract | `extractor.rs` | `extract` walks the tables after a proof and recovers the winning line |
+//! | auto | `auto.rs` | `solve_auto` searches with only a node budget, under several `threat_limit`s in turn |
 //!
 //! The state they share is [`VCTState`] (`state.rs`): the game, the remaining
 //! limit, the `threat_limit` and a shape map for move ordering. What they
@@ -32,6 +33,7 @@
 //! [`NestedVCF`]: nested_vcf::NestedVCF
 //! [`ProofTable`]: proof::ProofTable
 
+mod auto;
 mod extractor;
 mod generator;
 mod nested_vcf;
@@ -42,6 +44,7 @@ mod state;
 mod threshold;
 mod tree;
 
+pub use auto::{AUTO_FIRST_SLICE, AUTO_LIMIT, AUTO_THREAT_LIMITS};
 pub use proof::PnDn;
 pub use solver::VCTSolver;
 pub use state::VCTState;

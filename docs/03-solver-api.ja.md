@@ -62,6 +62,7 @@ stats.memo_len   // 探索後にソルバーのメモに残るエントリ数（
 | `VCTIDDFS` | 11 | `vct_iddfs` | 予約。`solve` は何も探索せず `Aborted` を返す。 |
 | `VCTPNS` | 15 | `vct_pns` | 追い詰め、証明数探索。 |
 | `VCTDFPNS` | 16 | `vct_dfpns` | 追い詰め、df-pn。**通常はこれ。** |
+| `VCTAUTO` | 17 | `vct_auto` | 追い詰め、df-pn。ノード予算だけで解く。`limit` と `threat_limit` は無視（後述）。 |
 
 - コードは wasm/JS 側の表現（`SolveMode::try_from(u8)`）で、公開 API。番号を変えてはいけない。
 - CLI 名は `SolveMode::from_str`。
@@ -85,6 +86,20 @@ SolveLimits::new(limit)
 
 `with_*` は新しい値を返す。後でフィールドが増えても、この書き方なら呼び出し側は壊れない。
 
+### 予算だけで解く: `VCTAUTO`
+
+`VCTAUTO` は、`limit` も `threat_limit` も選ばずに追い詰めを問う。`with_max_nodes` を与えれば、ほかは関係ない（`defender_vcf_depth` だけは効く）。中身は `DFPNSVCTSolver::solve_auto`（06 §5）で、JS からは `solve_vct_auto(blacks, whites, black, max_nodes)`。
+
+```rust
+let limits = SolveLimits::new(0).with_max_nodes(1_000_000);   // 0 は無視される
+let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
+```
+
+- 手順の長さに上限を付けず、`threat_limit` 2、3、1（`AUTO_THREAT_LIMITS`）で順に探索する。それぞれに予算の一部を割り当て、割り当ては回ごとに倍にする。
+- `Proven`: 追い詰め。最短より長いことが多い。長い詰みのほうが証明が安いことが多いため。
+- `Disproven`: これらの `threat_limit` のどれでも、長さに関係なく追い詰めはない。「N 手以内にはない」とは言わない。
+- `Aborted`: いつもどおり不明。
+
 ### `SolveResult`
 
 ```rust
@@ -106,6 +121,8 @@ let mut budget = NodeBudget::new(100_000);   // または NodeBudget::unlimited(
 budget.is_exhausted();                       // 予算切れになったか
 budget.nodes();                              // これまでのノード数
 budget.reset();                              // 0 に戻す。上限はそのまま
+let part = budget.slice(1_000);              // 仕事の一部のための予算。残りより多くはならない
+budget.absorb(&part);                        // その一部が使った分を数える
 ```
 
 - 1 ノード = 探索関数の 1 回の呼び出し。内部の四追い探索も数える。四追いでは `DFSSolver::search`、追い詰めでは `search_attacks` / `search_defences`。
@@ -212,6 +229,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | 探索のコストを知る | `solve_with_stats`。`SolveStats::nodes` と `memo_len` |
 | 四追いだけ探す | `SolveMode::VCFDFS` |
 | 追い詰めを探す | `SolveMode::VCTDFPNS`。追い手の範囲は `threat_limit` |
+| ノード予算だけで追い詰めを探す | `SolveMode::VCTAUTO`、`VCTSolver::solve_auto`、`wasm::solve_vct_auto` |
 | 長すぎる探索を止める | `SolveLimits::with_max_nodes`。`Aborted` は「不明」であって「安全」ではない |
 | 多くの問いを安く投げる | `DFPNSVCTSolver` を保持し、問いごとに新しい `VCTState` を渡し、`NodeBudget` は 1 つを共有 |
 | 両方の色について問う | 同じソルバーでよい。攻め方はキーに入っている |

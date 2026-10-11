@@ -89,9 +89,10 @@ fn parse_case(name: &str, text: &str) -> Result<Case, String> {
             .transpose()
     };
 
+    // Not checked here: a mode the solver does not know is skipped when the
+    // cases run, so that `scripts/bench-compare.sh` can run this tree's
+    // cases on a ref older than their mode.
     let mode = required("mode")?.to_string();
-    mode.parse::<SolveMode>()
-        .map_err(|e| format!("`mode`: {e}"))?;
     let attacker = required("attacker")?
         .parse::<Player>()
         .map_err(|e| format!("`attacker`: {e}"))?;
@@ -401,6 +402,10 @@ fn run() -> Result<bool, String> {
     for case in &cases {
         let mode = options.mode.as_deref().unwrap_or(&case.mode);
         let exact = options.mode.is_none() || options.mode.as_deref() == Some(&case.mode);
+        if mode.parse::<SolveMode>().is_err() {
+            println!("{:<32} {:<10} SKIPPED: unknown mode", case.name, mode);
+            continue;
+        }
         let row = match run_case(case, mode, exact, options.runs) {
             Ok(row) => row,
             Err(e) => {

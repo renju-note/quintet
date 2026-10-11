@@ -27,7 +27,8 @@ src/mate/vct/
 ├── threshold.rs        ThresholdPolicy: DFSThreshold, PNSThreshold, DFPNSThreshold           (§5)
 ├── solver.rs           VCTSolver<P>: the struct, Solver impl                                 (§5)
 ├── extractor.rs        extract: the winning line from the tables                             (§6)
-└── tree.rs             ProofTree: the whole proof from the tables; proves, zone              (§6)
+├── tree.rs             ProofTree: the whole proof from the tables; proves, zone              (§6)
+└── auto.rs             solve_auto: only a node budget, several threat_limits in turn         (§5)
 src/feature/shape.rs       ShapeMap: what a stone would make, per point, player and direction    (§8)
 ```
 
@@ -559,6 +560,64 @@ pub struct VCTSolver<P: ThresholdPolicy> {
   - `clear` empties the tables, nested solvers and caches.
   - `memo_len` sums the four memos (the caches are bounded already).
 
+### Only a budget (`auto.rs`)
+
+`VCTSolver::solve_auto(board, attacker, budget)` takes no `limit` and no
+`threat_limit`; only the budget bounds it. `SolveMode::VCTAUTO` (code 17)
+and `wasm::solve_vct_auto` call it.
+
+```
+solve_auto:
+    advance_generation                       # once, for every round
+    slice = AUTO_FIRST_SLICE (1000)
+    loop:
+        for t in AUTO_THREAT_LIMITS (2, 3, 1), unless t is disproven:
+            part = budget.slice(slice)
+            search(VCTState(board, attacker, AUTO_LIMIT (255), t), part)
+            budget.absorb(part)
+            proven              -> extract, done
+            finished unproven   -> t is disproven
+        all disproven -> None (budget left); budget out -> None
+        slice *= 2
+```
+
+- **No limit.** At 255 the proof numbers decide how deep to go.
+  - A limit only cuts the tree. Deepening it one by one costs most in the
+    disproofs at the limits below the mate, which carry downwards only
+    (§4).
+  - Deepening `limit` from 1 on the `quick` cases cost 1.9 times one
+    search at the right limit (median), and up to 26 times.
+  - Searching at 255 cost about the same as at the right limit (median
+    1.0), but finds a longer line on most.
+- **Several `threat_limit`s.** What each costs varies widely from position
+  to position, and not in step with `t`:
+  - `vct_game_black_l07_3`: 1.6k nodes under 3, 47k under 2.
+  - `vct_game_black_l05_2`: 17k under 2, 785k under 1.
+  - `vct_fukumi` has a VCT under 3 only. `vct_game_black_l08_2` is found
+    under 1, while 2 alone does not finish within 5M nodes.
+- **Rounds lose little.** A slice that runs out leaves its finished
+  subtrees in the tables, and the next round goes on from them.
+  - The `threat_limit` is in every key (§2), so the rounds under one never
+    read the tables of another. The nested VCF memos they share.
+  - One generation for the whole call: one per slice would let the memos
+    drop what the rounds under the other `threat_limit`s found.
+- **What it answers.**
+  - `Some(mate)`: a VCT, not the shortest.
+  - `None`, budget left: no VCT of any length under any of
+    `AUTO_THREAT_LIMITS`.
+  - `None`, budget exhausted: unknown.
+
+On the benchmark cases but `heavy`, 5M nodes each (99 positions). A
+`_short` case is the same position as its proven case, so it has a longer
+mate and is proven here.
+
+| | |
+| --- | --- |
+| Proven | 97: all but `vct_small_but_long` and `vct_game_white_l15_1_short` |
+| Nodes, against `vct_dfpns` at the case's own `limit` and `threat_limit` (60 positions proven by both) | median 1.02 times, total 1.85 times |
+| Nodes, against `limit` 255 under `threat_limit` 2 alone (95 proven by both) | median 1.39 times, total 1.27 times; 2 more proven |
+| Line, against the case's own `limit` | 2.9 attacks longer on average; the same on 16 of 60 |
+
 ## 6. Extraction (`extractor.rs`)
 
 `search` only proves that a win exists. `extract` walks the tables again to
@@ -783,6 +842,7 @@ side to move, the way a player sizes up a move:
 | Which mode does what | `ThresholdPolicy` in `threshold.rs`; everything else is shared |
 | Transposition tables | `attacker_table` / `defender_table` (`ProofTable`), the two `LruCache`s, the nested solvers' `dead_ends`; all keyed by `State::key()`, decisions by position alone |
 | Why do decisions carry between limits only from some depth? | `transfer_from` in `ProofTable` (§4) |
+| Solving with only a budget | `solve_auto` in `auto.rs` (§5) |
 | Path extraction | `extract`; `End::Unknown` means no proven child to follow |
 | Which defences a proof survives | `proof_tree`, then `ProofTree::zone` and `proves` (§6) |
 | Adding a regression case | ASCII board + expected path in `solve.rs`, one assertion per relevant `SolveMode` |

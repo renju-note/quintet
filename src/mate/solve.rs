@@ -71,6 +71,11 @@ pub fn solve_with_stats(
         VCTDFS => run(DFSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
         VCTPNS => run(PNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
         VCTDFPNS => run(DFPNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
+        VCTAUTO => {
+            let mut solver = DFPNSVCTSolver::new(defender_vcf_depth);
+            let maybe_mate = solver.solve_auto(board, attacker, budget);
+            (maybe_mate, solver.memo_len())
+        }
         VCFIDDFS | VCTIDDFS => unreachable!("answered above"),
     };
     let result = match maybe_mate {
@@ -109,6 +114,10 @@ pub enum SolveMode {
     VCTIDDFS,
     VCTPNS,
     VCTDFPNS,
+    /// df-pn with only the node budget: `limit` and `threat_limit` are
+    /// ignored ([`DFPNSVCTSolver::solve_auto`]). `Disproven` means no VCT
+    /// under any of [`AUTO_THREAT_LIMITS`], of any length.
+    VCTAUTO,
 }
 
 pub use SolveMode::*;
@@ -126,6 +135,7 @@ impl TryFrom<u8> for SolveMode {
             11 => Ok(VCTIDDFS),
             15 => Ok(VCTPNS),
             16 => Ok(VCTDFPNS),
+            17 => Ok(VCTAUTO),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -142,6 +152,7 @@ impl FromStr for SolveMode {
             "vct_iddfs" => Ok(VCTIDDFS),
             "vct_pns" => Ok(VCTPNS),
             "vct_dfpns" => Ok(VCTDFPNS),
+            "vct_auto" => Ok(VCTAUTO),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -1057,6 +1068,49 @@ mod tests {
         }
         assert!(verdicts.iter().any(|&v| v), "expected some proven");
         assert!(verdicts.iter().any(|&v| !v), "expected some disproven");
+    }
+
+    /// With only a budget, the fukumi position is proven: under the
+    /// `threat_limit` 3 it needs, and longer than the 4 attacks of
+    /// `test_vct_fukumi_move`, which no `limit` bounds now.
+    #[test]
+    fn test_vct_auto() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . x o o . . . . . .
+         . . . . . o o o x x . . . . .
+         . . . . o x x x x o . . . . .
+         . . . x . x o o . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+        // `limit` and `threat_limit` are ignored.
+        let limits = SolveLimits::new(1).with_threat_limit(0);
+
+        let (result, stats) = solve_with_stats(VCTAUTO, &board, Black, limits);
+        let mate = result.into_mate().expect("proven");
+        assert!(mate.n_attacks() > 4, "{}", mate.n_attacks());
+
+        // Short of the nodes it took, it gives up, within the budget.
+        let max_nodes = stats.nodes / 2;
+        let (result, stats) =
+            solve_with_stats(VCTAUTO, &board, Black, limits.with_max_nodes(max_nodes));
+        assert!(result.is_aborted());
+        assert!(stats.nodes <= max_nodes);
+
+        // An empty board has no VCT at any length: disproven, not aborted.
+        let limits = limits.with_max_nodes(1_000);
+        assert!(solve(VCTAUTO, &Board::new(), Black, limits).is_disproven());
+        Ok(())
     }
 
     /// One solver answers under several `threat_limit`s, in any order, as

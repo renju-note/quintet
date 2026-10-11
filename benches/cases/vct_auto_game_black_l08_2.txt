@@ -1,0 +1,28 @@
+# From a game between Rapfi (classical) and quintet-ai, an engine in
+# development (Black: quintet-ai, White: Rapfi), 25 moves before
+# its end. Black's shortest VCT here needs 8 attacks (threat_limit 2).
+# Moves: H8,F8,H9,D8,F10,G9,H10,H11
+# vct_game_black_l08_2 with only a node budget (SolveMode::VCTAUTO):
+# limit and threat_limit are ignored. Found under threat_limit 1;
+# threat_limit 2 alone does not finish within 5M nodes at limit 255.
+mode: vct_auto
+attacker: o
+limit: 255
+tags: vct proven auto slow
+expect: H7,H6,G10,I10,F11,E12,J7,I8,G7,K7,E10,D10,G8,I6,I7,F7,I9,F6,F9,D11,F12,F13,G11
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . x . . . . . . .
+. . . . . o . o . . . . . . .
+. . . . . . x o . . . . . . .
+. . . x . x . o . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

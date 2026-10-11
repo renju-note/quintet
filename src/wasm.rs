@@ -1,6 +1,6 @@
 use super::board::*;
 use super::mate;
-use super::mate::SolveMode::{self, VCFDFS, VCTDFPNS, VCTDFS};
+use super::mate::SolveMode::{self, VCFDFS, VCTAUTO, VCTDFPNS, VCTDFS};
 use std::convert::{From, TryFrom};
 use wasm_bindgen::prelude::*;
 
@@ -32,6 +32,19 @@ pub fn solve_vct_dfpn(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> O
     solve_mode(VCTDFPNS, limit, blacks, whites, black, limit)
 }
 
+/// A VCT by df-pn with no `limit` or `threat_limit`: only `max_nodes` bounds
+/// the search (`SolveMode::VCTAUTO`). `None` is also "gave up".
+#[wasm_bindgen]
+pub fn solve_vct_auto(
+    blacks: &[u8],
+    whites: &[u8],
+    black: bool,
+    max_nodes: u32,
+) -> Option<Box<[u8]>> {
+    let limits = mate::SolveLimits::new(0).with_max_nodes(max_nodes.into());
+    solve_limits(VCTAUTO, limits, blacks, whites, black)
+}
+
 /// [`solve`] with the mode already decoded. Bad point codes are `None`, as
 /// is every result but a proven mate.
 fn solve_mode(
@@ -42,10 +55,20 @@ fn solve_mode(
     black: bool,
     threat_limit: u8,
 ) -> Option<Box<[u8]>> {
+    let limits = mate::SolveLimits::new(limit).with_threat_limit(threat_limit);
+    solve_limits(mode, limits, blacks, whites, black)
+}
+
+fn solve_limits(
+    mode: SolveMode,
+    limits: mate::SolveLimits,
+    blacks: &[u8],
+    whites: &[u8],
+    black: bool,
+) -> Option<Box<[u8]>> {
     let blacks = Points::try_from(blacks).ok()?;
     let whites = Points::try_from(whites).ok()?;
     let board = Board::from_stones(&blacks, &whites);
-    let limits = mate::SolveLimits::new(limit).with_threat_limit(threat_limit);
     let mate = mate::solve(mode, &board, Player::from(black), limits).into_mate()?;
     Some(<Vec<u8>>::from(Points(mate.path)).into_boxed_slice())
 }
@@ -103,6 +126,12 @@ mod tests {
         let dfpn = solve_vct_dfpn(&blacks, &whites, true, 3);
         assert!(dfpn.is_some());
         assert_eq!(solve(16, 3, &blacks, &whites, true, 3), dfpn);
+
+        // Only a budget: the same as the code 17. White has no mate.
+        let auto = solve_vct_auto(&blacks, &whites, true, 100_000);
+        assert!(auto.is_some());
+        assert_eq!(solve(17, 3, &blacks, &whites, true, 3), auto);
+        assert_eq!(solve_vct_auto(&blacks, &whites, false, 1), None);
 
         // A reserved mode answers nothing.
         assert_eq!(solve(1, 3, &blacks, &whites, true, 3), None);

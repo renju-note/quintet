@@ -81,6 +81,28 @@ impl NodeBudget {
         self.nodes = 0;
         self.exhausted = false;
     }
+
+    /// A fresh budget for part of this one's work: `max_nodes`, or what is
+    /// left of this one if that is less. Hand what it spent back with
+    /// [`Self::absorb`].
+    pub fn slice(&self, max_nodes: u64) -> Self {
+        let left = self.max_nodes.map(|max| max.saturating_sub(self.nodes));
+        Self::new(left.map_or(max_nodes, |left| left.min(max_nodes)))
+    }
+
+    /// Counts what `slice`, made by [`Self::slice`], spent. A slice that ran
+    /// out is counted at its limit, without the node that exhausted it, and
+    /// exhausts this budget too if it had all that was left.
+    pub fn absorb(&mut self, slice: &Self) {
+        let spent = match slice.max_nodes {
+            Some(max) if slice.exhausted => max,
+            _ => slice.nodes,
+        };
+        self.nodes += spent;
+        if slice.exhausted && self.max_nodes.is_some_and(|max| self.nodes >= max) {
+            self.exhausted = true;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -108,6 +130,34 @@ mod tests {
         assert!(budget.is_exhausted());
         assert!(!budget.consume());
         assert_eq!(budget.nodes(), 3);
+    }
+
+    #[test]
+    fn test_slices_add_up() {
+        let mut budget = NodeBudget::new(5);
+        // A slice that finishes is counted node for node.
+        let mut slice = budget.slice(3);
+        assert!(slice.consume());
+        budget.absorb(&slice);
+        assert_eq!(budget.nodes(), 1);
+        assert!(!budget.is_exhausted());
+        // One that runs out is counted at its limit, and leaves the parent
+        // going while the parent has more.
+        let mut slice = budget.slice(2);
+        while slice.consume() {}
+        budget.absorb(&slice);
+        assert_eq!(budget.nodes(), 3);
+        assert!(!budget.is_exhausted());
+        // A slice gets no more than what is left, and running it out
+        // exhausts the parent.
+        let mut slice = budget.slice(10);
+        assert_eq!(slice.max_nodes(), Some(2));
+        while slice.consume() {}
+        budget.absorb(&slice);
+        assert_eq!(budget.nodes(), 5);
+        assert!(budget.is_exhausted());
+        // An unlimited parent hands out the slice as asked.
+        assert_eq!(NodeBudget::unlimited().slice(7).max_nodes(), Some(7));
     }
 
     #[test]

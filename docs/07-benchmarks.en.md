@@ -54,7 +54,7 @@ the runner:
 | `--tag TAG` | Only the cases tagged `TAG`. Repeatable; a case must have all of them. |
 | `--skip-tag TAG` | Leave out the cases tagged `TAG`. Repeatable. |
 | `--all` | Also run the cases tagged `heavy`, which are left out unless this or `--tag heavy` is given. |
-| `--mode MODE` | Run every case in `MODE` (`vcf`, `vct`, `vct_pns`, `vct_dfpns`) instead of its own. The verdict is still checked; the exact line is not, since VCT modes may report different winning lines (03 §2). |
+| `--mode MODE` | Run every case in `MODE` (`vcf`, `vct`, `vct_pns`, `vct_dfpns`, `vct_auto`) instead of its own. The verdict is still checked; the exact line is not, since VCT modes may report different winning lines (03 §2). |
 | `--runs N` | Time each case `N` times and report the median. Default 3. |
 | `--save PATH` | Write the results as TSV. |
 | `--baseline PATH` | Compare with a file written by `--save`: each row gets its change in nodes, memo entries and time, with a total at the end. |
@@ -143,7 +143,7 @@ board:
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `mode` | yes | A `SolveMode` CLI name (03 §2). |
+| `mode` | yes | A `SolveMode` CLI name (03 §2). A case whose mode the solver does not know is reported `SKIPPED`, not failed, so that `bench-compare.sh` can run new cases on an older ref. |
 | `attacker` | yes | `o` (Black) or `x` (White). |
 | `limit` | yes | `SolveLimits::limit`. |
 | `threat_limit` | no | `SolveLimits::with_threat_limit`; default 0. |
@@ -163,6 +163,7 @@ Tags in use:
 | `slow` | Seconds to tens of seconds. |
 | `heavy` | Too slow for the default set: a minute or more, or 3 s or more among the `game` cases. Left out unless asked for. |
 | `game` | Taken from a played game (§4.1). |
+| `auto` | Mode `vct_auto`: only a node budget (06 §5). `limit` is required but ignored. |
 
 Adding a case:
 

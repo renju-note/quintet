@@ -44,7 +44,7 @@ cargo bench --bench solvers -- [OPTIONS] [NAME_FILTER...]
 | `--tag TAG` | `TAG` の付いたケースだけ。複数指定でき、すべてを持つケースが選ばれる。 |
 | `--skip-tag TAG` | `TAG` の付いたケースを除く。複数指定できる。 |
 | `--all` | `heavy` の付いたケースも走らせる。これか `--tag heavy` がなければ `heavy` は除かれる。 |
-| `--mode MODE` | 各ケースを自身のモードではなく `MODE`（`vcf`、`vct`、`vct_pns`、`vct_dfpns`）で解く。判定は検査するが、手順は検査しない。追い詰めのモードごとに報告する詰み手順が違いうるため（03 §2）。 |
+| `--mode MODE` | 各ケースを自身のモードではなく `MODE`（`vcf`、`vct`、`vct_pns`、`vct_dfpns`、`vct_auto`）で解く。判定は検査するが、手順は検査しない。追い詰めのモードごとに報告する詰み手順が違いうるため（03 §2）。 |
 | `--runs N` | 各ケースを `N` 回計測し、中央値を報告する。既定は 3。 |
 | `--save PATH` | 結果を TSV で書き出す。 |
 | `--baseline PATH` | `--save` で書いたファイルと比べる。各行にノード数・メモのエントリ数・時間の増減が付き、最後に合計が出る。 |
@@ -120,7 +120,7 @@ board:
 
 | キー | 必須 | 意味 |
 | --- | --- | --- |
-| `mode` | はい | `SolveMode` の CLI 名（03 §2）。 |
+| `mode` | はい | `SolveMode` の CLI 名（03 §2）。ソルバーが知らないモードのケースは失敗ではなく `SKIPPED` と表示する。`bench-compare.sh` が新しいケースを古い ref でも走らせられるように。 |
 | `attacker` | はい | `o`（黒）か `x`（白）。 |
 | `limit` | はい | `SolveLimits::limit`。 |
 | `threat_limit` | いいえ | `SolveLimits::with_threat_limit`。既定は 0。 |
@@ -140,6 +140,7 @@ board:
 | `slow` | 数秒から数十秒。 |
 | `heavy` | 既定の集合には重すぎるもの。1 分以上、`game` のケースでは 3 秒以上。指定しない限り除かれる。 |
 | `game` | 実戦の棋譜から取った局面（§4.1）。 |
+| `auto` | モード `vct_auto`: ノード予算だけで解く（06 §5）。`limit` は必須だが無視される。 |
 
 ケースの追加:
 
