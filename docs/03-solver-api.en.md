@@ -75,7 +75,7 @@ the benchmark does (07).
 | `VCTIDDFS` | 11 | `vct_iddfs` | Reserved: `solve` searches nothing and returns `Aborted`. |
 | `VCTPNS` | 15 | `vct_pns` | VCT, proof-number search. |
 | `VCTDFPNS` | 16 | `vct_dfpns` | VCT, depth-first proof-number search (df-pn). **The one to use.** |
-| `VCTAuto` | 17 | `vct_auto` | VCT by df-pn with only the node budget: `limit` and `threat_limit` are ignored (below). |
+| `VCTAUTO` | 17 | `vct_auto` | VCT by df-pn with only the node budget: `limit` and `threat_limit` are ignored (below). |
 
 - The codes are the wasm/JS form (`SolveMode::try_from(u8)`) and public
   API: never renumber them.
@@ -103,16 +103,16 @@ SolveLimits::new(limit)
 The `with_*` methods return a new value, so fields added later do not break
 callers that build limits this way.
 
-### Only a budget: `VCTAuto`
+### Only a budget: `VCTAUTO`
 
-`VCTAuto` asks a VCT with no `limit` or `threat_limit` to choose: give it
+`VCTAUTO` asks a VCT with no `limit` or `threat_limit` to choose: give it
 `with_max_nodes` and nothing else matters (`defender_vcf_depth` still
 applies). It is `DFPNSVCTSolver::solve_auto` (06 §5), and from JS
 `solve_vct_auto(blacks, whites, black, max_nodes)`.
 
 ```rust
 let limits = SolveLimits::new(0).with_max_nodes(1_000_000);   // the 0 is ignored
-let result = solve(SolveMode::VCTAuto, &board, Player::Black, limits);
+let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
 ```
 
 - It searches with no limit on the length, under the `threat_limit`s 2, 3
@@ -305,7 +305,7 @@ what it needs itself.
 | Know what a search cost | `solve_with_stats`; `SolveStats::nodes` and `memo_len` |
 | Find only VCFs | `SolveMode::VCFDFS` |
 | Find VCTs | `SolveMode::VCTDFPNS`; `threat_limit` decides what counts as a threat |
-| Find VCTs with only a node budget | `SolveMode::VCTAuto`, `VCTSolver::solve_auto`, `wasm::solve_vct_auto` |
+| Find VCTs with only a node budget | `SolveMode::VCTAUTO`, `VCTSolver::solve_auto`, `wasm::solve_vct_auto` |
 | Stop a search that takes too long | `SolveLimits::with_max_nodes`; treat `Aborted` as unknown, not safe |
 | Ask many questions cheaply | Keep a `DFPNSVCTSolver`, give it a fresh `VCTState` per question, share one `NodeBudget` |
 | Ask about both colours | The same solver; the attacker is part of every key |

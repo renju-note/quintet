@@ -1,5 +1,5 @@
 # https://twitter.com/nachirenju/status/1487315157382414336
-# vct_fukumi with only a node budget (SolveMode::VCTAuto): limit and
+# vct_fukumi with only a node budget (SolveMode::VCTAUTO): limit and
 # threat_limit are ignored. Under threat_limit 3 only
 # (vct_fukumi_threat2): found under 3 once the search under 2 is
 # disproven.

@@ -71,7 +71,7 @@ pub fn solve_with_stats(
         VCTDFS => run(DFSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
         VCTPNS => run(PNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
         VCTDFPNS => run(DFPNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
-        VCTAuto => {
+        VCTAUTO => {
             let mut solver = DFPNSVCTSolver::new(defender_vcf_depth);
             let maybe_mate = solver.solve_auto(board, attacker, budget);
             (maybe_mate, solver.memo_len())
@@ -117,7 +117,7 @@ pub enum SolveMode {
     /// df-pn with only the node budget: `limit` and `threat_limit` are
     /// ignored ([`DFPNSVCTSolver::solve_auto`]). `Disproven` means no VCT
     /// under any of [`AUTO_THREAT_LIMITS`], of any length.
-    VCTAuto,
+    VCTAUTO,
 }
 
 pub use SolveMode::*;
@@ -135,7 +135,7 @@ impl TryFrom<u8> for SolveMode {
             11 => Ok(VCTIDDFS),
             15 => Ok(VCTPNS),
             16 => Ok(VCTDFPNS),
-            17 => Ok(VCTAuto),
+            17 => Ok(VCTAUTO),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -152,7 +152,7 @@ impl FromStr for SolveMode {
             "vct_iddfs" => Ok(VCTIDDFS),
             "vct_pns" => Ok(VCTPNS),
             "vct_dfpns" => Ok(VCTDFPNS),
-            "vct_auto" => Ok(VCTAuto),
+            "vct_auto" => Ok(VCTAUTO),
             _ => Err("Unknown solve mode"),
         }
     }
@@ -1096,20 +1096,20 @@ mod tests {
         // `limit` and `threat_limit` are ignored.
         let limits = SolveLimits::new(1).with_threat_limit(0);
 
-        let (result, stats) = solve_with_stats(VCTAuto, &board, Black, limits);
+        let (result, stats) = solve_with_stats(VCTAUTO, &board, Black, limits);
         let mate = result.into_mate().expect("proven");
         assert!(mate.n_attacks() > 4, "{}", mate.n_attacks());
 
         // Short of the nodes it took, it gives up, within the budget.
         let max_nodes = stats.nodes / 2;
         let (result, stats) =
-            solve_with_stats(VCTAuto, &board, Black, limits.with_max_nodes(max_nodes));
+            solve_with_stats(VCTAUTO, &board, Black, limits.with_max_nodes(max_nodes));
         assert!(result.is_aborted());
         assert!(stats.nodes <= max_nodes);
 
         // An empty board has no VCT at any length: disproven, not aborted.
         let limits = limits.with_max_nodes(1_000);
-        assert!(solve(VCTAuto, &Board::new(), Black, limits).is_disproven());
+        assert!(solve(VCTAUTO, &Board::new(), Black, limits).is_disproven());
         Ok(())
     }
 

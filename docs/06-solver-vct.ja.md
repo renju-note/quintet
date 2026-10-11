@@ -435,7 +435,7 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 
 ### 予算だけで解く（`auto.rs`）
 
-`VCTSolver::solve_auto(board, attacker, budget)` は `limit` も `threat_limit` も取らない。探索を縛るのは予算だけ。`SolveMode::VCTAuto`（コード 17）と `wasm::solve_vct_auto` がこれを呼ぶ。
+`VCTSolver::solve_auto(board, attacker, budget)` は `limit` も `threat_limit` も取らない。探索を縛るのは予算だけ。`SolveMode::VCTAUTO`（コード 17）と `wasm::solve_vct_auto` がこれを呼ぶ。
 
 ```
 solve_auto:

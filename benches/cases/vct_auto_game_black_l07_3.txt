@@ -2,7 +2,7 @@
 # development (Black: Rapfi, White: quintet-ai), 15 moves before
 # its end. Black's shortest VCT here needs 7 attacks (threat_limit 2).
 # Moves: H8,G8,I9,H9,K7,G7,F7,G9,G10,F9,G6,E10,D11,E9,D9,E8,E7,F8,D10,D8,C8,G11,F10,I11,J11,J12,H10,J10,K9,K10,I6,L10,M10,I13,M9,L9
-# vct_game_black_l07_3 with only a node budget (SolveMode::VCTAuto):
+# vct_game_black_l07_3 with only a node budget (SolveMode::VCTAUTO):
 # limit and threat_limit are ignored. Found under threat_limit 3, about
 # a ninth of what threat_limit 2 alone takes at limit 255.
 mode: vct_auto

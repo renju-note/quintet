@@ -563,7 +563,7 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 ### Only a budget (`auto.rs`)
 
 `VCTSolver::solve_auto(board, attacker, budget)` takes no `limit` and no
-`threat_limit`; only the budget bounds it. `SolveMode::VCTAuto` (code 17)
+`threat_limit`; only the budget bounds it. `SolveMode::VCTAUTO` (code 17)
 and `wasm::solve_vct_auto` call it.
 
 ```

@@ -1,6 +1,6 @@
 use super::board::*;
 use super::mate;
-use super::mate::SolveMode::{self, VCFDFS, VCTAuto, VCTDFPNS, VCTDFS};
+use super::mate::SolveMode::{self, VCFDFS, VCTAUTO, VCTDFPNS, VCTDFS};
 use std::convert::{From, TryFrom};
 use wasm_bindgen::prelude::*;
 
@@ -33,7 +33,7 @@ pub fn solve_vct_dfpn(blacks: &[u8], whites: &[u8], black: bool, limit: u8) -> O
 }
 
 /// A VCT by df-pn with no `limit` or `threat_limit`: only `max_nodes` bounds
-/// the search (`SolveMode::VCTAuto`). `None` is also "gave up".
+/// the search (`SolveMode::VCTAUTO`). `None` is also "gave up".
 #[wasm_bindgen]
 pub fn solve_vct_auto(
     blacks: &[u8],
@@ -42,7 +42,7 @@ pub fn solve_vct_auto(
     max_nodes: u32,
 ) -> Option<Box<[u8]>> {
     let limits = mate::SolveLimits::new(0).with_max_nodes(max_nodes.into());
-    solve_limits(VCTAuto, limits, blacks, whites, black)
+    solve_limits(VCTAUTO, limits, blacks, whites, black)
 }
 
 /// [`solve`] with the mode already decoded. Bad point codes are `None`, as
