@@ -20,9 +20,10 @@
 //! | extract | `extractor.rs` | `extract` walks the tables after a proof and recovers the winning line |
 //!
 //! The state they share is [`VCTState`] (`state.rs`): the game, the remaining
-//! limit and a shape map for move ordering. What they remember is a
-//! [`ProofTable`] per side (`proof.rs`), holding [`PnDn`]s — proof and
-//! disproof numbers — keyed by position and limit.
+//! limit, the `threat_limit` and a shape map for move ordering. What they
+//! remember is a [`ProofTable`] per side (`proof.rs`), holding [`PnDn`]s —
+//! proof and disproof numbers — keyed by position (with the `threat_limit`)
+//! and limit.
 //!
 //! `docs/06-solver-vct.en.md` walks through all of this with
 //! examples.

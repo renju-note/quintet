@@ -11,8 +11,9 @@
 ```
 src/mate/vct.rs         module doc: the algorithm in one page, re-exports, the three aliases
 src/mate/vct/
-├── state.rs            VCTState: Game + attacker + limit + ShapeMap + SwordMap;             (§2, §3, §8)
-│                       threat_defences, sorted_attacks / sorted_defences, priority
+├── state.rs            VCTState: Game + attacker + limit + threat_limit                      (§2, §3, §8)
+│                       + ShapeMap + SwordMap; threat_defences,
+│                       sorted_attacks / sorted_defences, priority
 ├── nested_vcf.rs       NestedVCF: one side's VCF sub-search                                  (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                     (§3)
 ├── proof.rs            PnDn (proof numbers), ProofTable (transposition table)                (§4)
@@ -78,10 +79,14 @@ VCTSolver::solve = advance_generation; search; extract
 
 ```rust
 pub struct VCTState {
-    game: Game, attacker: Player, limit: u8,
+    game: Game, attacker: Player, limit: u8, threat_limit: u8,
     shapes: ShapeMap, swords: SwordMap,
 }
 ```
+
+- `threat_limit` は `limit` と同じく問いの一部: `VCTState::from_board(&board, attacker, limit, threat_limit)`。
+  - `key()` はそれを局面に混ぜる（`apply_threat_limit`、04 §3）。だから証明数表と候補手キャッシュは `threat_limit` ごとに別エントリを持つ。`threat_limit` が違えば追い手と数える手が違い、別の木になる。
+  - これで 1 つの `VCTSolver` が、どの `threat_limit` でも、どの順で問われても答えられる（`test_reused_solver_matches_fresh_across_threat_limits`）。
 
 - `shapes` は両プレイヤーの `ShapeMap`（§8）。
   - `after_play` / `after_undo` は着手の線に「古い」印を付けるだけ。
@@ -105,7 +110,7 @@ pub struct VCTState {
 `nested_vcf.rs` は、四追いソルバー・深さの上限・どちら側のものかをまとめる:
 
 ```rust
-pub struct NestedVCF { solver: IDDFSSolver, depth: u8, for_attacker: bool }
+pub struct NestedVCF { solver: IDDFSSolver, depth: Option<u8>, for_attacker: bool }
 impl NestedVCF {
     pub fn vcf(&mut self, state: &mut VCTState, budget) -> Option<Mate>;     // この側の手番で、今すぐ四追いがあるか
     pub fn vcf_or_zone(&mut self, state: &mut VCTState, budget) -> Result<Mate, Area>; // 同じ問い。なければ、どこに石を置けば生まれうるか
@@ -113,7 +118,17 @@ impl NestedVCF {
 }
 ```
 
-`VCTSolver` は `attacker_vcf`（深さ `threat_limit`）と `defender_vcf`（深さ `defender_vcf_depth`、既定 2）を持つ。2 つ × 2 つの問いで、生成器が使う 4 つの呼び出しになる:
+`VCTSolver` は `attacker_vcf` と `defender_vcf` を持つ:
+
+| | 作り方 | 深さ |
+| --- | --- | --- |
+| `attacker_vcf` | `NestedVCF::attacker` | 状態の `threat_limit`（`depth: None`） |
+| `defender_vcf` | `NestedVCF::defender` | `defender_vcf_depth`（既定 2）。`VCTSolver::new` で固定 |
+
+- メモのキーは四追い状態自身の limit（問われた深さ）で、`threat_limit` ではない。だから、ソルバーが問われるどの `threat_limit` でも共有できる。
+- `defender_vcf` はどの `threat_limit` でも同じ問いを受けるので、最もよく共有される。
+
+2 つ × 2 つの問いで、生成器が使う 4 つの呼び出しになる:
 
 | 呼び出し | 手番 | 問い |
 | --- | --- | --- |
@@ -142,7 +157,7 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 ### 候補手キャッシュ
 
 - 結果は生成器ごとに 65,536 エントリの `LruCache` に入れる。
-- キーは `zobrist_hash()`: 局面 + limit。内部四追いの深さが `min(limit, depth)` なので limit が要る。
+- キーは `zobrist_hash()`: 局面 + limit。内部四追いの深さが `min(limit, depth)` なので limit が要る。局面には、内部四追いが何を見つけるかを決める `threat_limit` も入っている（§2）。
 - 予算切れのときは入れない。
 
 大きくしている理由:
@@ -256,7 +271,8 @@ pub const INF: u32 = u32::MAX;
 `transfer_from` は `decided` を使い始める limit:
 
 - 生成器は内部四追いを `min(limit, depth)` の深さで問う。それより小さい limit では候補リストが limit で変わり、limit ごとに別の木になる。
-- `VCTSolver::with_carry_capacity` が `max(attacker_vcf_depth, defender_vcf_depth + 1, 2)` に設定する。
+- 値は `max(threat_limit, defender_vcf_depth + 1, 2)`。`VCTSolver::with_carry_capacity` が動かない部分 `max(defender_vcf_depth + 1, 2)`（`transfer_floor`）を設定し、`ProofTable::transfer_from` が状態の `threat_limit` まで引き上げる。
+- `decided` のキーの局面には `threat_limit` が入っているので、決着が `threat_limit` をまたいで効くことはない。
 - それより小さい limit では、`decided` に書きも読みもしない。
 
 ## 5. 探索（`searcher.rs`、`threshold.rs`、`solver.rs`）

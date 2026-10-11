@@ -123,10 +123,10 @@ budget.reset();                              // 0 に戻す。上限はそのま
 ```rust
 use quintet::mate::{DFPNSVCTSolver, NodeBudget, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
 
-let mut solver = DFPNSVCTSolver::new(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
+let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
 let budget = &mut NodeBudget::new(1_000_000);   // ループ全体の上限
 for board in candidates {
-    let state = &mut VCTState::from_board(&board, attacker, limit);
+    let state = &mut VCTState::from_board(&board, attacker, limit, threat_limit);
     match solver.solve(state, budget) {
         Some(mate) => {}                        // 詰みあり
         None if budget.is_exhausted() => break,
@@ -151,13 +151,15 @@ pub trait Solver {
 | --- | --- | --- | --- |
 | `DFSSolver` | `VCFState` | `new()` | 四追い |
 | `IDDFSSolver` | `VCFState` | `new(limits)` | 四追い。`limits` の各値で順に探す |
-| `VCTSolver<P>`（エイリアス `DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`） | `VCTState` | `new(threat_limit, defender_vcf_depth)` | 追い詰め |
+| `VCTSolver<P>`（エイリアス `DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`） | `VCTState` | `new(defender_vcf_depth)` | 追い詰め |
 
-状態は問いごとに `VCFState::from_board(&board, attacker, limit)` か `VCTState::from_board(..)` で作る。持ち越すのはソルバーのほう。
+状態は問いごとに `VCFState::from_board(&board, attacker, limit)` か `VCTState::from_board(&board, attacker, limit, threat_limit)` で作る。持ち越すのはソルバーのほう。
 
 使い回すと得られること:
 
 - **何をどの順で問うてもよい。** メモのキーは局面・手番・残り limit・**攻め方**。同じ盤面で黒の詰みと白の詰みを問うても混ざらない（`test_reused_solver_both_attackers`）。
+  - 追い詰めソルバーのメモは状態の `threat_limit` もキーにするので、1 つのソルバーで複数の `threat_limit` に答えられる（`test_reused_solver_matches_fresh_across_threat_limits`）。
+  - `threat_limit` をまたいで共有するのは内部四追いだけで、証明数表は共有しない（06 §2）。
 - **メモリは有界。** `solve` は毎回新しい**世代**を開く。メモが引き継ぎ容量を超えると、直前の探索より古いエントリを捨てる。メモは探索 2 回分程度で安定する（`test_reused_solver_memo_stays_bounded`）。
   - 閾値は各ソルバーの `with_carry_capacity(..)` で指定する（既定はメモあたり `1 << 16`）。
   - 現在の保持数は `memo_len()`。

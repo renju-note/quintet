@@ -12,27 +12,38 @@ pub struct VCTState {
     game: Game,
     attacker: Player,
     limit: u8,
+    /// How many attacker moves the nested VCF that decides whether a move
+    /// is a threat may take. Part of the question, like `limit`: it is in
+    /// [`State::key`], so one solver can answer under several.
+    threat_limit: u8,
     shapes: ShapeMap,
     /// The swords, kept only to hand to the nested VCF states.
     swords: SwordMap,
 }
 
 impl VCTState {
-    pub fn new(game: Game, limit: u8) -> Self {
+    pub fn new(game: Game, limit: u8, threat_limit: u8) -> Self {
         let swords = SwordMap::from_board(game.board());
         let shapes = ShapeMap::from_board(game.board());
         Self {
             attacker: game.turn,
             game,
             limit,
+            threat_limit,
             shapes,
             swords,
         }
     }
 
-    pub fn from_board(board: &Board, attacker: Player, limit: u8) -> Self {
+    pub fn from_board(board: &Board, attacker: Player, limit: u8, threat_limit: u8) -> Self {
         let game = Game::new(board, attacker);
-        Self::new(game, limit)
+        Self::new(game, limit, threat_limit)
+    }
+
+    /// How many attacker moves the nested VCF that decides whether a move
+    /// is a threat may take (docs/06-solver-vct.en.md §1).
+    pub fn threat_limit(&self) -> u8 {
+        self.threat_limit
     }
 
     pub fn vcf_state(&mut self, max_limit: u8) -> VCFState {
@@ -78,7 +89,8 @@ impl VCTState {
         };
         // The child has the other side to move.
         let position = apply_turn(stones, turn.opponent());
-        Key::new(apply_attacker(position, attacker), next_limit)
+        let position = apply_threat_limit(apply_attacker(position, attacker), self.threat_limit);
+        Key::new(position, next_limit)
     }
 
     /// The attacker's candidate moves, best first ([`Self::priority`]):
@@ -270,6 +282,15 @@ impl State for VCTState {
         self.limit = limit
     }
 
+    /// The default key with the `threat_limit` mixed into the position:
+    /// under another `threat_limit` other moves count as threats, so the
+    /// same position is another node, and nothing the search remembers about
+    /// it under one may be read under another.
+    fn key(&self) -> Key {
+        let position = apply_attacker(self.game.position_hash(), self.attacker);
+        Key::new(apply_threat_limit(position, self.threat_limit), self.limit)
+    }
+
     fn after_play(&mut self, next_move: Option<Point>) {
         if let Some(next_move) = next_move {
             self.shapes.mark_stale(next_move);
@@ -303,7 +324,7 @@ mod tests {
             .map(|s| s.parse().unwrap())
             .collect();
         for attacker in [Black, White] {
-            let mut state = VCTState::from_board(&board(), attacker, 4);
+            let mut state = VCTState::from_board(&board(), attacker, 4, 1);
             // Two plies, so that the turn and the limit have both moved.
             for &first in &moves {
                 let predicted = state.next_key(Some(first));
@@ -329,22 +350,39 @@ mod tests {
     #[test]
     fn test_lazy_shapes_match_fresh_ones() -> Result<(), String> {
         let moves = "G7,K9,H9,F6".parse::<Points>()?.into_vec();
-        let mut state = VCTState::from_board(&board(), Black, 4);
+        let mut state = VCTState::from_board(&board(), Black, 4, 1);
         for (k, &m) in moves.iter().enumerate() {
             state.play(Some(m));
             if k % 2 == 1 {
                 // Read only every other move, so that several points are
                 // stale at once.
-                let fresh = &mut VCTState::from_board(state.game().board(), Black, 4);
+                let fresh = &mut VCTState::from_board(state.game().board(), Black, 4, 1);
                 assert_eq!(state.sorted_attacks(None), fresh.sorted_attacks(None));
             }
         }
         for _ in &moves {
             state.undo();
         }
-        let fresh = &mut VCTState::from_board(&board(), Black, 4);
+        let fresh = &mut VCTState::from_board(&board(), Black, 4, 1);
         assert_eq!(state.sorted_attacks(None), fresh.sorted_attacks(None));
         Ok(())
+    }
+
+    /// The same position is another question under another `threat_limit`,
+    /// so the two must not share a memo entry, and `next_key` must keep it
+    /// as the child does.
+    #[test]
+    fn test_key_separates_the_threat_limit() {
+        let one = &mut VCTState::from_board(&board(), Black, 4, 1);
+        let three = &mut VCTState::from_board(&board(), Black, 4, 3);
+        assert_eq!(one.key().limit, three.key().limit);
+        assert_ne!(one.key().position, three.key().position);
+        assert_ne!(one.zobrist_hash(), three.zobrist_hash());
+
+        let next: Point = "G7".parse().unwrap();
+        let predicted = three.next_key(Some(next));
+        assert_eq!(predicted, three.with_move(Some(next), |c| c.key()));
+        assert_ne!(predicted, one.next_key(Some(next)));
     }
 
     /// The same position is a win for one attacker and not the other, so the
@@ -352,17 +390,17 @@ mod tests {
     #[test]
     fn test_zobrist_hash_separates_the_attacker() {
         let board = board();
-        let as_black = VCTState::from_board(&board, Black, 4).zobrist_hash();
-        let as_white = VCTState::from_board(&board, White, 4).zobrist_hash();
+        let as_black = VCTState::from_board(&board, Black, 4, 1).zobrist_hash();
+        let as_white = VCTState::from_board(&board, White, 4, 1).zobrist_hash();
         assert_ne!(as_black, as_white);
 
         // Those two also differ in whose turn it is, so pin the attacker on
         // its own: build one state that reaches the same board, turn and
         // limit while attacking as the other colour.
         let next: Point = "G7".parse().unwrap();
-        let mut attacking_black = VCTState::from_board(&board, Black, 4);
+        let mut attacking_black = VCTState::from_board(&board, Black, 4, 1);
         attacking_black.play(Some(next));
-        let attacking_white = VCTState::from_board(&board.with_stone(Black, next), White, 4);
+        let attacking_white = VCTState::from_board(&board.with_stone(Black, next), White, 4, 1);
         assert_eq!(attacking_black.game().turn, attacking_white.game().turn);
         assert_eq!(attacking_black.limit(), attacking_white.limit());
         assert_eq!(

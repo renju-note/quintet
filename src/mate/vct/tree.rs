@@ -650,8 +650,8 @@ mod tests {
         cases
     }
 
-    fn new_solver(case: &Case) -> DFPNSVCTSolver {
-        DFPNSVCTSolver::new(case.threat_limit, crate::mate::DEFAULT_DEFENDER_VCF_DEPTH)
+    fn new_solver() -> DFPNSVCTSolver {
+        DFPNSVCTSolver::new(crate::mate::DEFAULT_DEFENDER_VCF_DEPTH)
     }
 
     /// The proof of each case, read off the tables, proves the case; and
@@ -665,8 +665,13 @@ mod tests {
         let (mut points, mut outside, mut held_inside) = (0, 0, 0);
         for case in quick_proven_cases() {
             let mut searched = 0;
-            let solver = &mut new_solver(&case);
-            let state = &mut VCTState::from_board(&case.board, case.attacker, case.limit);
+            let solver = &mut new_solver();
+            let state = &mut VCTState::from_board(
+                &case.board,
+                case.attacker,
+                case.limit,
+                case.threat_limit,
+            );
             let unlimited = &mut NodeBudget::unlimited();
             let mate = solver.solve(state, unlimited).expect(&case.name);
             let tree = solver
@@ -689,7 +694,8 @@ mod tests {
                     continue;
                 }
                 let board = case.board.with_stone(defender, p);
-                let state = &mut VCTState::from_board(&board, case.attacker, case.limit);
+                let state =
+                    &mut VCTState::from_board(&board, case.attacker, case.limit, case.threat_limit);
                 let holds = solver.proves(state, &tree, &mut NodeBudget::unlimited());
                 points += 1;
                 if !tree.zone().contains(p) {
@@ -705,7 +711,7 @@ mod tests {
                         continue;
                     }
                     searched += 1;
-                    let fresh = &mut new_solver(&case);
+                    let fresh = &mut new_solver();
                     let budget = &mut NodeBudget::new(100_000);
                     let found = fresh.solve(state, budget);
                     assert!(
@@ -726,8 +732,13 @@ mod tests {
     #[test]
     fn test_a_stone_on_the_line_breaks_it() {
         for case in quick_proven_cases().into_iter().take(10) {
-            let solver = &mut new_solver(&case);
-            let state = &mut VCTState::from_board(&case.board, case.attacker, case.limit);
+            let solver = &mut new_solver();
+            let state = &mut VCTState::from_board(
+                &case.board,
+                case.attacker,
+                case.limit,
+                case.threat_limit,
+            );
             let mate = solver
                 .solve(state, &mut NodeBudget::unlimited())
                 .expect(&case.name);
@@ -737,7 +748,8 @@ mod tests {
             let first = mate.path[0];
             assert!(tree.zone().contains(first));
             let board = case.board.with_stone(case.attacker.opponent(), first);
-            let state = &mut VCTState::from_board(&board, case.attacker, case.limit);
+            let state =
+                &mut VCTState::from_board(&board, case.attacker, case.limit, case.threat_limit);
             assert!(
                 !solver.proves(state, &tree, &mut NodeBudget::unlimited()),
                 "{}",

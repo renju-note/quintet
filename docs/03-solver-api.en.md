@@ -154,10 +154,10 @@ variation) should keep one solver. All the pieces are public:
 ```rust
 use quintet::mate::{DFPNSVCTSolver, NodeBudget, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
 
-let mut solver = DFPNSVCTSolver::new(threat_limit, DEFAULT_DEFENDER_VCF_DEPTH);
+let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
 let budget = &mut NodeBudget::new(1_000_000);   // bounds the whole loop
 for board in candidates {
-    let state = &mut VCTState::from_board(&board, attacker, limit);
+    let state = &mut VCTState::from_board(&board, attacker, limit, threat_limit);
     match solver.solve(state, budget) {
         Some(mate) => { /* proven */ }
         None if budget.is_exhausted() => break,
@@ -182,11 +182,11 @@ pub trait Solver {
 | --- | --- | --- | --- |
 | `DFSSolver` | `VCFState` | `new()` | VCF |
 | `IDDFSSolver` | `VCFState` | `new(limits)` | VCF, at each of `limits` in turn |
-| `VCTSolver<P>` — aliased `DFSVCTSolver`, `PNSVCTSolver`, `DFPNSVCTSolver` | `VCTState` | `new(threat_limit, defender_vcf_depth)` | VCT |
+| `VCTSolver<P>` — aliased `DFSVCTSolver`, `PNSVCTSolver`, `DFPNSVCTSolver` | `VCTState` | `new(defender_vcf_depth)` | VCT |
 
 Build a fresh state per question with `VCFState::from_board(&board,
-attacker, limit)` or `VCTState::from_board(..)`. The solver is what carries
-over.
+attacker, limit)` or `VCTState::from_board(&board, attacker, limit,
+threat_limit)`. The solver is what carries over.
 
 What reuse gives:
 
@@ -194,6 +194,11 @@ What reuse gives:
   turn, the remaining limit *and* the attacker. One solver can answer about
   Black's and White's mate on the same board without mixing them up
   (`test_reused_solver_both_attackers`).
+  - A VCT solver's memos are also keyed by the state's `threat_limit`, so
+    one solver answers under several
+    (`test_reused_solver_matches_fresh_across_threat_limits`).
+  - Only the nested VCF searches share across `threat_limit`s; the proof
+    tables do not (06 §2).
 - **Bounded memory.** Each `solve` opens a new *generation*. Once a memo
   has grown past its carry capacity, entries older than the previous search
   are dropped, so the memos settle at about two searches' worth

@@ -16,8 +16,9 @@ particular `State`, `Key`, `Memo`, the `Solver` trait and `DFSSolver`.
 ```
 src/mate/vct.rs         module doc: the algorithm in one page, re-exports, the three aliases
 src/mate/vct/
-├── state.rs            VCTState: Game + attacker + limit + ShapeMap + SwordMap;             (§2, §3, §8)
-│                       threat_defences, sorted_attacks / sorted_defences, priority
+├── state.rs            VCTState: Game + attacker + limit + threat_limit                      (§2, §3, §8)
+│                       + ShapeMap + SwordMap; threat_defences,
+│                       sorted_attacks / sorted_defences, priority
 ├── nested_vcf.rs       NestedVCF: one side's VCF sub-search                                  (§2)
 ├── generator.rs        generate_attacks / generate_defences → Candidates                     (§3)
 ├── proof.rs            PnDn (proof numbers), ProofTable (transposition table)                (§4)
@@ -87,10 +88,19 @@ The tree alternates two kinds of node:
 
 ```rust
 pub struct VCTState {
-    game: Game, attacker: Player, limit: u8,
+    game: Game, attacker: Player, limit: u8, threat_limit: u8,
     shapes: ShapeMap, swords: SwordMap,
 }
 ```
+
+- `threat_limit` is part of the question, like `limit`:
+  `VCTState::from_board(&board, attacker, limit, threat_limit)`.
+  - `key()` mixes it into the position (`apply_threat_limit`, 04 §3), so
+    the proof tables and candidate caches keep one entry per
+    `threat_limit`. Under another one, other moves count as threats and
+    the tree is another one.
+  - So one `VCTSolver` answers under any `threat_limit`, in any order
+    (`test_reused_solver_matches_fresh_across_threat_limits`).
 
 - `shapes` is the `ShapeMap` (§8) of both players.
   - `after_play` / `after_undo` only mark the move's lines stale.
@@ -121,7 +131,7 @@ the VCF state for two questions:
 belongs to:
 
 ```rust
-pub struct NestedVCF { solver: IDDFSSolver, depth: u8, for_attacker: bool }
+pub struct NestedVCF { solver: IDDFSSolver, depth: Option<u8>, for_attacker: bool }
 impl NestedVCF {
     pub fn vcf(&mut self, state: &mut VCTState, budget) -> Option<Mate>;     // this side, to move, has a VCF?
     pub fn vcf_or_zone(&mut self, state: &mut VCTState, budget) -> Result<Mate, Area>; // the same, or where a stone could give it one
@@ -129,9 +139,20 @@ impl NestedVCF {
 }
 ```
 
-`VCTSolver` holds `attacker_vcf` (depth `threat_limit`) and `defender_vcf`
-(depth `defender_vcf_depth`, default 2). Two objects × two questions give
-the four calls the generators make:
+`VCTSolver` holds `attacker_vcf` and `defender_vcf`:
+
+| | Built by | Depth |
+| --- | --- | --- |
+| `attacker_vcf` | `NestedVCF::attacker` | the state's `threat_limit` (`depth: None`) |
+| `defender_vcf` | `NestedVCF::defender` | `defender_vcf_depth`, default 2, fixed by `VCTSolver::new` |
+
+- Their memos are keyed by the VCF state's own limit, the depth asked at,
+  not by the `threat_limit`. So they serve every `threat_limit` the solver
+  is asked under.
+- `defender_vcf` asks the same questions under every `threat_limit`, so it
+  shares the most.
+
+Two objects × two questions give the four calls the generators make:
 
 | Call | Side to move | Asks |
 | --- | --- | --- |
@@ -166,7 +187,8 @@ number of a defence (§5, *Selection*).
 
 - Results are cached in an `LruCache` of 65,536 entries per generator.
 - The key is `zobrist_hash()`: position *and* limit, because the nested VCF
-  depth is `min(limit, depth)`.
+  depth is `min(limit, depth)`. The position includes the `threat_limit`
+  (§2), which decides what the nested VCF finds.
 - Nothing is cached when the budget ran out.
 
 Why so large:
@@ -330,8 +352,12 @@ Each is a `ProofTable`, two `Memo`s under one roof:
 - The generators ask the nested VCF solvers with `min(limit, depth)`. Below
   that depth the candidate lists still change with the limit, and two
   limits describe different trees.
-- `VCTSolver::with_carry_capacity` sets it to
-  `max(attacker_vcf_depth, defender_vcf_depth + 1, 2)`.
+- It is `max(threat_limit, defender_vcf_depth + 1, 2)`.
+  `VCTSolver::with_carry_capacity` sets the part that does not move,
+  `max(defender_vcf_depth + 1, 2)` (`transfer_floor`), and
+  `ProofTable::transfer_from` raises it to the state's `threat_limit`.
+- `decided` is keyed by a position that includes the `threat_limit`, so a
+  decision never carries from one `threat_limit` to another.
 - Below it, nothing is recorded in or read from `decided`.
 
 ## 5. Search (`searcher.rs`, `threshold.rs`, `solver.rs`)

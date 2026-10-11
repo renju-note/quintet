@@ -14,6 +14,12 @@ use std::num::NonZeroUsize;
 /// The VCT solver. The three variants (DFS, PNS, df-pn) share everything
 /// except how child thresholds are chosen, which is supplied by `P`.
 ///
+/// One solver answers under any `threat_limit`: it is the state's
+/// ([`VCTState::threat_limit`]), and part of the key of everything the
+/// solver remembers about a position, so what it learned under one
+/// `threat_limit` is never read under another. What the nested VCF searches
+/// learn is keyed by their own depth instead, and serves them all.
+///
 /// The methods are split by phase across sibling modules:
 /// `searcher.rs` (AND/OR search and choosing the most-proving child),
 /// `generator.rs` (candidate moves) and `extractor.rs` (recovering the
@@ -61,33 +67,25 @@ fn candidates_cache() -> CandidatesCache {
 }
 
 impl<P: ThresholdPolicy> VCTSolver<P> {
-    pub fn new(attacker_vcf_depth: u8, defender_vcf_depth: u8) -> Self {
-        Self::with_carry_capacity(
-            attacker_vcf_depth,
-            defender_vcf_depth,
-            DEFAULT_CARRY_CAPACITY,
-        )
+    pub fn new(defender_vcf_depth: u8) -> Self {
+        Self::with_carry_capacity(defender_vcf_depth, DEFAULT_CARRY_CAPACITY)
     }
 
     /// Like [`Self::new`], but setting how much each memo carries from one
     /// search into the next (see [`Solver::advance_generation`]).
-    pub fn with_carry_capacity(
-        attacker_vcf_depth: u8,
-        defender_vcf_depth: u8,
-        carry_capacity: usize,
-    ) -> Self {
+    pub fn with_carry_capacity(defender_vcf_depth: u8, carry_capacity: usize) -> Self {
         // Candidate generation asks the nested VCF solvers with
         // `min(state.limit, depth)`, so below this the moves generated still
         // move with the limit and one limit's decision says nothing about
-        // another's. `search_defences` also cuts off at `limit <= 1`.
-        let transfer_from = attacker_vcf_depth
-            .max(defender_vcf_depth.saturating_add(1))
-            .max(2);
+        // another's. `search_defences` also cuts off at `limit <= 1`. The
+        // attacker's depth, the state's `threat_limit`, raises it further
+        // (`ProofTable::transfer_from`).
+        let transfer_floor = defender_vcf_depth.saturating_add(1).max(2);
         Self {
-            attacker_table: ProofTable::with_carry_capacity(carry_capacity, transfer_from),
-            defender_table: ProofTable::with_carry_capacity(carry_capacity, transfer_from),
-            attacker_vcf: NestedVCF::new(true, attacker_vcf_depth, carry_capacity),
-            defender_vcf: NestedVCF::new(false, defender_vcf_depth, carry_capacity),
+            attacker_table: ProofTable::with_carry_capacity(carry_capacity, transfer_floor),
+            defender_table: ProofTable::with_carry_capacity(carry_capacity, transfer_floor),
+            attacker_vcf: NestedVCF::attacker(carry_capacity),
+            defender_vcf: NestedVCF::defender(defender_vcf_depth, carry_capacity),
             attacks_cache: candidates_cache(),
             defences_cache: candidates_cache(),
             children: Vec::new(),
@@ -103,7 +101,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
     /// or "gave up"; the two are told apart by `budget.is_exhausted()`.
     ///
     /// Ask as many questions of one solver as you like, about either
-    /// attacker: what it remembers is keyed so that answers cannot be
+    /// attacker and under any `threat_limit`: what it remembers is keyed so that answers cannot be
     /// confused, and each call opens a new generation so that the memos do
     /// not grow without bound.
     ///
