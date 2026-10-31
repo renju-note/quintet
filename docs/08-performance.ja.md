@@ -1,11 +1,19 @@
 # 性能の記録
 
-全体の改善は [要約](#section-1)、次の調整候補は [§6](#section-6)。変更ごとの効果は [§2](#section-2)、採用しなかった案は [§5](#section-5)、詳細な調整実験は [§8](#section-8)。測定値は記載した時点のもの。
+## このページの読み方
 
-ソルバーがどれだけ速くなったか、何が効いたか、何が残っているか。
+- 全体の改善は [要約](#section-1)。
+- 次の調整候補は [§6](#section-6)。
+- 変更ごとの効果は [§2](#section-2)。
+- 採用しなかった案は [§5](#section-5)。
+- 詳細な調整実験は [§8](#section-8)。
 
-- [#149](https://github.com/renju-note/quintet/pull/149)（2026-09-23）から [#170](https://github.com/renju-note/quintet/pull/170)（2026-09-28）までの作業を、2024 年版と比べて記録する。
-- 次にソルバーを調整する人のために: 何を試したか、今どこに時間がかかっているか。
+測定値は、記載した時点のものである。
+
+ソルバーがどれだけ速くなったか、何が効いたか、何が残っているかを記録する。
+
+- 対象: [#149](https://github.com/renju-note/quintet/pull/149)（2026-09-23）から [#170](https://github.com/renju-note/quintet/pull/170)（2026-09-28）までの作業を、2024 年版と比べて記録する。
+- 次にソルバーを調整する人のために、何を試したか、今どこに時間がかかっているかを残す。
 
 前提: [07](07-benchmarks.ja.md)（ベンチマーク、ノード数と時間）、[06](06-solver-vct.ja.md)（追い詰め探索）。
 
@@ -13,7 +21,7 @@
 
 ## 1. 要約
 
-`benches/cases/` の全 121 ケース（`--all`）を 4 時点で測った:
+`benches/cases/` の全 121 ケース（`--all`）を、4 時点で測った。
 
 | 時点 | コミット | 時間、全件 | VCT 既定（99） | VCT `heavy`（16） | ノード数、全件 |
 | --- | --- | --- | --- | --- | --- |
@@ -22,19 +30,21 @@
 | 2026-09-27、[#165](https://github.com/renju-note/quintet/pull/165) | `a34e0c8` | 82.6 s | 24.1 s | 58.4 s | 137.3M |
 | 2026-09-28、[#169](https://github.com/renju-note/quintet/pull/169) | `f73f4c5` | 49.6 s | 16.4 s | 33.2 s | 92.3M |
 
+結果の要点は次のとおり。
+
 - 時間: 全体で 2024 年の 10.0 倍速い。既定の集合で 6.5 倍、`heavy` で 11.8 倍。
 - ケースごと: 幾何平均で 6.5 倍、中央値で 8.1 倍（2024 年に 1 ms 以上かかった 95 ケース）。
 - VCF の 6 ケース: 合計 1.25 ms → 0.36 ms。
 - どのケースも 4 時点で判定が同じで、タイムアウトしたものはない。
 - [#120](https://github.com/renju-note/quintet/pull/120) には `solve_with_stats` がないので、ノード数は数えられない。
 
-測り方:
+測り方は次のとおり。
 
-- 1 台の Apple Silicon の Mac で、1 ケース 1 プロセス、時点を 1 つずつ順に。負荷平均は約 2。
+- 1 台の Apple Silicon の Mac で、1 ケース 1 プロセス。時点を 1 つずつ順に測った。負荷平均は約 2。
 - 既定の集合は 3 回の中央値、`heavy` は 1 回。
 - 時間はこの表の中でだけ比べられる。ノード数はどのマシンでも同じ。
 
-変化の大きかったケース:
+変化の大きかったケースは次のとおり。
 
 | ケース | 2024 | 今 | 倍率 |
 | --- | --- | --- | --- |
@@ -47,9 +57,9 @@
 
 ## 2. 何が効いたか
 
-[#149](https://github.com/renju-note/quintet/pull/149) から [#170](https://github.com/renju-note/quintet/pull/170) までの各マージコミットを、今の `benches/` で走らせた（[§7](#section-7)）。[#159](https://github.com/renju-note/quintet/pull/159) はケースを足しただけ。
+[#149](https://github.com/renju-note/quintet/pull/149) から [#170](https://github.com/renju-note/quintet/pull/170) までの各マージコミットを、今の `benches/` で走らせた（[§7](#section-7)）。[#159](https://github.com/renju-note/quintet/pull/159) はケースを足しただけである。
 
-探索の変更（ノード数、全 121 ケース）:
+### 探索の変更（ノード数、全 121 ケース）
 
 | PR | 内容 | ノード数、全件 | 既定の集合 | `heavy` | 詳細 |
 | --- | --- | --- | --- | --- | --- |
@@ -61,11 +71,15 @@
 | [#167](https://github.com/renju-note/quintet/pull/167) | df-pn の閾値に 1 + ε | → 99.4M（−28%） | −19% | −31% | [06 §5](06-solver-vct.ja.md#section-5) |
 | [#168](https://github.com/renju-note/quintet/pull/168) | 候補手キャッシュを 65536 件に | → 92.3M（−7%） | −2% | −9% | [06 §3](06-solver-vct.ja.md#section-3) |
 
-- ほかの PR では、どのケースのノード数も変わらない。
-- [#162](https://github.com/renju-note/quintet/pull/162) の既定の集合での +6% は `vct_small_but_long`（5.8M → 16.7M）によるもので、残りは 26% 減った。`vct_unstable` は 109.5M → 41.6M。
-- [#165](https://github.com/renju-note/quintet/pull/165) はノード数を少し変える。禁手の攻め手は初めて探索するときに見つかるので、それまでは親の数値に数えられる。
+補足は次のとおり。
 
-時間、全 PR（既定の集合 105 ケース、各 1 回、1 台のクラウドのマシンでコミットを 1 つずつ順に）:
+- ほかの PR では、どのケースのノード数も変わらない。
+- [#162](https://github.com/renju-note/quintet/pull/162) の既定の集合での +6% は、`vct_small_but_long`（5.8M → 16.7M）によるもの。残りは 26% 減った。`vct_unstable` は 109.5M → 41.6M。
+- [#165](https://github.com/renju-note/quintet/pull/165) はノード数を少し変える。禁手の攻め手は、初めて探索するときに見つかるので、それまでは親の数値に数えられる。
+
+### 時間（全 PR）
+
+既定の集合 105 ケースを、各 1 回、1 台のクラウドのマシンで、コミットを 1 つずつ順に測った。
 
 | PR | 内容 | 時間 | 変化 |
 | --- | --- | --- | --- |
@@ -90,21 +104,32 @@
 | [#169](https://github.com/renju-note/quintet/pull/169) | 4 つの定数倍の改善 | 33.4 s | −7% |
 | [#170](https://github.com/renju-note/quintet/pull/170) | 改名 | 33.4 s | 0% |
 
-- 改名（[#154](https://github.com/renju-note/quintet/pull/154)、[#157](https://github.com/renju-note/quintet/pull/157)、[#170](https://github.com/renju-note/quintet/pull/170)）の変化がノイズの幅を示す: 約 ±3%。
-- [#163](https://github.com/renju-note/quintet/pull/163) はノード数よりずっと多く時間を減らした。`PotentialField` を盤面に合わせ続けるのに、探索の時間の約 5 分の 1 がかかっていた（[06 §8](06-solver-vct.ja.md#section-8)）。
-- 既定の集合はほとんどが小さいケースなので、大きいケースを狙った変更はここではあまり表れない。[#168](https://github.com/renju-note/quintet/pull/168) はここで −1%（ノード数 −2%）、`heavy` ではノード数 −9%。
+補足は次のとおり。
+
+- 改名（[#154](https://github.com/renju-note/quintet/pull/154)、[#157](https://github.com/renju-note/quintet/pull/157)、[#170](https://github.com/renju-note/quintet/pull/170)）の変化が、ノイズの幅を示している。約 ±3%。
+- [#163](https://github.com/renju-note/quintet/pull/163) は、ノード数よりずっと多く時間を減らした。`PotentialField` を盤面に合わせ続けるのに、探索の時間の約 5 分の 1 がかかっていた（[06 §8](06-solver-vct.ja.md#section-8)）。
+- 既定の集合はほとんどが小さいケースなので、大きいケースを狙った変更は、ここではあまり表れない。[#168](https://github.com/renju-note/quintet/pull/168) は、ここで −1%（ノード数 −2%）、`heavy` ではノード数 −9%。
 - このマシンでは、2024 年版は同じ集合に 190.4 s かかる。今の 5.7 倍（[§1](#section-1) の Mac では 6.5 倍）。
 
-まとめると:
+### まとめ
 
-- 探索（ノード数）: 追い手になりえない攻め手を除く（[#161](https://github.com/renju-note/quintet/pull/161)）、形による並べ替えと見積もり（[#160](https://github.com/renju-note/quintet/pull/160)、[#162](https://github.com/renju-note/quintet/pull/162)）、1 + ε の閾値（[#167](https://github.com/renju-note/quintet/pull/167)）、大きな候補手キャッシュ（[#168](https://github.com/renju-note/quintet/pull/168)）。
-- 1 ノードのコスト（ノード数が同じで時間だけ）: 子のキーを XOR で（[#152](https://github.com/renju-note/quintet/pull/152)）、ビット演算（[#156](https://github.com/renju-note/quintet/pull/156)、[#158](https://github.com/renju-note/quintet/pull/158)）、`PotentialField` をやめる（[#163](https://github.com/renju-note/quintet/pull/163)）、禁手判定を減らす（[#165](https://github.com/renju-note/quintet/pull/165)）、それより小さい [#153](https://github.com/renju-note/quintet/pull/153)、[#166](https://github.com/renju-note/quintet/pull/166)、[#169](https://github.com/renju-note/quintet/pull/169)。
+- 探索（ノード数）
+  - 追い手になりえない攻め手を除く（[#161](https://github.com/renju-note/quintet/pull/161)）。
+  - 形による並べ替えと見積もり（[#160](https://github.com/renju-note/quintet/pull/160)、[#162](https://github.com/renju-note/quintet/pull/162)）。
+  - 1 + ε の閾値（[#167](https://github.com/renju-note/quintet/pull/167)）。
+  - 大きな候補手キャッシュ（[#168](https://github.com/renju-note/quintet/pull/168)）。
+- 1 ノードのコスト（ノード数が同じで、時間だけ変わるもの）
+  - 子のキーを XOR で（[#152](https://github.com/renju-note/quintet/pull/152)）。
+  - ビット演算（[#156](https://github.com/renju-note/quintet/pull/156)、[#158](https://github.com/renju-note/quintet/pull/158)）。
+  - `PotentialField` をやめる（[#163](https://github.com/renju-note/quintet/pull/163)）。
+  - 禁手判定を減らす（[#165](https://github.com/renju-note/quintet/pull/165)）。
+  - それより小さいもの（[#153](https://github.com/renju-note/quintet/pull/153)、[#166](https://github.com/renju-note/quintet/pull/166)、[#169](https://github.com/renju-note/quintet/pull/169)）。
 
 <a id="section-3"></a>
 
 ## 3. 遅くなったケース
 
-2024 年より遅いケースが 8 つある。どれも 70 ms 未満の小さいケース（[§2](#section-2) のクラウドのマシンで既定の集合、3 回の中央値）:
+2024 年より遅いケースが 8 つある。どれも 70 ms 未満の小さいケースだ（[§2](#section-2) のクラウドのマシンで既定の集合、3 回の中央値）。
 
 | ケース | 2024 | 今 | ノード数 [#149](https://github.com/renju-note/quintet/pull/149) → 今 |
 | --- | --- | --- | --- |
@@ -118,16 +143,16 @@
 | `vct_game_white_l10_1` | 7.4 ms | 18 ms | 4,012 → 19,643 |
 
 - 1 ノードのコストは下がったが、ノード数が 4〜11 倍に増えた。
-- 8 つとも [#162](https://github.com/renju-note/quintet/pull/162) で 1.7〜9 倍に増えた。その見積もりは、探索に四と三を先に追わせる。これらの局面では、それが遠回りになる。
-- ほかの PR による変化はそれより小さい。ただし `vct_game_white_l10_1` は [#160](https://github.com/renju-note/quintet/pull/160) で 2.3 倍になった。
-- 合わせても 2024 年より 0.1 s 未満の増加で、同じ集合で 150 s 以上減ったのに比べれば小さい。
+- 8 つとも、[#162](https://github.com/renju-note/quintet/pull/162) で 1.7〜9 倍に増えた。その見積もりは、探索に四と三を先に追わせる。これらの局面では、それが遠回りになる。
+- ほかの PR による変化は、それより小さい。ただし `vct_game_white_l10_1` は、[#160](https://github.com/renju-note/quintet/pull/160) で 2.3 倍になった。
+- 合わせても、2024 年より 0.1 s 未満の増加で、同じ集合で 150 s 以上減ったのに比べれば小さい。
 - §1 の Mac では 9 つだった。1〜2 ms のケースは、ノイズで入ったり出たりする。
 
 <a id="section-4"></a>
 
 ## 4. 今どこに時間がかかっているか
 
-[#169](https://github.com/renju-note/quintet/pull/169) の直前の `main` で、ベンチマーク全体をプロファイルした:
+[#169](https://github.com/renju-note/quintet/pull/169) の直前の `main` で、ベンチマーク全体をプロファイルした結果は次のとおり。
 
 | 部分 | 割合 |
 | --- | --- |
@@ -137,10 +162,13 @@
 | `ShapeMap::sync` | 約 10% |
 | メモリの確保と解放 | 約 5〜10% |
 
-（各部分は重なる。内部の四追い探索も `check_event` と `SwordMap::sync` を呼ぶ。）
+（各部分は重なる。内部の四追い探索も `check_event` と `SwordMap::sync` を呼ぶため。）
 
-- その後 [#169](https://github.com/renju-note/quintet/pull/169) で、全体のうち `check_event` から約 5%、`ShapeMap::sync` から約 4%、確保から 5〜6%（展開ごとの子の `Vec` と、内部の探索ごとに複製していた着手履歴）を減らした。
-- 内部の四追い探索は今も半分を超える。その多くは「これは追い手か」（`attacker_vcf.threat`）か「攻め方に四追いがあるか」に答えている。
+- その後 [#169](https://github.com/renju-note/quintet/pull/169) で、全体のうち次のものを減らした。
+  - `check_event` から約 5%。
+  - `ShapeMap::sync` から約 4%。
+  - 確保から 5〜6%（展開ごとの子の `Vec` と、内部の探索ごとに複製していた着手履歴）。
+- 内部の四追い探索は、今も半分を超える。その多くは「これは追い手か」（`attacker_vcf.threat`）か、「攻め方に四追いがあるか」に答えている。
 
 <a id="section-5"></a>
 
@@ -150,31 +178,35 @@
 | --- | --- | --- |
 | df-pn の閾値で ε = 1/4〜1/2 | `vct_unstable` のノード数 +47%（1/4）、+41%（1/2） | 既定の集合ではよいが、長いケースで不安定。1/8 は両方でよい（[06 §5](06-solver-vct.ja.md#section-5)）。 |
 | `SwordMap` を攻め方の分だけ同期 | 時間 −0.6% | ノイズの範囲。 |
-| 最有望の攻め手を必ず 1 回展開（[#108](https://github.com/renju-note/quintet/pull/108)） | `vct_unstable` は 345 倍安く、既定の集合は 39% 高く | 局面による差が大きすぎる（[06 §5](06-solver-vct.ja.md#section-5)、issue [#148](https://github.com/renju-note/quintet/issues/148)）。 |
+| 最有望の攻め手を必ず 1 回展開（[#108](https://github.com/renju-note/quintet/pull/108)） | `vct_unstable` は 345 倍安く、既定の集合は 39% 高い | 局面による差が大きすぎる（[06 §5](06-solver-vct.ja.md#section-5)、issue [#148](https://github.com/renju-note/quintet/issues/148)）。 |
 | 候補手キャッシュを 65536 件より大きく | 262144 件: ノード数 −8%、100 MB | 4 倍のメモリで得るものが少ない（[06 §3](06-solver-vct.ja.md#section-3)）。 |
 
 <a id="section-6"></a>
 
 ## 6. 残りの改善候補
 
-- 内部の四追い探索を減らすか、安くする。時間の半分を超えるので、それを呼ばずに済ませる工夫（[#161](https://github.com/renju-note/quintet/pull/161) が追い手でない手についてしたように）が最も効く。
-- `check_event`。[#169](https://github.com/renju-note/quintet/pull/169) の後も時間の約 1 割。
-- §3 の小さいケース: 大きいケースでの [#162](https://github.com/renju-note/quintet/pull/162) の得を保ちつつ、これらでの損をなくす見積もり。
-- `vct_small_but_long` は伸びが最も小さい（3.6 倍）。探索が長い四の連続をたどるので、展開の順序が最も効く。
+- **内部の四追い探索を減らすか、安くする。** 時間の半分を超えるので、それを呼ばずに済ませる工夫が最も効く。[#161](https://github.com/renju-note/quintet/pull/161) が追い手でない手についてしたように。
+- **`check_event`。** [#169](https://github.com/renju-note/quintet/pull/169) の後も、時間の約 1 割。
+- **§3 の小さいケース。** 大きいケースでの [#162](https://github.com/renju-note/quintet/pull/162) の得を保ちつつ、これらでの損をなくす見積もり。
+- **`vct_small_but_long`。** 伸びが最も小さい（3.6 倍）。探索が長い四の連続をたどるので、展開の順序が最も効く。
 
 <a id="section-7"></a>
 
 ## 7. 再現方法
 
-コミットのノード数（どのマシンでもよい）:
+### コミットのノード数（どのマシンでもよい）
 
-1. コミットを `git worktree` に展開し、その `benches/` を今のものに置き換える（`scripts/bench-compare.sh` と同じ、[07 §3](07-benchmarks.ja.md#section-3)）。
-2. コピーしたケースで、着手列になっている `expect:` 行をすべて `expect: proven` に変える。古いソルバーは別の詰み手順を見つけうるので、判定だけを検査する。
+1. コミットを `git worktree` に展開し、その `benches/` を今のものに置き換える（`scripts/bench-compare.sh` と同じ。[07 §3](07-benchmarks.ja.md#section-3)）。
+2. コピーしたケースで、着手列になっている `expect:` 行をすべて `expect: proven` に変える。古いソルバーは別の詰み手順を見つけうるので、判定だけを検査するため。
 3. `cargo bench --bench solvers -- --all --runs 1 --save <commit>.tsv` を走らせる。
 
-時間: 同じマシンで、ほかに何も走らせずに、コミットを 1 つずつ順に走らせる。[§2](#section-2) の表は既定の集合を `--runs 1` で測った。
+### 時間
 
-2024 年版（[#120](https://github.com/renju-note/quintet/pull/120)）には手間がかかる:
+同じマシンで、ほかに何も走らせずに、コミットを 1 つずつ順に走らせる。[§2](#section-2) の表は、既定の集合を `--runs 1` で測ったもの。
+
+### 2024 年版（[#120](https://github.com/renju-note/quintet/pull/120)）の場合
+
+手間がかかる。
 
 - API は `solve(mode, limit, board, attacker, threat_limit) -> Option<Mate>` で、`solve_with_stats` もノード数もない。
 - ケースファイルを読んでこの関数を呼ぶ小さな example を一時的に作り、1 ケース 1 プロセスで時間を測る。
@@ -183,47 +215,50 @@
 
 ## 8. 調整実験の詳細
 
-以下は各変更を評価した当時の測定。表ごとの基準版に対する比較であり、現在の HEAD の測定値ではない。現在のアルゴリズムは [06](06-solver-vct.ja.md) を参照。
+以下は、各変更を評価した当時の測定である。表ごとの基準版に対する比較であり、現在の HEAD の測定値ではない。現在のアルゴリズムは [06](06-solver-vct.ja.md) を参照すること。
 
 <a id="cache-capacity"></a>
 
 ### 候補手キャッシュの容量
 
-大きくしている理由:
+大きくした理由は次のとおり。
 
-- df-pn は同じノードに何度も戻ってくる。容量 1000 では、攻め方ノードでの参照の 3 分の 1、受け方ノードでの参照の半分以上がミスした。ミスのたびに、内部四追いも含めて手を生成し直す。
+- df-pn は同じノードに何度も戻ってくる。容量 1000 では、攻め方ノードでの参照の 3 分の 1、受け方ノードでの参照の半分以上がミスした。
+  - ミスのたびに、内部四追いも含めて手を生成し直す。
 - ミスの多くは初めて出会う局面で、これはどんな容量でも防げない。
-- 1 エントリは、攻め手のキャッシュで約 280 バイト（エントリ 48、表のスロット 34、約 30 手 × 8 バイト。6 分の 1 は `Terminal` で手を持たない）。受け手のキャッシュで約 110 バイト（約 6 手。半分以上が `Terminal`）。
+- 1 エントリの大きさは次のとおり。
+  - 攻め手のキャッシュ: 約 280 バイト（エントリ 48、表のスロット 34、約 30 手 × 8 バイト。6 分の 1 は `Terminal` で手を持たない）。
+  - 受け手のキャッシュ: 約 110 バイト（約 6 手。半分以上が `Terminal`）。
 
-ベンチマーク（07）の全 121 ケースで:
+ベンチマーク（[07](07-benchmarks.ja.md)）の全 121 ケースでの結果は次のとおり。
 
 | 容量 | 2 つとも満杯のとき | ノード数 | 時間 |
 | --- | --- | --- | --- |
-| 1000 | 0.4 MB | | |
+| 1000 | 0.4 MB | — | — |
 | 4096 | 1.6 MB | −5% | −4% |
 | 16384 | 6 MB | −3% | −6% |
 | **65536** | **25 MB** | **−7%** | **−10%** |
 | 262144 | 100 MB | −8% | −10% |
 | 1048576 | 400 MB（実際は `vct_unstable` の 220 MB が最大） | −8% | −12% |
 
-- 65536 で満杯になるのは 121 ケース中 18 ケース。どれも 100 万ノードを超え、キャッシュなしでもプロセスが 75 MB〜1 GB を使う。
-- キャッシュは空で始まり、埋まるにつれて大きくなる（`candidates_cache`）。小さな探索は容量の分を払わない。`LruCache::with_hasher` だと表全体を最初に確保してしまう。
-- キャッシュを大きくすると、ノード数だけでなく手順が変わるケースもある。生成器の結果は内部四追いのメモの中身に左右されうる（行き止まりは、それを記録した探索の関連領域を返す）。そのため手を生成し直したノードは、最初と違う手を見ることがある。
+- 65536 で満杯になるのは、121 ケース中 18 ケース。どれも 100 万ノードを超え、キャッシュなしでもプロセスが 75 MB〜1 GB を使う。
+- キャッシュは空で始まり、埋まるにつれて大きくなる（`candidates_cache`）。小さな探索は、容量の分を払わない。`LruCache::with_hasher` だと、表全体を最初に確保してしまう。
+- キャッシュを大きくすると、ノード数だけでなく手順が変わるケースもある。生成器の結果は、内部四追いのメモの中身に左右されうるため（行き止まりは、それを記録した探索の関連領域を返す）。そのため、手を生成し直したノードは、最初と違う手を見ることがある。
 
 <a id="initial-estimates"></a>
 
 ### 証明数の初期見積もり
 
-ベンチマーク（07）で、兄弟の数だけの場合と比べて試したこと:
+ベンチマーク（[07](07-benchmarks.ja.md)）で、兄弟の数だけの場合と比べて試したことは次のとおり。
 
 - 効果の大半は四の優遇によるもので、唯一の代償もそこから来る。
   - 優遇しない（三だけ半分にする）と、`heavy` のケースが 17% 高くついた。
-  - 優遇すると、ほかの重みによらず `vct_small_but_long` が約 3 倍高くつく。`limit` 255 では、探索が四をどこまでも深く追うのを止めるものがない。
-- それ以外の攻め手の見積もりを兄弟の数より上げる（1.5 倍）のは、追い手になりえない攻め手を除く前は得だったが、除いてからは損になるだけ。
-- 証明数はノードをまたいで比べられるので、比だけでなく尺度も効く。すべての見積もりを一律に半分にすると探索は高くつく。
+  - 優遇すると、ほかの重みによらず `vct_small_but_long` が約 3 倍高くつく。`limit` 255 では、探索が四をどこまでも深く追うのを止めるものがないため。
+- それ以外の攻め手の見積もりを、兄弟の数より上げる（1.5 倍）のは、追い手になりえない攻め手を除く前は得だったが、除いてからは損になるだけ。
+- 証明数はノードをまたいで比べられるので、比だけでなく尺度も効く。すべての見積もりを一律に半分にすると、探索は高くつく。
 - 受け手を、それが作る四や三で重み付けしても得にならなかった。
 
-この重みでの結果:
+この重みでの結果は次のとおり。
 
 - `heavy` を含む全ケース: ノード数 38% 減。
 - `heavy` のケース: 47% 減（`vct_unstable` 109.5M → 41.6M）。
@@ -233,25 +268,25 @@
 
 ### 最初の展開前の閾値検査
 
-閾値は最初の展開の前にも確かめる:
+閾値は、最初の展開の前にも確かめる。
 
 - 初期値の時点で閾値を超えているノードは、手を生成しただけで戻る。親はそれで自分の数値を知る。
-- #108 から #110 まで（2022 年）の `expand_attacks` はこの最初の確認を飛ばし、最有望の攻め手を必ず 1 回展開していた。得になるかは局面によって大きく違う。ベンチマーク（07）では:
+- #108 から #110 まで（2022 年）の `expand_attacks` は、この最初の確認を飛ばし、最有望の攻め手を必ず 1 回展開していた。得になるかは局面によって大きく違う。ベンチマーク（[07](07-benchmarks.ja.md)）では次のとおり。
   - `vct_unstable`: 345 分の 1（119.5M ノード → 346k）。
   - 既定の集合: 39% 増（24.4M → 34.0M）。
   - `vct_black_long_short`: 53% 増（17.4M → 26.7M）。
-- そのため採用していない（issue #148）。
+- そのため、採用していない（issue #148）。
 
 <a id="dfpn-margin"></a>
 
 ### df-pn の ε の比較
 
-- ベンチマーク（07）では、`heavy` を含む全ケースが 137.3M ノードから 99.4M（−28%）になった:
+- ベンチマーク（[07](07-benchmarks.ja.md)）では、`heavy` を含む全ケースが 137.3M ノードから 99.4M（−28%）になった。
   - 既定の集合で −19%、ほかの `heavy` で −27%。
   - `vct_unstable`: 40.2M → 25.4M。
   - 6〜14% 重くなったケースが 3 つあるが、どれも 170k ノード以下。
 
-ほかに試した ε（ノード数の変化）:
+ほかに試した ε（ノード数の変化）は次のとおり。
 
 | ε | 全ケース | 既定の集合 | `vct_small_but_long` | `vct_unstable` |
 | --- | --- | --- | --- | --- |
@@ -263,5 +298,5 @@
 | 1/2 | −10% | −25% | −22% | +41% |
 
 - 1/4 以上では、この 2 つ以外のケースがもう少し減る（1/8 の約 −26% に対して約 −32%）。
-- しかしこの 2 つは大きく振れる。どちらも探索が長い四の連続をたどるケースで、展開の順序が変わるだけで別の手順に入る。
-- 両方でよいのが 1/8。
+- しかし、この 2 つは大きく振れる。どちらも探索が長い四の連続をたどるケースで、展開の順序が変わるだけで別の手順に入ってしまう。
+- 両方でよいのが 1/8 である。
