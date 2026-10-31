@@ -9,17 +9,17 @@
 5. [連の種類](#section-5)
 6. [禁手](#section-6)
 
-ビット演算の詳細は [§5.1](#section-5-1)、探索用キャッシュは [SwordMap](#sword-cache) を参照してください。
+ビット演算の詳細は [§5.1](#section-5-1)、探索用キャッシュは [SwordMap](#sword-cache) を参照すること。
 
-このページでは、盤面の表現と、[01-renju-rules.ja.md](01-renju-rules.ja.md) のルール用語（連、五、長連、四、棒四、三、四四、三三、禁手）の検出方法を説明します。バッククォートで囲んだ識別子は `grep` で探せます。
+このページは、盤面の表現と、[01-renju-rules.ja.md](01-renju-rules.ja.md) のルール用語（連、五、長連、四、棒四、三、四四、三三、禁手）の検出方法を説明する。バッククォートで囲んだ識別子は `grep` で探せる。
 
 ### 用語について
 
-docs では「連」は常に [01 §3](01-renju-rules.ja.md#section-3) の row（コードの `Row`）を指します。日本語では `Two` を「連」と呼ぶこともありますが、ここでは「二連」と呼んで区別します。
+docs では「連」は常に [01 §3](01-renju-rules.ja.md#section-3) の row（コードの `Row`）を指す。日本語では `Two` を「連」と呼ぶこともあるが、ここでは「二連」と呼んで区別する。
 
 ### モジュール
 
-宣言は `src/board.rs` にあります。
+宣言は `src/board.rs` にある。
 
 | ファイル | 役割 |
 | --- | --- |
@@ -35,7 +35,7 @@ docs では「連」は常に [01 §3](01-renju-rules.ja.md#section-3) の row�
 
 ### 層の構造
 
-下の層から順に積み上がっています。各章がそれぞれを説明します。
+下の層から順に積み上がっている。各章がそれぞれを説明する。
 
 1. `Line` は 1 本の線をビットマスクで持つ（[§2](#section-2)）。
 2. `Segment` は、五を作れる場所 1 つと、各プレイヤーがそこで五にどれだけ近いかを表す（[§3](#section-3)）。
@@ -50,17 +50,17 @@ docs では「連」は常に [01 §3](01-renju-rules.ja.md#section-3) の row�
 
 ## 1. 点と座標
 
-盤上の点は `Point(x, y)` で表します。
+盤上の点は `Point(x, y)` で表す。
 
 - `x`、`y` は `0..SIZE`（`SIZE` = 15）。
 - `x` は列で、`A` が 0、`O` が 14。
 - `y` は行で、`1` が 0、`15` が 14。
 
-文字列は `H8` のような通常の表記を使います（`Display` / `FromStr`）。`Points` はカンマ区切りで `H8,H7,F6` と書きます。
+文字列は `H8` のような通常の表記を使う（`Display` / `FromStr`）。`Points` はカンマ区切りで `H8,H7,F6` と書く。
 
 ### 線と `Index`
 
-各点は 4 本の線（縦、横、右上がり斜め、右下がり斜め）に属します。線は `Direction` と線の番号 `i` で表し、線上の位置は `j` で表します。
+各点は 4 本の線（縦、横、右上がり斜め、右下がり斜め）に属する。線は `Direction` と線の番号 `i` で表し、線上の位置は `j` で表す。
 
 | `Direction` | 線 | 線の番号 `i` | 位置 `j` |
 | --- | --- | --- | --- |
@@ -74,7 +74,7 @@ docs では「連」は常に [01 §3](01-renju-rules.ja.md#section-3) の row�
 - どの斜めでも `j` は最も左の点から数えるので、`x` とともに増える。
 - 表の 2 つの式の違いは、線の始まる端だけである。左端（`i < 14`）から始まるのか、下端（右上がり）または上端（右下がり）から始まるのかの違い。
 
-組 `(Direction, i, j)` が `Index` です。
+組 `(Direction, i, j)` が `Index` である。
 
 - `Point::to_index(d)` と `Index::to_point()` で相互に変換する。
 - `Index::offset(step)` と `checked_offset(step)` は、線に沿って `step` マス動く。
@@ -91,7 +91,7 @@ pub struct Line { blacks: u16, whites: u16, pub size: u8 }
 - `blacks` / `whites`: 位置 `j` にその色の石があればビット `j` が立つ。
 - `size`: 線の長さ。縦横は 15、斜めは 5〜15（短い斜めは省略。[§4](#section-4)）。
 
-主な操作は次のとおりです。
+主な操作は次のとおり。
 
 - `put`、`remove`、`stone(j)` は単純なビット演算である。これが探索ループを軽くしている。
 - `score_bound(r)` は、線ごと読み飛ばすための上界。相手の石の間に五が収まらなければ 0、それ以外は「自分の石数 + 1」。
@@ -120,7 +120,7 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 - 線の端より外のマスは空として読む。
 - セグメントが位置を返すときは、5 マスを 0〜4 で数える。
 
-セグメントは、どちらのプレイヤー `r` についても次の問いに答えます。
+セグメントは、どちらのプレイヤー `r` についても次の問いに答える。
 
 | メソッド | 答え |
 | --- | --- |
@@ -131,7 +131,7 @@ cell :  j+5  | j+4  j+3  j+2  j+1   j  |  j-1
 | `stones(r)` | `r` の石があるマス（0〜4）。`stone_bits(r)` は同じものの 5 ビットマスク。 |
 | `eyes(r)` | ここで五を作るために `r` があと埋めるマス（0〜4）。生きていなければ空。`eye_bits(r)` は同じもののマスク。 |
 
-マージンは黒のルールのためにあります。
+マージンは黒のルールのためにある。
 
 - 黒の五は*ちょうど*五でなければならない。
 - 5 マスのすぐ隣に黒石があると、埋めたときに長連になる。そのセグメントは黒にとって死んでいる。
@@ -155,7 +155,7 @@ pub struct Grid {
   - 斜め `i`（4〜24）は `alines[i - 4]` に格納する（`DIAGONAL_LINE_SKIP = 4`、`DIAGONAL_LINE_COUNT = 21`）。
   - それ以外では `line_idx` が `None` を返し、連の検索は読み飛ばす。
 
-主な問い合わせは次のとおりです。
+主な問い合わせは次のとおり。
 
 - `stone(p)`、`stones(player)`、`empty_points()`、`neighbors(p, distance, only_empty)`: 石や空点の取得。
 - `rows(r, kind)`: 盤全体にある `r` の種別 `kind` の `Row` すべて。
@@ -164,7 +164,7 @@ pub struct Grid {
 - `line(d, i)` / `line_on(p, d)`: 格納している `Line` そのもの。短い斜めでは `None`。
 - `lines()` と `lines_on(p)`: それを `(Direction, i, &Line)` で列挙する。点ごとの表を自前で持つ利用側は、72 本の線を複製せずにこれを読める。
 
-文字列からのパース（`FromStr for Grid`。`Board` も利用する）は、次の 3 形式を受け付けます。
+文字列からのパース（`FromStr for Grid`。`Board` も利用する）は、次の 3 形式を受け付ける。
 
 - 手順（黒から交互）: `H8,H7,F6`
 - 石のリスト（`黒/白`）: `H8,F6/H7`
@@ -174,12 +174,12 @@ pub struct Grid {
 
 ## 5. `RowKind`: ルール用語の語彙
 
-`RowKind` は、点数の条件を満たす次のいずれかを表します。
+`RowKind` は、点数の条件を満たす次のいずれかを表す。
 
 - 1 つのセグメント
 - 隣り合う 2 つのセグメント
 
-補足は次のとおりです。
+補足は次のとおり。
 
 - 2 つのときはセグメント `j - 1` と `j` で、6 マス `j - 1..=j + 4` にわたる。
 - `RowKind::matches(r, prev, cur)` は、セグメント `cur` とその 1 つ前の `prev` について条件を述べる。
@@ -211,7 +211,7 @@ pub struct Grid {
 - `o.ooo` と `.oooo` は死んでいる。マージンに黒石があり、左の隙間を埋めると六になる。
 - `oooo.` だけが数えられる。右端に打つとちょうど五連になる。
 
-`Row` は、（後ろの）セグメントが始まる位置（`Index`）と、石と眼のマスクを持ちます。
+`Row` は、（後ろの）セグメントが始まる位置（`Index`）と、石と眼のマスクを持つ。
 
 - `stones()` と `eyes()` は盤上の `Point` を返す。
 - 活きた連で眼になるのは、共有する 4 マスだけ。5 マス目は開いた端で、打つ点ではない。
@@ -347,7 +347,7 @@ free        110000000
 
 ## 6. 禁手（`forbidden.rs`）
 
-禁手は黒だけに適用されます。入口は次の 3 つです。
+禁手は黒だけに適用される。入口は次の 3 つである。
 
 ```rust
 pub fn forbidden_strict(g: &Grid, p: Point) -> Option<ForbiddenKind>
@@ -355,7 +355,7 @@ pub fn forbidden(g: &Grid, p: Point) -> Option<ForbiddenKind>
 pub fn forbidden_points(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 ```
 
-`ForbiddenKind` は、`Overline`（長連）、`DoubleFour`（四四）、`DoubleThree`（三三）のいずれかです。
+`ForbiddenKind` は、`Overline`（長連）、`DoubleFour`（四四）、`DoubleThree`（三三）のいずれかである。
 
 - `forbidden_strict` は、まず 9.2 の例外を適用し、それから `forbidden` を呼ぶ。次の場合は禁手*ではない*。
   - `p` に石がある。
@@ -371,7 +371,7 @@ pub fn forbidden_points(g: &Grid) -> Vec<(ForbiddenKind, Point)>
 fn overline(overlinings: [u16; 4]) -> bool { any(overlinings) }
 ```
 
-3 つの判定への入力は次のとおりです。
+3 つの判定への入力は次のとおり。
 
 - `p` を通る線ごとに、マスク `Line::row_starts_on(i, Black, kind)` を受け取る。これは `rows_on(p, Black, kind)` の連の始点（[§5.1](#section-5-1)）を、連を組み立てずに表したもの。
 - `forbidden` は、各線から 3 種類を 1 パスで読む（1 種類なら `Grid::row_starts_on`）。
@@ -415,14 +415,14 @@ fn real_double_three(next, p) -> bool {
 }
 ```
 
-判定の手順は次のとおりです。
+判定の手順は次のとおり。
 
 1. `p` を通る `Two`（二連）が 2 つ以上あることは、三三の必要条件である。先にこれを調べる。ほとんどの点はここで却下され、盤をクローンせずに済む。
 2. 盤のコピーに `p` を打ち、`p` を通る `Three` を列挙する。`Three` の眼はちょうど 1 つで、それが達四点である。
 3. 9.3 に従い、三はその眼が黒の合法手のときだけ数える。新しい局面で眼に `forbidden_strict` を呼んで判定する。
 4. *異なる*本物の三が 2 つ以上残れば、禁手の三三である。
 
-手順 3 の補足は次のとおりです。
+手順 3 の補足は次のとおり。
 
 - 眼への `forbidden_strict` は、9.3 a（達四の手が長連や四四になる場合）と 9.3 b（達四の手が禁手の三三になる場合）の両方をカバーする。
 - 再帰 `forbidden_strict → forbidden → double_three → real_double_three → forbidden_strict → …` が、ルールの「以下同様」の入れ子を処理する。
@@ -486,7 +486,7 @@ fn real_double_three(next, p) -> bool {
 - 着手は、その点を通る高々 4 本の線に「古い」印を付けるだけ（`SwordMap::mark_stale`）。印は `ShapeMap` と共用の `StaleLines`（`src/feature/stale.rs`）で管理する。古い線は `SwordMap::sync` が計算し直す。
   - 探索は読むより、手を打つ・戻すほうがずっと多い。着手のたびに計算し直すと、置き換えたはずの全走査より高くつく。
 - 線の計算は `Line::row_starts(r, Sword)` が全セグメントを一度に行う（[§5.1](#section-5-1)）。
-- `SwordMap::swords(board, r)` と `swords_on(board, p, r)` は、`rows(r, Sword)` と `rows_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync(board)` が必要。
+- `SwordMap::swords(board, r)` と `swords_on(board, p, r)` は、`rows(r, Sword)` と `rows_on(p, r, Sword)` と同じものを同じ順に返す。先に `sync(board)` が必要である。
 
 <a id="section-8"></a>
 

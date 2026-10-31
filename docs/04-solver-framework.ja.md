@@ -7,9 +7,9 @@
 3. [状態とキー](#section-3)
 4. [ソルバーの入口](#section-4)
 
-メモの保持と予算切れの規則は [§5](#section-5)、ノードの数え方は [§6](#section-6) を参照してください。
+メモの保持と予算切れの規則は [§5](#section-5)、ノードの数え方は [§6](#section-6) を参照すること。
 
-このページは `src/mate/` を変更する前に読んでください。すべてのソルバーが共有する部品（`Game`、`State`、`Memo`、`Solver` トレイト）と、それらが守る規則を説明します。探索そのものは、次のページで説明します。
+このページは `src/mate/` を変更する前に読むこと。すべてのソルバーが共有する部品（`Game`、`State`、`Memo`、`Solver` トレイト）と、それらが守る規則を説明する。探索そのものは、次のページで説明する。
 
 - 四追い（VCF）: [05](05-solver-vcf.ja.md)
 - 追い詰め（VCT）: [06](06-solver-vct.ja.md)
@@ -44,7 +44,7 @@ src/feature/sword.rs       SwordMap: cached swords for VCF (02 §7, 05)
 
 ### 部品の関係
 
-下から上へ積み上がっています。
+下から上へ積み上がっている。
 
 ```
 Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solver::solve(state, budget) ──► Option<Mate>
@@ -72,11 +72,11 @@ pub struct Game { board: Board, moves: Vec<Option<Point>>, pub turn: Player }
 - `undo()`: それを戻す。
 - `with_move(m, f)`: play → `f(self)` → undo を行い、`f` の結果を返す。すべてのソルバーはこれで木を歩く。
 
-手は `Option<Point>` で表します。`play(None)` は**パス**で、手番だけを反転し、盤面はそのままにします。連珠のルールにもパスはありますが、ソルバーは対局中のパスを探索しません。ここでのパスは、追い手の判定で「何もしなければ相手はどうできるか」を調べるための仮想的な操作です。
+手は `Option<Point>` で表す。`play(None)` は**パス**で、手番だけを反転し、盤面はそのままにする。連珠のルールにもパスはあるが、ソルバーは対局中のパスを探索しない。ここでのパスは、追い手の判定で「何もしなければ相手はどうできるか」を調べるための仮想的な操作だ。
 
 ### `check_event`: 盤上にすでにある四
 
-各ノードは、手を生成する前に `Game::check_event()` を呼びます。これは「直前に打った側の四は、これから打つ側にとって何を意味するか」を返します。
+各ノードは、手を生成する前に `Game::check_event()` を呼ぶ。これは「直前に打った側の四は、これから打つ側にとって何を意味するか」を返す。
 
 | 相手の四の勝ち点 | `Event` | これから打つ側にとって |
 | --- | --- | --- |
@@ -109,7 +109,7 @@ pub trait State {
 }
 ```
 
-`VCFState` と `VCTState` がこのトレイトを実装します。`State::play` は、`Game::play` に `limit` の管理を足したものです。覚える規則は 1 つだけです。
+`VCFState` と `VCTState` がこのトレイトを実装する。`State::play` は、`Game::play` に `limit` の管理を足したものだ。覚える規則は 1 つだけだ。
 
 > `limit` は攻め方がまだ打てる手数。手番が攻め方に**戻る**とき（受けの手の後）に 1 減る。受け方のノードでは、直前の攻め手がまだ数に入っている。
 
@@ -128,7 +128,7 @@ pub trait State {
 pub struct Key { pub position: u64, pub limit: u8 }
 ```
 
-`State::key()` は、全ソルバーの全メモが使うキーです。
+`State::key()` は、全ソルバーの全メモが使うキーだ。
 
 - `position`: 次の 3 つを 1 つの Zobrist ハッシュにまとめたもの。
   - 石（`Board::zobrist_hash`）
@@ -136,11 +136,11 @@ pub struct Key { pub position: u64, pub limit: u8 }
   - **攻め方**（`apply_attacker`）
 - `limit`: 残り limit。
 
-攻め方がキーに入るのは、1 つのソルバーで両方の色について問えるようにするためです。同じ石・同じ手番でも、「黒は詰む」と「白は詰まない」は別の問いです。エントリを共有してはいけません（`test_zobrist_hash_separates_the_attacker`）。
+攻め方がキーに入るのは、1 つのソルバーで両方の色について問えるようにするためだ。同じ石・同じ手番でも、「黒は詰む」と「白は詰まない」は別の問いだ。エントリを共有してはならない（`test_zobrist_hash_separates_the_attacker`）。
 
-`VCTState` は `key()` を上書きし、4 つ目として **`threat_limit`**（`apply_threat_limit`）も混ぜます。`threat_limit` が違えば追い手と数える手が違うので、同じ局面でも別のノードになります。これにより、1 つの追い詰めソルバーに複数の `threat_limit` で問えます（`test_key_separates_the_threat_limit`、[06 §2](06-solver-vct.ja.md#section-2)）。
+`VCTState` は `key()` を上書きし、4 つ目として **`threat_limit`**（`apply_threat_limit`）も混ぜる。`threat_limit` が違えば追い手と数える手が違うので、同じ局面でも別のノードになる。これにより、1 つの追い詰めソルバーに複数の `threat_limit` で問える（`test_key_separates_the_threat_limit`、[06 §2](06-solver-vct.ja.md#section-2)）。
 
-`position` と `limit` を分けるのは、覚え方が違うからです。
+`position` と `limit` を分けるのは、覚え方が違うからだ。
 
 - **決着**（証明済み / 反証済み）は、1 つの limit の事実ではなく、limit にまたがる*範囲*で成り立つ。
   - `limit` 以内の詰みは、それより大きい limit でも詰み。
@@ -150,7 +150,7 @@ pub struct Key { pub position: u64, pub limit: u8 }
     - `ProofTable::decided`: 証明された最小 limit と、反証された最大 limit。
 - **決着していない情報**（証明数、候補手リスト）は、1 つの limit の木についてだけ成り立つ。だから両方を合わせた `Key::hash()` をキーにする（`ProofTable::estimates`、候補手キャッシュ）。
 
-範囲が正確に成り立つ条件は次のとおりです。
+範囲が正確に成り立つ条件は次のとおり。
 
 - 四追いでは、生成する手が `limit` を読まないので、この範囲は正確に成り立つ。
 - 追い詰めでは、`transfer_from` 以上で成り立つ（[06 §4](06-solver-vct.ja.md#section-4)）。
@@ -170,7 +170,7 @@ pub trait Solver {
 }
 ```
 
-どのソルバーにも入口が 2 つあり、分け方は 3 つとも同じです。
+どのソルバーにも入口が 2 つあり、分け方は 3 つとも同じだ。
 
 | | `solve` | `search` |
 | --- | --- | --- |
@@ -178,13 +178,13 @@ pub trait Solver {
 | すること | `advance_generation()` → `search`（追い詰めはさらに `extract`） | 再帰。メモの管理はしない |
 | 誰が呼ぶか | 外部（`mate::solve`、エンジン） | 他のソルバー（`IDDFSSolver` → `DFSSolver::search`、追い詰め → 内部四追いの `search`） |
 
-入口を分ける理由は、ソルバーが別のソルバーの中に入ることがあるからです。
+入口を分ける理由は、ソルバーが別のソルバーの中に入ることがあるからだ。
 
 - 追い詰めソルバーは、1 回の探索で内部の四追いソルバーを何百回も呼ぶ。
 - そのたびに世代を開くと、内部のメモが絶えず捨てられてしまう。
 - 世代の区切りは、一番外側の問いだけが決める。
 
-`clear()` はすべて忘れ、`memo_len()` は保持数を返します。どちらも呼び出し側向けで、ソルバー内部では使いません。
+`clear()` はすべて忘れ、`memo_len()` は保持数を返す。どちらも呼び出し側向けで、ソルバー内部では使わない。
 
 <a id="section-5"></a>
 
@@ -194,7 +194,7 @@ pub trait Solver {
 pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_capacity: usize }
 ```
 
-ソルバーの表はすべて `Memo`、またはその 2 つ組（`ProofTable`）です。何を入れ、いつ捨てるかの規則は 3 つあります。
+ソルバーの表はすべて `Memo`、またはその 2 つ組（`ProofTable`）だ。何を入れ、いつ捨てるかの規則は 3 つある。
 
 ### 規則 1: 入っているものは常に正しい
 
@@ -211,7 +211,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 
 ### 規則 3: 探索の途中では捨てない
 
-`carry_capacity` は固い上限ではありません。
+`carry_capacity` は固い上限ではない。
 
 - df-pn のノードは、子の証明数が表に入って初めて進む。
 - 探索中に捨てると、展開ループが同じ子で回り続けかねない。
@@ -225,7 +225,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
   - `DFSSolver` の行き止まりも、`ProofTable` のノードも、候補手キャッシュのリストも書かない。
 - 予算切れになる前に完了した部分木の結果は残る。探索全体の打ち切りで、それらを取り消すことはない。
   - 未完了の結果をメモすると、推測が事実として残ってしまうため。
-- 各挿入の前にある `!budget.is_exhausted()` がこの検査。
+- 各挿入の前にある `!budget.is_exhausted()` がこの検査になる。
 
 <a id="section-6"></a>
 
@@ -235,7 +235,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 - 呼ぶのは各探索関数（`DFSSolver::search`、`search_attacks`、`search_defences`）の先頭だけ。つまり 1 ノード = これらの 1 回の呼び出しで、内部の四追い探索も含む。
 - `src/` 以下に時計はない。クレートは `wasm32-unknown-unknown` でコンパイルできる必要がある。
 
-`VCTSolver::solve` は `extract` を無制限の予算で走らせる。根が証明できたなら、手順の復元は手順の長さで抑えられる。予算不足で証明を捨てるのは無意味だから。
+`VCTSolver::solve` は `extract` を無制限の予算で走らせる。根が証明できたなら、手順の復元は手順の長さで抑えられる。予算不足で証明を捨てるのは無意味だからだ。
 
 <a id="section-7"></a>
 

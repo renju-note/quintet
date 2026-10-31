@@ -1,6 +1,6 @@
 # 詰みソルバーの使い方
 
-ソルバーを**呼び出す**コード向けのページです。対象は次のとおり。
+ソルバーを**呼び出す**コード向けのページである。対象は次のとおり。
 
 - `wasm.rs`
 - CLI（`examples/solve.rs`）
@@ -80,11 +80,11 @@ if (path !== undefined) {
 
 ## 1. ソルバーが答える問い
 
-すべての呼び出しは次の問いに答えます。
+すべての呼び出しは次の問いに答える。
 
 > この `board` で `attacker` の手番のとき、攻め方は `limit` 手以内に**詰み**（必勝手順）を持つか？
 
-用語は次のとおりです。
+用語は次のとおり。
 
 - **攻め方（attacker）**: 手番側で、勝ちを証明したい側。相手は**受け方（defender）**。どちらの色でも攻め方になれる。
 - **詰み**: 次の 2 種類。どちらを探すかは `SolveMode` で選ぶ。
@@ -207,7 +207,7 @@ budget.absorb(&part);                        // その一部が使った分を�
   - 追い詰めでは `search_attacks` / `search_defences`。
 - 尽きた予算は、`reset()` されるまで尽きたまま。1 つの予算を共有する複数の呼び出しは、全体としてそこで止まる。
 
-予算を安全に使える理由は 2 つあります。
+予算を安全に使える理由は 2 つある。
 
 - **証明は偽にならない。** 予算切れ直前に見つかった詰みも本物で、そのまま返る。
 - **未完了の結果を再利用しない。** 予算切れで未完了の結果はメモに書かれない。完了済みの部分木の結果は残る（[04 §5](04-solver-framework.ja.md#section-5)）ので、同じソルバーをすぐ再利用できる。
@@ -252,19 +252,19 @@ pub trait Solver {
 | `IDDFSSolver` | `VCFState` | `new(limits)` | 四追い。`limits` の各値で順に探す |
 | `VCTSolver<P>`（エイリアス `DFSVCTSolver`、`PNSVCTSolver`、`DFPNSVCTSolver`） | `VCTState` | `new(defender_vcf_depth)` | 追い詰め |
 
-状態は問いごとに作ります。
+状態は問いごとに作る。
 
 - `VCFState::from_board(&board, attacker, limit)`
 - `VCTState::from_board(&board, attacker, limit, threat_limit)`
 
-持ち越すのはソルバーのほうです。
+持ち越すのはソルバーのほうである。
 
 <details>
 <summary>再利用の保証とメモの管理（実装の詳細）</summary>
 
-使い回すと、次のことが得られます。
+使い回すと、次のことが得られる。
 
-- **何をどの順で問うてもよい。** メモのキーは局面・手番・残り limit・**攻め方**。同じ盤面で黒の詰みと白の詰みを問うても混ざらない（`test_reused_solver_both_attackers`）。
+- **何をどの順で問ってもよい。** メモのキーは局面・手番・残り limit・**攻め方**。同じ盤面で黒の詰みと白の詰みを問っても混ざらない（`test_reused_solver_both_attackers`）。
   - 追い詰めソルバーのメモは、状態の `threat_limit` もキーにする。そのため、1 つのソルバーで複数の `threat_limit` に答えられる（`test_reused_solver_matches_fresh_across_threat_limits`）。
   - `threat_limit` をまたいで共有するのは内部四追いだけで、証明数表は共有しない（[06 §2](06-solver-vct.ja.md#section-2)）。
 - **メモリは有界。** `solve` は毎回新しい**世代**を開く。メモが引き継ぎ容量を超えると、直前の探索より古いエントリを捨てる。メモは探索 2 回分程度で安定する（`test_reused_solver_memo_stays_bounded`）。
@@ -289,7 +289,7 @@ pub trait Solver {
   - `VCTSolver` が局面を証明した直後に `proof_tree(&mut state, &mut budget)` を呼ぶと、表から証明全体を `ProofTree` として取り出せる。攻め方の手番では攻め手 1 つ、受け方の手番では試す価値のある受けすべてを持つ木になる。
   - 受け方の石を 1 つ足した局面で `proves(&mut state, &tree, &mut budget)` を呼ぶと、同じ証明が成り立つかをノードごとに確かめる。探索し直すより 100 分の 1 程度で済む。
   - `tree.zone()` の外の石なら、それも要らない。証明はそのまま成り立つ。
-  - zone の外の手と、`proves` が通る手は追い詰めを止めない。探索し直すのは残りの手だけ（[06 §6](06-solver-vct.ja.md#section-6)）。
+  - zone の外の手と、`proves` が通る手は追い詰めを止めない。探索し直すのは残りの手だけである（[06 §6](06-solver-vct.ja.md#section-6)）。
 - **この手は追い手か。** 手番側をパスさせて（`Game::play(None)`）、相手の四追いを問う。パスした `game` から `VCFState::new(game, limit)` を作り、`DFSSolver::new().solve(..)` を呼ぶ。`test_threat_after_pass` が 1 手ずつ確認している。
 
 <a id="section-5"></a>

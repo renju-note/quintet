@@ -1,8 +1,8 @@
 # 四追い（VCF）探索（`src/mate/vcf/`）
 
-先に [手順例](#section-4) で攻めと受けを確認しておくと、[手の生成](#section-1) と [探索](#section-2) を追いやすくなります。VCT の中で VCF を使う場合の説明は、その必要があるときに関連箇所で読んでください。
+先に [手順例](#section-4) で攻めと受けを確認しておくと、[手の生成](#section-1) と [探索](#section-2) を追いやすくなる。VCT の中で VCF を使う場合の説明は、その必要があるときに関連箇所で読むこと。
 
-**四追い**（VCF: victory by continuous fours）は、攻め手がすべて四を作る手順です。
+**四追い**（VCF: victory by continuous fours）は、攻め手がすべて四を作る手順だ。
 
 - 受け方に選択肢はない。四はその場で止めるしかない。
 - 攻め方は、複数の四を作る手から選べる。
@@ -33,7 +33,7 @@ pub struct VCFState { game: Game, attacker: Player, limit: u8, swords: SwordMap 
 - `VCFState::from_board(&board, attacker, limit)`: 攻め方の手番から始める。
 - `VCFState::new(game, limit)`: 既存の `Game` から作る。攻め方は `game` の手番側になる。追い詰めソルバーが、内部の四追い状態を作るときに使う。
 
-四は **`Sword`**（剣先）に打って作ります。剣先とは、5 マスの窓に自分の石 3 つと空の**眼** 2 つがあるものです。
+四は **`Sword`**（剣先）に打って作る。剣先とは、5 マスの窓に自分の石 3 つと空の**眼** 2 つがあるものだ。
 
 - 片方の眼に打つと、もう片方の眼を勝ち点とする `Four` ができる。
 - よって 1 つの剣先から、`(攻め, 受け)` ペアが 2 つ得られる（`push_eyes_pairs`）。
@@ -47,7 +47,7 @@ pairs:  (H11, H12)   play H11: four H8–H11, White must answer H12
 
 ### 手の生成器
 
-生成器は 3 つあり、ソルバーはこの順に試します。
+生成器は 3 つあり、ソルバーはこの順に試す。
 
 | 生成器 | ペアの出どころ | 使う場面 |
 | --- | --- | --- |
@@ -55,11 +55,11 @@ pairs:  (H11, H12)   play H11: four H8–H11, White must answer H12
 | `neighbor_move_pairs()` | `second_last_move`（攻め方の直前の石）を通る剣先 | 最初に試す。直前の石を伸ばす手が、四を続けられる可能性が最も高いため。 |
 | `move_pairs()` | 手番側のすべての剣先 | 次に試す。 |
 
-補足は次のとおりです。
+補足は次のとおり。
 
 - 止めの点は剣先から取り、攻め手を打った後の盤面から求め直さない。
   - 攻め手が四を 2 つ作れば、止めを打つ前に受け方の `check_event` が `Defeated(Fours(..))` を返す。
-  - だから、保持している止めが効くのは四が 1 つのときだけ。
+  - だから、保持している止めが効くのは四が 1 つのときだけである。
 - 3 つとも盤面を走査しない。`VCFState` が `SwordMap`（[02 §7](02-board-implementation.ja.md#section-7)）にキャッシュしている剣先を読む。
   - `after_play` / `after_undo` で印を付け、読む前に同期する。前回から触れられた線だけ計算し直す。
   - 返す順序は `rows` / `rows_on` とまったく同じ。探索する木は、全走査した場合と同じになる。
@@ -69,7 +69,7 @@ pairs:  (H11, H12)   play H11: four H8–H11, White must answer H12
 
 ## 2. `DFSSolver`
 
-疑似コードは次のとおりです。
+疑似コードは次のとおり。
 
 ```
 solve(state):                                  # Solver::solve: 1 つの問い
@@ -121,7 +121,7 @@ search_defence(state, defence):                # 受け方の手番
 
 ### 関連領域（zone）
 
-`search_zone(state, budget, &mut zone)` は、`search` に加えて**関連領域**を集めます。関連領域とは、四追いが見つからなかったとき、攻め方がもう 1 石置けば四追いが生まれうる空点の集合です。
+`search_zone(state, budget, &mut zone)` は、`search` に加えて**関連領域**を集める。関連領域とは、四追いが見つからなかったとき、攻め方がもう 1 石置けば四追いが生まれうる空点の集合だ。
 
 - 追い詰めソルバーは、これを使って追い手になりえない攻め手を除く（[06 §3](06-solver-vct.ja.md#section-3)）。
 - 点ごとに 1 ビットの `Area`（`src/feature/area.rs`）で、探索が見たものから作る。
@@ -136,7 +136,7 @@ search_defence(state, defence):                # 受け方の手番
 #### 禁手の攻め手
 
 - 黒の攻め手が禁手と分かるのは、その先で四追いが見つかったときだけ。その探索の関連領域は不完全なので、攻め手自身の `Area::around(_, 5)` で補う。
-- 先で何も見つからなかった禁手の攻め手には、何も足さなくてよい。禁手かどうかによらず、その探索が集めた関連領域の外の石は、その探索が何も見つけないことを変えないから。
+- 先で何も見つからなかった禁手の攻め手には、何も足さなくてよい。禁手かどうかによらず、その探索が集めた関連領域の外の石は、その探索が何も見つけないことを変えないからだ。
 
 #### 関連領域に入れないもの（そのほうが正しい理由）
 
@@ -156,7 +156,7 @@ search_defence(state, defence):                # 受け方の手番
 
 ## 3. `IDDFSSolver`
 
-`IDDFSSolver::new(limits)` は次のように動きます。
+`IDDFSSolver::new(limits)` は次のように動く。
 
 - `limits` のうち、状態の limit より小さい値で順に `DFSSolver::search` を走らせ、最後に状態自身の limit で走らせる。
 - 最初に見つかった結果を返す。
@@ -203,7 +203,7 @@ search_defence(state, defence):                # 受け方の手番
 | `J9`（黒） | `I10,J9,K8,L7`。`H11` と `M6` の両方が空いた棒四（2 つの `Four`） | 1 |
 | | 白の `check_event` → `Defeated(Fours(H11, M6))` | |
 
-`limit = 2` では `None` になる。`I9` の後で limit が 0 になり、`J9` を試す前に `search` が止まるため。四が 3 つ必要なので、`limit >= 3` が要る。
+`limit = 2` では `None` になる。`I9` の後で limit が 0 になり、`J9` を試す前に `search` が止まるからだ。四が 3 つ必要なので、`limit >= 3` が要る。
 
 <a id="section-5"></a>
 
