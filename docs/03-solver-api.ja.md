@@ -1,6 +1,6 @@
 # 詰みソルバーの使い方
 
-ソルバーを**呼び出す**コード向けのページである。対象は次のとおり。
+このページは、ソルバーを**呼び出す**コード向けである。対象は次のとおり。
 
 - `wasm.rs`
 - CLI（`examples/solve.rs`）
@@ -90,7 +90,7 @@ if (path !== undefined) {
 - **詰み**: 次の 2 種類。どちらを探すかは `SolveMode` で選ぶ。
   - **VCF（四追い）**: 攻め手がすべて四。
   - **VCT（追い詰め）**: 攻め手がすべて追い手（四、または放置すると四追いになる手）。
-- **`limit`**: 攻め方の手数だけを数える。7 手（攻め 4、受け 3）の手順なら `limit >= 4`。
+- **`limit`**: 攻め方の手数だけを数える。たとえば、攻め 4 手・受け 3 手の計 7 手の手順には `limit >= 4` が必要。
 
 答えが「あり」なら [`Mate`](#section-5) が返る。詰み手順と、最後に受け方がなぜ負けているかを持つ。
 
@@ -128,9 +128,9 @@ pub enum SolveResult { Proven(Mate), Disproven, Aborted }
 
 `Option<Mate>` では、詰みがない理由を区別できない。`SolveResult` は区別する。
 
-- `Disproven`: この上限では詰みがない。
+- `Disproven`: 指定した上限の範囲内では詰みがない。
 - `Aborted`: 予算が尽きた（予約モードでは探索しなかった）。詰みの有無は不明。
-  - `Aborted` を「安全」と扱うエンジンは、詰まされる。
+  - `Aborted` を「安全」と判断すると、詰みを見逃して詰まされる。
 - アクセサ: `is_proven()`、`is_disproven()`、`is_aborted()`、`mate()`、`into_mate()`。
 
 ### `SolveMode`
@@ -161,7 +161,7 @@ SolveLimits::new(limit)
 | フィールド | 何の上限か | 対象 |
 | --- | --- | --- |
 | `limit` | 本手順の攻め手数。 | 全モード |
-| `threat_limit` | 「この手は追い手か」を判定する内部四追いの攻め手数（[06 §2](06-solver-vct.ja.md#section-2)）。`0`: 四のみ。`1`: 四と三。`2` 以上: 四三を準備する手など、より深い含み手も対象になる（`test_vct_fukumi_move` は `3` が必要）。 | VCT |
+| `threat_limit` | 「この手は追い手か」を判定する内部四追いの攻め手数（[06 §2](06-solver-vct.ja.md#section-2)）。`0` では四だけ、`1` では四と三を対象にする。`2` 以上では、四三を準備する手など、さらに深い含み手も対象になる（`test_vct_fukumi_move` には `3` が必要）。 | VCT |
 | `defender_vcf_depth` | 受け方の逆襲四追いを探す内部四追いの攻め手数。 | VCT |
 | `max_nodes` | 総仕事量（ノード数、[§3](#section-3)）。 | 全モード |
 
@@ -184,7 +184,7 @@ let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
 - 各 `threat_limit` にはその回の予算の一部を割り当て、割り当ては回ごとに倍にする。
 - 結果の意味は次のとおり。
   - `Proven`: 追い詰め。最短より長いことが多い。長い詰みのほうが証明が安いことが多いため。
-  - `Disproven`: これらの `threat_limit` のどれでも、長さに関係なく追い詰めはない。「N 手以内にはない」とは言わない。
+  - `Disproven`: 試したどの `threat_limit` でも、手数にかかわらず追い詰めはない。「N 手以内にはない」という意味ではない。
   - `Aborted`: いつもどおり不明。
 
 <a id="section-3"></a>
@@ -202,7 +202,7 @@ let part = budget.slice(1_000);              // 仕事の一部のための予�
 budget.absorb(&part);                        // その一部が使った分を数える
 ```
 
-- 1 ノード = 探索関数の 1 回の呼び出し。内部の四追い探索も数える。
+- 1 ノードは探索関数 1 回の呼び出しに相当する。内部の四追い探索も数える。
   - 四追いでは `DFSSolver::search`。
   - 追い詰めでは `search_attacks` / `search_defences`。
 - 尽きた予算は、`reset()` されるまで尽きたまま。1 つの予算を共有する複数の呼び出しは、全体としてそこで止まる。

@@ -1,6 +1,6 @@
 # ドキュメント
 
-`quintet` を開発する人と AI エージェント向けのリファレンスである。ドメイン（連珠）と、そのルールがコードにどう対応するかを説明する。ソースを読み直さなくても、ソルバーの変更を検討できることを目指している。
+`quintet` を開発する人と AI エージェント向けのリファレンスである。連珠のルールと、それらがコードでどう実装されているかを説明する。ソースを読み直さなくても、ソルバーの変更を検討できることを目指している。
 
 どのドキュメントにも英語版（`*.en.md`）と日本語版（`*.ja.md`）がある。英語版の索引は [README.en.md](README.en.md) を参照すること。
 
@@ -21,10 +21,10 @@
 - **`src/board/` のルール周り（連、禁手）を変える**: 02 を読む。
 - **アプリ、CLI、Rust からソルバーを呼ぶ**: [03 の最小例](03-solver-api.ja.md#quick-start) から始める。
 - **`src/mate/` や `src/feature/` の探索を変える**:
-  - 全体をつかむ: [04 の部品の関係](04-solver-framework.ja.md#section-1)、[05 の手順例](05-solver-vcf.ja.md#section-4)、[06 の手順例](06-solver-vct.ja.md#section-7)。
+  - 全体像をつかむ: [04 の部品の関係](04-solver-framework.ja.md#section-1)、[05 の手順例](05-solver-vcf.ja.md#section-4)、[06 の手順例](06-solver-vct.ja.md#section-7)。
   - 効果を測る: [07 のベンチマーク](07-benchmarks.ja.md#section-3)。
 - **次に何を速くするか**: [08 の改善候補](08-performance.ja.md#section-6)。
-- **ある案を試したことがあるか**: [採用しなかった案](08-performance.ja.md#section-5) と [調整実験](08-performance.ja.md#section-8)。
+- **ある案を試したことがあるか**: [採用しなかった案](08-performance.ja.md#section-5) と [調整実験の詳細](08-performance.ja.md#section-8)。
 - **特定のことだけ知りたい**: 各ドキュメント末尾のチートシートを使う。知りたいことから識別子を引く表になっている。
   - [02 §8](02-board-implementation.ja.md#section-8)
   - [03 §7](03-solver-api.ja.md#section-7)
