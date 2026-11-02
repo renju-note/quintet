@@ -2,7 +2,7 @@
 
 ## 読む順序
 
-初めて読む場合は、次の順で全体をつかむこと。
+初めて読む場合は、次の順に読むと全体像をつかみやすい。
 
 1. [追い手と AND/OR 木](#section-1)
 2. [手順例](#section-7)
@@ -16,7 +16,7 @@
 - 証明の再利用: [§6](#section-6)
 - 性能実験: [08](08-performance.ja.md#section-8) にまとめている。
 
-**追い詰め**（VCT: victory by continuous threats）は、攻め手がすべて**追い手**である手順だ。追い手とは、四、三、または「受け方が何もしなければ攻め方に四追いが生じる手」を指す。
+**追い詰め**（VCT: victory by continuous threats）は、攻め手がすべて**追い手**になる手順である。追い手には、四や三のほか、「受け方が何もしなければ攻め方に四追いが生じる手」も含まれる。
 
 - 四追いと違い、受け方は応手を選べる。そのため木は本物の AND/OR 木になる。
 - ソルバーはこれを**証明数**で探索する。
@@ -31,7 +31,7 @@
 
 ## 1. 追い手と AND/OR 木
 
-ある手が**追い手**であるとは、受け方がパスしたとき、攻め方に `threat_limit` 個以下の四による四追いがあることをいう。
+ある手が**追い手**であるとは、受け方がパスした局面で、攻め方に `threat_limit` 手以内の四追いがあることをいう。
 
 | `threat_limit` | 追い手と認識されるもの |
 | --- | --- |
@@ -119,7 +119,7 @@ pub struct VCTState {
 
 ### `threat_limit` は問いの一部
 
-- `threat_limit` は `limit` と同じく、問いの一部である: `VCTState::from_board(&board, attacker, limit, threat_limit)`。
+- `threat_limit` も `limit` と同じく、探索する問いの一部である。`VCTState::from_board(&board, attacker, limit, threat_limit)` に渡す。
 - `key()` はそれを局面に混ぜる（`apply_threat_limit`、[04 §3](04-solver-framework.ja.md#section-3)）。
   - だから証明数表と候補手キャッシュは、`threat_limit` ごとに別エントリを持つ。
   - `threat_limit` が違えば追い手と数える手が違い、別の木になる。
@@ -130,14 +130,14 @@ pub struct VCTState {
 - `shapes` は両プレイヤーの `ShapeMap`（[§8](#section-8)）。
   - `after_play` / `after_undo` は、着手の線に「古い」印を付けるだけ。
   - 次に読むとき（`sorted_attacks` / `sorted_defences`）に計算し直す。読むのは候補手キャッシュがミスしたときだけ。
-- `next_key(m)` は、`m` の後の子の `key()` を、`m` を打たずに盤面の Zobrist ハッシュへの XOR で計算する。未展開の子の表引きが安いのはこのため。
+- `next_key(m)` は、`m` を実際に打たず、盤面の Zobrist ハッシュを XOR して、着手後の子の `key()` を計算する。そのため、未展開の子も効率よく表引きできる。
 - `swords` は `SwordMap`（[02 §7](02-board-implementation.ja.md#section-7)）で、同じように印を付ける。
   - `vcf_state` / `threat_state` は、それを同期してから、クローンを内部の `VCFState` に渡す。
   - 内部の四追いは同期済みの状態から始まり、次の四追いはこの計算を再利用できる。
 
 ### 派生する 2 つの `VCFState`
 
-追い詰め探索は絶えず「ここに四追いがあるか」を問う。`VCTState` は、2 つの問いのために四追い状態を派生させる。
+追い詰め探索では、「この局面に四追いがあるか」を繰り返し調べる。`VCTState` は、次の 2 種類の問いに応じて四追い状態を作る。
 
 | メソッド | 局面 | 四追いの攻め方 | 四追いの limit | 問い |
 | --- | --- | --- | --- | --- |
@@ -146,7 +146,7 @@ pub struct VCTState {
 
 ### `NestedVCF`: 各側に 1 つ
 
-`nested_vcf.rs` は、四追いソルバー、深さの上限、どちら側のものかをまとめる。
+`nested_vcf.rs` は、四追いソルバーと深さの上限、それがどちら側の探索用かをまとめる。
 
 ```rust
 pub struct NestedVCF { solver: IDDFSSolver, depth: Option<u8>, for_attacker: bool }
@@ -195,15 +195,15 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 
 `Candidate` の `estimate` は、表にまだ何もない間にその子が始める数値である。攻め手なら証明数、受け手なら反証数になる（[§5](#section-5)「選択」）。
 
-### 候補手キャッシュ
+### 候補手のキャッシュ
 
-- 結果は、生成器ごとに 65,536 エントリの `LruCache` に入れる。
+- 生成結果は、生成器ごとに 65,536 エントリの `LruCache` に保存する。
 - キーは `zobrist_hash()`（局面 + limit）。
   - 内部四追いの深さが `min(limit, depth)` なので、limit が要る。
   - 局面には、内部四追いが何を見つけるかを決める `threat_limit` も入っている（[§2](#section-2)）。
 - 予算切れのときは入れない。
 
-容量は、再生成のコストとメモリのバランスで選んでいる。キャッシュは空で始まり、小さな探索では容量分を先に確保しない。比較結果は [08 の容量実験](08-performance.ja.md#cache-capacity) を参照。
+容量は、生成し直すコストとメモリ使用量のバランスを見て決めている。キャッシュは空の状態から必要に応じて増えるため、小さな探索で最大容量分を先に確保することはない。比較結果は [08 の容量実験](08-performance.ja.md#cache-capacity) を参照。
 
 ### `compute_attacks`（攻め方の手番）
 
@@ -227,7 +227,7 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 
 補足は次のとおり。
 
-- ここでは、候補が追い手かどうかは調べない。1 手下の受け方ノードで調べ、追い手でなければそこで反証する。その都度、内部四追い探索とノード 1 つがかかる。
+- ここでは、候補が追い手かどうかを調べない。1 手先の受け方ノードで判定し、追い手でなければその場で反証する。この判定ごとに内部四追い探索と 1 ノードを要する。
   - ステップ 4 は、ベンチマークで追い手でない手のおよそ半分について、この反証を省く（関連領域の外に追い手があったことはない）。
 - `width` をステップ 4 の前に取るのは、それが未展開の子の証明数の初期値になるため（[§5](#section-5)）。追い手でない手は反証されるだけで、兄弟の証明を易しくはしない。除いた後の数を初期値にすると、探索が別の手順に傾いてしまう。
 
@@ -240,7 +240,7 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 
 ### `threat_defences`
 
-`VCTState::threat_defences(&threat)` は、狙われた四追いを止めうる手のヒューリスティックなリストである。次の順に並ぶ。
+`VCTState::threat_defences(&threat)` は、狙われた四追いを止められそうな手をヒューリスティックに集めたリストである。候補は次の順に並ぶ。
 
 | 部分 | 点 |
 | --- | --- |
@@ -260,8 +260,8 @@ pub struct PnDn { pub pn: u32, pub dn: u32, pub limit: u8 }
 pub const INF: u32 = u32::MAX;
 ```
 
-- `pn`（**証明数**）: 攻め方がこのノードを証明するために、少なくともあと何個の葉を勝つ必要があるか。
-- `dn`（**反証数**）: 反証について同じ。
+- `pn`（**証明数**）: 攻め方がこのノードを証明するために、少なくともあと何個の葉を勝つ必要があるかを表す。
+- `dn`（**反証数**）: 攻め方の勝ちを反証するために必要な葉の数を、同様に表す。
 - `pn == 0` で証明済み、`dn == 0` で反証済み。
 
 | コンストラクタ | `(pn, dn)` | 意味 |
@@ -507,7 +507,7 @@ solve_auto:
 
 ## 6. 手順の復元（`extractor.rs`）
 
-`search` は勝ちの存在を証明するだけである。`extract` が表をたどり直して、手順を復元する。
+`search` が証明するのは、勝ちが存在することだけである。`extract` は表をたどり、実際の手順を復元する。
 
 ```
 extract_attacks(state):                        # 攻め方の手番
@@ -522,7 +522,7 @@ extract_defences(state):                       # 受け方の手番
     none proven   → Mate { end: Unknown, path: [] }   # 合法な受けがなくて証明された
 ```
 
-証明済みの受けのうち、`limit` が最小のものは、攻め方に最も多くの手を使わせた受けである。だから報告される手順は、最も粘る受けに対するものになる。
+証明済みの受けのうち `limit` が最小のものは、攻め方に最も多くの手数を使わせた受けである。そのため、報告する手順は最も粘る受けに対するものになる。
 
 ### 証明全体（`tree.rs`）
 
@@ -560,7 +560,7 @@ tree_defences(state):                          # 受け方の手番
 
 #### `ProofTree::zone`
 
-`ProofTree::zone` は、受け方の石が木を崩しうる点である。たどる途中で集める。
+`ProofTree::zone` は、受け方の石によって証明木が崩れる可能性のある点を表す。木をたどりながら、次の点を集める。
 
 - 証明が打つすべての点と、その中の四追いの手。
 - 攻め方の各手のまわり。各線 4 マス（黒は 5 マス）。
@@ -569,7 +569,7 @@ tree_defences(state):                          # 受け方の手番
 - 受け方の各手のあと、受け方の石を 2 つ含む Segment に加わる点（受けや勝ちに使える新しい四）。
 - 受け方の手番の各ノードで、`defender_vcf.vcf_or_zone` の関連領域（[05 §2](05-solver-vcf.ja.md#section-2)）。
 
-それ以外の点の石なら、`proves` は真のままである。禁点のまわりの扱いは、`search_zone` や `threat_defences` と同じ近似である。`test_proof_tree_zone_and_proves` が、ベンチマークの証明済みの `quick` ケースすべての全点で確かめている。
+それ以外の点に石を置いても、`proves` の結果は真のままである。禁点の周辺の扱いは、`search_zone` や `threat_defences` と同じ近似である。`test_proof_tree_zone_and_proves` が、ベンチマークの証明済みの `quick` ケースすべての全点で確かめている。
 
 その 43 ケースでの効きは次のとおり（`examples/proof_tree.rs`）。
 
@@ -629,7 +629,7 @@ tree_defences(state):                          # 受け方の手番
 
 ## 8. 手の並べ替え（`src/feature/`、`VCTState::priority`）
 
-見積もり（[§3](#section-3)）が同じ候補の間では、順序が、探索がどの子を最初に展開するかを決める。点の特徴は `src/feature/` のキャッシュが表し、`VCTState::priority` が重み付けする。
+見積もり（[§3](#section-3)）が同じ候補の中では、並び順によって最初に展開する子が決まる。各点の特徴は `src/feature/` のキャッシュで表し、`VCTState::priority` で重み付けする。
 
 ### `ShapeMap`（`src/feature/shape.rs`）
 
