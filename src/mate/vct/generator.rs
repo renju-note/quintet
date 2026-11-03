@@ -86,10 +86,13 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         let moves = result
             .into_iter()
             .map(|p| {
-                let estimate = match state.best_shape(p) {
-                    Shape::Five | Shape::Four => width / 4,
-                    Shape::Three => width / 2,
-                    _ => width,
+                let shape = state.best_shape(p);
+                let estimate = if shape.rank() >= Shape::Four.rank() {
+                    width / 4
+                } else if shape.rank() == Shape::Three.rank() {
+                    width / 2
+                } else {
+                    width
                 };
                 Candidate::new(p, estimate)
             })

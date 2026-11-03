@@ -742,27 +742,41 @@ and `VCTState::priority` weighs them.
 The `ShapeMap` says, per player and per empty point, what a stone there
 would make on each of the four lines through it, a `Shape`:
 
-| `Shape` | The point is | From ([02 §5.1](02-board-implementation.en.md#section-5-1)) |
-| --- | --- | --- |
-| `Five` | the eye of a `Four` | `row_eyes(r, Four)` |
-| `Four` | an eye of a `Sword` | `row_eyes(r, Sword)` |
-| `Three` | an eye of a `Two` | `row_eyes(r, Two)` |
-| `Sword` | in a segment holding two | `eyes_of(score_mask(r, 2), ..)` |
-| `Two` | in the shared cells of an open pair of segments holding one | `eyes_of(open_starts(r, 1), ..)` |
-| `Nothing` | none of the above, or occupied | |
+| `Shape` | `rank` | The point is | From ([02 §5.1](02-board-implementation.en.md#section-5-1)) |
+| --- | --- | --- | --- |
+| `Five` | 5 | the eye of a `Four` | `row_eyes(r, Four)` |
+| `Overline` | 0 | Black only: the eye of an `Overlining`, or next to a five | `row_eyes(Black, Overlining)`, `count_mask(Black, 5)` |
+| `Straight` | 4 | an eye of a `Three` | `row_eyes(r, Three)` |
+| `DoubleFour` | 4 | an eye of swords whose other eyes are two or more cells | the swords' eyes, pair by pair |
+| `Four` | 4 | an eye of swords whose other eyes are one cell | the same |
+| `Three` | 3 | an eye of a `Two` | `row_eyes(r, Two)` |
+| `Sword` | 2 | in a segment holding two | `eyes_of(score_mask(r, 2), ..)` |
+| `Two` | 1 | in the shared cells of an open pair of segments holding one | `eyes_of(open_starts(r, 1), ..)` |
+| `Nothing` | 0 | none of the above, or occupied | |
+| `Dead` | 0 | in no five cells free of the opponent | the opponent's stones, spread over five cells |
 
-- A cell takes the biggest that applies.
+- A cell takes the strongest that applies, in the order of the table.
+- `Shape::at(line, j, r)` gives the same for one cell of a line, without a
+  map. A test checks it against the rows read directly, after putting the
+  stone, on random lines.
 - It is kept like the `SwordMap` ([02 §7](02-board-implementation.en.md#section-7)): per line, marked stale on a move
-  and recomputed on `sync`, a few bit operations per line and player.
+  and recomputed on `sync`, a few bit operations per line and player, and
+  a loop over the line's swords for the kinds of four.
 
-`get(p, r)` returns the four as `Shapes`, which:
+The move ordering reads a shape by its `rank`, how far it is from a five:
+the three kinds of four rank alike, and `Dead` and `Overline` rank with
+`Nothing`. The ranks are what the map gave before it told those apart,
+cell for cell (a test checks it on random lines), so the searches are as
+they were. `get(p, r)` returns the four as `Shapes`, which, all by rank:
 
-- counts them (`count`, `count_at_least`);
-- sums them by rank (`total`: `Two` 1 up to `Five` 5);
+- counts them (`count`: `count(Four)` counts every kind of four;
+  `count_at_least`);
+- sums them (`total`: `Two` 1 up to `Five` 5);
+- picks the highest (`best`);
 - drops one direction (`except`);
 - guesses whether Black may not play there (`looks_forbidden`: two fours or
-  two threes and no five). It does not see a double-four on one line, an
-  overline, or that a three is fake.
+  two threes and no five, by direction). It counts a `DoubleFour` as one
+  four, leaves out an `Overline`, and does not see that a three is fake.
 
 `forbidden_eyes(board, p, r)` counts the fours and threes `r` makes at `p`
 that leave an eye where Black's stone looks forbidden:

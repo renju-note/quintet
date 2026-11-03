@@ -635,24 +635,30 @@ tree_defences(state):                          # 受け方の手番
 
 `ShapeMap` は、プレイヤーごと・空点ごとに、そこに石を置くと通る 4 本の線それぞれに何ができるか（`Shape`）を持つ。
 
-| `Shape` | その点は | 求め方（[02 §5.1](02-board-implementation.ja.md#section-5-1)） |
-| --- | --- | --- |
-| `Five` | `Four` の眼 | `row_eyes(r, Four)` |
-| `Four` | `Sword` の眼 | `row_eyes(r, Sword)` |
-| `Three` | `Two` の眼 | `row_eyes(r, Two)` |
-| `Sword` | 石を 2 つ含むセグメントの中 | `eyes_of(score_mask(r, 2), ..)` |
-| `Two` | 石を 1 つ含む開いたセグメント対の共有マス | `eyes_of(open_starts(r, 1), ..)` |
-| `Nothing` | 上のどれでもない、または石がある | |
+| `Shape` | `rank` | その点は | 求め方（[02 §5.1](02-board-implementation.ja.md#section-5-1)） |
+| --- | --- | --- | --- |
+| `Five` | 5 | `Four` の眼 | `row_eyes(r, Four)` |
+| `Overline` | 0 | 黒のみ。`Overlining` の眼、または五の隣 | `row_eyes(Black, Overlining)`、`count_mask(Black, 5)` |
+| `Straight` | 4 | `Three` の眼 | `row_eyes(r, Three)` |
+| `DoubleFour` | 4 | 剣先の眼で、それらの剣先の残りの眼が 2 マス以上 | 剣先の眼を組ごとに見る |
+| `Four` | 4 | 剣先の眼で、それらの剣先の残りの眼が 1 マス | 同上 |
+| `Three` | 3 | `Two` の眼 | `row_eyes(r, Two)` |
+| `Sword` | 2 | 石を 2 つ含むセグメントの中 | `eyes_of(score_mask(r, 2), ..)` |
+| `Two` | 1 | 石を 1 つ含む開いたセグメント対の共有マス | `eyes_of(open_starts(r, 1), ..)` |
+| `Nothing` | 0 | 上のどれでもない、または石がある | |
+| `Dead` | 0 | 相手の石の無い 5 マスが 1 つも通らない | 相手の石を 5 マスに広げる |
 
-- 当てはまるもののうち、最も大きいものを取る。
-- `SwordMap`（[02 §7](02-board-implementation.ja.md#section-7)）と同じく線ごとに持ち、着手で古い印を付けて、`sync` で計算し直す。線・プレイヤーごとに、数回のビット演算で済む。
+- 当てはまるもののうち、表の上にあるものを取る。
+- `Shape::at(line, j, r)` は、表を持たずに線の 1 マスについて同じものを返す。石を置いて連を直接読んだ答えと、ランダムな線で突き合わせるテストがある。
+- `SwordMap`（[02 §7](02-board-implementation.ja.md#section-7)）と同じく線ごとに持ち、着手で古い印を付けて、`sync` で計算し直す。線・プレイヤーごとに、数回のビット演算と、四の種類を分けるための剣先のループで済む。
 
-`get(p, r)` は 4 方向分を `Shapes` で返す。`Shapes` は次の操作を持つ。
+手の並べ替えは、形を `rank`（五までの近さ）で読む。四の 3 種類は同じ格、`Dead` と `Overline` は `Nothing` と同じ格である。格は、表がこれらを分ける前に返していた値とマスごとに一致する（ランダムな線で確かめるテストがある）。そのため、探索は変わらない。`get(p, r)` は 4 方向分を `Shapes` で返す。`Shapes` の操作は、どれも格で比べる。
 
-- 数える（`count`、`count_at_least`）。
-- 格で合計する（`total`: `Two` の 1 から `Five` の 5 まで）。
+- 数える（`count`。`count(Four)` は四をどの種類も数える。`count_at_least`）。
+- 合計する（`total`: `Two` の 1 から `Five` の 5 まで）。
+- いちばん高いものを取る（`best`）。
 - 1 方向を除く（`except`）。
-- 黒がそこに打てなさそうかを推測する（`looks_forbidden`: 四 2 つか三 2 つで、五がない）。1 本の線上の四四、長連、三が偽であることは見ない。
+- 黒がそこに打てなさそうかを推測する（`looks_forbidden`: 方向ごとに数えて、四 2 つか三 2 つで、五がない）。`DoubleFour` は四 1 つと数え、`Overline` は数えず、三が偽であることは見ない。
 
 `forbidden_eyes(board, p, r)` は、`r` が `p` に打って作る四・三のうち、黒の石が禁手に見える点に眼が残るものを数える。
 
