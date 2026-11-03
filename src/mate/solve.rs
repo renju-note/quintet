@@ -274,7 +274,20 @@ fn run<S: Solver>(
 
 /// The answer for a board that needs no search, if it is one: the game
 /// is already over, or the attacker has a four and wins next move.
-fn trivial_result(board: &Board, attacker: Player) -> Option<SolveResult> {
+///
+/// [`solve`] checks this before searching. The solvers do not handle
+/// these boards, so a caller that keeps a solver and calls
+/// [`Solver::solve`] itself should check it too.
+///
+/// ```
+/// use quintet::board::{Board, Player};
+/// use quintet::mate::{SolveResult, trivial_result};
+///
+/// assert_eq!(trivial_result(&Board::new(), Player::Black), None);
+/// let five: Board = "H8,A1,I8,A2,J8,A3,K8,A4,L8".parse().unwrap();
+/// assert_eq!(trivial_result(&five, Player::White), Some(SolveResult::Disproven));
+/// ```
+pub fn trivial_result(board: &Board, attacker: Player) -> Option<SolveResult> {
     let over = board.rows(Black, Five).next().is_some()
         || board.rows(White, Five).next().is_some()
         || board.rows(Black, Overlined).next().is_some();

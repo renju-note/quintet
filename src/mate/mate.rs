@@ -3,7 +3,7 @@ use crate::board::*;
 
 /// A winning line: the moves from the root, attacker first, and how it
 /// ends.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Mate {
     pub end: End,
     pub path: Vec<Point>,
