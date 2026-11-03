@@ -23,105 +23,6 @@ pub enum Shape {
     Five,
 }
 
-/// What a stone of one player at an empty cell of a line would make on
-/// that line, exactly, weakest first.
-///
-/// [`Shape`] is what the VCT move ordering needs, read off the rows
-/// before the stone is put. This is finer, for a caller that wants the
-/// rules' answer on one line: it tells an open four from two fours on the
-/// line and from one, Black's overline from what Black's stones make, and a
-/// cell where no five can ever be made from open space. It is asked one
-/// cell at a time ([`Self::at`]); nothing is kept.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
-pub enum LineShape {
-    /// No five can ever pass through the cell this way: every five cells
-    /// through it hold an opponent stone or run off the line.
-    Dead,
-    #[default]
-    Nothing,
-    /// A [`RowKind::Two`] through the cell.
-    Two,
-    /// A [`RowKind::Sword`] through the cell, and no three.
-    Sword,
-    /// A [`RowKind::Three`] through the cell.
-    Three,
-    /// One five point on the line ([`RowKind::Four`]).
-    Four,
-    /// Two or more five points on the line that are not an open four,
-    /// e.g. `o.ooo.o`.
-    DoubleFour,
-    /// A [`RowKind::Straight`]: an open four.
-    Straight,
-    /// Black only: six or more in a row ([`RowKind::Overlined`]).
-    Overline,
-    /// A [`RowKind::Five`].
-    Five,
-}
-
-impl LineShape {
-    /// What `r` would make at cell `j` of `line`, which must be empty: the
-    /// strongest of the rows through `j` once the stone is put.
-    ///
-    /// Fours are counted by their five points, not their rows: White's
-    /// `xxxx.x` has two rows with the one five point.
-    pub fn at(line: &Line, j: u8, r: Player) -> Self {
-        debug_assert!(line.stone(j).is_none());
-        let mut after = *line;
-        after.put(r, j);
-        let has = |k: RowKind| after.row_starts_on(j, r, k) != 0;
-        if has(Five) {
-            return LineShape::Five;
-        }
-        // Any six through `j`, also with `j` at one of its ends, where
-        // `row_starts_on` does not look.
-        let overline = after.row_starts(r, Overlined) & starts_around(j, after.size);
-        if r.is_black() && overline != 0 {
-            return LineShape::Overline;
-        }
-        if has(Straight) {
-            return LineShape::Straight;
-        }
-        let fives = after.eyes_of(after.row_starts_on(j, r, Four), Four.eye_cells());
-        match fives.count_ones() {
-            0 => {}
-            1 => return LineShape::Four,
-            _ => return LineShape::DoubleFour,
-        }
-        if has(Three) {
-            LineShape::Three
-        } else if has(Sword) {
-            LineShape::Sword
-        } else if has(Two) {
-            LineShape::Two
-        } else if is_dead(line, j, r) {
-            LineShape::Dead
-        } else {
-            LineShape::Nothing
-        }
-    }
-}
-
-/// The starts of the two-segment rows that have cell `j` in either
-/// segment: the segments starting at `j - 4` to `j + 1`.
-fn starts_around(j: u8, size: u8) -> u16 {
-    let first = j.saturating_sub(4);
-    let last = (j + 1).min(size.saturating_sub(FIVE));
-    if first > last {
-        return 0;
-    }
-    ((1u32 << (last + 1)) - (1u32 << first)) as u16
-}
-
-/// Whether every five cells of `line` through `j` hold a stone of `r`'s
-/// opponent, or there are none.
-fn is_dead(line: &Line, j: u8, r: Player) -> bool {
-    if line.size < FIVE {
-        return true;
-    }
-    let op = line.stones(r.opponent()).fold(0u16, |m, i| m | 1 << i);
-    (j.saturating_sub(4)..=j.min(line.size - FIVE)).all(|start| op >> start & 0b11111 != 0)
-}
-
 /// A point's [`Shape`]s for one player, one per direction.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct Shapes([Shape; 4]);
@@ -327,10 +228,10 @@ impl Default for ShapeMap {
 #[cfg(test)]
 mod tests {
     use super::Shape::*;
-    use super::{LineShape, Shape, ShapeMap, cell_codes};
+    use super::{Shape, ShapeMap, cell_codes};
     use crate::board::Direction::Vertical;
     use crate::board::Player::{self, *};
-    use crate::board::{Board, Grid, Index, LINE_COUNT, Line, Points};
+    use crate::board::{Board, Grid, Index, LINE_COUNT, Points};
 
     fn shapes(map: &ShapeMap, p: &str, r: Player) -> [Shape; 4] {
         map.get(p.parse().unwrap(), r).0
@@ -459,97 +360,5 @@ mod tests {
         map.sync(&board);
         assert!(map.shapes == ShapeMap::from_board(&board).shapes);
         Ok(())
-    }
-
-    /// `LineShape::at` on one line given as text, `o` Black and `x` White,
-    /// at every empty cell, as one character each: `-` dead, `.` nothing,
-    /// `2` two, `s` sword, `3` three, `4` four, `d` double four, `S`
-    /// straight, `L` overline, `5` five; stones as they are.
-    fn line_shapes(line: &str, r: Player) -> String {
-        let line: Line = line.parse().unwrap();
-        (0..line.size)
-            .map(|j| match line.stone(j) {
-                Some(p) => char::from(p),
-                None => match LineShape::at(&line, j, r) {
-                    LineShape::Dead => '-',
-                    LineShape::Nothing => '.',
-                    LineShape::Two => '2',
-                    LineShape::Sword => 's',
-                    LineShape::Three => '3',
-                    LineShape::Four => '4',
-                    LineShape::DoubleFour => 'd',
-                    LineShape::Straight => 'S',
-                    LineShape::Overline => 'L',
-                    LineShape::Five => '5',
-                },
-            })
-            .collect()
-    }
-
-    #[test]
-    fn test_line_shape_threes_and_fours() {
-        // Black's open three: open fours inside, fours outside, and the
-        // cells beyond would make an overline later.
-        assert_eq!(line_shapes("......ooo......", Black), "....4SoooS4....");
-        assert_eq!(line_shapes(".......o.......", Black), "....222o222....");
-        // White's has no overline to fear.
-        assert_eq!(line_shapes("....x.xxx.x....", White), ".2s4x5xxx5x4s2.");
-        assert_eq!(line_shapes("....x.x.x.x....", White), ".2s3x4xdx4x3s2.");
-        // Four by five points: one from `oooo` next to an overline point,
-        // two from `o.ooo.o`.
-        assert_eq!(line_shapes("...ooo.oo......", Black), ".44oooLoosss...");
-        assert_eq!(line_shapes("....o.o.o.o....", Black), "..sso4odo4oss..");
-        // `xxxx.x` and the cell after it: one five point.
-        assert_eq!(line_shapes(".xxxx.x........", White), "5xxxx5x4s2.....");
-    }
-
-    #[test]
-    fn test_line_shape_dead_and_overline() {
-        // No five cells free of White through these.
-        assert_eq!(line_shapes("x....x.oo.x....", Black), "x----x-oo-x----");
-        // A six with the new stone at either end, which a row through it
-        // in both segments does not cover; White's six is a five.
-        assert_eq!(line_shapes("..ooooo........", Black), ".LoooooL.......");
-        assert_eq!(line_shapes("..xxxxx........", White), "45xxxxx54s.....");
-        assert_eq!(line_shapes("ooooo..........", Black), "oooooL.........");
-    }
-
-    /// `LineShape` and `Shape` read the same rows: where `LineShape` sees
-    /// a four or more, `Shape` sees a four or more, and the other way
-    /// round; below that, they agree on twos, swords and threes. Black's
-    /// overline is left out: `Shape` reads the rows before the stone.
-    #[test]
-    fn test_line_shape_agrees_with_shape_map() -> Result<(), String> {
-        for moves in [
-            "H8,I9,J9,H7,G7,K9,H9,F6,G8,I7,J7,G9,F8",
-            "H8,H9,I8,G8,J8,I9,J9,K10,G7,F6,I10,H10,J11",
-            "A1,O15,B2,N14,C3,M13,A15,O1,B14,N2,H8,H7,I9",
-        ] {
-            agree_on(&moves.parse::<Board>()?);
-        }
-        Ok(())
-    }
-
-    fn agree_on(board: &Board) {
-        let map = ShapeMap::from_board(board);
-        for p in board.empty_points() {
-            for r in [Black, White] {
-                let shapes = map.get(p, r);
-                for (d, _, line) in board.lines_on(p) {
-                    let shape = shapes.along(d);
-                    let fine = LineShape::at(line, p.to_index(d).j, r);
-                    let want = match fine {
-                        LineShape::Dead | LineShape::Nothing => Nothing,
-                        LineShape::Two => Two,
-                        LineShape::Sword => Sword,
-                        LineShape::Three => Three,
-                        LineShape::Four | LineShape::DoubleFour | LineShape::Straight => Four,
-                        LineShape::Overline => continue,
-                        LineShape::Five => Five,
-                    };
-                    assert_eq!(shape, want, "{p} {r:?} {d:?} {fine:?}");
-                }
-            }
-        }
     }
 }
