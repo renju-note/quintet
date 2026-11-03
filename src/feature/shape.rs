@@ -242,31 +242,45 @@ impl ShapeMap {
 fn line_shapes(line: &Line, r: Player) -> [Shape; SIZE as usize] {
     let mut cells = [Shape::Nothing; SIZE as usize];
     let empty = line.empty_cells().0;
-    for j in Bits(dead_cells(line, r) & empty) {
-        cells[j as usize] = Shape::Dead;
+    let theirs = line.stones(r.opponent()).0;
+    if theirs != 0 || line.size < FIVE {
+        for j in Bits(dead_cells(line, theirs) & empty) {
+            cells[j as usize] = Shape::Dead;
+        }
     }
-    // Lowest first, so that a cell gets the strongest shape it makes.
-    let (fours, double_fours) = four_cells(line, r);
-    let masks = [
-        (
-            Shape::Two,
-            line.eyes_of(line.open_starts(r, 1), Two.eye_cells()),
-        ),
-        (
-            Shape::Sword,
-            line.eyes_of(line.score_mask(r, 2), Sword.eye_cells()),
-        ),
-        (Shape::Three, line.row_eyes(r, Two)),
-        (Shape::Four, fours),
-        (Shape::DoubleFour, double_fours),
-        (Shape::Straight, line.row_eyes(r, Three)),
-        (Shape::Overline, overline_cells(line, r)),
-        (Shape::Five, line.row_eyes(r, Four)),
-    ];
-    for (s, mask) in masks {
+    // Each shape needs so many of `r`'s stones on the line already: most
+    // lines hold few, and most of the masks are then left out.
+    let mine = line.stones(r).0.count_ones();
+    let mut put = |s: Shape, mask: u16| {
         for j in Bits(mask) {
             cells[j as usize] = s;
         }
+    };
+    // Lowest first, so that a cell gets the strongest shape it makes.
+    if mine >= 1 {
+        put(
+            Shape::Two,
+            line.eyes_of(line.open_starts(r, 1), Two.eye_cells()),
+        );
+    }
+    if mine >= 2 {
+        put(
+            Shape::Sword,
+            line.eyes_of(line.score_mask(r, 2), Sword.eye_cells()),
+        );
+        put(Shape::Three, line.row_eyes(r, Two));
+    }
+    if mine >= 3 {
+        let (fours, double_fours) = four_cells(line, r);
+        put(Shape::Four, fours);
+        put(Shape::DoubleFour, double_fours);
+        put(Shape::Straight, line.row_eyes(r, Three));
+    }
+    if mine >= 5 {
+        put(Shape::Overline, overline_cells(line, r));
+    }
+    if mine >= 4 {
+        put(Shape::Five, line.row_eyes(r, Four));
     }
     cells
 }
@@ -306,13 +320,14 @@ fn overline_cells(line: &Line, r: Player) -> u16 {
     (line.row_eyes(Black, Overlining) | beside) & line.empty_cells().0
 }
 
-/// The cells that no five cells free of `r`'s opponent pass through.
-fn dead_cells(line: &Line, r: Player) -> u16 {
+/// The cells that no five cells free of `theirs`, the opponent's stones,
+/// pass through.
+fn dead_cells(line: &Line, theirs: u16) -> u16 {
     let all = ((1u32 << line.size) - 1) as u16;
     if line.size < FIVE {
         return all;
     }
-    let op = line.stones(r.opponent()).0;
+    let op = theirs;
     let starts = ((1u32 << (line.size + 1 - FIVE)) - 1) as u16;
     let free = !(op | op >> 1 | op >> 2 | op >> 3 | op >> 4) & starts;
     let covered = free | free << 1 | free << 2 | free << 3 | free << 4;
