@@ -4,9 +4,17 @@ use crate::board::RowKind::*;
 use crate::board::*;
 
 /// What a stone of one player at an empty point would make on one line
-/// through it, from nothing to a five.
+/// through it, from nothing to a five, as the rules tell it.
+///
+/// The move ordering weighs a shape by its [`Self::rank`], how far it is
+/// from a five, and so does everything in [`Shapes`]: the three kinds of
+/// four rank alike, and a dead cell and Black's overline rank with
+/// [`Self::Nothing`].
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub enum Shape {
+    /// No five can ever pass through the point this way: every five cells
+    /// through it hold an opponent stone or run off the line.
+    Dead,
     #[default]
     Nothing,
     /// Two stones that can become a three: the point is within three cells
@@ -17,10 +25,48 @@ pub enum Shape {
     Sword,
     /// A [`RowKind::Three`]: the point is an eye of a [`RowKind::Two`].
     Three,
-    /// A [`RowKind::Four`]: the point is an eye of a [`RowKind::Sword`].
+    /// A [`RowKind::Four`], one five point: the point is an eye of a
+    /// [`RowKind::Sword`], and the other eyes of the swords it is in are
+    /// all one cell.
     Four,
+    /// Two or more five points on the line that are not an open four,
+    /// e.g. `o.ooo.o`: the swords the point is in have other eyes in
+    /// different cells.
+    DoubleFour,
+    /// A [`RowKind::Straight`], an open four: the point is an eye of a
+    /// [`RowKind::Three`].
+    Straight,
+    /// Black only: six or more in a row. The point is the eye of a
+    /// [`RowKind::Overlining`], or next to a five.
+    Overline,
     /// A five: the point is the eye of a [`RowKind::Four`].
     Five,
+}
+
+impl Shape {
+    /// How far the shape is from a five, as the move ordering counts it:
+    /// 1 for a two, 2 for a sword, 3 for a three, 4 for a four of any kind
+    /// and 5 for a five; 0 for nothing, a dead cell and an overline, which
+    /// make nothing that can become a five.
+    #[inline]
+    pub const fn rank(self) -> u8 {
+        match self {
+            Shape::Dead | Shape::Nothing | Shape::Overline => 0,
+            Shape::Two => 1,
+            Shape::Sword => 2,
+            Shape::Three => 3,
+            Shape::Four | Shape::DoubleFour | Shape::Straight => 4,
+            Shape::Five => 5,
+        }
+    }
+
+    /// What `r` would make at cell `j` of `line`, which must be empty: the
+    /// strongest shape that applies. The same as [`ShapeMap`] keeps for
+    /// the point.
+    pub fn at(line: &Line, j: u8, r: Player) -> Self {
+        debug_assert!(line.stone(j).is_none());
+        line_shapes(line, r)[j as usize]
+    }
 }
 
 /// A point's [`Shape`]s for one player, one per direction.
@@ -33,25 +79,30 @@ impl Shapes {
         self.0[d as usize]
     }
 
-    /// How many directions make exactly `s`.
+    /// How many directions make a shape of the same [`Shape::rank`] as
+    /// `s`: `count(Shape::Four)` counts fours of every kind.
     pub fn count(&self, s: Shape) -> u8 {
-        self.0.iter().filter(|&&x| x == s).count() as u8
+        self.0.iter().filter(|x| x.rank() == s.rank()).count() as u8
     }
 
-    /// The shapes of the four directions summed, each by its rank: a two
-    /// counts 1, a sword 2, a three 3, a four 4 and a five 5.
+    /// The ranks of the four directions summed ([`Shape::rank`]).
     pub fn total(&self) -> u8 {
-        self.0.iter().map(|&s| s as u8).sum()
+        self.0.iter().map(|s| s.rank()).sum()
     }
 
-    /// The biggest shape made along any direction.
+    /// The shape of the highest rank made along any direction (of those of
+    /// one rank, the strongest).
     pub fn best(&self) -> Shape {
-        self.0.iter().copied().max().unwrap_or_default()
+        self.0
+            .iter()
+            .copied()
+            .max_by_key(|&s| (s.rank(), s))
+            .unwrap_or_default()
     }
 
-    /// How many directions make at least `s`.
+    /// How many directions make a shape of at least the rank of `s`.
     pub fn count_at_least(&self, s: Shape) -> u8 {
-        self.0.iter().filter(|&&x| x >= s).count() as u8
+        self.0.iter().filter(|x| x.rank() >= s.rank()).count() as u8
     }
 
     /// The shapes with direction `d` left out.
@@ -62,8 +113,9 @@ impl Shapes {
     }
 
     /// For Black, whether the point looks forbidden: two fours or two
-    /// threes and no five. Only a guess. It does not see a double-four
-    /// on one line nor an overline, and a three here may be no real three
+    /// threes and no five, counted by direction ([`Self::count`]). Only a
+    /// guess. It does not count a [`Shape::DoubleFour`] as two fours nor an
+    /// [`Shape::Overline`] at all, and a three here may be no real three
     /// because its straight-four point is itself forbidden (see
     /// `board/forbidden.rs`).
     pub fn looks_forbidden(&self) -> bool {
@@ -147,7 +199,7 @@ impl ShapeMap {
                     let d = row.start_index().d;
                     // `p` is on no other line through the eye than `d`,
                     // so Black's shapes along the others stay as they are.
-                    shapes.along(d) == made
+                    shapes.along(d).rank() == made.rank()
                         && row.eyes().any(|e| {
                             let others = self.get(e, Black).except(d);
                             e != p
@@ -176,32 +228,112 @@ impl ShapeMap {
         let line = board.line(d, i).unwrap();
         let (start, step) = cell_codes(d, i);
         for r in [Black, White] {
-            // Lowest first, so that a cell gets the biggest shape it makes.
-            let masks = [
-                (
-                    Shape::Two,
-                    line.eyes_of(line.open_starts(r, 1), Two.eye_cells()),
-                ),
-                (
-                    Shape::Sword,
-                    line.eyes_of(line.score_mask(r, 2), Sword.eye_cells()),
-                ),
-                (Shape::Three, line.row_eyes(r, Two)),
-                (Shape::Four, line.row_eyes(r, Sword)),
-                (Shape::Five, line.row_eyes(r, Four)),
-            ];
-            let mut cells = [Shape::Nothing; SIZE as usize];
-            for (s, mask) in masks {
-                for j in Bits(mask) {
-                    cells[j as usize] = s;
-                }
-            }
+            let cells = line_shapes(line, r);
             let shapes = &mut self.shapes[r.index()];
             for (j, &s) in cells[..line.size as usize].iter().enumerate() {
                 shapes[start + j * step].0[d as usize] = s;
             }
         }
     }
+}
+
+/// What `r` would make at each cell of `line`: [`Shape::Nothing`] for the
+/// occupied ones, and beyond the line's end.
+fn line_shapes(line: &Line, r: Player) -> [Shape; SIZE as usize] {
+    let mut cells = [Shape::Nothing; SIZE as usize];
+    let empty = line.empty_cells().0;
+    let theirs = line.stones(r.opponent()).0;
+    if theirs != 0 || line.size < FIVE {
+        for j in Bits(dead_cells(line, theirs) & empty) {
+            cells[j as usize] = Shape::Dead;
+        }
+    }
+    // Each shape needs so many of `r`'s stones on the line already: most
+    // lines hold few, and most of the masks are then left out.
+    let mine = line.stones(r).0.count_ones();
+    let mut put = |s: Shape, mask: u16| {
+        for j in Bits(mask) {
+            cells[j as usize] = s;
+        }
+    };
+    // Lowest first, so that a cell gets the strongest shape it makes.
+    if mine >= 1 {
+        put(
+            Shape::Two,
+            line.eyes_of(line.open_starts(r, 1), Two.eye_cells()),
+        );
+    }
+    if mine >= 2 {
+        put(
+            Shape::Sword,
+            line.eyes_of(line.score_mask(r, 2), Sword.eye_cells()),
+        );
+        put(Shape::Three, line.row_eyes(r, Two));
+    }
+    if mine >= 3 {
+        let (fours, double_fours) = four_cells(line, r);
+        put(Shape::Four, fours);
+        put(Shape::DoubleFour, double_fours);
+        put(Shape::Straight, line.row_eyes(r, Three));
+    }
+    if mine >= 5 {
+        put(Shape::Overline, overline_cells(line, r));
+    }
+    if mine >= 4 {
+        put(Shape::Five, line.row_eyes(r, Four));
+    }
+    cells
+}
+
+/// The eyes of `r`'s swords on `line`, as [`Line::row_eyes`] of
+/// [`Sword`], split by how many five points a stone there makes: one
+/// (the first mask) or more (the second). A stone on one eye of a sword
+/// makes the other its five point.
+fn four_cells(line: &Line, r: Player) -> (u16, u16) {
+    let empty = line.empty_cells().0;
+    // Per cell, the other eye of the first sword seen through it.
+    let mut partner = [u8::MAX; SIZE as usize];
+    let (mut eyes, mut double) = (0u16, 0u16);
+    for s in Bits(line.row_starts(r, Sword)) {
+        // A sword's two empty cells, among its five.
+        let pair = (0b11111 << s) & empty;
+        eyes |= pair;
+        let (a, b) = (pair.trailing_zeros() as u8, 15 - pair.leading_zeros() as u8);
+        for (x, y) in [(a, b), (b, a)] {
+            match partner[x as usize] {
+                u8::MAX => partner[x as usize] = y,
+                p if p != y => double |= 1 << x,
+                _ => {}
+            }
+        }
+    }
+    (eyes & !double, double)
+}
+
+/// The cells where Black's stone would make six or more in a row: the eyes
+/// of [`RowKind::Overlining`], and the cells next to a five. Empty for
+/// White, whose six is a five.
+fn overline_cells(line: &Line, r: Player) -> u16 {
+    if r.is_white() {
+        return 0;
+    }
+    let fives = line.count_mask(Black, FIVE);
+    let beside = fives >> 1 | fives << FIVE;
+    (line.row_eyes(Black, Overlining) | beside) & line.empty_cells().0
+}
+
+/// The cells that no five cells free of `theirs`, the opponent's stones,
+/// pass through.
+fn dead_cells(line: &Line, theirs: u16) -> u16 {
+    let all = ((1u32 << line.size) - 1) as u16;
+    if line.size < FIVE {
+        return all;
+    }
+    let op = theirs;
+    let starts = ((1u32 << (line.size + 1 - FIVE)) - 1) as u16;
+    let free = !(op | op >> 1 | op >> 2 | op >> 3 | op >> 4) & starts;
+    let covered = free | free << 1 | free << 2 | free << 3 | free << 4;
+    all & !covered
 }
 
 /// Cell `j` of line `i` in direction `d` is the point whose code
@@ -231,7 +363,8 @@ mod tests {
     use super::{Shape, ShapeMap, cell_codes};
     use crate::board::Direction::Vertical;
     use crate::board::Player::{self, *};
-    use crate::board::{Board, Grid, Index, LINE_COUNT, Points};
+    use crate::board::RowKind;
+    use crate::board::{Bits, Board, Grid, Index, LINE_COUNT, Line, Points};
 
     fn shapes(map: &ShapeMap, p: &str, r: Player) -> [Shape; 4] {
         map.get(p.parse().unwrap(), r).0
@@ -276,7 +409,11 @@ mod tests {
         .parse::<Board>()?;
         let map = ShapeMap::from_board(&board);
         // [Vertical, Horizontal, Ascending, Descending]
-        assert_eq!(shapes(&map, "H8", Black), [Nothing, Four, Nothing, Nothing]);
+        // F8-I8 open at both ends: an open four.
+        assert_eq!(
+            shapes(&map, "H8", Black),
+            [Nothing, Straight, Nothing, Nothing]
+        );
         assert_eq!(shapes(&map, "E8", Black), [Nothing, Four, Nothing, Nothing]);
         assert_eq!(shapes(&map, "H9", Black), [Nothing, Nothing, Two, Two]);
         assert_eq!(shapes(&map, "G9", Black), [Two, Nothing, Two, Nothing]);
@@ -287,8 +424,12 @@ mod tests {
             [Nothing, Sword, Nothing, Nothing]
         );
         assert_eq!(shapes(&map, "K8", Black), [Nothing; 4]);
-        // White's three, both ends open.
-        assert_eq!(shapes(&map, "E3", White), [Nothing, Four, Nothing, Nothing]);
+        // White's three, both ends open: next to it an open four, one
+        // cell away a four.
+        assert_eq!(
+            shapes(&map, "E3", White),
+            [Nothing, Straight, Nothing, Nothing]
+        );
         assert_eq!(shapes(&map, "J3", White), [Nothing, Four, Nothing, Nothing]);
         assert_eq!(
             shapes(&map, "C3", White),
@@ -360,5 +501,164 @@ mod tests {
         map.sync(&board);
         assert!(map.shapes == ShapeMap::from_board(&board).shapes);
         Ok(())
+    }
+
+    /// [`Shape::at`] at every empty cell of a line given as text, `o`
+    /// Black and `x` White, one character each: `-` dead, `.` nothing,
+    /// `2` two, `s` sword, `3` three, `4` four, `d` double four, `S`
+    /// open four, `L` overline, `5` five; stones as they are.
+    fn line_shapes(line: &str, r: Player) -> String {
+        let line: Line = line.parse().unwrap();
+        (0..line.size)
+            .map(|j| match line.stone(j) {
+                Some(p) => char::from(p),
+                None => match Shape::at(&line, j, r) {
+                    Dead => '-',
+                    Nothing => '.',
+                    Two => '2',
+                    Sword => 's',
+                    Three => '3',
+                    Four => '4',
+                    DoubleFour => 'd',
+                    Straight => 'S',
+                    Overline => 'L',
+                    Five => '5',
+                },
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_shape_at_threes_and_fours() {
+        // Black's open three: open fours inside, fours outside, and the
+        // cells beyond would make an overline later.
+        assert_eq!(line_shapes("......ooo......", Black), "....4SoooS4....");
+        assert_eq!(line_shapes(".......o.......", Black), "....222o222....");
+        // White's has no overline to fear.
+        assert_eq!(line_shapes("....x.xxx.x....", White), ".2s4x5xxx5x4s2.");
+        assert_eq!(line_shapes("....x.x.x.x....", White), ".2s3x4xdx4x3s2.");
+        // Four by five points: one from `oooo` next to an overline point,
+        // two from `o.ooo.o`.
+        assert_eq!(line_shapes("...ooo.oo......", Black), ".44oooLoosss...");
+        assert_eq!(line_shapes("....o.o.o.o....", Black), "..sso4odo4oss..");
+        // `xxxx.x` and the cell after it: one five point.
+        assert_eq!(line_shapes(".xxxx.x........", White), "5xxxx5x4s2.....");
+    }
+
+    #[test]
+    fn test_shape_at_dead_and_overline() {
+        // No five cells free of White through these.
+        assert_eq!(line_shapes("x....x.oo.x....", Black), "x----x-oo-x----");
+        // A six with the new stone at either end of it; White's six is a
+        // five.
+        assert_eq!(line_shapes("..ooooo........", Black), ".LoooooL.......");
+        assert_eq!(line_shapes("..xxxxx........", White), "45xxxxx54s.....");
+        assert_eq!(line_shapes("ooooo..........", Black), "oooooL.........");
+        // Too short for a five.
+        assert_eq!(line_shapes("..o.", Black), "--o-");
+    }
+
+    /// [`Shape::at`] against the rules read directly: put the stone and
+    /// look at the rows through it, strongest first. Fours are counted by
+    /// their five points. A six is any [`RowKind::Overlined`] row holding the cell.
+    fn by_rows(line: &Line, j: u8, r: Player) -> Shape {
+        let mut after = *line;
+        after.put(r, j);
+        let has = |k: RowKind| after.row_starts_on(j, r, k) != 0;
+        if has(RowKind::Five) {
+            return Five;
+        }
+        let first = j.saturating_sub(4);
+        let last = (j + 1).min(after.size.saturating_sub(5));
+        let around = if first > last {
+            0
+        } else {
+            ((1u32 << (last + 1)) - (1u32 << first)) as u16
+        };
+        if r.is_black() && after.row_starts(r, RowKind::Overlined) & around != 0 {
+            return Overline;
+        }
+        if has(RowKind::Straight) {
+            return Straight;
+        }
+        let fives = after.eyes_of(
+            after.row_starts_on(j, r, RowKind::Four),
+            RowKind::Four.eye_cells(),
+        );
+        match fives.count_ones() {
+            0 => {}
+            1 => return Four,
+            _ => return DoubleFour,
+        }
+        if has(RowKind::Three) {
+            return Three;
+        }
+        if has(RowKind::Sword) {
+            return Sword;
+        }
+        if has(RowKind::Two) {
+            return Two;
+        }
+        let op = line.stones(r.opponent()).0;
+        let dead = line.size < 5
+            || (j.saturating_sub(4)..=j.min(line.size - 5)).all(|s| op >> s & 0b11111 != 0);
+        if dead { Dead } else { Nothing }
+    }
+
+    /// What the map kept before it told the kinds of four, dead cells and
+    /// overlines apart: the move ordering must see the same ranks.
+    fn coarse(line: &Line, r: Player) -> [u8; 15] {
+        let masks = [
+            (
+                1,
+                line.eyes_of(line.open_starts(r, 1), RowKind::Two.eye_cells()),
+            ),
+            (
+                2,
+                line.eyes_of(line.score_mask(r, 2), RowKind::Sword.eye_cells()),
+            ),
+            (3, line.row_eyes(r, RowKind::Two)),
+            (4, line.row_eyes(r, RowKind::Sword)),
+            (5, line.row_eyes(r, RowKind::Four)),
+        ];
+        let mut cells = [0; 15];
+        for (rank, mask) in masks {
+            for j in Bits(mask) {
+                cells[j as usize] = rank;
+            }
+        }
+        cells
+    }
+
+    /// Random lines of every length, sparse to crowded: [`Shape::at`]
+    /// agrees with the rows, and its rank with the old map's.
+    #[test]
+    fn test_shape_at_matches_the_rows_and_the_old_ranks() {
+        let mut x = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        for n in 0..20_000 {
+            let size = 1 + (n % 15) as u8;
+            let density = 1 + n % 7;
+            let mut line = Line::new(size);
+            for i in 0..size {
+                let v = next() % 10;
+                if v < density as u64 {
+                    line.put(if next() % 2 == 0 { Black } else { White }, i);
+                }
+            }
+            for r in [Black, White] {
+                let old = coarse(&line, r);
+                for j in Bits(line.empty_cells().0) {
+                    let shape = Shape::at(&line, j, r);
+                    assert_eq!(shape, by_rows(&line, j, r), "{line} {r:?} {j}");
+                    assert_eq!(shape.rank(), old[j as usize], "{line} {r:?} {j} {shape:?}");
+                }
+            }
+        }
     }
 }
