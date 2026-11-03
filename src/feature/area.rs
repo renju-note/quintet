@@ -6,11 +6,13 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign};
 pub struct Area([u64; 4]);
 
 impl Area {
+    #[inline]
     pub const fn new() -> Self {
         Self([0; 4])
     }
 
     /// Adds `p`, telling whether it was not there yet.
+    #[inline]
     pub fn insert(&mut self, p: Point) -> bool {
         let i = u8::from(p) as usize;
         let (word, bit) = (i / 64, 1 << (i % 64));
@@ -20,6 +22,7 @@ impl Area {
     }
 
     /// Removes `p`, telling whether it was there.
+    #[inline]
     pub fn remove(&mut self, p: Point) -> bool {
         let i = u8::from(p) as usize;
         let (word, bit) = (i / 64, 1 << (i % 64));
@@ -28,21 +31,27 @@ impl Area {
         old
     }
 
+    #[inline]
+
     pub fn contains(&self, p: Point) -> bool {
         let i = u8::from(p) as usize;
         self.0[i / 64] & 1 << (i % 64) != 0
     }
+
+    #[inline]
 
     pub fn is_empty(&self) -> bool {
         self.0 == [0; 4]
     }
 
     /// How many points the area has.
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.iter().map(|w| w.count_ones() as usize).sum()
     }
 
     /// The points, in the order of their codes (`u8::from`).
+    #[inline]
     pub fn points(&self) -> impl Iterator<Item = Point> + '_ {
         self.into_iter()
     }
@@ -50,6 +59,7 @@ impl Area {
     /// The points on the four lines through `p` at most `distance` cells
     /// from it, `p` included, whether empty or not. Only `4` and `5` are
     /// tabulated.
+    #[inline]
     pub fn around(p: Point, distance: u8) -> &'static Self {
         let i = u8::from(p) as usize;
         match distance {
@@ -61,6 +71,7 @@ impl Area {
 }
 
 impl BitOrAssign<&Area> for Area {
+    #[inline]
     fn bitor_assign(&mut self, rhs: &Area) {
         for w in 0..4 {
             self.0[w] |= rhs.0[w];
@@ -69,12 +80,14 @@ impl BitOrAssign<&Area> for Area {
 }
 
 impl BitOrAssign for Area {
+    #[inline]
     fn bitor_assign(&mut self, rhs: Area) {
         *self |= &rhs;
     }
 }
 
 impl BitAndAssign<&Area> for Area {
+    #[inline]
     fn bitand_assign(&mut self, rhs: &Area) {
         for w in 0..4 {
             self.0[w] &= rhs.0[w];
@@ -83,6 +96,7 @@ impl BitAndAssign<&Area> for Area {
 }
 
 impl BitAndAssign for Area {
+    #[inline]
     fn bitand_assign(&mut self, rhs: Area) {
         *self &= &rhs;
     }
@@ -90,6 +104,8 @@ impl BitAndAssign for Area {
 
 impl BitOr for Area {
     type Output = Area;
+
+    #[inline]
 
     fn bitor(mut self, rhs: Area) -> Area {
         self |= &rhs;
@@ -100,6 +116,8 @@ impl BitOr for Area {
 impl BitAnd for Area {
     type Output = Area;
 
+    #[inline]
+
     fn bitand(mut self, rhs: Area) -> Area {
         self &= &rhs;
         self
@@ -108,6 +126,7 @@ impl BitAnd for Area {
 
 /// The points of the left area that are not in the right one.
 impl SubAssign<&Area> for Area {
+    #[inline]
     fn sub_assign(&mut self, rhs: &Area) {
         for w in 0..4 {
             self.0[w] &= !rhs.0[w];
@@ -116,6 +135,7 @@ impl SubAssign<&Area> for Area {
 }
 
 impl SubAssign for Area {
+    #[inline]
     fn sub_assign(&mut self, rhs: Area) {
         *self -= &rhs;
     }
@@ -123,6 +143,8 @@ impl SubAssign for Area {
 
 impl Sub for Area {
     type Output = Area;
+
+    #[inline]
 
     fn sub(mut self, rhs: Area) -> Area {
         self -= &rhs;
@@ -137,10 +159,13 @@ impl IntoIterator for Area {
     type Item = Point;
     type IntoIter = AreaPoints;
 
+    #[inline]
+
     fn into_iter(self) -> AreaPoints {
         AreaPoints {
             words: self.0,
             w: 0,
+            bits: self.0[0],
         }
     }
 }
@@ -149,8 +174,10 @@ impl IntoIterator for Area {
 #[derive(Debug, Clone)]
 pub struct AreaPoints {
     words: [u64; 4],
-    /// The word the next point is looked for in.
+    /// The word `bits` was taken from.
     w: usize,
+    /// What is left of that word.
+    bits: u64,
 }
 
 impl Iterator for AreaPoints {
@@ -158,24 +185,25 @@ impl Iterator for AreaPoints {
 
     #[inline]
     fn next(&mut self) -> Option<Point> {
-        while self.w < 4 {
-            let bits = &mut self.words[self.w];
-            if *bits != 0 {
-                let b = bits.trailing_zeros() as u8;
-                *bits &= *bits - 1;
-                let code = self.w as u8 * 64 + b;
-                return Some(Point(code / SIZE, code % SIZE));
-            }
+        while self.bits == 0 {
             self.w += 1;
+            if self.w >= 4 {
+                return None;
+            }
+            self.bits = self.words[self.w];
         }
-        None
+        let b = self.bits.trailing_zeros() as u8;
+        self.bits &= self.bits - 1;
+        let code = self.w as u8 * 64 + b;
+        Some(Point(code / SIZE, code % SIZE))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let n = self.words[self.w.min(4)..]
+        let rest: usize = self.words[(self.w + 1).min(4)..]
             .iter()
             .map(|w| w.count_ones() as usize)
             .sum();
+        let n = self.bits.count_ones() as usize + rest;
         (n, Some(n))
     }
 }
