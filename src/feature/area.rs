@@ -1,4 +1,4 @@
-use crate::board::{Bits, POINT_COUNT, Point, SIZE};
+use crate::board::{POINT_COUNT, Point, SIZE};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign};
 
 /// A set of points, one bit per point by its `u8` code (`x * SIZE + y`).
@@ -44,9 +44,7 @@ impl Area {
 
     /// The points, in the order of their codes (`u8::from`).
     pub fn points(&self) -> impl Iterator<Item = Point> + '_ {
-        self.0.iter().enumerate().flat_map(|(w, &bits)| {
-            Bits(bits).map(move |b| Point::try_from(w as u8 * 64 + b).unwrap())
-        })
+        self.into_iter()
     }
 
     /// The points on the four lines through `p` at most `distance` cells
@@ -132,6 +130,58 @@ impl Sub for Area {
     }
 }
 
+/// The points, in the order of their codes, as [`Area::points`]; the
+/// iterator owns its copy of the area, so it can outlive the area it was
+/// taken from.
+impl IntoIterator for Area {
+    type Item = Point;
+    type IntoIter = AreaPoints;
+
+    fn into_iter(self) -> AreaPoints {
+        AreaPoints {
+            words: self.0,
+            w: 0,
+        }
+    }
+}
+
+/// The points of an [`Area`], taken by [`Area::into_iter`].
+#[derive(Debug, Clone)]
+pub struct AreaPoints {
+    words: [u64; 4],
+    /// The word the next point is looked for in.
+    w: usize,
+}
+
+impl Iterator for AreaPoints {
+    type Item = Point;
+
+    #[inline]
+    fn next(&mut self) -> Option<Point> {
+        while self.w < 4 {
+            let bits = &mut self.words[self.w];
+            if *bits != 0 {
+                let b = bits.trailing_zeros() as u8;
+                *bits &= *bits - 1;
+                let code = self.w as u8 * 64 + b;
+                return Some(Point(code / SIZE, code % SIZE));
+            }
+            self.w += 1;
+        }
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.words[self.w.min(4)..]
+            .iter()
+            .map(|w| w.count_ones() as usize)
+            .sum();
+        (n, Some(n))
+    }
+}
+
+impl ExactSizeIterator for AreaPoints {}
+
 impl FromIterator<Point> for Area {
     fn from_iter<I: IntoIterator<Item = Point>>(points: I) -> Self {
         let mut result = Area::new();
@@ -216,6 +266,18 @@ mod tests {
         assert_eq!(diff, [Point(0, 0), Point(14, 14)]);
         assert_eq!(other - set, [Point(7, 7)].into_iter().collect());
         assert!((set - set).is_empty());
+    }
+
+    #[test]
+    fn test_into_iter_owns_its_copy() {
+        let points = [Point(0, 0), Point(4, 3), Point(8, 7), Point(14, 14)];
+        let iter = {
+            let set: Area = points.into_iter().collect();
+            set.into_iter()
+        };
+        assert_eq!(iter.len(), 4);
+        assert_eq!(iter.collect::<Vec<_>>(), points);
+        assert_eq!(Area::new().into_iter().next(), None);
     }
 
     /// The tables agree with `Board::neighbors`, which walks the lines.
