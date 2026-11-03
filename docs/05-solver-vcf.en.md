@@ -148,7 +148,7 @@ stone could give the attacker one.
 - The VCT solver uses it to rule out attacks that cannot be threats
   ([06 §3](06-solver-vct.en.md#section-3)).
 - It is an `Area` (`src/feature/area.rs`, a bit per point; `insert`,
-  `remove`, `contains`, `points` in code order, `|` and `&`), built from
+  `remove`, `contains`, `points` in code order, `|`, `&` and `-`), built from
   what the search looks at:
 
 | Where | Added |

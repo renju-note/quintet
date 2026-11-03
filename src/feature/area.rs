@@ -1,5 +1,5 @@
 use crate::board::{Bits, POINT_COUNT, Point, SIZE};
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign};
 
 /// A set of points, one bit per point by its `u8` code (`x * SIZE + y`).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -108,6 +108,30 @@ impl BitAnd for Area {
     }
 }
 
+/// The points of the left area that are not in the right one.
+impl SubAssign<&Area> for Area {
+    fn sub_assign(&mut self, rhs: &Area) {
+        for w in 0..4 {
+            self.0[w] &= !rhs.0[w];
+        }
+    }
+}
+
+impl SubAssign for Area {
+    fn sub_assign(&mut self, rhs: Area) {
+        *self -= &rhs;
+    }
+}
+
+impl Sub for Area {
+    type Output = Area;
+
+    fn sub(mut self, rhs: Area) -> Area {
+        self -= &rhs;
+        self
+    }
+}
+
 impl FromIterator<Point> for Area {
     fn from_iter<I: IntoIterator<Item = Point>>(points: I) -> Self {
         let mut result = Area::new();
@@ -186,6 +210,12 @@ mod tests {
         assert_eq!((set | other).len(), 4);
         assert!(Area::new().is_empty());
         assert!((set & Area::new()).is_empty());
+
+        // The difference keeps what the other has not, across the words.
+        let diff: Vec<_> = (set - other).points().collect();
+        assert_eq!(diff, [Point(0, 0), Point(14, 14)]);
+        assert_eq!(other - set, [Point(7, 7)].into_iter().collect());
+        assert!((set - set).is_empty());
     }
 
     /// The tables agree with `Board::neighbors`, which walks the lines.
