@@ -1,5 +1,5 @@
-use crate::board::{POINT_COUNT, Point, SIZE};
-use std::ops::BitOrAssign;
+use crate::board::{Bits, POINT_COUNT, Point, SIZE};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 
 /// A set of points, one bit per point by its `u8` code (`x * SIZE + y`).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -19,9 +19,34 @@ impl Area {
         new
     }
 
+    /// Removes `p`, telling whether it was there.
+    pub fn remove(&mut self, p: Point) -> bool {
+        let i = u8::from(p) as usize;
+        let (word, bit) = (i / 64, 1 << (i % 64));
+        let old = self.0[word] & bit != 0;
+        self.0[word] &= !bit;
+        old
+    }
+
     pub fn contains(&self, p: Point) -> bool {
         let i = u8::from(p) as usize;
         self.0[i / 64] & 1 << (i % 64) != 0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0 == [0; 4]
+    }
+
+    /// How many points the area has.
+    pub fn len(&self) -> usize {
+        self.0.iter().map(|w| w.count_ones() as usize).sum()
+    }
+
+    /// The points, in the order of their codes (`u8::from`).
+    pub fn points(&self) -> impl Iterator<Item = Point> + '_ {
+        self.0.iter().enumerate().flat_map(|(w, &bits)| {
+            Bits(bits).map(move |b| Point::try_from(w as u8 * 64 + b).unwrap())
+        })
     }
 
     /// The points on the four lines through `p` at most `distance` cells
@@ -48,6 +73,48 @@ impl BitOrAssign<&Area> for Area {
 impl BitOrAssign for Area {
     fn bitor_assign(&mut self, rhs: Area) {
         *self |= &rhs;
+    }
+}
+
+impl BitAndAssign<&Area> for Area {
+    fn bitand_assign(&mut self, rhs: &Area) {
+        for w in 0..4 {
+            self.0[w] &= rhs.0[w];
+        }
+    }
+}
+
+impl BitAndAssign for Area {
+    fn bitand_assign(&mut self, rhs: Area) {
+        *self &= &rhs;
+    }
+}
+
+impl BitOr for Area {
+    type Output = Area;
+
+    fn bitor(mut self, rhs: Area) -> Area {
+        self |= &rhs;
+        self
+    }
+}
+
+impl BitAnd for Area {
+    type Output = Area;
+
+    fn bitand(mut self, rhs: Area) -> Area {
+        self &= &rhs;
+        self
+    }
+}
+
+impl FromIterator<Point> for Area {
+    fn from_iter<I: IntoIterator<Item = Point>>(points: I) -> Self {
+        let mut result = Area::new();
+        for p in points {
+            result.insert(p);
+        }
+        result
     }
 }
 
@@ -100,6 +167,25 @@ mod tests {
         other.insert(Point(7, 7));
         set |= other;
         assert!(set.contains(Point(7, 7)));
+    }
+
+    #[test]
+    fn test_remove_points_and_set_operations() {
+        let points = [Point(0, 0), Point(4, 3), Point(8, 7), Point(14, 14)];
+        let mut set: Area = points.into_iter().collect();
+        assert_eq!(set.len(), 4);
+        // In code order, across the words.
+        assert_eq!(set.points().collect::<Vec<_>>(), points);
+        assert!(set.remove(Point(4, 3)));
+        assert!(!set.remove(Point(4, 3)));
+        assert!(!set.contains(Point(4, 3)));
+        assert_eq!(set.len(), 3);
+
+        let other: Area = [Point(8, 7), Point(7, 7)].into_iter().collect();
+        assert_eq!((set & other).points().collect::<Vec<_>>(), [Point(8, 7)]);
+        assert_eq!((set | other).len(), 4);
+        assert!(Area::new().is_empty());
+        assert!((set & Area::new()).is_empty());
     }
 
     /// The tables agree with `Board::neighbors`, which walks the lines.

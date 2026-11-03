@@ -124,7 +124,7 @@ search_defence(state, defence):                # 受け方の手番
 `search_zone(state, budget, &mut zone)` は、`search` に加えて**関連領域**を集める。関連領域とは、四追いが見つからなかった局面で、攻め方がもう 1 石置くと四追いが生まれる可能性のある空点の集合である。
 
 - 追い詰めソルバーは、これを使って追い手になりえない攻め手を除く（[06 §3](06-solver-vct.ja.md#section-3)）。
-- 点ごとに 1 ビットの `Area`（`src/feature/area.rs`）で、探索が見たものから作る。
+- 点ごとに 1 ビットの `Area`（`src/feature/area.rs`。`insert`、`remove`、`contains`、符号順の `points`、`|` と `&`）で、探索が見たものから作る。
 
 | どこで | 加えるもの |
 | --- | --- |
