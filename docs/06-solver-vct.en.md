@@ -764,6 +764,25 @@ would make on each of the four lines through it, a `Shape`:
   two threes and no five). It does not see a double-four on one line, an
   overline, or that a three is fake.
 
+`LineShape::at(line, j, r)` answers the same question for one cell of one
+line, exactly, without a map. It puts the stone on a copy of the line and
+reads the rows through it, so it is finer than `Shape` where the rules
+need it:
+
+| `LineShape` | `Shape` there |
+| --- | --- |
+| `Five` | `Five` |
+| `Overline` (Black only: six or more, also with the stone at an end) | anything |
+| `Straight`, `DoubleFour` (two five points on the line, not open), `Four` (one) | `Four` |
+| `Three`, `Sword`, `Two` | the same |
+| `Nothing` | `Nothing` |
+| `Dead`: every five cells through the cell hold an opponent stone | `Nothing` |
+
+- Nothing in the solvers reads it. It is for a caller that wants the
+  rules' answer per line, e.g. to flag Black's possible forbidden moves
+  before asking `Board::forbidden`.
+- A test checks it against the `ShapeMap` on whole boards.
+
 `forbidden_eyes(board, p, r)` counts the fours and threes `r` makes at `p`
 that leave an eye where Black's stone looks forbidden:
 
