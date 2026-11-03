@@ -323,7 +323,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | 黒にすでに `Overlined` がある | `Disproven` |
 | 攻め方にすでに `Four` がある | `Proven(Mate { end: Unknown, path: [] })`。すでに勝ちで、証明するものがない。 |
 
-ソルバーを直接使う場合（[§4](#section-4)）には、この検査は入らない。必要なら自分で確かめる。
+ソルバーを直接使う場合（[§4](#section-4)）には、この検査は入らない。検査は `mate::trivial_result(board, attacker)` として公開している。`Solver::solve` の前に呼び、答えが返ればその局面は探索しない。
 
 <a id="section-7"></a>
 

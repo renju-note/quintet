@@ -45,7 +45,7 @@ pub use game::{End, Event, Game};
 pub use mate::Mate;
 pub use solve::{
     DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, SolveStats, solve,
-    solve_with_stats,
+    solve_with_stats, trivial_result,
 };
 pub use solver::Solver;
 pub use state::{Key, State};

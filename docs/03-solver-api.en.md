@@ -370,8 +370,9 @@ the board.)
 | Black already has an `Overlined` | `Disproven` |
 | The attacker already has a `Four` | `Proven(Mate { end: Unknown, path: [] })`: already won, nothing to prove |
 
-A caller using a solver directly ([§4](#section-4)) gets none of this, and should check
-what it needs itself.
+A caller using a solver directly ([§4](#section-4)) gets none of this. The
+check is public, `mate::trivial_result(board, attacker)`: call it before
+`Solver::solve`, and skip the search when it answers.
 
 <a id="section-7"></a>
 
