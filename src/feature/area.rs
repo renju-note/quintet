@@ -32,14 +32,12 @@ impl Area {
     }
 
     #[inline]
-
     pub fn contains(&self, p: Point) -> bool {
         let i = u8::from(p) as usize;
         self.0[i / 64] & 1 << (i % 64) != 0
     }
 
     #[inline]
-
     pub fn is_empty(&self) -> bool {
         self.0 == [0; 4]
     }
@@ -106,7 +104,6 @@ impl BitOr for Area {
     type Output = Area;
 
     #[inline]
-
     fn bitor(mut self, rhs: Area) -> Area {
         self |= &rhs;
         self
@@ -117,7 +114,6 @@ impl BitAnd for Area {
     type Output = Area;
 
     #[inline]
-
     fn bitand(mut self, rhs: Area) -> Area {
         self &= &rhs;
         self
@@ -145,7 +141,6 @@ impl Sub for Area {
     type Output = Area;
 
     #[inline]
-
     fn sub(mut self, rhs: Area) -> Area {
         self -= &rhs;
         self
@@ -160,7 +155,6 @@ impl IntoIterator for Area {
     type IntoIter = AreaPoints;
 
     #[inline]
-
     fn into_iter(self) -> AreaPoints {
         AreaPoints {
             words: self.0,
