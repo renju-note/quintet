@@ -290,19 +290,21 @@ fn line_shapes(line: &Line, r: Player) -> [Shape; SIZE as usize] {
 /// (the first mask) or more (the second). A stone on one eye of a sword
 /// makes the other its five point.
 fn four_cells(line: &Line, r: Player) -> (u16, u16) {
-    let mut partners = [0u16; SIZE as usize];
-    let mut eyes = 0;
+    let empty = line.empty_cells().0;
+    // Per cell, the other eye of the first sword seen through it.
+    let mut partner = [u8::MAX; SIZE as usize];
+    let (mut eyes, mut double) = (0u16, 0u16);
     for s in Bits(line.row_starts(r, Sword)) {
-        let pair = line.eyes_of(1 << s, Sword.eye_cells());
+        // A sword's two empty cells, among its five.
+        let pair = (0b11111 << s) & empty;
         eyes |= pair;
-        let (a, b) = (pair.trailing_zeros(), 15 - pair.leading_zeros());
-        partners[a as usize] |= 1 << b;
-        partners[b as usize] |= 1 << a;
-    }
-    let mut double = 0;
-    for j in Bits(eyes) {
-        if partners[j as usize].count_ones() >= 2 {
-            double |= 1 << j;
+        let (a, b) = (pair.trailing_zeros() as u8, 15 - pair.leading_zeros() as u8);
+        for (x, y) in [(a, b), (b, a)] {
+            match partner[x as usize] {
+                u8::MAX => partner[x as usize] = y,
+                p if p != y => double |= 1 << x,
+                _ => {}
+            }
         }
     }
     (eyes & !double, double)
