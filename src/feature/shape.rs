@@ -63,9 +63,45 @@ impl Shape {
     /// What `r` would make at cell `j` of `line`, which must be empty: the
     /// strongest shape that applies. The same as [`ShapeMap`] keeps for
     /// the point.
+    ///
+    /// Only cell `j` is worked out, strongest shape first, so this costs
+    /// less than a line of [`ShapeMap`] when a caller asks about a few
+    /// cells and keeps no map.
     pub fn at(line: &Line, j: u8, r: Player) -> Self {
         debug_assert!(line.stone(j).is_none());
-        line_shapes(line, r)[j as usize]
+        let bit = 1u16 << j;
+        let has = |mask: u16| mask & bit != 0;
+        let mine = line.stones(r).0.count_ones();
+        if mine >= 4 && has(line.row_eyes(r, Four)) {
+            return Shape::Five;
+        }
+        if mine >= 5 && has(overline_cells(line, r)) {
+            return Shape::Overline;
+        }
+        if mine >= 3 {
+            if has(line.row_eyes(r, Three)) {
+                return Shape::Straight;
+            }
+            if let Some(shape) = four_at(line, j, r) {
+                return shape;
+            }
+        }
+        if mine >= 2 {
+            if has(line.row_eyes(r, Two)) {
+                return Shape::Three;
+            }
+            if has(line.eyes_of(line.score_mask(r, 2), Sword.eye_cells())) {
+                return Shape::Sword;
+            }
+        }
+        if mine >= 1 && has(line.eyes_of(line.open_starts(r, 1), Two.eye_cells())) {
+            return Shape::Two;
+        }
+        let theirs = line.stones(r.opponent()).0;
+        if (theirs != 0 || line.size < FIVE) && has(dead_cells(line, theirs)) {
+            return Shape::Dead;
+        }
+        Shape::Nothing
     }
 }
 
@@ -283,6 +319,27 @@ fn line_shapes(line: &Line, r: Player) -> [Shape; SIZE as usize] {
         put(Shape::Five, line.row_eyes(r, Four));
     }
     cells
+}
+
+/// What `r` makes at the empty cell `j` from the swords through it, as
+/// [`four_cells`] tells it for that one cell: a four if every sword it
+/// is an eye of has its other eye in the same cell, a double four if
+/// they differ.
+fn four_at(line: &Line, j: u8, r: Player) -> Option<Shape> {
+    let empty = line.empty_cells().0;
+    // The swords whose five cells hold `j`, which is then one of their
+    // two empty cells.
+    let starts = line.row_starts(r, Sword) & (0b11111u32 << j >> 4) as u16;
+    let mut partner = None;
+    for s in Bits(starts) {
+        let other = (0b11111 << s) & empty & !(1 << j);
+        match partner {
+            None => partner = Some(other),
+            Some(p) if p != other => return Some(Shape::DoubleFour),
+            _ => {}
+        }
+    }
+    partner.map(|_| Shape::Four)
 }
 
 /// The eyes of `r`'s swords on `line`, as [`Line::row_eyes`] of
@@ -631,7 +688,8 @@ mod tests {
     }
 
     /// Random lines of every length, sparse to crowded: [`Shape::at`]
-    /// agrees with the rows, and its rank with the old map's.
+    /// agrees with the rows and with the map's lines, and its rank with
+    /// the old map's.
     #[test]
     fn test_shape_at_matches_the_rows_and_the_old_ranks() {
         let mut x = 0x9E37_79B9_7F4A_7C15u64;
@@ -653,8 +711,13 @@ mod tests {
             }
             for r in [Black, White] {
                 let old = coarse(&line, r);
+                if line.empty_cells().0 == 0 {
+                    continue;
+                }
+                let map = super::line_shapes(&line, r);
                 for j in Bits(line.empty_cells().0) {
                     let shape = Shape::at(&line, j, r);
+                    assert_eq!(shape, map[j as usize], "{line} {r:?} {j}");
                     assert_eq!(shape, by_rows(&line, j, r), "{line} {r:?} {j}");
                     assert_eq!(shape.rank(), old[j as usize], "{line} {r:?} {j} {shape:?}");
                 }
