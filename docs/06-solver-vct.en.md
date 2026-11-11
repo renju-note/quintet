@@ -757,8 +757,11 @@ would make on each of the four lines through it, a `Shape`:
 
 - A cell takes the strongest that applies, in the order of the table.
 - `Shape::at(line, j, r)` gives the same for one cell of a line, without a
-  map. A test checks it against the rows read directly, after putting the
-  stone, on random lines.
+  map. It works out that cell alone, strongest shape first, and only the
+  swords through the cell for the kind of four, so a caller that asks
+  about a few cells and keeps no map pays for those cells only. A test
+  checks it against the rows read directly, after putting the stone, and
+  against the map's lines, on random lines.
 - It is kept like the `SwordMap` ([02 §7](02-board-implementation.en.md#section-7)): per line, marked stale on a move
   and recomputed on `sync`, a few bit operations per line and player, and
   a loop over the line's swords for the kinds of four.
