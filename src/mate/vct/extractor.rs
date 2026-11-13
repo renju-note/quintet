@@ -23,6 +23,9 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 self.attacker_table
                     .lookup_next(state, Some(attack))
                     .is_some_and(|node| node.is_proven())
+                    // Proven by another order of the moves, see
+                    // `expand_attacks`.
+                    && !state.is_forbidden_move(attack)
             }),
         };
         // No proven child: the node was proven by the attacker's VCF.

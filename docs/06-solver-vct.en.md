@@ -418,6 +418,7 @@ when the search follows long chains of fours. See the
 ```
 expand_attacks(state, attacks, threshold):
     children = attacker_table.lookup_children(state, attacks)
+    children[a] = disproven for each a with a child not disproven, if a is forbidden
     loop:
         s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
@@ -456,6 +457,13 @@ Forbidden attacks:
 - Until then it counts in its parent's numbers like any other unexpanded
   child. So the search takes other lines than when forbidden moves were
   left out beforehand.
+- A child already in the table is checked when the expansion starts, if it
+  is not disproven. The table is keyed by the position, and the same
+  position may have been reached by another order of the moves, one that
+  played the point before it was forbidden (in this search, or in an
+  earlier one on the same solver). Its proof holds there but not here, and
+  a proven child would prove the parent at once, before the check above.
+  The extractor skips forbidden attacks for the same reason.
 
 `expand_defences` is the same with `select_defence`, the defender table,
 `P::next_threshold_defence` and `search_attacks`.
@@ -590,7 +598,7 @@ recover the line:
 ```
 extract_attacks(state):                        # attacker to move
     Forced(p)  → play p, extract_defences
-    else       → the first empty point whose attacker_table entry is proven: play it, extract_defences
+    else       → the first empty point, not forbidden, whose attacker_table entry is proven: play it, extract_defences
     none       → attacker_vcf.vcf(state)      # proven by the VCF shortcut in compute_attacks: its path is the tail
 
 extract_defences(state):                       # defender to move

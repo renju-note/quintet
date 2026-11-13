@@ -957,6 +957,36 @@ mod tests {
         assert!(checked > 1, "expected several defences to check");
     }
 
+    /// A proof left in the table by an earlier search must not prove a
+    /// position through a move that is forbidden there. After White E8,
+    /// Black's search reaches the board below with D8 played before F10,
+    /// when it was no double three yet. After White F11, Black must block at
+    /// F10 first, and D8 is then a double three (D8-E7-F6 and D8-E9-F10): the
+    /// reused solver took the stored proof and answered `F10,E8,D8,C7,C9`.
+    #[test]
+    fn test_reused_solver_skips_a_forbidden_attack_from_the_table() {
+        let board: Board = "H8,J8,J9,J11,K10,G10,I7,H7,E6,E9,F6,E7\
+                            /H9,G8,I10,J10,I8,I6,F9,F7,G9,F8,D6"
+            .parse()
+            .unwrap();
+        let mut reused = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+        for p in ["E8", "F11"] {
+            let next = board.with_stone(White, p.parse().unwrap());
+            let state = &mut VCTState::from_board(&next, Black, 5, 2);
+            let got = reused
+                .solve(state, budget)
+                .map(|m| Points(m.path).to_string());
+            let mut fresh = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+            let state = &mut VCTState::from_board(&next, Black, 5, 2);
+            let want = fresh
+                .solve(state, &mut NodeBudget::unlimited())
+                .map(|m| Points(m.path).to_string());
+            assert_eq!(got, want, "after White {p}");
+            assert_eq!(got, None, "after White {p}");
+        }
+    }
+
     /// A reused solver must not grow with the number of searches. One search
     /// is held down by its node budget; a series of them is held down by the
     /// generations, which settle the memos at about two searches' worth.
