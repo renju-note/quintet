@@ -1,3 +1,4 @@
+use super::extractor::AttackProof;
 use super::proof::PnDn;
 use super::solver::VCTSolver;
 use super::state::VCTState;
@@ -207,43 +208,41 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         // forbidden.
         let attack = match state.check_event() {
             Some(Forced(attack)) if state.is_forbidden_move(attack) => return None,
-            Some(Forced(attack)) => Some(attack),
+            Some(Forced(attack)) => attack,
             Some(Defeated(_)) => return None,
             // The proven child the extractor would take, so that the tree
             // and the line `solve` gives begin alike.
-            None => state.empty_points().into_iter().find(|&attack| {
-                self.attacker_table
-                    .lookup_next(state, Some(attack))
-                    .is_some_and(|node| node.is_proven())
-                    && !state.is_forbidden_move(attack)
-            }),
-        };
-        let node = match attack {
-            // No proven child: the attacker's VCF proved the node.
-            None => {
-                let mate = self.attacker_vcf.vcf(state, budget)?;
-                walk.vcf(state.game().fork(mate.path.len()), &mate.path);
-                AttackNode::Vcf(mate.path)
-            }
-            Some(attack) => {
-                let proven = self
-                    .attacker_table
-                    .lookup_next(state, Some(attack))
-                    .is_some_and(|node| node.is_proven());
-                if !proven {
-                    return None;
+            None => match self.attack_proof(state, budget)? {
+                AttackProof::Attack(attack) => attack,
+                AttackProof::Vcf(mate) => {
+                    walk.vcf(state.game().fork(mate.path.len()), &mate.path);
+                    return Some(walk.push_attack(key, AttackNode::Vcf(mate.path)));
                 }
-                walk.attack(state, attack);
-                // The slot is taken before the children, so that the root
-                // is the first.
-                let index = walk.push_attack(key, AttackNode::Vcf(vec![]));
-                let child =
-                    state.with_move(Some(attack), |s| self.tree_defences(s, budget, walk))?;
-                walk.tree.attacks[index] = AttackNode::Move(attack, child);
-                return Some(index);
-            }
+            },
         };
-        Some(walk.push_attack(key, node))
+        // A forced attack the table does not know is searched, as
+        // `attack_proof` searches a node whose children it does not know.
+        let known = self.attacker_table.lookup_next(state, Some(attack));
+        let proven = state.with_move(Some(attack), |s| match known {
+            Some(node) => node.is_proven(),
+            None => {
+                let node = self.search_defences(s, PnDn::no_threshold(), budget);
+                if !budget.is_exhausted() {
+                    self.attacker_table.insert(s, node);
+                }
+                node.is_proven()
+            }
+        });
+        if !proven {
+            return None;
+        }
+        walk.attack(state, attack);
+        // The slot is taken before the children, so that the root is the
+        // first.
+        let index = walk.push_attack(key, AttackNode::Vcf(vec![]));
+        let child = state.with_move(Some(attack), |s| self.tree_defences(s, budget, walk))?;
+        walk.tree.attacks[index] = AttackNode::Move(attack, child);
+        Some(index)
     }
 
     /// The node for `state`, the defender to move, as an index into

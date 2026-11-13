@@ -5,7 +5,7 @@ use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
 use crate::mate::budget::NodeBudget;
 use crate::mate::mate::Mate;
-use crate::mate::memo::ZobristBuildHasher;
+use crate::mate::memo::{Memo, ZobristBuildHasher};
 use crate::mate::solver::Solver;
 use lru::LruCache;
 use std::marker::PhantomData;
@@ -35,6 +35,10 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     /// The defender's nested VCF search, `defender_vcf_depth` deep.
     pub(super) defender_vcf: NestedVCF,
     /// What `generate_attacks` found, by position.
+    /// The attacks found forbidden, by [`VCTState::move_key`]. A forbidden
+    /// attack is disproven, but not in `attacker_table`: see
+    /// `expand_attacks`.
+    pub(super) forbidden_attacks: Memo<()>,
     pub(super) attacks_cache: CandidatesCache,
     /// What `generate_defences` found, by position.
     pub(super) defences_cache: CandidatesCache,
@@ -86,6 +90,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             defender_table: ProofTable::with_carry_capacity(carry_capacity, transfer_floor),
             attacker_vcf: NestedVCF::attacker(carry_capacity),
             defender_vcf: NestedVCF::defender(defender_vcf_depth, carry_capacity),
+            forbidden_attacks: Memo::new(carry_capacity),
             attacks_cache: candidates_cache(),
             defences_cache: candidates_cache(),
             children: Vec::new(),
@@ -128,6 +133,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
     fn clear(&mut self) {
         self.attacker_table.clear();
         self.defender_table.clear();
+        self.forbidden_attacks.clear();
         self.attacks_cache.clear();
         self.defences_cache.clear();
         self.attacker_vcf.clear();
@@ -139,6 +145,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
     fn advance_generation(&mut self) {
         self.attacker_table.advance_generation();
         self.defender_table.advance_generation();
+        self.forbidden_attacks.advance_generation();
         self.attacker_vcf.advance_generation();
         self.defender_vcf.advance_generation();
         // The two candidate caches are `LruCache`s, already bounded.
@@ -148,6 +155,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
     fn memo_len(&self) -> usize {
         self.attacker_table.len()
             + self.defender_table.len()
+            + self.forbidden_attacks.len()
             + self.attacker_vcf.memo_len()
             + self.defender_vcf.memo_len()
     }

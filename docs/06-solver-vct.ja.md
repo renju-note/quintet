@@ -365,14 +365,15 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 ```
 expand_attacks(state, attacks, threshold):
     children = attacker_table.lookup_children(state, attacks)
+    children[a] = disproven for each a with no child, if forbidden_attacks has move_key(a)
     children[a] = disproven for each a with a child not disproven, if a is forbidden
     loop:
         s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if budget exhausted:                                     return s
         if s.unvisited and s.best is forbidden:
-            with_move(s.best): attacker_table.insert(child, disproven)
-            children[s.best] = disproven
+            forbidden_attacks.insert(move_key(s.best))
+            children[s.best] = disproven                         # 表には入れない
             continue
         next = P::next_threshold_attack(s, threshold)
         with_move(s.best):
@@ -390,7 +391,10 @@ expand_attacks(state, attacks, threshold):
 禁手の攻め手は次のように扱う。
 
 - `compute_attacks` は、禁手を候補から除かない。禁手は少なく（ベンチマークでおよそ 300 に 1 つ）、ほとんどの候補は一度も探索されないため。
-- 攻め手が禁手かどうかは、初めて探索しようとするときだけ確かめる。禁手なら、ノードを使わず表で反証済みにする。
+- 攻め手が禁手かどうかは、初めて探索しようとするときだけ確かめる。禁手なら、ノードを使わず反証済みにする。
+- 反証は表ではなく、手をキーにして `forbidden_attacks` に残す。表のキーは局面なので、別の手順で、その点がまだ禁手でなかったときに打って同じ局面に来ることがある。反証を表に残すと、その手順の勝ちを消してしまう。表に残していた頃は、ベンチマークの 3 ケースで、合法な攻め手がこうした反証を 52 回読んでいた。どれも 1 回の探索の中だった。
+- `VCTState::move_key(a)` は、`next_key(a)` に `a` の反対の色の石も加えたもの。実在しない局面なので、同じ局面に着く 2 つの手を区別できる。表のキーと同じく、limit と `threat_limit` を含む。
+- 展開は、表に無い子について、数値を取る前に `forbidden_attacks` を引く。そうしないと、禁手の子は展開のたびに未展開に戻り、ノードの数値が前回残したものと食い違う。すると df-pn が 2 つの間を行き来して終わらなくなることがある。
 - それまでは、ほかの未展開の子と同じく、親の数値に数える。そのため探索は、禁手を事前に除いていたときとは違う手順をたどる。
 - すでに表にある子は、反証済みでなければ、展開を始めるときに確かめる。表のキーは局面なので、同じ局面に別の手順で、その点がまだ禁手でなかったときに打った経路から来ていることがある（同じ探索でも、同じソルバーの前の探索でも）。その証明はその局面では正しいが、ここでは成り立たない。証明済みの子は、上の確認より前に、その場で親を証明してしまう。抽出も同じ理由で禁手の攻め手を飛ばす。
 
@@ -433,6 +437,7 @@ AND ノードでは、`pn` と `dn` を入れ替える。
 pub struct VCTSolver<P: ThresholdPolicy> {
     attacker_table: ProofTable,  defender_table: ProofTable,
     attacker_vcf: NestedVCF,     defender_vcf: NestedVCF,
+    forbidden_attacks: Memo<()>,
     attacks_cache: CandidatesCache,  defences_cache: CandidatesCache,
     children: Vec<Option<PnDn>>,
     policy: PhantomData<P>,
@@ -444,9 +449,9 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 
 `Solver`（[04 §4](04-solver-framework.ja.md#section-4)）の実装は次のとおり。
 
-- `solve`: 両方の表と両方の内部ソルバーに `advance_generation` → `search` を行い、成功なら無制限の予算で `extract` する。
+- `solve`: 両方の表、`forbidden_attacks`、両方の内部ソルバーに `advance_generation` → `search` を行い、成功なら無制限の予算で `extract` する。
 - `clear`: 表、内部ソルバー、キャッシュを空にする。
-- `memo_len`: 4 つのメモの合計を返す（キャッシュはもともと有界）。
+- `memo_len`: `forbidden_attacks` を含む 5 つのメモの合計を返す（キャッシュはもともと有界）。
 
 ### 予算だけで解く（`auto.rs`）
 
@@ -516,13 +521,22 @@ extract_attacks(state):                        # 攻め方の手番
     Forced(p)  → play p, extract_defences
     else       → the first empty point, not forbidden, whose attacker_table entry is proven: play it, extract_defences
     none       → attacker_vcf.vcf(state)      # compute_attacks の四追いショートカットで証明された。その手順が末尾
+    no VCF     → search_attacks(state), then the first proven point again   # 子が表から消えていた
 
 extract_defences(state):                       # 受け方の手番
     Defeated(end) → Mate { end, path: [] }
     Forced(p)     → play p, extract_attacks
-    else          → among threat_defences(attacker_vcf.threat(state)), the proven child with the smallest PnDn::limit
-    none proven   → Mate { end: Unknown, path: [] }   # 合法な受けがなくて証明された
+    else          → among the legal threat_defences(attacker_vcf.threat(state)), the proven child with the smallest PnDn::limit
+    none proven   → search_defences(state), then the same again           # 子が表から消えていた
+    still none    → Mate { end: Unknown, path: [] }   # 合法な受けがなくて証明された
 ```
+
+証明済みのノードの子が、表に無いことがある。
+
+- 同じソルバーの前の探索から引き継いだ証明は、その下のエントリーより長く残ることがある。メモは最後の 1 回より前の探索が書いたものを捨て（[04 §5](04-solver-framework.ja.md#section-5)）、エントリーを読んだだけの探索はそれを書き直さないからだ。
+- すると根は証明されるが、手順をたどれない。抽出がそうしたノードを探索し直すようにする前は、`solve` が `None` を返していた。
+- 探索し直すと、子が表に戻る。新しいソルバーでは起きない。
+- 禁手の受けは、禁手の攻め手と同じく飛ばす。別の手順から来た証明済みの子が、表にあることがあるからだ。
 
 証明済みの受けのうち `limit` が最小のものは、攻め方に最も多くの手数を使わせた受けである。そのため、報告する手順は最も粘る受けに対するものになる。
 
@@ -532,9 +546,10 @@ extract_defences(state):                       # 受け方の手番
 
 ```
 tree_attacks(state):                           # 攻め方の手番
-    Forced(p)  → p (none if forbidden)
+    Forced(p)  → p (none if forbidden), its child searched if missing
     else       → the first empty point, not forbidden, whose attacker_table entry is proven
     none       → attacker_vcf.vcf(state): a VCF leaf
+    no VCF     → search_attacks(state), then the first proven point again   # extract_attacks と同じ
 
 tree_defences(state):                          # 受け方の手番
     Defeated   → Won

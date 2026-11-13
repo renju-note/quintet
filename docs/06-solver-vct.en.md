@@ -418,14 +418,15 @@ when the search follows long chains of fours. See the
 ```
 expand_attacks(state, attacks, threshold):
     children = attacker_table.lookup_children(state, attacks)
+    children[a] = disproven for each a with no child, if forbidden_attacks has move_key(a)
     children[a] = disproven for each a with a child not disproven, if a is forbidden
     loop:
         s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
         if budget exhausted:                                     return s
         if s.unvisited and s.best is forbidden:
-            with_move(s.best): attacker_table.insert(child, disproven)
-            children[s.best] = disproven
+            forbidden_attacks.insert(move_key(s.best))
+            children[s.best] = disproven                         # not in the table
             continue
         next = P::next_threshold_attack(s, threshold)
         with_move(s.best):
@@ -453,7 +454,22 @@ Forbidden attacks:
   forbidden (about one in three hundred on the benchmark), and most
   candidates are never searched.
 - An attack is only asked about when it is first about to be searched; a
-  forbidden one is disproven in the table without a node.
+  forbidden one is disproven without a node.
+- The disproof is kept by the move, in `forbidden_attacks`, not in the
+  table. The table is keyed by the position, and another order of the
+  moves may reach the same position with the point played while it was
+  not forbidden. A disproof stored there would deny that order its line.
+  When it was stored there, legal attacks read such a disproof 52 times in
+  three cases of the benchmark, each within one search.
+- `VCTState::move_key(a)` is `next_key(a)` with a stone of the other
+  colour also at `a`: no real position, so it tells apart two moves that
+  lead to the same position. It has the limit and `threat_limit` in it, as
+  the table's key does.
+- An expansion reads `forbidden_attacks` for the children the table does
+  not have, before it takes their numbers. Otherwise a forbidden child
+  would count as unexpanded at every new expansion, the node's numbers
+  would differ from the ones it was last left with, and df-pn could go
+  back and forth between the two without end.
 - Until then it counts in its parent's numbers like any other unexpanded
   child. So the search takes other lines than when forbidden moves were
   left out beforehand.
@@ -515,6 +531,7 @@ See the [margin comparison in 08](08-performance.en.md#dfpn-margin).
 pub struct VCTSolver<P: ThresholdPolicy> {
     attacker_table: ProofTable,  defender_table: ProofTable,
     attacker_vcf: NestedVCF,     defender_vcf: NestedVCF,
+    forbidden_attacks: Memo<()>,
     attacks_cache: CandidatesCache,  defences_cache: CandidatesCache,
     children: Vec<Option<PnDn>>,
     policy: PhantomData<P>,
@@ -525,10 +542,12 @@ pub struct VCTSolver<P: ThresholdPolicy> {
   its parent's ([§5](#section-5), *Expansion*).
 - The methods above are `impl` blocks on it, one file per phase.
 - It implements `Solver` ([04 §4](04-solver-framework.en.md#section-4)):
-  - `solve` is `advance_generation` on both tables and both nested solvers,
-    then `search`, then on success `extract` with an unlimited budget.
+  - `solve` is `advance_generation` on both tables, `forbidden_attacks`
+    and both nested solvers, then `search`, then on success `extract` with
+    an unlimited budget.
   - `clear` empties the tables, nested solvers and caches.
-  - `memo_len` sums the four memos (the caches are bounded already).
+  - `memo_len` sums the five memos, `forbidden_attacks` among them (the
+    caches are bounded already).
 
 ### Only a budget (`auto.rs`)
 
@@ -600,13 +619,27 @@ extract_attacks(state):                        # attacker to move
     Forced(p)  → play p, extract_defences
     else       → the first empty point, not forbidden, whose attacker_table entry is proven: play it, extract_defences
     none       → attacker_vcf.vcf(state)      # proven by the VCF shortcut in compute_attacks: its path is the tail
+    no VCF     → search_attacks(state), then the first proven point again   # its children were dropped
 
 extract_defences(state):                       # defender to move
     Defeated(end) → Mate { end, path: [] }
     Forced(p)     → play p, extract_attacks
-    else          → among threat_defences(attacker_vcf.threat(state)), the proven child with the smallest PnDn::limit
-    none proven   → Mate { end: Unknown, path: [] }   # proven because no legal defence existed
+    else          → among the legal threat_defences(attacker_vcf.threat(state)), the proven child with the smallest PnDn::limit
+    none proven   → search_defences(state), then the same again           # its children were dropped
+    still none    → Mate { end: Unknown, path: [] }   # proven because no legal defence existed
 ```
+
+A proven node's children may be missing from the tables:
+
+- A proof carried over from an earlier search on the same solver can
+  outlive the entries under it. A memo drops what the searches before the
+  last one wrote ([04 §5](04-solver-framework.en.md#section-5)), and a
+  search that only read an entry did not write it again.
+- The root is then proven, but the line cannot be followed. Before the
+  extractor searched such a node again, `solve` answered `None`.
+- Searching it again puts its children back. A fresh solver never needs it.
+- Forbidden defences are skipped, as forbidden attacks are: the table may
+  have their child proven from another order of the moves.
 
 The proven defence with the smallest `limit` is the one that made the
 attacker use the most moves. So the reported line is against the most
@@ -620,9 +653,10 @@ this move?" without a new search each.
 
 ```
 tree_attacks(state):                           # attacker to move
-    Forced(p)  → p (none if forbidden)
+    Forced(p)  → p (none if forbidden), its child searched if missing
     else       → the first empty point, not forbidden, whose attacker_table entry is proven
     none       → attacker_vcf.vcf(state): a VCF leaf
+    no VCF     → search_attacks(state), then the first proven point again   # as in extract_attacks
 
 tree_defences(state):                          # defender to move
     Defeated   → Won
