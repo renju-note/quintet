@@ -957,6 +957,53 @@ mod tests {
         assert!(checked > 1, "expected several defences to check");
     }
 
+    /// A proof carried over from an earlier search may have lost the
+    /// entries under it: a memo drops what the searches before the last one
+    /// wrote, and a search that only read an entry did not write it again.
+    /// With every generation but the last dropped, solving the line of
+    /// `test_vct_black` backwards proved each position, but the root's line
+    /// could not be extracted and `solve` answered `None`.
+    #[test]
+    fn test_reused_solver_extracts_a_proof_whose_subtree_was_dropped() {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . x . . . . . .
+         . . . . . . . o . . . . . . .
+         . . . . . . . o x o . . . . .
+         . . . . . . x o . x . . . . .
+         . . . . . . . x o . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()
+        .unwrap();
+        let line: Vec<Point> = "F10,G9,I10,G10,H11,H12,G12"
+            .split(',')
+            .map(|m| m.parse().unwrap())
+            .collect();
+        let mut reused = DFPNSVCTSolver::with_carry_capacity(DEFAULT_DEFENDER_VCF_DEPTH, 1);
+        let budget = &mut NodeBudget::unlimited();
+        for k in (0..=2).rev() {
+            let mut next = board.clone();
+            for (i, &m) in line[..2 * k].iter().enumerate() {
+                next.put(if i % 2 == 0 { Black } else { White }, m);
+            }
+            let state = &mut VCTState::from_board(&next, Black, 4 - k as u8, 1);
+            let got = reused
+                .solve(state, budget)
+                .map(|m| Points(m.path).to_string());
+            let want = Points(line[2 * k..].to_vec()).to_string();
+            assert_eq!(got, Some(want), "{k} attacks in");
+        }
+    }
+
     /// A proof left in the table by an earlier search must not prove a
     /// position through a move that is forbidden there. After White E8,
     /// Black's search reaches the board below with D8 played before F10,

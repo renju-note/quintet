@@ -112,14 +112,25 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         let base = self.children.len();
         self.attacker_table
             .lookup_children(state, attacks, &mut self.children);
-        // A child the table has may have been reached by another order of
-        // the moves, one that played the point while it was not forbidden
-        // (in this search or one before it on the same solver). Its numbers
-        // hold for that position, but not for a move Black cannot play now:
-        // a proven one would prove this node through a forbidden move, before
-        // the check below for unvisited children is ever reached.
         for (attack, child) in attacks.iter().zip(&mut self.children[base..]) {
-            if child.is_some_and(|c| c.dn != 0) && state.is_forbidden_move(attack.point) {
+            let forbidden = match child {
+                // Found forbidden before, at the check below: disproven
+                // again before the numbers are taken, so that they are the
+                // numbers this node had when it was last searched.
+                None => self
+                    .forbidden_attacks
+                    .get(state.move_key(attack.point))
+                    .is_some(),
+                // A child the table has may have been reached by another
+                // order of the moves, one that played the point while it was
+                // not forbidden (in this search or one before it on the same
+                // solver). Its numbers hold for that position, but not for a
+                // move Black cannot play now: a proven one would prove this
+                // node through a forbidden move, before the check below for
+                // unvisited children is ever reached.
+                Some(c) => c.dn != 0 && state.is_forbidden_move(attack.point),
+            };
+            if forbidden {
                 *child = Some(PnDn::disproven(state.limit()));
             }
         }
@@ -136,14 +147,15 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             // Few attacks are forbidden, so each is only asked about when
             // it is first searched rather than when it is generated
             // (`compute_attacks`). A forbidden one is disproven: the
-            // attacker cannot play it.
+            // attacker cannot play it. The disproof is kept by the move
+            // (`forbidden_attacks`), not in the table: the table is keyed by
+            // the position, and another order of the moves may reach the
+            // same position with the point played while it was not
+            // forbidden. A disproof stored there would deny that order its
+            // line.
             if selection.unvisited && state.is_forbidden_move(best) {
-                let result = state.with_move(Some(best), |child| {
-                    let result = PnDn::disproven(child.limit());
-                    self.attacker_table.insert(child, result);
-                    result
-                });
-                self.children[base + selection.best] = Some(result);
+                self.forbidden_attacks.insert(state.move_key(best), ());
+                self.children[base + selection.best] = Some(PnDn::disproven(state.limit()));
                 continue;
             }
             let next_threshold = P::next_threshold_attack(&selection, threshold);
@@ -285,4 +297,36 @@ pub struct Selection {
     pub best_child: PnDn,
     /// The numbers of the second-most-proving child.
     pub second_child: PnDn,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::board::Player::Black;
+    use crate::board::{Board, Point};
+    use crate::mate::budget::NodeBudget;
+    use crate::mate::solver::Solver;
+    use crate::mate::vct::{DFPNSVCTSolver, VCTState};
+
+    /// A forbidden attack is kept by the move, not in the table. The
+    /// table is keyed by the position, and the same position may be reached
+    /// by another order of the moves, one that plays the point before it is
+    /// forbidden: a disproof stored for it would be wrong there.
+    #[test]
+    fn test_a_forbidden_attack_leaves_nothing_in_the_table() -> Result<(), String> {
+        // H8 is a double three (F8-G8-H8 and H6-H7-H8).
+        let board = "F8,G8,H6,H7/A1,A3,A5,A7".parse::<Board>()?;
+        let h8 = "H8".parse::<Point>()?;
+        assert!(board.forbidden(h8).is_some());
+        let mut solver = DFPNSVCTSolver::new(2);
+        let state = &mut VCTState::from_board(&board, Black, 1, 1);
+        assert!(solver.solve(state, &mut NodeBudget::unlimited()).is_none());
+        // Every child was disproven, a legal one in the table.
+        let i8 = "I8".parse::<Point>()?;
+        let legal = solver.attacker_table.lookup_next(state, Some(i8));
+        assert!(legal.is_some_and(|node| node.dn == 0));
+        assert_eq!(solver.attacker_table.lookup_next(state, Some(h8)), None);
+        // It is kept by the move instead.
+        assert!(solver.forbidden_attacks.get(state.move_key(h8)).is_some());
+        Ok(())
+    }
 }

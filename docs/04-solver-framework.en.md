@@ -230,6 +230,10 @@ only bounding.
   again is what reuse really buys.
 - So the memo settles at about two searches' worth, however many questions
   are asked. `DEFAULT_CARRY_CAPACITY` is `1 << 16` entries per memo.
+- An entry moves to the current generation when it is written, not when
+  it is read. So a proof may be kept while the entries under it are
+  dropped. The VCT extractor searches such a node again
+  ([06 §6](06-solver-vct.en.md#section-6)).
 
 **Nothing is dropped during a search.** `carry_capacity` is not a hard cap.
 

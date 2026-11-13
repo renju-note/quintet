@@ -96,6 +96,15 @@ impl VCTState {
     /// The attacker's candidate moves, best first ([`Self::priority`]):
     /// the points where the attacker makes at least a [`Shape::Two`] on
     /// some line, or only those of `only`.
+    /// A key for the move `p` from this state: [`Self::next_key`] with a
+    /// stone of the other colour also at `p`. No real position has that, so
+    /// the key tells apart two moves that lead to the same position, which
+    /// `next_key` does not.
+    pub fn move_key(&mut self, p: Point) -> u64 {
+        let next = self.next_key(Some(p)).hash();
+        apply_move(next, self.game.turn.opponent(), p)
+    }
+
     pub fn sorted_attacks(&mut self, only: Option<Vec<Point>>) -> Vec<Point> {
         self.shapes.sync(self.game.board());
         let (shapes, attacker) = (&self.shapes, self.attacker);
