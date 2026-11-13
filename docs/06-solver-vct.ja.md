@@ -365,6 +365,7 @@ search_defences(state, threshold):             # AND ノード、受け方の手
 ```
 expand_attacks(state, attacks, threshold):
     children = attacker_table.lookup_children(state, attacks)
+    children[a] = disproven for each a with a child not disproven, if a is forbidden
     loop:
         s = select_attack(limit, attacks, children)
         if s.node.pn ≥ threshold.pn or s.node.dn ≥ threshold.dn: return s   # exceeds_threshold
@@ -391,6 +392,7 @@ expand_attacks(state, attacks, threshold):
 - `compute_attacks` は、禁手を候補から除かない。禁手は少なく（ベンチマークでおよそ 300 に 1 つ）、ほとんどの候補は一度も探索されないため。
 - 攻め手が禁手かどうかは、初めて探索しようとするときだけ確かめる。禁手なら、ノードを使わず表で反証済みにする。
 - それまでは、ほかの未展開の子と同じく、親の数値に数える。そのため探索は、禁手を事前に除いていたときとは違う手順をたどる。
+- すでに表にある子は、反証済みでなければ、展開を始めるときに確かめる。表のキーは局面なので、同じ局面に別の手順で、その点がまだ禁手でなかったときに打った経路から来ていることがある（同じ探索でも、同じソルバーの前の探索でも）。その証明はその局面では正しいが、ここでは成り立たない。証明済みの子は、上の確認より前に、その場で親を証明してしまう。抽出も同じ理由で禁手の攻め手を飛ばす。
 
 `expand_defences` は、`select_defence`、`defender_table`、`P::next_threshold_defence`、`search_attacks` で同じことをする。
 
@@ -512,7 +514,7 @@ solve_auto:
 ```
 extract_attacks(state):                        # 攻め方の手番
     Forced(p)  → play p, extract_defences
-    else       → the first empty point whose attacker_table entry is proven: play it, extract_defences
+    else       → the first empty point, not forbidden, whose attacker_table entry is proven: play it, extract_defences
     none       → attacker_vcf.vcf(state)      # compute_attacks の四追いショートカットで証明された。その手順が末尾
 
 extract_defences(state):                       # 受け方の手番

@@ -112,6 +112,17 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         let base = self.children.len();
         self.attacker_table
             .lookup_children(state, attacks, &mut self.children);
+        // A child the table has may have been reached by another order of
+        // the moves, one that played the point while it was not forbidden
+        // (in this search or one before it on the same solver). Its numbers
+        // hold for that position, but not for a move Black cannot play now:
+        // a proven one would prove this node through a forbidden move, before
+        // the check below for unvisited children is ever reached.
+        for (attack, child) in attacks.iter().zip(&mut self.children[base..]) {
+            if child.is_some_and(|c| c.dn != 0) && state.is_forbidden_move(attack.point) {
+                *child = Some(PnDn::disproven(state.limit()));
+            }
+        }
         let selection = loop {
             let children = &self.children[base..];
             let selection = Self::select_attack(state.limit(), attacks, children);
