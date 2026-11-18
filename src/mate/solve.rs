@@ -842,6 +842,31 @@ mod tests {
         Ok(())
     }
 
+    /// `solve_attacks` names the solution's first move as proven, and each
+    /// attack's answer agrees with the root's: the root is proven exactly
+    /// when some attack is, and a shorter limit proves none.
+    #[test]
+    fn test_solve_attacks() {
+        let board = vct_board();
+        let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let state = &mut VCTState::from_board(&board, Black, 4, 1);
+        let attacks = solver.solve_attacks(state, 100_000);
+        assert!(attacks.len() > 1);
+        let first = VCT_SOLUTION.split(',').next().unwrap();
+        let answer = |p: &str| attacks.iter().find(|(a, _)| a.to_string() == p).unwrap().1;
+        assert_eq!(answer(first), Some(true));
+        assert!(attacks.iter().all(|(_, a)| a.is_some()));
+
+        let state = &mut VCTState::from_board(&board, Black, 3, 1);
+        let attacks = solver.solve_attacks(state, 100_000);
+        assert!(attacks.iter().all(|(_, a)| *a == Some(false)));
+
+        // The same solver still finds the mate afterwards.
+        let state = &mut VCTState::from_board(&board, Black, 4, 1);
+        let result = solver.solve(state, &mut NodeBudget::unlimited());
+        assert_eq!(path_string(result), VCT_SOLUTION);
+    }
+
     /// A search that gave up must not leave anything behind that hides the
     /// mate from the next, longer search on the same solver.
     #[test]

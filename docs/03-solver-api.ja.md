@@ -290,6 +290,7 @@ pub trait Solver {
   - 受け方の石を 1 つ足した局面で `proves(&mut state, &tree, &mut budget)` を呼ぶと、同じ証明が成り立つかをノードごとに確かめる。探索し直すより 100 分の 1 程度で済む。
   - `tree.zone()` の外の石なら、それも要らない。証明はそのまま成り立つ。
   - zone の外の手と、`proves` が通る手は追い詰めを止めない。探索し直すのは残りの手だけである（[06 §6](06-solver-vct.ja.md#section-6)）。
+- **勝てる初手はどれか。** `solve` は勝てる攻め手を 1 つ見つけたところで止まる。`VCTSolver::solve_attacks(&mut state, nodes_each)` は、root の攻め手をそれぞれ `nodes_each` ノードまで、答えが出るまで読み、探索の順で返す。`Some(true)` は証明、`Some(false)` は反証（禁手も含む）、`None` は予算切れ。読みはソルバーの表を共有する。root に攻め手が要らない局面（四追いがあり、攻め手を作る前に root が証明される、受け方が五を作っている、limit が 0）では空になる。
 - **この手は追い手か。** 手番側をパスさせて（`Game::play(None)`）、相手の四追いを問う。パスした `game` から `VCFState::new(game, limit)` を作り、`DFSSolver::new().solve(..)` を呼ぶ。`test_threat_after_pass` が 1 手ずつ確認している。
 
 <a id="section-5"></a>
@@ -340,6 +341,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | 多くの問いを安く投げる | `DFPNSVCTSolver` を保持し、問いごとに新しい `VCTState` を渡し、`NodeBudget` は 1 つを共有する |
 | 両方の色について問う | 同じソルバーでよい。攻め方はキーに入っている |
 | 受けの候補を知る | `VCTState::threat_defences(&mate)` |
+| 勝てる初手をすべて知る | `VCTSolver::solve_attacks` |
 | どの手が追い詰めを止めるかを 1 手ずつ知る | 解いた直後に `VCTSolver::proof_tree`、手ごとに `ProofTree::zone` と `VCTSolver::proves` |
 | 直前の手が追い手か知る | `Game::play(None)` でパスし、相手の四追いを問う |
 | JS から詰み手順を読む | `wasm::solve` は手順を `u8` の点コード（[02 §1](02-board-implementation.ja.md#section-1)）で返す。`decode_x` / `decode_y` で読む |
