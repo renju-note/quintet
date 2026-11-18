@@ -5,6 +5,7 @@ use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
 use crate::mate::budget::NodeBudget;
 use crate::mate::game::*;
+use crate::mate::solver::Solver;
 use crate::mate::state::State;
 use crate::mate::vct::proof::*;
 
@@ -36,6 +37,55 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         }
         self.search_attacks(state, PnDn::no_threshold(), budget)
             .is_proven()
+    }
+
+    /// Each of the root's attacks, and whether it starts a VCT within
+    /// `state.limit()`: `Some(true)` proven, `Some(false)` disproven, `None`
+    /// if its search ran out of `nodes_each`. Every attack is searched to
+    /// its own answer, not only until one proves the root: this names all
+    /// the winning first moves the search can show, where [`Solver::solve`]
+    /// stops at the first. Empty when the root is decided without moves: a
+    /// VCF (it proves the root before any attack is generated), a five the
+    /// defender has made, or a limit of 0.
+    ///
+    /// The attacks are the ones the search would try, in its order; a
+    /// forbidden one is disproven. The searches share the solver's tables,
+    /// so a later attack reuses what an earlier one proved.
+    ///
+    /// [`Solver::solve`]: crate::mate::Solver::solve
+    pub fn solve_attacks(
+        &mut self,
+        state: &mut VCTState,
+        nodes_each: u64,
+    ) -> Vec<(crate::board::Point, Option<bool>)> {
+        self.advance_generation();
+        if state.limit() == 0 {
+            return Vec::new();
+        }
+        let attacks = match state.check_event() {
+            Some(Defeated(_)) => return Vec::new(),
+            Some(Forced(next_move)) => vec![Candidate::new(next_move, 1)],
+            None => match self.generate_attacks(state, &mut NodeBudget::new(nodes_each)) {
+                Moves(v) => v,
+                Terminal(_) => return Vec::new(),
+            },
+        };
+        attacks
+            .iter()
+            .map(|attack| {
+                let budget = &mut NodeBudget::new(nodes_each);
+                let attack = std::slice::from_ref(attack);
+                let node = self
+                    .expand_attacks(state, attack, PnDn::no_threshold(), budget)
+                    .node;
+                let answer = match (node.pn, node.dn) {
+                    (0, _) => Some(true),
+                    (_, 0) => Some(false),
+                    _ => None,
+                };
+                (attack[0].point, answer)
+            })
+            .collect()
     }
 
     pub fn search_attacks(
