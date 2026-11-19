@@ -1,6 +1,7 @@
 use super::generator::Candidates;
 use super::nested_vcf::NestedVCF;
 use super::proof::{DEFAULT_CARRY_CAPACITY, PnDn, ProofTable};
+use super::report::RootReport;
 use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
 use crate::mate::budget::NodeBudget;
@@ -48,6 +49,14 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     /// The children's numbers of the expansions under way, each on top of
     /// its parent's (`expand_attacks` / `expand_defences`).
     pub(super) children: Vec<Option<PnDn>>,
+    /// What the last [`Self::search`] knew about its root
+    /// ([`Self::root_report`]).
+    pub(super) report: RootReport,
+    /// Set by [`Self::search`] until the root is expanded: the next
+    /// expansion is the root's, and is recorded in `report`.
+    pub(super) root_next: bool,
+    /// The nodes spent under each of the root's moves during its expansion.
+    pub(super) root_nodes: Vec<u64>,
     policy: PhantomData<P>,
 }
 
@@ -97,6 +106,9 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             attacks_cache: candidates_cache(),
             defences_cache: candidates_cache(),
             children: Vec::new(),
+            report: RootReport::default(),
+            root_next: false,
+            root_nodes: Vec::new(),
             policy: PhantomData,
         }
     }

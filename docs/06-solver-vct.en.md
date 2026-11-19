@@ -362,8 +362,10 @@ Each is a `ProofTable`, two `Memo`s under one roof:
 ### Node functions
 
 `VCTSolver::search(state, budget)` checks `limit == 0`, then returns
-`search_attacks(state, PnDn::no_threshold(), budget).is_proven()`. The two
-node functions call each other:
+`search_attacks(state, PnDn::no_threshold(), budget).is_proven()`, or
+`search_defences` when the defender is to move at the root
+(`VCTState::defending`, see *The root report* below). The two node
+functions call each other:
 
 ```
 search_attacks(state, threshold):              # OR node, attacker to move
@@ -535,6 +537,7 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     forbidden_attacks: Memo<()>,
     attacks_cache: CandidatesCache,  defences_cache: CandidatesCache,
     children: Vec<Option<PnDn>>,
+    report: RootReport,  root_next: bool,  root_nodes: Vec<u64>,
     policy: PhantomData<P>,
 }
 ```
@@ -552,6 +555,42 @@ pub struct VCTSolver<P: ThresholdPolicy> {
   - `clear` empties the tables, nested solvers and caches.
   - `memo_len` sums the five memos, `forbidden_attacks` among them (the
     caches are bounded already).
+
+### The root report (`report.rs`)
+
+`root_report()` returns what the last `search` knew about its root and
+each of the root's moves when it ended, proven, disproven or cut short
+(`RootReport`). It reads nothing from the tables: the search records it as
+it goes.
+
+- `search` sets `root_next`. The first `expand_attacks` / `expand_defences`
+  after that is the root's (the root's node function expands before any
+  other node does), takes the flag, and counts the nodes under each child
+  in `root_nodes`.
+- When the root's expansion ends, its candidates and their entries in
+  `children` are copied into the report: the numbers the search last saw,
+  including those of a child cut short, which are in no table. A disproven
+  attack that is forbidden (`forbidden_attacks`, or forbidden now) is
+  `Forbidden`.
+- A root decided without expanding (a VCF, a five, nothing to try, limit
+  0) has no moves; the report then has only its numbers.
+- `search` also stores the root's numbers and the nodes it used.
+- Every way of asking the solver searches through `search`, so the report
+  is of the last question asked: of the last round for `solve_auto`.
+
+| `MoveStatus` | The child's numbers |
+| --- | --- |
+| `Unexpanded` | none: not searched, not in the tables |
+| `Open { pn, dn }` | neither 0 |
+| `Proven` | `pn == 0`: the attacker wins after the move |
+| `Disproven` | `dn == 0` |
+| `Forbidden` | `dn == 0`, and Black may not play the attack |
+
+- With the defender to move, the moves are the defences
+  (`compute_defences`); a point not among them does not stop the threat.
+  With the attacker to move, a point not among them is no threat.
+- Recording costs no nodes. On a reused solver's `prove` it adds about
+  0.5 microseconds a call (`examples/prove_cost.rs`).
 
 ### Only a budget (`auto.rs`)
 

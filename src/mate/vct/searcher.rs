@@ -1,5 +1,6 @@
 use super::generator::Candidate;
 use super::generator::Candidates::*;
+use super::report::RootReport;
 use super::solver::VCTSolver;
 use super::state::VCTState;
 use super::threshold::ThresholdPolicy;
@@ -32,11 +33,36 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     /// A proof is never spurious, so a `true` that was reached just before the
     /// budget ran out still holds.
     pub fn search(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> bool {
-        if state.limit() == 0 {
-            return false;
-        }
-        self.search_attacks(state, PnDn::no_threshold(), budget)
-            .is_proven()
+        let start = budget.nodes();
+        self.report.start(state.attacking());
+        let node = if state.limit() == 0 {
+            PnDn::disproven(0)
+        } else {
+            self.root_next = true;
+            let node = if state.attacking() {
+                self.search_attacks(state, PnDn::no_threshold(), budget)
+            } else {
+                self.search_defences(state, PnDn::no_threshold(), budget)
+            };
+            self.root_next = false;
+            node
+        };
+        self.report.root = node;
+        self.report.nodes = budget.nodes() - start;
+        node.is_proven()
+    }
+
+    /// What the last [`Self::search`] knew about its root and each of the
+    /// root's moves when it ended, decided or not: see [`RootReport`]. Every
+    /// way of asking this solver searches through `search`
+    /// ([`Solver::solve`], [`Solver::prove`], [`Self::solve_auto`], which
+    /// reports its last round), so this reads what the last of them did.
+    /// It reads nothing from the tables and costs nothing.
+    ///
+    /// [`Solver::solve`]: crate::mate::Solver::solve
+    /// [`Solver::prove`]: crate::mate::Solver::prove
+    pub fn root_report(&self) -> &RootReport {
+        &self.report
     }
 
     /// Each of the root's attacks, and whether it starts a VCT within
@@ -159,6 +185,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         threshold: PnDn,
         budget: &mut NodeBudget,
     ) -> Selection {
+        let is_root = self.start_root(attacks.len());
         let base = self.children.len();
         self.attacker_table
             .lookup_children(state, attacks, &mut self.children);
@@ -209,6 +236,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 continue;
             }
             let next_threshold = P::next_threshold_attack(&selection, threshold);
+            let before = budget.nodes();
             let result = state.with_move(Some(best), |child| {
                 let result = self.search_defences(child, next_threshold, budget);
                 // A child the search gave up on proves nothing about the
@@ -218,10 +246,24 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 }
                 result
             });
+            if is_root {
+                self.root_nodes[selection.best] += budget.nodes() - before;
+            }
             // The loop ends at the next check if the budget ran out, so the
             // result is only read back when it is also in the table.
             self.children[base + selection.best] = Some(result);
         };
+        if is_root {
+            let forbidden_attacks = &self.forbidden_attacks;
+            self.report.record(
+                attacks,
+                &self.children[base..],
+                |p| {
+                    forbidden_attacks.get(state.move_key(p)).is_some() || state.is_forbidden_move(p)
+                },
+                &self.root_nodes,
+            );
+        }
         self.children.truncate(base);
         selection
     }
@@ -233,6 +275,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         threshold: PnDn,
         budget: &mut NodeBudget,
     ) -> Selection {
+        let is_root = self.start_root(defences.len());
         let base = self.children.len();
         self.defender_table
             .lookup_children(state, defences, &mut self.children);
@@ -247,6 +290,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
             }
             let best = defences[selection.best].point;
             let next_threshold = P::next_threshold_defence(&selection, threshold);
+            let before = budget.nodes();
             let result = state.with_move(Some(best), |child| {
                 let result = self.search_attacks(child, next_threshold, budget);
                 // A child the search gave up on proves nothing about the
@@ -256,10 +300,33 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 }
                 result
             });
+            if is_root {
+                self.root_nodes[selection.best] += budget.nodes() - before;
+            }
             self.children[base + selection.best] = Some(result);
         };
+        if is_root {
+            // Defences are generated legal (`compute_defences`).
+            self.report.record(
+                defences,
+                &self.children[base..],
+                |_| false,
+                &self.root_nodes,
+            );
+        }
         self.children.truncate(base);
         selection
+    }
+
+    /// Whether the expansion starting now is the root's ([`Self::search`]),
+    /// and if so, readies the counts of nodes under its `n` moves.
+    fn start_root(&mut self, n: usize) -> bool {
+        let is_root = std::mem::take(&mut self.root_next);
+        if is_root {
+            self.root_nodes.clear();
+            self.root_nodes.resize(n, 0);
+        }
+        is_root
     }
 
     /// Chooses among `attacks` by their numbers in `children`, as the

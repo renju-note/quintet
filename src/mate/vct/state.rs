@@ -40,6 +40,26 @@ impl VCTState {
         Self::new(game, limit, threat_limit)
     }
 
+    /// The defender to move on `board`, asked whether `attacker` has a VCT
+    /// of at most `limit` moves whatever the defender plays: the root of an
+    /// AND node, for [`VCTSolver::search`] and
+    /// [`VCTSolver::root_report`], whose moves are then the defences worth
+    /// trying.
+    ///
+    /// It is the attacker's state after a pass, with one attack more to
+    /// make up for it, so `limit` counts the attacker's moves after the
+    /// defence. Unlike an attacker's root, it is not checked for a game
+    /// already over ([`trivial_result`](crate::mate::trivial_result)):
+    /// that is the caller's to do.
+    ///
+    /// [`VCTSolver::search`]: crate::mate::VCTSolver::search
+    /// [`VCTSolver::root_report`]: crate::mate::VCTSolver::root_report
+    pub fn defending(board: &Board, attacker: Player, limit: u8, threat_limit: u8) -> Self {
+        let mut state = Self::from_board(board, attacker, limit.saturating_add(1), threat_limit);
+        state.play(None);
+        state
+    }
+
     /// How many attacker moves the nested VCF that decides whether a move
     /// is a threat may take (docs/06-solver-vct.en.md §1).
     pub fn threat_limit(&self) -> u8 {
