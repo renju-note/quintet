@@ -166,7 +166,7 @@ pub trait Solver {
     type State: State;
     fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;   // provided
     fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;  // provided
-    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn search_path(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -178,7 +178,7 @@ pub trait Solver {
 | | `solve` / `prove` | `search` |
 | --- | --- | --- |
 | 何か | 1 つの問いの全体 | 探索そのもの |
-| すること | `trivial_result` → `advance_generation()` → `search_line`（追い詰めは `search` の後に `extract`。`prove` は初手だけを読む） | 再帰。メモの管理はしない |
+| すること | `trivial_result` → `advance_generation()` → `search_path`（追い詰めは `search` の後に `extract`。`prove` は初手だけを読む） | 再帰。メモの管理はしない |
 | 誰が呼ぶか | 外部（`mate::solve`、エンジン） | 他のソルバー（`IDDFSSolver` → `DFSSolver::search`、追い詰め → 内部四追いの `search`） |
 
 入口を分ける理由は、ソルバーが別のソルバーの中に入ることがあるからだ。
@@ -247,7 +247,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 
 | 知りたいこと | 見る場所 |
 | --- | --- |
-| ソルバーとは何か | `solver.rs` の `Solver`。`solve` = `trivial_result` + `advance_generation` + 各ソルバーの `search_line`。`prove` は手順なしの同じもの |
+| ソルバーとは何か | `solver.rs` の `Solver`。`solve` = `trivial_result` + `advance_generation` + 各ソルバーの `search_path`。`prove` は手順なしの同じもの |
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。受けの手ごとに `State::play` が 1 減らす |
 | ハッシュに攻め方が入る理由 | `State::key`。1 つのソルバーで両方の色に答えるため |
 | ハッシュに `threat_limit` が入る理由 | `VCTState::key`。1 つの追い詰めソルバーで複数の `threat_limit` に答えるため（[06 §2](06-solver-vct.ja.md#section-2)） |

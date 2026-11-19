@@ -121,14 +121,14 @@ pub struct Proof { pub first_move: Point }
 - 省くのは、追い詰めのソルバーが証明の後に表をたどって手順を復元する処理である。四追いのソルバーは探索しながら手順を作るので、省けるものはない。
 - 新しいソルバーでは、復元は探索に比べて小さい。持ち越したソルバー（[§4](#section-4)）に一度答えた問いをもう一度問うと、証明はすぐ見つかり、復元が `solve` のほとんどを占める。`quick` の追い詰めのケースでは、そのとき `prove` の時間は `solve` の 16%（`examples/prove_cost.rs`）。
 
-### 手順を整える: `solve_line`
+### 手順を整える: `solve_path`
 
 ```rust
-pub fn solve_line(mode, board, attacker, limits, options: LineOptions) -> (SolveResult, SolveStats)
-LineOptions::new().with_shortest(true).with_drop_redundant(true)
+pub fn solve_path(mode, board, attacker, limits, options: PathOptions) -> (SolveResult, SolveStats)
+PathOptions::new().with_shortest(true).with_drop_redundant(true)
 ```
 
-ソルバーが返す手順は、探索がたまたま証明したものであり、人が読みたいものとは限らない。`solve_line` は、手順を整えた `solve_with_stats` である。答えは変わらない。
+ソルバーが返す手順は、探索がたまたま証明したものであり、人が読みたいものとは限らない。`solve_path` は、手順を整えた `solve_with_stats` である。答えは変わらない。
 
 | オプション | すること | 費用 |
 | --- | --- | --- |
@@ -145,7 +145,7 @@ LineOptions::new().with_shortest(true).with_drop_redundant(true)
 - 示す受けは、元の手順のもの。追い手(四でない攻め手)の後では、証明が答える受けのうちの 1 つである。
 - この作業は同じ予算を使い、統計にも数える。予算が尽きるとオプションはそこで止まり、それまでの手順を返す。オプションのせいで証明を失うことはない。
 - `VCTAUTO` と予約モードはオプションを無視する。
-- `quick` のケースの limit を 4 上げると、そのままの手順は伸びる(`vct_game_black_l11_1` で攻め手 14)。オプションはそれを戻す(両方で 8)。オプションが返した手順は、どれも成り立つ(`examples/line_options.rs`)。
+- `quick` のケースの limit を 4 上げると、そのままの手順は伸びる(`vct_game_black_l11_1` で攻め手 14)。オプションはそれを戻す(両方で 8)。オプションが返した手順は、どれも成り立つ(`examples/path_options.rs`)。
 
 ### 探索のコストも知る
 
@@ -281,7 +281,7 @@ pub trait Solver {
     type State: State;
     fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;
     fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;
-    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn search_path(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -302,7 +302,7 @@ pub trait Solver {
 持ち越すのはソルバーのほうである。
 
 - `solve` と `prove` は、1 回だけの `solve` と同じく [§6](#section-6) の局面に探索せず答え、それから世代を進めて探索する。呼ぶ側が使うのはこの 2 つ。
-- `search_line` は `solve` の裏の探索で、ソルバーが実装するもの。探索の要る局面を前提にし、世代は進めない。
+- `search_path` は `solve` の裏の探索で、ソルバーが実装するもの。探索の要る局面を前提にし、世代は進めない。
 - `prove` が効くのは持ち越したソルバーである（[§2](#section-2)）。
 
 <details>
@@ -371,7 +371,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | 黒にすでに `Overlined` がある | `Disproven` |
 | 攻め方にすでに `Four` がある | `Proven(Mate { end: Unknown, path: [p] })`。`p` で五になる。 |
 
-検査は `mate::trivial_result(board, attacker)` としても公開している。要るのは、ソルバーの低レベルの探索（`search_line`、`VCTSolver::search`）を自分で呼ぶ場合だけ。
+検査は `mate::trivial_result(board, attacker)` としても公開している。要るのは、ソルバーの低レベルの探索（`search_path`、`VCTSolver::search`）を自分で呼ぶ場合だけ。
 
 <a id="section-7"></a>
 
@@ -381,7 +381,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | --- | --- |
 | 1 回だけ問う | `solve` |
 | 詰みの有無（と初手）だけを問う | `prove`、`Solver::prove` |
-| 人が読む手順を得る(最短、無駄な手なし) | `LineOptions` を付けた `solve_line` |
+| 人が読む手順を得る(最短、無駄な手なし) | `PathOptions` を付けた `solve_path` |
 | 探索のコストを知る | `solve_with_stats`、`prove_with_stats`。`SolveStats::nodes` と `memo_len` |
 | 四追いだけ探す | `SolveMode::VCFDFS` |
 | 追い詰めを探す | `SolveMode::VCTDFPNS`。追い手の範囲は `threat_limit` |

@@ -548,7 +548,7 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 - It implements `Solver` ([04 §4](04-solver-framework.en.md#section-4)):
   - `solve` is `advance_generation` on both tables, `forbidden_attacks`
     and both nested solvers, then `search`, then on success `extract` with
-    an unlimited budget (`search_line`).
+    an unlimited budget (`search_path`).
   - `prove` is the same, with `first_move` in place of `extract`: the
     root's proven attack (`attack_proof`, or the forced move), or the first
     move of the attacker's VCF.

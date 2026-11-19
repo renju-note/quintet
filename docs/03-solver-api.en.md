@@ -144,42 +144,42 @@ Both numbers are deterministic: the same arguments give the same numbers on
 every run and machine. So they are what solver changes are compared by, as
 the benchmark does (07).
 
-### Shaping the line: `solve_line`
+### Shaping the path: `solve_path`
 
 ```rust
-pub fn solve_line(mode, board, attacker, limits, options: LineOptions) -> (SolveResult, SolveStats)
-LineOptions::new().with_shortest(true).with_drop_redundant(true)
+pub fn solve_path(mode, board, attacker, limits, options: PathOptions) -> (SolveResult, SolveStats)
+PathOptions::new().with_shortest(true).with_drop_redundant(true)
 ```
 
-The line a solver reports is the one its search happened to prove, not the
-one a reader wants. `solve_line` is `solve_with_stats` with the line
+The path a solver reports is the one its search happened to prove, not the
+one a reader wants. `solve_path` is `solve_with_stats` with the path
 reshaped; the answer is the same.
 
 | Option | What it does | Cost |
 | --- | --- | --- |
-| `shortest` | Reports the mate proven at the smallest limit the solver proves one: the fewest attacks against the defender's best replies. It bisects between 0 and the limit, asking the line's own length first. | Further searches, including a disproof one limit below the answer |
-| `drop_redundant` | Drops, from the first attack on, each attack and the reply to it that the line does not need, keeping a drop only if the shorter line still holds when replayed (below). | A replay per attack, and a VCT search after each attack that is not a four |
+| `shortest` | Reports the mate proven at the smallest limit the solver proves one: the fewest attacks against the defender's best replies. It bisects between 0 and the limit, asking the path's own length first. | Further searches, including a disproof one limit below the answer |
+| `drop_redundant` | Drops, from the first attack on, each attack and the reply to it that the path does not need, keeping a drop only if the shorter path still holds when replayed (below). | A replay per attack, and a VCT search after each attack that is not a four |
 
 - Both may be set: `shortest` runs first.
-- The smallest limit is not always the shortest line. A line from a larger
+- The smallest limit is not always the shortest path. A path from a larger
   limit can show fewer attacks along its one branch while another defence
   needs more.
-- A replayed line holds when:
-  - every forced move (the block of either side's four) is the line's;
+- A replayed path holds when:
+  - every forced move (the block of either side's four) is the path's;
   - no side to move has a five to make instead;
   - after every attack that is not a four, the attacker is proven to win
     against every defence within the limit, less the attacks played (VCT
     modes; in VCF mode every attack must be a four);
   - the last attack wins at once.
-- The defences shown are the line's own. After a threat they are one of the
+- The defences shown are the path's own. After a threat they are one of the
   defences the proof answers.
 - The work spends the same budget and is counted in the statistics. When the
-  budget runs out the options stop, and the line reached so far is
+  budget runs out the options stop, and the path reached so far is
   reported: a proof is never lost to them.
 - `VCTAUTO` and the reserved modes ignore the options.
-- On the `quick` cases with their limits raised by 4, the plain lines grow
+- On the `quick` cases with their limits raised by 4, the plain paths grow
   (`vct_game_black_l11_1`: 14 attacks) and the options bring them back (8
-  with both); every line they give still holds (`examples/line_options.rs`).
+  with both); every path they give still holds (`examples/path_options.rs`).
 
 ### `Outcome` and `SolveResult`
 
@@ -324,7 +324,7 @@ pub trait Solver {
     type State: State;
     fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;
     fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;
-    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn search_path(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -344,7 +344,7 @@ threat_limit)`. The solver is what carries over.
 - `solve` and `prove` answer the positions of [§6](#section-6) without
   searching, as the one-shot `solve` does, then open a generation and
   search. They are what a caller uses.
-- `search_line` is the search behind `solve`, for a solver to implement:
+- `search_path` is the search behind `solve`, for a solver to implement:
   it assumes a position that needs a search and opens no generation.
 - A kept solver is where `prove` pays: see [§2](#section-2).
 
@@ -462,7 +462,7 @@ board.)
 | The attacker already has a `Four` | `Proven(Mate { end: Unknown, path: [p] })`: `p` makes five |
 
 The check is public too, `mate::trivial_result(board, attacker)`. Only a
-caller driving a solver's lower-level search by hand (`search_line`,
+caller driving a solver's lower-level search by hand (`search_path`,
 `VCTSolver::search`) needs it.
 
 <a id="section-7"></a>
@@ -473,7 +473,7 @@ caller driving a solver's lower-level search by hand (`search_line`,
 | --- | --- |
 | Get a yes/no/line once | `solve` |
 | Get only yes/no (and the first move) | `prove`, `Solver::prove` |
-| Get a line for a reader: shortest, without redundant moves | `solve_line` with `LineOptions` |
+| Get a path for a reader: shortest, without redundant moves | `solve_path` with `PathOptions` |
 | Know what a search cost | `solve_with_stats`, `prove_with_stats`; `SolveStats::nodes` and `memo_len` |
 | Find only VCFs | `SolveMode::VCFDFS` |
 | Find VCTs | `SolveMode::VCTDFPNS`; `threat_limit` decides what counts as a threat |

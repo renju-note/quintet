@@ -14,24 +14,24 @@ use super::vct::{
 use crate::board::RowKind::*;
 use crate::board::*;
 
-/// How [`solve_line`] shapes the winning line it reports, for a reader
+/// How [`solve_path`] shapes the winning path it reports, for a reader
 /// rather than for the search. The default changes nothing.
 ///
-/// Both may be set: the line is made shortest first, then its redundant
+/// Both may be set: the path is made shortest first, then its redundant
 /// moves are dropped.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
-pub struct LineOptions {
+pub struct PathOptions {
     /// Report the mate proven at the smallest limit the solver proves one:
     /// the fewest attacks against the defender's best replies. Costs further
     /// searches, on the same budget.
     pub shortest: bool,
-    /// Drop each attack, with the reply to it, that the line does not need:
-    /// a four that only delays the win, a threat the rest of the line wins
-    /// without. Checked by replaying the shorter line (see [`solve_line`]).
+    /// Drop each attack, with the reply to it, that the path does not need:
+    /// a four that only delays the win, a threat the rest of the path wins
+    /// without. Checked by replaying the shorter path (see [`solve_path`]).
     pub drop_redundant: bool,
 }
 
-impl LineOptions {
+impl PathOptions {
     pub fn new() -> Self {
         Self::default()
     }
@@ -52,54 +52,54 @@ impl LineOptions {
     }
 }
 
-/// [`solve_with_stats`], with the winning line shaped by `options`.
+/// [`solve_with_stats`], with the winning path shaped by `options`.
 ///
-/// The answer is the one `solve` gives: the options only change which line
-/// a proof is reported with, and a line they leave is as much a win as the
+/// The answer is the one `solve` gives: the options only change which path
+/// a proof is reported with, and a path they leave is as much a win as the
 /// one `solve` returns. The work they take is counted in the statistics and
-/// spends the same budget; when the budget runs out they stop and the line
+/// spends the same budget; when the budget runs out they stop and the path
 /// they have reached is reported, so a proof is never lost to them.
 ///
 /// - `shortest` finds the smallest limit at which the solver proves a mate,
-///   under the same `threat_limit`, and reports the line proven there: the
+///   under the same `threat_limit`, and reports the path proven there: the
 ///   mate that is shortest against the defender's best replies, which is not
-///   always the one with the shortest line. It bisects between 0 and the
+///   always the one with the shortest path. It bisects between 0 and the
 ///   limit, taking a proof to hold at every larger limit and a disproof at
 ///   every smaller one (exact from where decisions carry between limits,
-///   docs/06-solver-vct §4); it asks the line's own length first.
+///   docs/06-solver-vct §4); it asks the path's own length first.
 /// - `drop_redundant` tries, from the first attack on, to drop each attack
 ///   with the defender's reply to it, and keeps every drop after which the
-///   line still holds when replayed from the board:
+///   path still holds when replayed from the board:
 ///   - every forced move — the block of a four, of either side — is the one
-///     the line plays, and no side to move has a five to make instead;
+///     the path plays, and no side to move has a five to make instead;
 ///   - after every attack that is not a four, the attacker is proven to win
-///     against every defence within the limit the line was proven at, less
+///     against every defence within the limit the path was proven at, less
 ///     the attacks played (a VCT search, VCT modes only: in VCF mode every
 ///     attack must be a four);
 ///   - the last attack wins at once (fours the defender cannot both block,
 ///     or a block that is a forbidden move).
 ///
-///   The defences shown are the ones the line had. After an attack that is
+///   The defences shown are the ones the path had. After an attack that is
 ///   not a four they are one defence among those the proof answers.
 ///
 /// `VCTAUTO` and the reserved modes ignore the options.
 ///
 /// ```
 /// use quintet::board::{Board, Player};
-/// use quintet::mate::{LineOptions, SolveLimits, SolveMode, solve_line};
+/// use quintet::mate::{PathOptions, SolveLimits, SolveMode, solve_path};
 ///
 /// let board: Board = "H8,I9,J9,H7".parse().unwrap();
 /// let limits = SolveLimits::new(3);
-/// let options = LineOptions::new().with_shortest(true).with_drop_redundant(true);
-/// let (result, _) = solve_line(SolveMode::VCFDFS, &board, Player::Black, limits, options);
+/// let options = PathOptions::new().with_shortest(true).with_drop_redundant(true);
+/// let (result, _) = solve_path(SolveMode::VCFDFS, &board, Player::Black, limits, options);
 /// assert!(result.is_disproven());
 /// ```
-pub fn solve_line(
+pub fn solve_path(
     mode: SolveMode,
     board: &Board,
     attacker: Player,
     limits: SolveLimits,
-    options: LineOptions,
+    options: PathOptions,
 ) -> (SolveResult, SolveStats) {
     if !options.any() || matches!(mode, VCFIDDFS | VCTIDDFS | VCTAUTO) {
         return solve_with_stats(mode, board, attacker, limits);
@@ -176,7 +176,7 @@ pub fn solve_line(
     (outcome, stats)
 }
 
-/// The steps of [`solve_line`] on `solver`, whose root at each limit
+/// The steps of [`solve_path`] on `solver`, whose root at each limit
 /// `state` builds, and how much its memos hold afterwards. `threats` says
 /// whether an attack may be other than a four, and `wins(solver, board,
 /// left, budget)` is the proof check of `drop_redundant` after such an
@@ -185,7 +185,7 @@ fn shaped<S: Solver>(
     mut solver: S,
     limit: u8,
     state: impl Fn(u8) -> S::State,
-    options: LineOptions,
+    options: PathOptions,
     threats: bool,
     mut wins: impl FnMut(&mut S, &Board, u8, &mut NodeBudget) -> bool,
     budget: &mut NodeBudget,
@@ -214,9 +214,9 @@ fn shaped<S: Solver>(
 }
 
 /// The smallest limit at which `solver` proves a mate, at most `limit`
-/// where `mate` was proven, and the line it proves there, found by
+/// where `mate` was proven, and the path it proves there, found by
 /// bisection: a proof at one limit is taken to hold at every larger one, a
-/// disproof at every smaller one. The first limit asked is the line's own
+/// disproof at every smaller one. The first limit asked is the path's own
 /// number of attacks, which is the answer more often than not. Stops where
 /// it is when the budget runs out.
 fn shortest<S: Solver>(
@@ -246,7 +246,7 @@ fn shortest<S: Solver>(
 }
 
 /// `mate`, proven at `limit`, with every attack, and the reply to it, that
-/// it does not need dropped, from the first on: see [`solve_line`].
+/// it does not need dropped, from the first on: see [`solve_path`].
 /// `threats` says whether an attack may be other than a four, and
 /// `wins(board, left)` whether the attacker, after such an attack on
 /// `board`, wins against every defence with `left` attacks more.
@@ -271,8 +271,8 @@ fn drop_redundant(
     mate
 }
 
-/// How the line `path` ends if it holds when played from `board` within
-/// `limit` attacks (see [`solve_line`]), `None` if it does not.
+/// How `path` ends if it holds when played from `board` within
+/// `limit` attacks (see [`solve_path`]), `None` if it does not.
 fn replay(
     board: &Board,
     attacker: Player,
@@ -309,7 +309,7 @@ fn replay(
             _ if last => return None,
             Some(Forced(_)) => {}
             None => {
-                // The other defences may need more attacks than the line
+                // The other defences may need more attacks than the path
                 // shows: as many as the proof had.
                 let left = limit.saturating_sub(1 + (i / 2) as u8);
                 if !threats || !wins(game.board(), left) {
@@ -335,7 +335,7 @@ mod tests {
         Points(m.path.clone()).to_string()
     }
 
-    /// An independent check of a line, with fresh solvers: every move is
+    /// An independent check of a path, with fresh solvers: every move is
     /// legal on an empty point, and after each attack the attacker wins
     /// against every defence within `limit` less the attacks played.
     fn holds(board: &Board, attacker: Player, m: &Mate, limit: u8, threat_limit: u8) -> bool {
@@ -362,7 +362,7 @@ mod tests {
         m.path.len() % 2 == 1
     }
 
-    /// A four the line does not need is dropped with its block; the four
+    /// A four the path does not need is dropped with its block; the four
     /// that wins is kept.
     #[test]
     fn test_drop_redundant_four() {
@@ -373,7 +373,7 @@ mod tests {
         let m = drop_redundant(&board, Black, mate, 2, false, |_, _| false);
         assert_eq!(path(&m), "K8");
         assert!(matches!(m.end, Fours(_, _)));
-        // A line that needs its first four keeps it: without B5 there is no
+        // A path that needs its first four keeps it: without B5 there is no
         // five at B6 to threaten.
         let mate = Mate::new(Unknown, points("B5,B6,B7"));
         assert_eq!(
@@ -387,22 +387,22 @@ mod tests {
     #[test]
     fn test_options_leave_the_answer() {
         let board: Board = "H8,I9,J9,H7".parse().unwrap();
-        let both = LineOptions::new()
+        let both = PathOptions::new()
             .with_shortest(true)
             .with_drop_redundant(true);
         for mode in [VCFDFS, VCTDFPNS, VCTAUTO] {
             let limits = SolveLimits::new(3).with_threat_limit(1);
             let plain = solve_with_stats(mode, &board, Black, limits);
             assert_eq!(
-                solve_line(mode, &board, Black, limits, LineOptions::new()),
+                solve_path(mode, &board, Black, limits, PathOptions::new()),
                 plain
             );
-            assert_eq!(solve_line(mode, &board, Black, limits, both).0, plain.0);
+            assert_eq!(solve_path(mode, &board, Black, limits, both).0, plain.0);
         }
         let limits = SolveLimits::new(4).with_threat_limit(1).with_max_nodes(5);
         let board = vct_board();
         assert!(
-            solve_line(VCTDFPNS, &board, Black, limits, both)
+            solve_path(VCTDFPNS, &board, Black, limits, both)
                 .0
                 .is_unknown()
         );
@@ -415,25 +415,25 @@ mod tests {
             .parse()
             .unwrap();
         let limits = SolveLimits::new(5);
-        let options = LineOptions::new().with_shortest(true);
-        let plain = solve_line(VCFDFS, &board, Black, limits, LineOptions::new()).0;
+        let options = PathOptions::new().with_shortest(true);
+        let plain = solve_path(VCFDFS, &board, Black, limits, PathOptions::new()).0;
         assert_eq!(path(plain.mate().unwrap()), "G7,G8,I9");
-        let short = solve_line(VCFDFS, &board, Black, limits, options).0;
+        let short = solve_path(VCFDFS, &board, Black, limits, options).0;
         assert_eq!(path(short.mate().unwrap()), "G8");
     }
 
     /// A VCT asked with four attacks more than it needs: each option
-    /// shortens the line, and every line still holds.
+    /// shortens the path, and every path still holds.
     #[test]
-    fn test_vct_lines_hold() {
+    fn test_vct_paths_hold() {
         let board = game_board();
         let limits = SolveLimits::new(8).with_threat_limit(2);
         let mut lengths = vec![];
         for (shortest, drop) in [(false, false), (true, false), (false, true), (true, true)] {
-            let options = LineOptions::new()
+            let options = PathOptions::new()
                 .with_shortest(shortest)
                 .with_drop_redundant(drop);
-            let (result, _) = solve_line(VCTDFPNS, &board, White, limits, options);
+            let (result, _) = solve_path(VCTDFPNS, &board, White, limits, options);
             let mate = result.into_mate().expect("a VCT");
             assert!(
                 holds(&board, White, &mate, 8, 2),

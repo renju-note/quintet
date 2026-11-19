@@ -451,7 +451,7 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 
 `Solver`（[04 §4](04-solver-framework.ja.md#section-4)）の実装は次のとおり。
 
-- `solve`: 両方の表、`forbidden_attacks`、両方の内部ソルバーに `advance_generation` → `search` を行い、成功なら無制限の予算で `extract` する（`search_line`）。
+- `solve`: 両方の表、`forbidden_attacks`、両方の内部ソルバーに `advance_generation` → `search` を行い、成功なら無制限の予算で `extract` する（`search_path`）。
 - `prove`: 同じく、`extract` の代わりに `first_move` を行う。root の証明済みの攻め手（`attack_proof`、または受けの四で決まる手）か、攻め方の四追いの初手を返す。
 - `clear`: 表、内部ソルバー、キャッシュを空にする。
 - `memo_len`: `forbidden_attacks` を含む 5 つのメモの合計を返す（キャッシュはもともと有界）。

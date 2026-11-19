@@ -1,17 +1,17 @@
-//! What `mate::solve_line`'s options do to the lines of the benchmark's
+//! What `mate::solve_path`'s options do to the paths of the benchmark's
 //! proven cases, and what they cost.
 //!
 //! For each case (tagged `quick`, or every one but `heavy` with an
-//! argument): the line with no option, with `shortest`, with
-//! `drop_redundant` and with both, as `attacks/nodes/time`. Every line is
+//! argument): the path with no option, with `shortest`, with
+//! `drop_redundant` and with both, as `attacks/nodes/time`. Every path is
 //! checked with fresh solvers: legal, and after each attack a win against
-//! every defence within the limit less the attacks played; a line that
+//! every defence within the limit less the attacks played; a path that
 //! fails is marked `!INVALID`. `BUMP=n` asks every case with `n` attacks
-//! more than its limit, which is where the options have lines to shorten.
+//! more than its limit, which is where the options have paths to shorten.
 //!
 //! ```sh
-//! cargo run --release --example line_options              # cases tagged `quick`
-//! BUMP=4 cargo run --release --example line_options       # limits raised by 4
+//! cargo run --release --example path_options              # cases tagged `quick`
+//! BUMP=4 cargo run --release --example path_options       # limits raised by 4
 //! ```
 
 use quintet::board::*;
@@ -26,7 +26,7 @@ fn field<'a>(head: &'a str, key: &str) -> Option<&'a str> {
 }
 
 /// Independent check: after each attack, a fresh solver proves the attacker
-/// wins against every defence with the attacks left; the line is legal.
+/// wins against every defence with the attacks left; the path is legal.
 fn valid(board: &Board, attacker: Player, m: &Mate, tl: u8, limit: u8) -> bool {
     let mut b = board.clone();
     for (i, &p) in m.path.iter().enumerate() {
@@ -85,15 +85,15 @@ fn main() {
         let limits = SolveLimits::new(limit).with_threat_limit(tl);
         let mut row = vec![path.file_stem().unwrap().to_string_lossy().to_string()];
         for o in [
-            LineOptions::new(),
-            LineOptions::new().with_shortest(true),
-            LineOptions::new().with_drop_redundant(true),
-            LineOptions::new()
+            PathOptions::new(),
+            PathOptions::new().with_shortest(true),
+            PathOptions::new().with_drop_redundant(true),
+            PathOptions::new()
                 .with_shortest(true)
                 .with_drop_redundant(true),
         ] {
             let t = std::time::Instant::now();
-            let (r, st) = solve_line(mode, &board, attacker, limits, o);
+            let (r, st) = solve_path(mode, &board, attacker, limits, o);
             let Some(m) = r.mate() else {
                 row.push(format!("not proven {:?}", r.is_unknown()));
                 continue;
