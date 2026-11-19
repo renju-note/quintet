@@ -148,7 +148,7 @@ the benchmark does (07).
 
 ```rust
 pub fn solve_path(mode, board, attacker, limits, options: PathOptions) -> (SolveResult, SolveStats)
-PathOptions::new().with_shortest(true).with_drop_redundant(true)
+PathOptions::new().with_shortest(true).with_drop_redundant_four(true)
 ```
 
 The path a solver reports is the one its search happened to prove, not the
@@ -158,7 +158,7 @@ reshaped; the answer is the same.
 | Option | What it does | Cost |
 | --- | --- | --- |
 | `shortest` | Reports the mate proven at the smallest limit the solver proves one: the fewest attacks against the defender's best replies. It bisects between 0 and the limit, asking the path's own length first. | Further searches, including a disproof one limit below the answer |
-| `drop_redundant` | Drops, from the first attack on, each attack and the reply to it that the path does not need, keeping a drop only if the shorter path still holds when replayed (below). | A replay per attack, and a VCT search after each attack that is not a four |
+| `drop_redundant_four` | Drops, from the first attack on, each four of the attacker's and its block that the path does not need, keeping a drop only if the shorter path still holds when replayed (below). Threats are kept. | A replay per four; a VCT search for each threat after a dropped four |
 
 - Both may be set: `shortest` runs first.
 - The smallest limit is not always the shortest path. A path from a larger
@@ -167,19 +167,23 @@ reshaped; the answer is the same.
 - A replayed path holds when:
   - every forced move (the block of either side's four) is the path's;
   - no side to move has a five to make instead;
-  - after every attack that is not a four, the attacker is proven to win
-    against every defence within the limit, less the attacks played (VCT
-    modes; in VCF mode every attack must be a four);
+  - after every threat later than the dropped four, the attacker is still
+    proven to win against every defence within the limit, less the attacks
+    played (VCT modes). Threats before it are played on the same board and
+    are not checked again, and a four with no threat after it (a VCF
+    closing the path) needs the replay alone;
   - the last attack wins at once.
 - The defences shown are the path's own. After a threat they are one of the
   defences the proof answers.
+- `shortest` picks another mate; `drop_redundant_four` only shortens the
+  path of the one it has. Both together give the shortest paths.
 - The work spends the same budget and is counted in the statistics. When the
   budget runs out the options stop, and the path reached so far is
   reported: a proof is never lost to them.
 - `VCTAUTO` and the reserved modes ignore the options.
-- On the `quick` cases with their limits raised by 4, the plain paths grow
-  (`vct_game_black_l11_1`: 14 attacks) and the options bring them back (8
-  with both); every path they give still holds (`examples/path_options.rs`).
+- On the `quick` VCT cases with their limits raised by 4, the attacks add up
+  to 464 plain, 374 with `shortest`, 395 with `drop_redundant_four` and 361
+  with both; every path they give still holds (`examples/path_options.rs`).
 
 ### `Outcome` and `SolveResult`
 
@@ -473,7 +477,7 @@ caller driving a solver's lower-level search by hand (`search_path`,
 | --- | --- |
 | Get a yes/no/line once | `solve` |
 | Get only yes/no (and the first move) | `prove`, `Solver::prove` |
-| Get a path for a reader: shortest, without redundant moves | `solve_path` with `PathOptions` |
+| Get a path for a reader: shortest, without redundant fours | `solve_path` with `PathOptions` |
 | Know what a search cost | `solve_with_stats`, `prove_with_stats`; `SolveStats::nodes` and `memo_len` |
 | Find only VCFs | `SolveMode::VCFDFS` |
 | Find VCTs | `SolveMode::VCTDFPNS`; `threat_limit` decides what counts as a threat |

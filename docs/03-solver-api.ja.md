@@ -125,7 +125,7 @@ pub struct Proof { pub first_move: Point }
 
 ```rust
 pub fn solve_path(mode, board, attacker, limits, options: PathOptions) -> (SolveResult, SolveStats)
-PathOptions::new().with_shortest(true).with_drop_redundant(true)
+PathOptions::new().with_shortest(true).with_drop_redundant_four(true)
 ```
 
 ソルバーが返す手順は、探索がたまたま証明したものであり、人が読みたいものとは限らない。`solve_path` は、手順を整えた `solve_with_stats` である。答えは変わらない。
@@ -133,19 +133,20 @@ PathOptions::new().with_shortest(true).with_drop_redundant(true)
 | オプション | すること | 費用 |
 | --- | --- | --- |
 | `shortest` | ソルバーが詰みを証明できる最小の limit で証明した詰みを返す。受け方の最善の応手に対して攻め手が最も少ない詰み。0 と limit の間を二分探索し、最初は手順自身の攻め手数を試す。 | 追加の探索。答えの 1 つ下の limit での反証も含む |
-| `drop_redundant` | 最初の攻め手から順に、手順が必要としない攻め手とその受けの組を抜く。抜いた後の手順を再生して成り立つときだけ残す(下)。 | 攻め手ごとの再生と、四でない攻め手の後の追い詰めの探索 |
+| `drop_redundant_four` | 最初の攻め手から順に、手順が必要としない攻め方の四とその受けの組を抜く。抜いた後の手順を再生して成り立つときだけ残す(下)。追い手は抜かない。 | 四ごとの再生と、抜いた四より後の追い手ごとの追い詰めの探索 |
 
 - 両方を指定できる。`shortest` が先に走る。
 - 最小の limit の詰みが、最短の手順とは限らない。大きい limit の手順は、その 1 本の枝では攻め手が少なく見えても、別の受けにはもっと要ることがある。
 - 再生した手順は、次のすべてを満たすとき成り立つ。
   - 決まった手(どちらかの四への受け)は、手順の手と一致する。
   - 手番側に、代わりに作れる五がない。
-  - 四でない攻め手の後は、どの受けに対しても、limit から打った攻め手を引いた範囲で攻め方が勝つと証明される(追い詰めのモード。四追いのモードでは、すべての攻め手が四でなければならない)。
+  - 抜いた四より後の追い手の後は、どの受けに対しても、limit から打った攻め手を引いた範囲で攻め方がなお勝つと証明される(追い詰めのモード)。抜いた四より前の追い手は盤面が変わらないので確かめ直さない。後ろに追い手がない四(手順を締める四追い)は、再生だけで確かめる。
   - 最後の攻め手で、すぐに勝つ。
 - 示す受けは、元の手順のもの。追い手(四でない攻め手)の後では、証明が答える受けのうちの 1 つである。
+- `shortest` は別の詰みを選ぶ。`drop_redundant_four` は、手元の詰みの手順を縮めるだけ。両方を指定すると、手順が最も短い。
 - この作業は同じ予算を使い、統計にも数える。予算が尽きるとオプションはそこで止まり、それまでの手順を返す。オプションのせいで証明を失うことはない。
 - `VCTAUTO` と予約モードはオプションを無視する。
-- `quick` のケースの limit を 4 上げると、そのままの手順は伸びる(`vct_game_black_l11_1` で攻め手 14)。オプションはそれを戻す(両方で 8)。オプションが返した手順は、どれも成り立つ(`examples/path_options.rs`)。
+- `quick` の追い詰めのケースの limit を 4 上げると、攻め手の合計は、そのままで 464、`shortest` で 374、`drop_redundant_four` で 395、両方で 361。オプションが返した手順は、どれも成り立つ(`examples/path_options.rs`)。
 
 ### 探索のコストも知る
 
@@ -381,7 +382,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | --- | --- |
 | 1 回だけ問う | `solve` |
 | 詰みの有無（と初手）だけを問う | `prove`、`Solver::prove` |
-| 人が読む手順を得る(最短、無駄な手なし) | `PathOptions` を付けた `solve_path` |
+| 人が読む手順を得る(最短、無駄な四なし) | `PathOptions` を付けた `solve_path` |
 | 探索のコストを知る | `solve_with_stats`、`prove_with_stats`。`SolveStats::nodes` と `memo_len` |
 | 四追いだけ探す | `SolveMode::VCFDFS` |
 | 追い詰めを探す | `SolveMode::VCTDFPNS`。追い手の範囲は `threat_limit` |

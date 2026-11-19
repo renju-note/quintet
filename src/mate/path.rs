@@ -18,17 +18,18 @@ use crate::board::*;
 /// rather than for the search. The default changes nothing.
 ///
 /// Both may be set: the path is made shortest first, then its redundant
-/// moves are dropped.
+/// fours are dropped.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct PathOptions {
     /// Report the mate proven at the smallest limit the solver proves one:
     /// the fewest attacks against the defender's best replies. Costs further
     /// searches, on the same budget.
     pub shortest: bool,
-    /// Drop each attack, with the reply to it, that the path does not need:
-    /// a four that only delays the win, a threat the rest of the path wins
-    /// without. Checked by replaying the shorter path (see [`solve_path`]).
-    pub drop_redundant: bool,
+    /// Drop each four of the attacker's, with the block of it, that the
+    /// path does not need: a four that only delays the win. Threats (attacks
+    /// that are not fours) are kept. Checked by replaying the shorter path
+    /// (see [`solve_path`]).
+    pub drop_redundant_four: bool,
 }
 
 impl PathOptions {
@@ -40,15 +41,15 @@ impl PathOptions {
         Self { shortest, ..self }
     }
 
-    pub fn with_drop_redundant(self, drop_redundant: bool) -> Self {
+    pub fn with_drop_redundant_four(self, drop_redundant_four: bool) -> Self {
         Self {
-            drop_redundant,
+            drop_redundant_four,
             ..self
         }
     }
 
     fn any(&self) -> bool {
-        self.shortest || self.drop_redundant
+        self.shortest || self.drop_redundant_four
     }
 }
 
@@ -67,20 +68,23 @@ impl PathOptions {
 ///   limit, taking a proof to hold at every larger limit and a disproof at
 ///   every smaller one (exact from where decisions carry between limits,
 ///   docs/06-solver-vct §4); it asks the path's own length first.
-/// - `drop_redundant` tries, from the first attack on, to drop each attack
-///   with the defender's reply to it, and keeps every drop after which the
-///   path still holds when replayed from the board:
+/// - `drop_redundant_four` tries, from the first attack on, to drop each
+///   attack that is a four with the defender's block of it, and keeps every
+///   drop after which the path still holds when replayed from the board.
+///   Threats are never dropped. The path holds when:
 ///   - every forced move — the block of a four, of either side — is the one
 ///     the path plays, and no side to move has a five to make instead;
-///   - after every attack that is not a four, the attacker is proven to win
-///     against every defence within the limit the path was proven at, less
-///     the attacks played (a VCT search, VCT modes only: in VCF mode every
-///     attack must be a four);
+///   - after every threat later than the dropped four, the attacker is still
+///     proven to win against every defence within the limit the path was
+///     proven at, less the attacks played: the four's two stones are gone
+///     from the board it is played on (a VCT search, VCT modes only). A four
+///     with no threat after it, the common case of a VCF closing the path,
+///     is checked by the replay alone;
 ///   - the last attack wins at once (fours the defender cannot both block,
 ///     or a block that is a forbidden move).
 ///
-///   The defences shown are the ones the path had. After an attack that is
-///   not a four they are one defence among those the proof answers.
+///   The defences shown are the ones the path had. After a threat they are
+///   one defence among those the proof answers.
 ///
 /// `VCTAUTO` and the reserved modes ignore the options.
 ///
@@ -90,7 +94,7 @@ impl PathOptions {
 ///
 /// let board: Board = "H8,I9,J9,H7".parse().unwrap();
 /// let limits = SolveLimits::new(3);
-/// let options = PathOptions::new().with_shortest(true).with_drop_redundant(true);
+/// let options = PathOptions::new().with_shortest(true).with_drop_redundant_four(true);
 /// let (result, _) = solve_path(SolveMode::VCFDFS, &board, Player::Black, limits, options);
 /// assert!(result.is_disproven());
 /// ```
@@ -179,7 +183,7 @@ pub fn solve_path(
 /// The steps of [`solve_path`] on `solver`, whose root at each limit
 /// `state` builds, and how much its memos hold afterwards. `threats` says
 /// whether an attack may be other than a four, and `wins(solver, board,
-/// left, budget)` is the proof check of `drop_redundant` after such an
+/// left, budget)` is the proof check of `drop_redundant_four` after such an
 /// attack.
 fn shaped<S: Solver>(
     mut solver: S,
@@ -199,9 +203,9 @@ fn shaped<S: Solver>(
     if options.shortest {
         (mate, proven_at) = shortest(&mut solver, mate, limit, &state, budget);
     }
-    if options.drop_redundant {
+    if options.drop_redundant_four {
         let board = root.game().board();
-        mate = drop_redundant(
+        mate = drop_redundant_fours(
             board,
             root.attacker(),
             mate,
@@ -245,12 +249,12 @@ fn shortest<S: Solver>(
     (mate, hi)
 }
 
-/// `mate`, proven at `limit`, with every attack, and the reply to it, that
-/// it does not need dropped, from the first on: see [`solve_path`].
-/// `threats` says whether an attack may be other than a four, and
-/// `wins(board, left)` whether the attacker, after such an attack on
-/// `board`, wins against every defence with `left` attacks more.
-fn drop_redundant(
+/// `mate`, proven at `limit`, with every four of the attacker's, and the
+/// block of it, that it does not need dropped, from the first on: see
+/// [`solve_path`]. `threats` says whether an attack may be other than a
+/// four, and `wins(board, left)` whether the attacker, after such an attack
+/// on `board`, wins against every defence with `left` attacks more.
+fn drop_redundant_fours(
     board: &Board,
     attacker: Player,
     mut mate: Mate,
@@ -261,9 +265,15 @@ fn drop_redundant(
     let mut i = 0;
     // The last attack is the one that wins; it is never dropped.
     while 2 * i + 1 < mate.path.len() {
+        if !is_four(board, attacker, &mate.path, i) {
+            i += 1;
+            continue;
+        }
         let mut path = mate.path.clone();
         path.drain(2 * i..2 * i + 2);
-        match replay(board, attacker, &path, limit, threats, &mut wins) {
+        // The attacks before the dropped four are played on the same board
+        // as before: only those after it need checking again.
+        match replay(board, attacker, &path, limit, threats, i, &mut wins) {
             Some(end) => mate = Mate::new(end, path),
             None => i += 1,
         }
@@ -271,14 +281,34 @@ fn drop_redundant(
     mate
 }
 
+/// Whether the `i`-th attack of `path`, played from `board`, makes a four:
+/// the defender's reply to it is forced.
+fn is_four(board: &Board, attacker: Player, path: &[Point], i: usize) -> bool {
+    let mut board = board.clone();
+    for (j, &p) in path[..2 * i].iter().enumerate() {
+        let side = if j % 2 == 0 {
+            attacker
+        } else {
+            attacker.opponent()
+        };
+        board.put(side, p);
+    }
+    let attack = path[2 * i];
+    board.put(attacker, attack);
+    board.four_eyes_on(attack, attacker).next().is_some()
+}
+
 /// How `path` ends if it holds when played from `board` within
-/// `limit` attacks (see [`solve_path`]), `None` if it does not.
+/// `limit` attacks (see [`solve_path`]), `None` if it does not. Threats
+/// from the `check_from`-th attack on are proven again with `wins`; the
+/// ones before it are taken as proven.
 fn replay(
     board: &Board,
     attacker: Player,
     path: &[Point],
     limit: u8,
     threats: bool,
+    check_from: usize,
     wins: &mut impl FnMut(&Board, u8) -> bool,
 ) -> Option<End> {
     let defender = attacker.opponent();
@@ -311,8 +341,11 @@ fn replay(
             None => {
                 // The other defences may need more attacks than the path
                 // shows: as many as the proof had.
+                if !threats {
+                    return None;
+                }
                 let left = limit.saturating_sub(1 + (i / 2) as u8);
-                if !threats || !wins(game.board(), left) {
+                if i / 2 >= check_from && !wins(game.board(), left) {
                     return None;
                 }
             }
@@ -370,14 +403,21 @@ mod tests {
         // makes the straight four H8-K8 on its own.
         let board: Board = "H8,I8,J8,B2,B3,B4/B1,O15,N15".parse().unwrap();
         let mate = Mate::new(Unknown, points("B5,B6,K8"));
-        let m = drop_redundant(&board, Black, mate, 2, false, |_, _| false);
+        let m = drop_redundant_fours(&board, Black, mate, 2, false, |_, _| false);
         assert_eq!(path(&m), "K8");
         assert!(matches!(m.end, Fours(_, _)));
         // A path that needs its first four keeps it: without B5 there is no
         // five at B6 to threaten.
         let mate = Mate::new(Unknown, points("B5,B6,B7"));
         assert_eq!(
-            path(&drop_redundant(&board, Black, mate, 2, false, |_, _| false)),
+            path(&drop_redundant_fours(
+                &board,
+                Black,
+                mate,
+                2,
+                false,
+                |_, _| false
+            )),
             "B5,B6,B7"
         );
     }
@@ -389,7 +429,7 @@ mod tests {
         let board: Board = "H8,I9,J9,H7".parse().unwrap();
         let both = PathOptions::new()
             .with_shortest(true)
-            .with_drop_redundant(true);
+            .with_drop_redundant_four(true);
         for mode in [VCFDFS, VCTDFPNS, VCTAUTO] {
             let limits = SolveLimits::new(3).with_threat_limit(1);
             let plain = solve_with_stats(mode, &board, Black, limits);
@@ -432,7 +472,7 @@ mod tests {
         for (shortest, drop) in [(false, false), (true, false), (false, true), (true, true)] {
             let options = PathOptions::new()
                 .with_shortest(shortest)
-                .with_drop_redundant(drop);
+                .with_drop_redundant_four(drop);
             let (result, _) = solve_path(VCTDFPNS, &board, White, limits, options);
             let mate = result.into_mate().expect("a VCT");
             assert!(

@@ -69,7 +69,7 @@ slower and some cases time out.
   `outcome.rs` is what a search concludes (`Outcome`: proven / disproven /
   unknown; `Proof`, the answer without the line), and `path.rs` reshapes
   a proven path for a reader (`solve_path`, `PathOptions`: shortest,
-  without redundant moves). `solver.rs` is the
+  without redundant fours). `solver.rs` is the
   `Solver` trait every solver implements (`search_path` / `clear` /
   `advance_generation` / `memo_len`, with `solve` and `prove` provided on
   top), `game.rs`/`state.rs`/`mate.rs` are

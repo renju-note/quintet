@@ -3,7 +3,7 @@
 //!
 //! For each case (tagged `quick`, or every one but `heavy` with an
 //! argument): the path with no option, with `shortest`, with
-//! `drop_redundant` and with both, as `attacks/nodes/time`. Every path is
+//! `drop_redundant_four` and with both, as `attacks/nodes/time`. Every path is
 //! checked with fresh solvers: legal, and after each attack a win against
 //! every defence within the limit less the attacks played; a path that
 //! fails is marked `!INVALID`. `BUMP=n` asks every case with `n` attacks
@@ -87,10 +87,10 @@ fn main() {
         for o in [
             PathOptions::new(),
             PathOptions::new().with_shortest(true),
-            PathOptions::new().with_drop_redundant(true),
+            PathOptions::new().with_drop_redundant_four(true),
             PathOptions::new()
                 .with_shortest(true)
-                .with_drop_redundant(true),
+                .with_drop_redundant_four(true),
         ] {
             let t = std::time::Instant::now();
             let (r, st) = solve_path(mode, &board, attacker, limits, o);
