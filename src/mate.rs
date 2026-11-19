@@ -31,6 +31,7 @@
 
 mod budget;
 mod game;
+mod line;
 #[allow(clippy::module_inception)]
 mod mate;
 mod memo;
@@ -43,6 +44,7 @@ mod vct;
 
 pub use budget::NodeBudget;
 pub use game::{End, Event, Game};
+pub use line::{LineOptions, solve_line};
 pub use mate::Mate;
 pub use outcome::{Outcome, Proof};
 pub use solve::{

@@ -144,6 +144,43 @@ Both numbers are deterministic: the same arguments give the same numbers on
 every run and machine. So they are what solver changes are compared by, as
 the benchmark does (07).
 
+### Shaping the line: `solve_line`
+
+```rust
+pub fn solve_line(mode, board, attacker, limits, options: LineOptions) -> (SolveResult, SolveStats)
+LineOptions::new().with_shortest(true).with_drop_redundant(true)
+```
+
+The line a solver reports is the one its search happened to prove, not the
+one a reader wants. `solve_line` is `solve_with_stats` with the line
+reshaped; the answer is the same.
+
+| Option | What it does | Cost |
+| --- | --- | --- |
+| `shortest` | Reports the mate proven at the smallest limit the solver proves one: the fewest attacks against the defender's best replies. It bisects between 0 and the limit, asking the line's own length first. | Further searches, including a disproof one limit below the answer |
+| `drop_redundant` | Drops, from the first attack on, each attack and the reply to it that the line does not need, keeping a drop only if the shorter line still holds when replayed (below). | A replay per attack, and a VCT search after each attack that is not a four |
+
+- Both may be set: `shortest` runs first.
+- The smallest limit is not always the shortest line. A line from a larger
+  limit can show fewer attacks along its one branch while another defence
+  needs more.
+- A replayed line holds when:
+  - every forced move (the block of either side's four) is the line's;
+  - no side to move has a five to make instead;
+  - after every attack that is not a four, the attacker is proven to win
+    against every defence within the limit, less the attacks played (VCT
+    modes; in VCF mode every attack must be a four);
+  - the last attack wins at once.
+- The defences shown are the line's own. After a threat they are one of the
+  defences the proof answers.
+- The work spends the same budget and is counted in the statistics. When the
+  budget runs out the options stop, and the line reached so far is
+  reported: a proof is never lost to them.
+- `VCTAUTO` and the reserved modes ignore the options.
+- On the `quick` cases with their limits raised by 4, the plain lines grow
+  (`vct_game_black_l11_1`: 14 attacks) and the options bring them back (8
+  with both); every line they give still holds (`examples/line_options.rs`).
+
 ### `Outcome` and `SolveResult`
 
 ```rust
@@ -436,6 +473,7 @@ caller driving a solver's lower-level search by hand (`search_line`,
 | --- | --- |
 | Get a yes/no/line once | `solve` |
 | Get only yes/no (and the first move) | `prove`, `Solver::prove` |
+| Get a line for a reader: shortest, without redundant moves | `solve_line` with `LineOptions` |
 | Know what a search cost | `solve_with_stats`, `prove_with_stats`; `SolveStats::nodes` and `memo_len` |
 | Find only VCFs | `SolveMode::VCFDFS` |
 | Find VCTs | `SolveMode::VCTDFPNS`; `threat_limit` decides what counts as a threat |

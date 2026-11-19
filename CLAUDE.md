@@ -37,6 +37,9 @@ cargo run --release --example proof_tree      # benchmark cases tagged `quick`; 
 
 # What Solver::prove saves against Solver::solve (examples/prove_cost.rs)
 cargo run --release --example prove_cost      # benchmark cases tagged `quick`; ~20 seconds
+
+# What solve_line's options do to the benchmark's lines, each line checked (examples/line_options.rs)
+BUMP=4 cargo run --release --example line_options   # limits raised by 4; ~1 minute
 ```
 
 Always run tests in `--release`; the debug build is an order of magnitude
@@ -64,7 +67,9 @@ slower and some cases time out.
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
   `prove`, `SolveMode`) and also holds the integration tests.
   `outcome.rs` is what a search concludes (`Outcome`: proven / disproven /
-  unknown; `Proof`, the answer without the line). `solver.rs` is the
+  unknown; `Proof`, the answer without the line), and `line.rs` reshapes
+  a proven line for a reader (`solve_line`, `LineOptions`: shortest,
+  without redundant moves). `solver.rs` is the
   `Solver` trait every solver implements (`search_line` / `clear` /
   `advance_generation` / `memo_len`, with `solve` and `prove` provided on
   top), `game.rs`/`state.rs`/`mate.rs` are
@@ -86,7 +91,8 @@ slower and some cases time out.
   `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`; `examples/proof_tree.rs`
   measures `VCTSolver::proof_tree` and `proves` on the benchmark cases, and
-  `examples/prove_cost.rs` what `Solver::prove` saves against `solve`.
+  `examples/prove_cost.rs` what `Solver::prove` saves against `solve`, and
+  `examples/line_options.rs` what `solve_line`'s options do to the lines.
 - `benches/` — the solver benchmark: `solvers.rs` (runner, `harness = false`)
   over the positions in `cases/*.txt`, which it also checks the answers of.
   `scripts/bench-compare.sh` runs it on a git ref and on the working tree.

@@ -121,6 +121,32 @@ pub struct Proof { pub first_move: Point }
 - 省くのは、追い詰めのソルバーが証明の後に表をたどって手順を復元する処理である。四追いのソルバーは探索しながら手順を作るので、省けるものはない。
 - 新しいソルバーでは、復元は探索に比べて小さい。持ち越したソルバー（[§4](#section-4)）に一度答えた問いをもう一度問うと、証明はすぐ見つかり、復元が `solve` のほとんどを占める。`quick` の追い詰めのケースでは、そのとき `prove` の時間は `solve` の 16%（`examples/prove_cost.rs`）。
 
+### 手順を整える: `solve_line`
+
+```rust
+pub fn solve_line(mode, board, attacker, limits, options: LineOptions) -> (SolveResult, SolveStats)
+LineOptions::new().with_shortest(true).with_drop_redundant(true)
+```
+
+ソルバーが返す手順は、探索がたまたま証明したものであり、人が読みたいものとは限らない。`solve_line` は、手順を整えた `solve_with_stats` である。答えは変わらない。
+
+| オプション | すること | 費用 |
+| --- | --- | --- |
+| `shortest` | ソルバーが詰みを証明できる最小の limit で証明した詰みを返す。受け方の最善の応手に対して攻め手が最も少ない詰み。0 と limit の間を二分探索し、最初は手順自身の攻め手数を試す。 | 追加の探索。答えの 1 つ下の limit での反証も含む |
+| `drop_redundant` | 最初の攻め手から順に、手順が必要としない攻め手とその受けの組を抜く。抜いた後の手順を再生して成り立つときだけ残す(下)。 | 攻め手ごとの再生と、四でない攻め手の後の追い詰めの探索 |
+
+- 両方を指定できる。`shortest` が先に走る。
+- 最小の limit の詰みが、最短の手順とは限らない。大きい limit の手順は、その 1 本の枝では攻め手が少なく見えても、別の受けにはもっと要ることがある。
+- 再生した手順は、次のすべてを満たすとき成り立つ。
+  - 決まった手(どちらかの四への受け)は、手順の手と一致する。
+  - 手番側に、代わりに作れる五がない。
+  - 四でない攻め手の後は、どの受けに対しても、limit から打った攻め手を引いた範囲で攻め方が勝つと証明される(追い詰めのモード。四追いのモードでは、すべての攻め手が四でなければならない)。
+  - 最後の攻め手で、すぐに勝つ。
+- 示す受けは、元の手順のもの。追い手(四でない攻め手)の後では、証明が答える受けのうちの 1 つである。
+- この作業は同じ予算を使い、統計にも数える。予算が尽きるとオプションはそこで止まり、それまでの手順を返す。オプションのせいで証明を失うことはない。
+- `VCTAUTO` と予約モードはオプションを無視する。
+- `quick` のケースの limit を 4 上げると、そのままの手順は伸びる(`vct_game_black_l11_1` で攻め手 14)。オプションはそれを戻す(両方で 8)。オプションが返した手順は、どれも成り立つ(`examples/line_options.rs`)。
+
 ### 探索のコストも知る
 
 `solve_with_stats` と `prove_with_stats` は同じ呼び出しで、探索のコストも返す。
@@ -355,6 +381,7 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | --- | --- |
 | 1 回だけ問う | `solve` |
 | 詰みの有無（と初手）だけを問う | `prove`、`Solver::prove` |
+| 人が読む手順を得る(最短、無駄な手なし) | `LineOptions` を付けた `solve_line` |
 | 探索のコストを知る | `solve_with_stats`、`prove_with_stats`。`SolveStats::nodes` と `memo_len` |
 | 四追いだけ探す | `SolveMode::VCFDFS` |
 | 追い詰めを探す | `SolveMode::VCTDFPNS`。追い手の範囲は `threat_limit` |
