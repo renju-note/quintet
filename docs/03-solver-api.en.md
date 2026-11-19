@@ -374,6 +374,17 @@ What reuse gives:
   share the solver's tables. It is empty when the root needs no attack: a
   VCF (which proves the root before attacks are generated), a five the
   defender has made, or a limit of 0.
+- **What does an unfinished search know?** After any search,
+  `VCTSolver::root_report()` returns, decided or not, the root's proof and
+  disproof numbers and, for each of the root's moves, its status
+  (`Unexpanded`, `Open { pn, dn }`, `Proven`, `Disproven`, `Forbidden`)
+  and the nodes spent under it (`RootReport`). It costs nothing to read.
+  With df-pn the disproof numbers and the nodes tell the moves apart more
+  than the proof numbers, which the search keeps close. For the defender's
+  side, build the root with `VCTState::defending(&board, attacker, limit,
+  threat_limit)` (the defender to move; `limit` counts the attacker's moves
+  after the defence) and call `VCTSolver::search`: the moves are then the
+  defences ([06 §5](06-solver-vct.en.md#section-5), *The root report*).
 - **Is this move a threat?** Let the side to move pass
   (`Game::play(None)`) and ask for the opponent's VCF: `VCFState::new(game,
   limit)` on the passed game, then `DFSSolver::new().prove(..)`.
@@ -435,6 +446,8 @@ caller driving a solver's lower-level search by hand (`search_line`,
 | Know which defences to try | `VCTState::threat_defences(&mate)` |
 | Know which moves stop a VCT, move by move | `VCTSolver::proof_tree` after the solve, then `ProofTree::zone` and `VCTSolver::proves` per move |
 | Know every winning first move | `VCTSolver::solve_attacks` |
+| Read each root move's pn, dn and nodes, decided or not | `VCTSolver::root_report` after any search |
+| Ask the same of each defence | `VCTState::defending`, `VCTSolver::search`, then `root_report` |
 | Know whether the last move was a threat | Pass with `Game::play(None)`, then ask for the opponent's VCF |
 | Read the winning line from JS | `wasm::solve` returns the path as `u8` point codes ([02 §1](02-board-implementation.en.md#section-1)); `decode_x` / `decode_y` |
 | Add a solve mode | `SolveMode`, its `TryFrom<u8>` and `FromStr`, and the `match` in `ask` (`solve.rs`) |

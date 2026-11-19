@@ -928,6 +928,133 @@ mod tests {
         }
     }
 
+    /// The root report of a proven root: the winning attack is proven, and
+    /// the nodes under the moves add up to no more than the search's.
+    #[test]
+    fn test_root_report_proven() {
+        let board = vct_board();
+        let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+        let state = &mut VCTState::from_board(&board, Black, 4, 1);
+        assert!(solver.prove(state, budget).is_proven());
+        let report = solver.root_report();
+        assert!(report.attacking);
+        assert_eq!(report.root.pn, 0);
+        assert_eq!(report.nodes, budget.nodes());
+        assert!(!report.moves.is_empty());
+        let first = report.get(threat_start()).expect("the winning attack");
+        assert_eq!(first.status, MoveStatus::Proven);
+        assert!(first.nodes > 0);
+        let under: u64 = report.moves.iter().map(|m| m.nodes).sum();
+        assert!(under < report.nodes);
+        // A point that was no candidate is not in it.
+        assert!(report.get("A1".parse().unwrap()).is_none());
+    }
+
+    /// A disproven root: every move is decided, and each decision is what
+    /// a fresh search of the position after it finds.
+    #[test]
+    fn test_root_report_disproven_agrees_with_fresh_searches() {
+        let board = vct_board();
+        let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let state = &mut VCTState::from_board(&board, Black, 3, 1);
+        assert!(
+            solver
+                .prove(state, &mut NodeBudget::unlimited())
+                .is_disproven()
+        );
+        let report = solver.root_report().clone();
+        assert_eq!(report.root.dn, 0);
+        assert!(!report.moves.is_empty());
+        for m in &report.moves {
+            assert!(
+                matches!(m.status, MoveStatus::Disproven | MoveStatus::Forbidden),
+                "{m:?}"
+            );
+            // The attack and every defence: Black has no VCT in 2 after it.
+            let next = board.with_stone(Black, m.point);
+            let state = &mut VCTState::defending(&next, Black, 2, 1);
+            let mut fresh = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+            assert!(!fresh.search(state, &mut NodeBudget::unlimited()), "{m:?}");
+        }
+    }
+
+    /// A search cut short still reports: the root is open, and the move it
+    /// was searching when the budget ran out has numbers though the tables
+    /// do not hold them.
+    #[test]
+    fn test_root_report_unfinished() {
+        let board = vct_board();
+        for max_nodes in [10, 50, 200] {
+            let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+            let budget = &mut NodeBudget::new(max_nodes);
+            let state = &mut VCTState::from_board(&board, Black, 4, 1);
+            assert!(solver.prove(state, budget).is_unknown());
+            let report = solver.root_report();
+            assert!(report.root.pn > 0 && report.root.dn > 0, "{max_nodes}");
+            let busiest = report.moves.iter().max_by_key(|m| m.nodes).unwrap();
+            assert!(busiest.nodes > 0, "{max_nodes}");
+            assert!(
+                matches!(busiest.status, MoveStatus::Open { .. }),
+                "{max_nodes}: {busiest:?}"
+            );
+            let under: u64 = report.moves.iter().map(|m| m.nodes).sum();
+            assert!(under < report.nodes, "{max_nodes}");
+        }
+    }
+
+    /// A forbidden attack is reported as such, not as an ordinary disproof.
+    #[test]
+    fn test_root_report_forbidden_attack() -> Result<(), String> {
+        // H8 is a double three (F8-G8-H8 and H6-H7-H8).
+        let board = "F8,G8,H6,H7/A1,A3,A5,A7".parse::<Board>()?;
+        let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let state = &mut VCTState::from_board(&board, Black, 1, 1);
+        assert!(
+            solver
+                .prove(state, &mut NodeBudget::unlimited())
+                .is_disproven()
+        );
+        let report = solver.root_report();
+        let h8 = report.get("H8".parse()?).expect("H8 is generated");
+        assert_eq!(h8.status, MoveStatus::Forbidden);
+        let i8 = report.get("I8".parse()?).expect("I8 is generated");
+        assert_eq!(i8.status, MoveStatus::Disproven);
+        Ok(())
+    }
+
+    /// A root with the defender to move: its moves are the defences, and
+    /// each one's answer is what a fresh search after it finds, with the
+    /// limit counting the attacker's moves after the defence.
+    #[test]
+    fn test_root_report_defending() {
+        let board = vct_board().with_stone(Black, threat_start());
+        let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let state = &mut VCTState::defending(&board, Black, 3, 1);
+        assert!(solver.search(state, &mut NodeBudget::unlimited()));
+        let report = solver.root_report().clone();
+        assert!(!report.attacking);
+        assert_eq!(report.root.pn, 0);
+        assert!(report.moves.len() > 1);
+        for m in &report.moves {
+            assert_eq!(m.status, MoveStatus::Proven, "{m:?}");
+            let next = board.with_stone(White, m.point);
+            let limits = SolveLimits::new(3).with_threat_limit(1);
+            assert!(solve(VCTDFPNS, &next, Black, limits).is_proven(), "{m:?}");
+        }
+        // With one attack fewer, some defence holds.
+        let state = &mut VCTState::defending(&board, Black, 2, 1);
+        assert!(!solver.search(state, &mut NodeBudget::unlimited()));
+        let report = solver.root_report();
+        assert_eq!(report.root.dn, 0);
+        assert!(
+            report
+                .moves
+                .iter()
+                .any(|m| m.status == MoveStatus::Disproven)
+        );
+    }
+
     /// A reused VCT solver asked a question it has answered finds the proof
     /// in its tables, and [`Solver::prove`] reports the first move
     /// [`Solver::solve`] puts first, before and after.

@@ -318,7 +318,7 @@ pub const INF: u32 = u32::MAX;
 
 ### ノード関数
 
-`VCTSolver::search(state, budget)` は `limit == 0` を検査した後、`search_attacks(state, PnDn::no_threshold(), budget).is_proven()` を返す。2 つのノード関数は互いを呼び合う。
+`VCTSolver::search(state, budget)` は `limit == 0` を検査した後、`search_attacks(state, PnDn::no_threshold(), budget).is_proven()` を返す。root が受け方の手番なら（`VCTState::defending`、下の「root の報告」）`search_defences` を呼ぶ。2 つのノード関数は互いを呼び合う。
 
 ```
 search_attacks(state, threshold):              # OR ノード、攻め方の手番
@@ -441,6 +441,7 @@ pub struct VCTSolver<P: ThresholdPolicy> {
     forbidden_attacks: Memo<()>,
     attacks_cache: CandidatesCache,  defences_cache: CandidatesCache,
     children: Vec<Option<PnDn>>,
+    report: RootReport,  root_next: bool,  root_nodes: Vec<u64>,
     policy: PhantomData<P>,
 }
 ```
@@ -454,6 +455,27 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 - `prove`: 同じく、`extract` の代わりに `first_move` を行う。root の証明済みの攻め手（`attack_proof`、または受けの四で決まる手）か、攻め方の四追いの初手を返す。
 - `clear`: 表、内部ソルバー、キャッシュを空にする。
 - `memo_len`: `forbidden_attacks` を含む 5 つのメモの合計を返す（キャッシュはもともと有界）。
+
+### root の報告（`report.rs`）
+
+`root_report()` は、最後の `search` が終わったときに root と root の各手について知っていたこと（`RootReport`）を返す。証明・反証・打ち切りのどれで終わっても返す。表は読まない。探索が進みながら記録する。
+
+- `search` が `root_next` を立てる。その後の最初の `expand_attacks` / `expand_defences` が root の展開である（root のノード関数は、ほかのどのノードよりも先に展開する）。この展開が旗を取り、子ごとに下で使ったノード数を `root_nodes` に数える。
+- root の展開が終わると、候補と、`children` にあるその数値を報告に写す。探索が最後に見た数値であり、打ち切られた子の数値（どの表にもない）も含む。反証された攻め手のうち禁手のもの（`forbidden_attacks` にあるか、いま禁手）は `Forbidden` にする。
+- 展開せずに決まった root（四追い、五、試す手がない、limit 0）には手がなく、報告は root の数値だけになる。
+- `search` は root の数値と、使ったノード数も記録する。
+- ソルバーへのどの問い方も `search` を通るので、報告は最後の問いのものになる。`solve_auto` では最後の回のもの。
+
+| `MoveStatus` | 子の数値 |
+| --- | --- |
+| `Unexpanded` | なし。読んでおらず、表にもない |
+| `Open { pn, dn }` | どちらも 0 でない |
+| `Proven` | `pn == 0`。その手の後、攻め方が勝つ |
+| `Disproven` | `dn == 0` |
+| `Forbidden` | `dn == 0` で、黒が打てない攻め手 |
+
+- 受け方の手番では、手は受けの候補（`compute_defences`）。候補にない点では追い手を止められない。攻め方の手番では、候補にない点は追い手ではない。
+- 記録はノードを使わない。使い回したソルバーの `prove` では、1 回あたり 0.5 マイクロ秒ほど増える（`examples/prove_cost.rs`）。
 
 ### 予算だけで解く（`auto.rs`）
 

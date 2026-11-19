@@ -76,8 +76,9 @@ slower and some cases time out.
     whose DFS / PNS / df-pn variants differ only in the `threshold` policy;
     its methods are split across `searcher` (search and child selection),
     `generator` (move generation), `extractor` (path recovery), `tree`
-    (`ProofTree`, the whole proof, checked on other positions) and `auto`
-    (`solve_auto`, a search with only a node budget), with
+    (`ProofTree`, the whole proof, checked on other positions), `auto`
+    (`solve_auto`, a search with only a node budget) and `report`
+    (`RootReport`, what the last search knew about each root move), with
     `nested_vcf` (`NestedVCF`, the per-side VCF sub-search) and `proof`
     (proof/disproof numbers) as the things they use.
 - `src/wasm.rs` — the `#[wasm_bindgen]` surface (`solve`, `solve_vcf`,
