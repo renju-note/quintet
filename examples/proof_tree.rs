@@ -82,7 +82,7 @@ fn main() {
         let state =
             &mut VCTState::from_board(&case.board, case.attacker, case.limit, case.threat_limit);
         let budget = &mut NodeBudget::unlimited();
-        if solver.solve(state, budget).is_none() {
+        if !solver.solve(state, budget).is_proven() {
             println!("{}\tnot proven", case.name);
             continue;
         }
@@ -122,7 +122,7 @@ fn main() {
             let state =
                 &mut VCTState::from_board(&board, case.attacker, case.limit, case.threat_limit);
             let budget = &mut NodeBudget::unlimited();
-            if solver.solve(state, budget).is_some() {
+            if solver.solve(state, budget).is_proven() {
                 resolved += 1;
             }
             resolve_nodes += budget.nodes();

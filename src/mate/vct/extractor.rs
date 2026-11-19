@@ -24,14 +24,19 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         self.extract_attacks(state, budget)
     }
 
+    /// The first move of the line [`Self::extract`] would recover, without
+    /// the rest: `state` is a proven root, the attacker to move.
+    pub fn first_move(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Point> {
+        match self.root_proof(state, budget)? {
+            AttackProof::Attack(attack) => Some(attack),
+            AttackProof::Vcf(mate) => mate.path.first().copied(),
+        }
+    }
+
     fn extract_attacks(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
-        let attack = match state.check_event() {
-            Some(Forced(attack)) => attack,
-            Some(Defeated(_)) => unreachable!("a proven attacker node is not lost"),
-            None => match self.attack_proof(state, budget)? {
-                AttackProof::Attack(attack) => attack,
-                AttackProof::Vcf(mate) => return Some(mate),
-            },
+        let attack = match self.root_proof(state, budget)? {
+            AttackProof::Attack(attack) => attack,
+            AttackProof::Vcf(mate) => return Some(mate),
         };
         state.with_move(Some(attack), |s| {
             self.extract_defences(s, budget).map(|m| m.prepend(attack))
@@ -63,6 +68,16 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         state.with_move(Some(defence), |s| {
             self.extract_attacks(s, budget).map(|m| m.prepend(defence))
         })
+    }
+
+    /// What proved `state`, the attacker to move: the move a four of the
+    /// defender's forces, or else [`Self::attack_proof`].
+    fn root_proof(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<AttackProof> {
+        match state.check_event() {
+            Some(Forced(attack)) => Some(AttackProof::Attack(attack)),
+            Some(Defeated(_)) => unreachable!("a proven attacker node is not lost"),
+            None => self.attack_proof(state, budget),
+        }
     }
 
     /// What proved `state`, the attacker to move with nothing forced: the

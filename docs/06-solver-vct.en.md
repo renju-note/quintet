@@ -71,6 +71,7 @@ proof again to read off the line:
 
 ```
 VCTSolver::solve = advance_generation; search; extract
+VCTSolver::prove = advance_generation; search; first_move   (extract's first step)
 │
 ├── search ──► search_attacks(root, no_threshold).is_proven()
 │
@@ -544,7 +545,10 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 - It implements `Solver` ([04 §4](04-solver-framework.en.md#section-4)):
   - `solve` is `advance_generation` on both tables, `forbidden_attacks`
     and both nested solvers, then `search`, then on success `extract` with
-    an unlimited budget.
+    an unlimited budget (`search_line`).
+  - `prove` is the same, with `first_move` in place of `extract`: the
+    root's proven attack (`attack_proof`, or the forced move), or the first
+    move of the attacker's VCF.
   - `clear` empties the tables, nested solvers and caches.
   - `memo_len` sums the five memos, `forbidden_attacks` among them (the
     caches are bounded already).
@@ -552,7 +556,8 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 ### Only a budget (`auto.rs`)
 
 `VCTSolver::solve_auto(board, attacker, budget)` takes no `limit` and no
-`threat_limit`; only the budget bounds it. `SolveMode::VCTAUTO` (code 17)
+`threat_limit`; only the budget bounds it. `prove_auto` is the same search
+ending in `first_move` instead of `extract`. `SolveMode::VCTAUTO` (code 17)
 and `wasm::solve_vct_auto` call it.
 
 ```
@@ -564,9 +569,9 @@ solve_auto:
             part = budget.slice(slice)
             search(VCTState(board, attacker, AUTO_LIMIT (255), t), part)
             budget.absorb(part)
-            proven              -> extract, done
+            proven              -> extract (prove_auto: first_move), done
             finished unproven   -> t is disproven
-        all disproven -> None (budget left); budget out -> None
+        all disproven -> Disproven; budget out -> Unknown
         slice *= 2
 ```
 

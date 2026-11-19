@@ -369,7 +369,11 @@ mod tests {
         assert!(board.forbidden(h8).is_some());
         let mut solver = DFPNSVCTSolver::new(2);
         let state = &mut VCTState::from_board(&board, Black, 1, 1);
-        assert!(solver.solve(state, &mut NodeBudget::unlimited()).is_none());
+        assert!(
+            solver
+                .solve(state, &mut NodeBudget::unlimited())
+                .is_disproven()
+        );
         // Every child was disproven, a legal one in the table.
         let i8 = "I8".parse::<Point>()?;
         let legal = solver.attacker_table.lookup_next(state, Some(i8));

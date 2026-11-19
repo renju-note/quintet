@@ -83,7 +83,8 @@ Notes:
 
 ```
 solve(state):                                  # Solver::solve: one question
-    advance_generation(); return search(state)
+    trivial_result(board) -> answered          # game over, or a four to five
+    advance_generation(); return search(state) # search_line = search
 
 search(state):                                 # attacker to move
     if limit == 0:                        return None

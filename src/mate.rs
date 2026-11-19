@@ -34,6 +34,7 @@ mod game;
 #[allow(clippy::module_inception)]
 mod mate;
 mod memo;
+mod outcome;
 mod solve;
 mod solver;
 mod state;
@@ -43,9 +44,10 @@ mod vct;
 pub use budget::NodeBudget;
 pub use game::{End, Event, Game};
 pub use mate::Mate;
+pub use outcome::{Outcome, Proof};
 pub use solve::{
-    DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, SolveStats, solve,
-    solve_with_stats, trivial_result,
+    DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, SolveStats, prove,
+    prove_with_stats, solve, solve_with_stats, trivial_result,
 };
 pub use solver::Solver;
 pub use state::{Key, State};

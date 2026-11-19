@@ -16,7 +16,7 @@
 /// let mut budget = NodeBudget::new(1_000);
 /// let mut solver = DFSSolver::new();
 /// let state = &mut VCFState::from_board(&board, Player::Black, 5);
-/// assert!(solver.solve(state, &mut budget).is_none());
+/// assert!(solver.solve(state, &mut budget).is_disproven());
 /// assert!(!budget.is_exhausted());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

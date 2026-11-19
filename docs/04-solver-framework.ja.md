@@ -26,7 +26,8 @@
 ```
 src/mate.rs          module root: re-exports, the overview doc comment
 src/mate/
-├── solve.rs         solve, SolveMode, SolveLimits, SolveResult, trivial_result
+├── solve.rs         solve, prove, SolveMode, SolveLimits, SolveResult, trivial_result
+├── outcome.rs       Outcome (proven / disproven / unknown), Proof
 │                    + the solver regression tests
 ├── solver.rs        trait Solver                      (§4)
 ├── game.rs          Game, Event, End                  (§2)
@@ -47,7 +48,7 @@ src/feature/sword.rs       SwordMap: cached swords for VCF (02 §7, 05)
 下から上へ積み上がっている。
 
 ```
-Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solver::solve(state, budget) ──► Option<Mate>
+Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solver::solve(state, budget) ──► Outcome<Mate>
             stones,    + attacker, remaining limit,       reads and writes Memo<V>s
             moves,     + Key for the memos                 keyed by State::key()
             turn
@@ -163,7 +164,9 @@ pub struct Key { pub position: u64, pub limit: u8 }
 ```rust
 pub trait Solver {
     type State: State;
-    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;   // provided
+    fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;  // provided
+    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -172,10 +175,10 @@ pub trait Solver {
 
 どのソルバーにも `solve` と `search` の 2 つの入口があり、役割分担は共通している。
 
-| | `solve` | `search` |
+| | `solve` / `prove` | `search` |
 | --- | --- | --- |
 | 何か | 1 つの問いの全体 | 探索そのもの |
-| すること | `advance_generation()` → `search`（追い詰めはさらに `extract`） | 再帰。メモの管理はしない |
+| すること | `trivial_result` → `advance_generation()` → `search_line`（追い詰めは `search` の後に `extract`。`prove` は初手だけを読む） | 再帰。メモの管理はしない |
 | 誰が呼ぶか | 外部（`mate::solve`、エンジン） | 他のソルバー（`IDDFSSolver` → `DFSSolver::search`、追い詰め → 内部四追いの `search`） |
 
 入口を分ける理由は、ソルバーが別のソルバーの中に入ることがあるからだ。
@@ -236,7 +239,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 - 呼ぶのは各探索関数（`DFSSolver::search`、`search_attacks`、`search_defences`）の先頭だけ。つまり 1 ノード = これらの 1 回の呼び出しで、内部の四追い探索も含む。
 - `src/` 以下に時計はない。クレートは `wasm32-unknown-unknown` でコンパイルできる必要がある。
 
-`VCTSolver::solve` は `extract` を無制限の予算で走らせる。根が証明できたなら、手順の復元は手順の長さで抑えられる。予算不足で証明を捨てるのは無意味だからだ。
+`VCTSolver::solve` は `extract` を、`VCTSolver::prove` はその最初の一歩 `first_move` を、無制限の予算で走らせる。根が証明できたなら、手順の復元は手順の長さで抑えられる。予算不足で証明を捨てるのは無意味だからだ。
 
 <a id="section-7"></a>
 
@@ -244,7 +247,7 @@ pub struct Memo<V> { entries: HashMap<u64, Entry<V>>, generation: u32, carry_cap
 
 | 知りたいこと | 見る場所 |
 | --- | --- |
-| ソルバーとは何か | `solver.rs` の `Solver`。`solve` = `advance_generation` + 各ソルバーの `search` |
+| ソルバーとは何か | `solver.rs` の `Solver`。`solve` = `trivial_result` + `advance_generation` + 各ソルバーの `search_line`。`prove` は手順なしの同じもの |
 | 探索が深さ N で止まった理由 | `limit` は攻め手数。受けの手ごとに `State::play` が 1 減らす |
 | ハッシュに攻め方が入る理由 | `State::key`。1 つのソルバーで両方の色に答えるため |
 | ハッシュに `threat_limit` が入る理由 | `VCTState::key`。1 つの追い詰めソルバーで複数の `threat_limit` に答えるため（[06 §2](06-solver-vct.ja.md#section-2)） |
