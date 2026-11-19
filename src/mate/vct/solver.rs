@@ -129,7 +129,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
     /// much less than one might hope, because the remaining limit is part of
     /// the key: the same board reached from two roots is two entries unless
     /// the roots are the same depth away from it.
-    fn search_line(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
+    fn search_path(&mut self, state: &mut VCTState, budget: &mut NodeBudget) -> Option<Mate> {
         if self.search(state, budget) {
             // The root is proven, so the winning line is in the tables and
             // recovering it is bounded by the length of that line. It would be
@@ -150,7 +150,7 @@ impl<P: ThresholdPolicy> Solver for VCTSolver<P> {
         }
         self.advance_generation();
         let found = if self.search(state, budget) {
-            // Outside the budget, as `extract` in `search_line`.
+            // Outside the budget, as `extract` in `search_path`.
             self.first_move(state, &mut NodeBudget::unlimited())
                 .map(|first_move| Proof { first_move })
         } else {

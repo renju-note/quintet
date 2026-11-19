@@ -46,7 +46,7 @@ pub trait Solver {
             return outcome;
         }
         self.advance_generation();
-        let found = self.search_line(state, budget);
+        let found = self.search_path(state, budget);
         Outcome::found(found, budget)
     }
 
@@ -66,7 +66,7 @@ pub trait Solver {
     /// The search behind [`Self::solve`], on a board that needs a search,
     /// in the generation the caller has opened. `None` means either "no
     /// mate" or "gave up", told apart by `budget.is_exhausted()`.
-    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn search_path(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
 
     /// Forgets everything remembered from earlier searches.
     ///

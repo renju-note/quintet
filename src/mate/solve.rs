@@ -214,7 +214,7 @@ impl SolveLimits {
         }
     }
 
-    fn budget(&self) -> NodeBudget {
+    pub(crate) fn budget(&self) -> NodeBudget {
         match self.max_nodes {
             Some(max_nodes) => NodeBudget::new(max_nodes),
             None => NodeBudget::unlimited(),

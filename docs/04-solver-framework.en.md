@@ -183,7 +183,7 @@ pub trait Solver {
     type State: State;
     fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;   // provided
     fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;  // provided
-    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn search_path(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -195,7 +195,7 @@ Every solver has two entry points, split the same way in all three:
 | | `solve` / `prove` | `search` |
 | --- | --- | --- |
 | Is | one whole question | the search itself |
-| Does | `trivial_result`, `advance_generation()`, then `search_line` (VCT: `search`, then `extract`; `prove` reads only the first move) | the recursion; no memo housekeeping |
+| Does | `trivial_result`, `advance_generation()`, then `search_path` (VCT: `search`, then `extract`; `prove` reads only the first move) | the recursion; no memo housekeeping |
 | Called by | the outside: `mate::solve`, an engine | other solvers: `IDDFSSolver` over `DFSSolver::search`, the VCT solver over its nested VCF solvers' `search` |
 
 Why the split: a solver can sit inside another.
@@ -281,7 +281,7 @@ proof for want of budget would be pointless.
 
 | Question | Where to look |
 | --- | --- |
-| What is a solver, minimally? | `Solver` in `solver.rs`: `solve` = `trivial_result` + `advance_generation` + the solver's `search_line`; `prove` the same without the line |
+| What is a solver, minimally? | `Solver` in `solver.rs`: `solve` = `trivial_result` + `advance_generation` + the solver's `search_path`; `prove` the same without the line |
 | Why did the search stop at depth N? | `limit` counts attacker moves; `State::play` decrements it after each defender move |
 | Why is the attacker in the hash? | `State::key`: one solver answers about both sides |
 | Why is the `threat_limit` in the hash? | `VCTState::key`: one VCT solver answers under several ([06 §2](06-solver-vct.en.md#section-2)) |
