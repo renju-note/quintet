@@ -4,6 +4,8 @@ use super::threshold::ThresholdPolicy;
 use crate::board::{Board, Player};
 use crate::mate::budget::NodeBudget;
 use crate::mate::mate::Mate;
+use crate::mate::outcome::{Outcome, Proof};
+use crate::mate::solve::trivial_result;
 use crate::mate::solver::Solver;
 
 /// The limit [`VCTSolver::solve_auto`] searches at: as many attacks as a
@@ -35,10 +37,10 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
     /// rounds lose little to starting over. One that finished without a
     /// proof is not asked again.
     ///
-    /// `None` means either "no VCT under any of [`AUTO_THREAT_LIMITS`], of
-    /// any length" or "gave up"; the two are told apart by
-    /// `budget.is_exhausted()`. The mate found is not the shortest: a
-    /// longer one is often cheaper to prove.
+    /// `Disproven` means no VCT under any of [`AUTO_THREAT_LIMITS`], of any
+    /// length. The mate found is not the shortest: a longer one is often
+    /// cheaper to prove. A board that needs no search is answered as
+    /// [`Solver::solve`] answers it.
     ///
     /// Like [`Solver::solve`] it opens one new generation, for the whole
     /// call: one per slice would let the memos drop what the previous rounds
@@ -48,7 +50,43 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         board: &Board,
         attacker: Player,
         budget: &mut NodeBudget,
-    ) -> Option<Mate> {
+    ) -> Outcome<Mate> {
+        if let Some(outcome) = trivial_result(board, attacker) {
+            return outcome;
+        }
+        // As in `solve`, a proof is not abandoned for want of budget.
+        let found = self
+            .search_auto(board, attacker, budget)
+            .and_then(|mut state| self.extract(&mut state, &mut NodeBudget::unlimited()));
+        Outcome::found(found, budget)
+    }
+
+    /// [`Self::solve_auto`] without recovering the line, as
+    /// [`Solver::prove`].
+    pub fn prove_auto(
+        &mut self,
+        board: &Board,
+        attacker: Player,
+        budget: &mut NodeBudget,
+    ) -> Outcome<Proof> {
+        if let Some(outcome) = trivial_result(board, attacker) {
+            return outcome.to_proof();
+        }
+        let found = self
+            .search_auto(board, attacker, budget)
+            .and_then(|mut state| self.first_move(&mut state, &mut NodeBudget::unlimited()))
+            .map(|first_move| Proof { first_move });
+        Outcome::found(found, budget)
+    }
+
+    /// The rounds of [`Self::solve_auto`]: the root state of the first
+    /// search that proved a VCT, `None` if none did.
+    fn search_auto(
+        &mut self,
+        board: &Board,
+        attacker: Player,
+        budget: &mut NodeBudget,
+    ) -> Option<VCTState> {
         self.advance_generation();
         let mut disproven = [false; AUTO_THREAT_LIMITS.len()];
         let mut slice = AUTO_FIRST_SLICE;
@@ -60,14 +98,12 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
                 if budget.is_exhausted() {
                     return None;
                 }
-                let state = &mut VCTState::from_board(board, attacker, AUTO_LIMIT, threat_limit);
+                let mut state = VCTState::from_board(board, attacker, AUTO_LIMIT, threat_limit);
                 let mut part = budget.slice(slice);
-                let proven = self.search(state, &mut part);
+                let proven = self.search(&mut state, &mut part);
                 budget.absorb(&part);
                 if proven {
-                    // As in `solve`, a proof is not abandoned for want of
-                    // budget.
-                    return self.extract(state, &mut NodeBudget::unlimited());
+                    return Some(state);
                 }
                 disproven[i] = !part.is_exhausted();
             }

@@ -73,7 +73,8 @@ pairs:  (H11, H12)   play H11: four H8–H11, White must answer H12
 
 ```
 solve(state):                                  # Solver::solve: 1 つの問い
-    advance_generation(); return search(state)
+    trivial_result(board) -> answered          # game over, or a four to five
+    advance_generation(); return search(state) # search_line = search
 
 search(state):                                 # 攻め方の手番
     if limit == 0:                        return None

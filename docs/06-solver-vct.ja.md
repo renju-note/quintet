@@ -77,6 +77,7 @@ src/feature/shape.rs       ShapeMap: what a stone would make, per point, player 
 
 ```
 VCTSolver::solve = advance_generation; search; extract
+VCTSolver::prove = advance_generation; search; first_move   (extract's first step)
 │
 ├── search ──► search_attacks(root, no_threshold).is_proven()
 │
@@ -449,13 +450,14 @@ pub struct VCTSolver<P: ThresholdPolicy> {
 
 `Solver`（[04 §4](04-solver-framework.ja.md#section-4)）の実装は次のとおり。
 
-- `solve`: 両方の表、`forbidden_attacks`、両方の内部ソルバーに `advance_generation` → `search` を行い、成功なら無制限の予算で `extract` する。
+- `solve`: 両方の表、`forbidden_attacks`、両方の内部ソルバーに `advance_generation` → `search` を行い、成功なら無制限の予算で `extract` する（`search_line`）。
+- `prove`: 同じく、`extract` の代わりに `first_move` を行う。root の証明済みの攻め手（`attack_proof`、または受けの四で決まる手）か、攻め方の四追いの初手を返す。
 - `clear`: 表、内部ソルバー、キャッシュを空にする。
 - `memo_len`: `forbidden_attacks` を含む 5 つのメモの合計を返す（キャッシュはもともと有界）。
 
 ### 予算だけで解く（`auto.rs`）
 
-`VCTSolver::solve_auto(board, attacker, budget)` は、`limit` も `threat_limit` も取らない。探索を縛るのは予算だけである。`SolveMode::VCTAUTO`（コード 17）と `wasm::solve_vct_auto` がこれを呼ぶ。
+`VCTSolver::solve_auto(board, attacker, budget)` は、`limit` も `threat_limit` も取らない。探索を縛るのは予算だけである。`prove_auto` は同じ探索で、`extract` の代わりに `first_move` で終わる。`SolveMode::VCTAUTO`（コード 17）と `wasm::solve_vct_auto` がこれを呼ぶ。
 
 ```
 solve_auto:
@@ -466,9 +468,9 @@ solve_auto:
             part = budget.slice(slice)
             search(VCTState(board, attacker, AUTO_LIMIT (255), t), part)
             budget.absorb(part)
-            proven              -> extract, done
+            proven              -> extract (prove_auto: first_move), done
             finished unproven   -> t is disproven
-        all disproven -> None (budget left); budget out -> None
+        all disproven -> Disproven; budget out -> Unknown
         slice *= 2
 ```
 

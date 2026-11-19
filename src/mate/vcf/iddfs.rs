@@ -71,8 +71,7 @@ impl IDDFSSolver {
 impl Solver for IDDFSSolver {
     type State = VCFState;
 
-    fn solve(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
-        self.advance_generation();
+    fn search_line(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
         self.search(state, budget)
     }
 
@@ -94,6 +93,7 @@ mod tests {
     use super::*;
     use crate::board::Player::Black;
     use crate::board::{Board, Points};
+    use crate::mate::Outcome;
 
     /// Black wins at once with G8 (an open four, G8-G11), but a plain DFS
     /// comes across a longer VCF first and stops there.
@@ -103,8 +103,8 @@ mod tests {
             .unwrap()
     }
 
-    fn path(mate: Option<Mate>) -> String {
-        Points(mate.unwrap().path).to_string()
+    fn path(mate: Outcome<Mate>) -> String {
+        Points(mate.into_mate().unwrap().path).to_string()
     }
 
     #[test]

@@ -34,6 +34,9 @@ cargo run --release --example solve <mode> <limit> <threat_limit> <x|o> <moves>
 
 # What VCTSolver::proof_tree / proves cost against searching again (examples/proof_tree.rs)
 cargo run --release --example proof_tree      # benchmark cases tagged `quick`; ~12 minutes
+
+# What Solver::prove saves against Solver::solve (examples/prove_cost.rs)
+cargo run --release --example prove_cost      # benchmark cases tagged `quick`; ~20 seconds
 ```
 
 Always run tests in `--release`; the debug build is an order of magnitude
@@ -59,9 +62,12 @@ slower and some cases time out.
   VCF) and `stale.rs` (`StaleLines`, the lines those two lazy maps have yet
   to recompute).
 - `src/mate/` — the solvers. `solve.rs` is the entry point (`solve`,
-  `SolveMode`) and also holds the integration tests. `solver.rs` is the
-  `Solver` trait every solver implements (`solve` / `clear` /
-  `advance_generation` / `memo_len`), `game.rs`/`state.rs`/`mate.rs` are
+  `prove`, `SolveMode`) and also holds the integration tests.
+  `outcome.rs` is what a search concludes (`Outcome`: proven / disproven /
+  unknown; `Proof`, the answer without the line). `solver.rs` is the
+  `Solver` trait every solver implements (`search_line` / `clear` /
+  `advance_generation` / `memo_len`, with `solve` and `prove` provided on
+  top), `game.rs`/`state.rs`/`mate.rs` are
   shared search-state types, and `memo.rs` is the generational memo the
   solvers keep between searches.
   - `vcf/` — Victory by Continuous Fours (DFS and IDDFS). Each solver's
@@ -78,7 +84,8 @@ slower and some cases time out.
   `solve_vct`, `solve_vct_dfpn`, `solve_vct_auto`,
   `encode_xy`/`decode_x`/`decode_y`).
 - `examples/solve.rs` — CLI wrapper over `mate::solve`; `examples/proof_tree.rs`
-  measures `VCTSolver::proof_tree` and `proves` on the benchmark cases.
+  measures `VCTSolver::proof_tree` and `proves` on the benchmark cases, and
+  `examples/prove_cost.rs` what `Solver::prove` saves against `solve`.
 - `benches/` — the solver benchmark: `solvers.rs` (runner, `harness = false`)
   over the positions in `cases/*.txt`, which it also checks the answers of.
   `scripts/bench-compare.sh` runs it on a git ref and on the working tree.

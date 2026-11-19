@@ -218,8 +218,7 @@ impl DFSSolver {
 impl Solver for DFSSolver {
     type State = VCFState;
 
-    fn solve(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
-        self.advance_generation();
+    fn search_line(&mut self, state: &mut VCFState, budget: &mut NodeBudget) -> Option<Mate> {
         self.search(state, budget)
     }
 

@@ -36,7 +36,7 @@ fn main() -> Result<(), &'static str> {
     match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
         SolveResult::Proven(mate) => println!("{}", Points(mate.path)),
         SolveResult::Disproven => println!("No mate within these limits"),
-        SolveResult::Aborted => println!("Unknown: budget exhausted"),
+        SolveResult::Unknown => println!("Unknown: budget exhausted"),
     }
     Ok(())
 }
@@ -70,7 +70,7 @@ if (path !== undefined) {
 
 ### 結果の違い
 
-- Rust の `Proven` は詰みあり、`Disproven` は指定した範囲で詰みなし、`Aborted` は不明。
+- Rust の `Proven` は詰みあり、`Disproven` は指定した範囲で詰みなし、`Unknown` は不明。
 - JS は、詰み手順か `undefined` を返す。詰みなし・予算切れ・不正な点コードなどは区別しない。
 - 上の JS 例にはノード予算がない。予算を指定するには `solve_vct_auto` を使う。
 
@@ -108,9 +108,22 @@ pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimi
 
 完全な呼び出し例は [冒頭の Rust 例](#quick-start) を参照。
 
+### 詰みの有無だけを問う: `prove`
+
+`prove` は、詰み手順を返さない同じ問いである。
+
+```rust
+pub fn prove(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> Outcome<Proof>
+pub struct Proof { pub first_move: Point }
+```
+
+- 答えと、`solve` が返す手順の初手を、同じノード数で返す。エンジンが「この手で負けるか」を判断するときのように、答えだけが要るときに使う。
+- 省くのは、追い詰めのソルバーが証明の後に表をたどって手順を復元する処理である。四追いのソルバーは探索しながら手順を作るので、省けるものはない。
+- 新しいソルバーでは、復元は探索に比べて小さい。持ち越したソルバー（[§4](#section-4)）に一度答えた問いをもう一度問うと、証明はすぐ見つかり、復元が `solve` のほとんどを占める。`quick` の追い詰めのケースでは、そのとき `prove` の時間は `solve` の 16%（`examples/prove_cost.rs`）。
+
 ### 探索のコストも知る
 
-`solve_with_stats` は同じ呼び出しで、探索のコストも返す。
+`solve_with_stats` と `prove_with_stats` は同じ呼び出しで、探索のコストも返す。
 
 ```rust
 let (result, stats) = solve_with_stats(SolveMode::VCTDFPNS, &board, Player::Black, limits);
@@ -120,27 +133,28 @@ stats.memo_len   // 探索後にソルバーのメモに残るエントリ数（
 
 どちらの数も決定的で、同じ引数なら実行ごと・マシンごとに同じ値になる。だから、ソルバーの変更はこれで比べる。ベンチマーク（[07](07-benchmarks.ja.md)）もそうしている。
 
-### `SolveResult`
+### `Outcome` と `SolveResult`
 
 ```rust
-pub enum SolveResult { Proven(Mate), Disproven, Aborted }
+pub enum Outcome<T> { Proven(T), Disproven, Unknown }
+pub type SolveResult = Outcome<Mate>;
 ```
 
-`Option<Mate>` では、詰みがない理由を区別できない。`SolveResult` は区別する。
+`Option<Mate>` では、詰みがない理由を区別できない。`Outcome` は区別する。`solve` は `Outcome<Mate>`（`SolveResult`）で、`prove` は `Outcome<Proof>` で答える。
 
 - `Disproven`: 指定した上限の範囲内では詰みがない。
-- `Aborted`: 予算が尽きた（予約モードでは探索しなかった）。詰みの有無は不明。
-  - `Aborted` を「安全」と判断すると、詰みを見逃して詰まされる。
-- アクセサ: `is_proven()`、`is_disproven()`、`is_aborted()`、`mate()`、`into_mate()`。
+- `Unknown`: 予算が尽きた（予約モードでは探索しなかった）。詰みの有無は不明。
+  - `Unknown` を「安全」と判断すると、詰みを見逃して詰まされる。
+- アクセサ: `is_proven()`、`is_disproven()`、`is_unknown()`、`proven()`、`into_proven()`、`map(f)`。`Outcome<Mate>` には `mate()`、`into_mate()`、`to_proof()` もある。`Option::from(outcome)` は証明だけを残す。
 
 ### `SolveMode`
 
 | `SolveMode` | コード | CLI 名 | 探索 |
 | --- | --- | --- | --- |
 | `VCFDFS` | 0 | `vcf` | 四追い、深さ優先。`threat_limit` は無視。 |
-| `VCFIDDFS` | 1 | `vcf_iddfs` | 予約。`solve` は何も探索せず `Aborted` を返す。 |
+| `VCFIDDFS` | 1 | `vcf_iddfs` | 予約。`solve` は何も探索せず `Unknown` を返す。 |
 | `VCTDFS` | 10 | `vct` | 追い詰め。証明数木を深さ優先でたどる。 |
-| `VCTIDDFS` | 11 | `vct_iddfs` | 予約。`solve` は何も探索せず `Aborted` を返す。 |
+| `VCTIDDFS` | 11 | `vct_iddfs` | 予約。`solve` は何も探索せず `Unknown` を返す。 |
 | `VCTPNS` | 15 | `vct_pns` | 追い詰め、証明数探索。 |
 | `VCTDFPNS` | 16 | `vct_dfpns` | 追い詰め、df-pn。**通常はこれを使う。** |
 | `VCTAUTO` | 17 | `vct_auto` | 追い詰め、df-pn。ノード予算だけで解く。`limit` と `threat_limit` は無視（後述）。 |
@@ -172,7 +186,7 @@ SolveLimits::new(limit)
 `VCTAUTO` は、`limit` も `threat_limit` も選ばずに追い詰めを問う。
 
 - `with_max_nodes` を与えれば、ほかは関係ない（`defender_vcf_depth` だけは効く）。
-- 中身は `DFPNSVCTSolver::solve_auto`（[06 §5](06-solver-vct.ja.md#section-5)）。
+- 中身は `DFPNSVCTSolver::solve_auto`（`prove` では `prove_auto`。[06 §5](06-solver-vct.ja.md#section-5)）。
 - JS からは `solve_vct_auto(blacks, whites, black, max_nodes)` で呼ぶ。
 
 ```rust
@@ -185,7 +199,7 @@ let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
 - 結果の意味は次のとおり。
   - `Proven`: 追い詰め。最短より長いことが多い。長い詰みのほうが証明が安いことが多いため。
   - `Disproven`: 試したどの `threat_limit` でも、手数にかかわらず追い詰めはない。「N 手以内にはない」という意味ではない。
-  - `Aborted`: いつもどおり不明。
+  - `Unknown`: いつもどおり不明。
 
 <a id="section-3"></a>
 
@@ -220,16 +234,16 @@ budget.absorb(&part);                        // その一部が使った分を�
 `solve` はソルバーを毎回捨てる。探索で埋めた表も一緒に消える。関連する問いを何度も投げる呼び出し側（対局エンジン、変化をたどる解析画面など）は、ソルバーを 1 つ持ち続けるほうがよい。必要な部品はすべて公開されている。
 
 ```rust
-use quintet::mate::{DFPNSVCTSolver, NodeBudget, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
+use quintet::mate::{DFPNSVCTSolver, NodeBudget, Outcome, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
 
 let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
 let budget = &mut NodeBudget::new(1_000_000);   // ループ全体の上限
 for board in candidates {
     let state = &mut VCTState::from_board(&board, attacker, limit, threat_limit);
-    match solver.solve(state, budget) {
-        Some(mate) => {}                        // 詰みあり
-        None if budget.is_exhausted() => break,
-        None => {}                              // limit 以内に詰みなし
+    match solver.prove(state, budget) {
+        Outcome::Proven(proof) => {}            // 詰みあり。proof.first_move
+        Outcome::Disproven => {}                // limit 以内に詰みなし
+        Outcome::Unknown => break,              // 共有の予算が尽きた
     }
 }
 ```
@@ -239,7 +253,9 @@ for board in candidates {
 ```rust
 pub trait Solver {
     type State: State;
-    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;
+    fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;
+    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -258,6 +274,10 @@ pub trait Solver {
 - `VCTState::from_board(&board, attacker, limit, threat_limit)`
 
 持ち越すのはソルバーのほうである。
+
+- `solve` と `prove` は、1 回だけの `solve` と同じく [§6](#section-6) の局面に探索せず答え、それから世代を進めて探索する。呼ぶ側が使うのはこの 2 つ。
+- `search_line` は `solve` の裏の探索で、ソルバーが実装するもの。探索の要る局面を前提にし、世代は進めない。
+- `prove` が効くのは持ち越したソルバーである（[§2](#section-2)）。
 
 <details>
 <summary>再利用の保証とメモの管理（実装の詳細）</summary>
@@ -278,7 +298,7 @@ pub trait Solver {
   - 1 局面を limit 1〜6 で順に問うと、6 回別々に探索する場合の約 5 分の 1 で済む（`test_decisions_carry_between_limits`）。
 - **別の局面どうしはあまり共有しない。** 残り limit がキーに入るため。同じ盤面に 2 つの根から到達しても、根からの距離が違えば別エントリになる。
 - `clear()` はすべて忘れる。必須ではない。まっさらなソルバーを渡したいとき、メモリを返したいときに使う。
-- `advance_generation()` は `solve` が最初に呼ぶ。ソルバーの低レベルの `search` / `extract` を自分で呼ぶ場合だけ必要になる（[04 §4](04-solver-framework.ja.md#section-4)）。
+- `advance_generation()` は `solve` と `prove` が最初に呼ぶ。ソルバーの低レベルの `search` / `extract` を自分で呼ぶ場合だけ必要になる（[04 §4](04-solver-framework.ja.md#section-4)）。
 
 </details>
 
@@ -291,7 +311,7 @@ pub trait Solver {
   - `tree.zone()` の外の石なら、それも要らない。証明はそのまま成り立つ。
   - zone の外の手と、`proves` が通る手は追い詰めを止めない。探索し直すのは残りの手だけである（[06 §6](06-solver-vct.ja.md#section-6)）。
 - **勝てる初手はどれか。** `solve` は勝てる攻め手を 1 つ見つけたところで止まる。`VCTSolver::solve_attacks(&mut state, nodes_each)` は、root の攻め手をそれぞれ `nodes_each` ノードまで、答えが出るまで読み、探索の順で返す。`Some(true)` は証明、`Some(false)` は反証（禁手も含む）、`None` は予算切れ。読みはソルバーの表を共有する。root に攻め手が要らない局面（四追いがあり、攻め手を作る前に root が証明される、受け方が五を作っている、limit が 0）では空になる。
-- **この手は追い手か。** 手番側をパスさせて（`Game::play(None)`）、相手の四追いを問う。パスした `game` から `VCFState::new(game, limit)` を作り、`DFSSolver::new().solve(..)` を呼ぶ。`test_threat_after_pass` が 1 手ずつ確認している。
+- **この手は追い手か。** 手番側をパスさせて（`Game::play(None)`）、相手の四追いを問う。パスした `game` から `VCFState::new(game, limit)` を作り、`DFSSolver::new().prove(..)` を呼ぶ。`test_threat_after_pass` が 1 手ずつ確認している。
 
 <a id="section-5"></a>
 
@@ -310,21 +330,21 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | --- | --- | --- |
 | `Fours(p1, p2)` | 勝ち点の異なる四が 2 つ（`p1`、`p2`）。1 手では止まらない。棒四（`Grid` は眼の異なる 2 つの `Four` として返す）または四四。 | どちらも。ただし攻め方が黒なら棒四だけ。四四は黒の禁手なので打たれない。 |
 | `Forbidden(p)` | 四が 1 つで、唯一の止め `p` が禁手。 | 黒のみ。 |
-| `Unknown` | 勝ちは証明されたが、手順を復元できなかった。探索前から攻め方に四があった（[§6](#section-6)）か、復元でたどれる証明済みの子がなかった（[06 §6](06-solver-vct.ja.md#section-6)）。 | — |
+| `Unknown` | 勝ちは証明されたが、受け方がどう負けるかは分からない。攻め方にすでに四があり五を作る（[§6](#section-6)）か、復元でたどれる証明済みの子がなかった（[06 §6](06-solver-vct.ja.md#section-6)）。 | — |
 
 <a id="section-6"></a>
 
 ## 6. 探索前の検査: `trivial_result`
 
-`solve` は、ソルバーが扱わない局面に探索せず答える。予約モードは、その前に盤面によらず `Aborted` を返す。
+`solve`、`prove`、`Solver::solve`、`Solver::prove` は、探索が扱わない局面に探索せず答える。1 回だけの呼び出しでは、予約モードはその前に盤面によらず `Unknown` を返す。
 
 | 局面 | 結果 |
 | --- | --- |
 | どちらかにすでに `Five` がある | `Disproven` |
 | 黒にすでに `Overlined` がある | `Disproven` |
-| 攻め方にすでに `Four` がある | `Proven(Mate { end: Unknown, path: [] })`。すでに勝ちで、証明するものがない。 |
+| 攻め方にすでに `Four` がある | `Proven(Mate { end: Unknown, path: [p] })`。`p` で五になる。 |
 
-ソルバーを直接使う場合（[§4](#section-4)）には、この検査は入らない。検査は `mate::trivial_result(board, attacker)` として公開している。`Solver::solve` の前に呼び、答えが返ればその局面は探索しない。
+検査は `mate::trivial_result(board, attacker)` としても公開している。要るのは、ソルバーの低レベルの探索（`search_line`、`VCTSolver::search`）を自分で呼ぶ場合だけ。
 
 <a id="section-7"></a>
 
@@ -333,11 +353,12 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | したいこと | 使うもの |
 | --- | --- |
 | 1 回だけ問う | `solve` |
-| 探索のコストを知る | `solve_with_stats`。`SolveStats::nodes` と `memo_len` |
+| 詰みの有無（と初手）だけを問う | `prove`、`Solver::prove` |
+| 探索のコストを知る | `solve_with_stats`、`prove_with_stats`。`SolveStats::nodes` と `memo_len` |
 | 四追いだけ探す | `SolveMode::VCFDFS` |
 | 追い詰めを探す | `SolveMode::VCTDFPNS`。追い手の範囲は `threat_limit` |
 | ノード予算だけで追い詰めを探す | `SolveMode::VCTAUTO`、`VCTSolver::solve_auto`、`wasm::solve_vct_auto` |
-| 長すぎる探索を止める | `SolveLimits::with_max_nodes`。`Aborted` は「不明」であって「安全」ではない |
+| 長すぎる探索を止める | `SolveLimits::with_max_nodes`。`Unknown` は「不明」であって「安全」ではない |
 | 多くの問いを安く投げる | `DFPNSVCTSolver` を保持し、問いごとに新しい `VCTState` を渡し、`NodeBudget` は 1 つを共有する |
 | 両方の色について問う | 同じソルバーでよい。攻め方はキーに入っている |
 | 受けの候補を知る | `VCTState::threat_defences(&mate)` |
@@ -345,4 +366,4 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | どの手が追い詰めを止めるかを 1 手ずつ知る | 解いた直後に `VCTSolver::proof_tree`、手ごとに `ProofTree::zone` と `VCTSolver::proves` |
 | 直前の手が追い手か知る | `Game::play(None)` でパスし、相手の四追いを問う |
 | JS から詰み手順を読む | `wasm::solve` は手順を `u8` の点コード（[02 §1](02-board-implementation.ja.md#section-1)）で返す。`decode_x` / `decode_y` で読む |
-| モードを追加する | `SolveMode` と、その `TryFrom<u8>`、`FromStr`、`solve` の `match`（`solve.rs`） |
+| モードを追加する | `SolveMode` と、その `TryFrom<u8>`、`FromStr`、`ask` の `match`（`solve.rs`） |

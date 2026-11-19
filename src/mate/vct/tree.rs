@@ -672,7 +672,10 @@ mod tests {
                 case.threat_limit,
             );
             let unlimited = &mut NodeBudget::unlimited();
-            let mate = solver.solve(state, unlimited).expect(&case.name);
+            let mate = solver
+                .solve(state, unlimited)
+                .into_mate()
+                .expect(&case.name);
             let tree = solver
                 .proof_tree(state, &mut NodeBudget::unlimited())
                 .unwrap_or_else(|| panic!("{}: no proof tree", case.name));
@@ -714,7 +717,7 @@ mod tests {
                     let budget = &mut NodeBudget::new(100_000);
                     let found = fresh.solve(state, budget);
                     assert!(
-                        found.is_some() || budget.is_exhausted(),
+                        found.is_proven() || budget.is_exhausted(),
                         "{}: proves after {p}, no VCT",
                         case.name
                     );
@@ -740,6 +743,7 @@ mod tests {
             );
             let mate = solver
                 .solve(state, &mut NodeBudget::unlimited())
+                .into_mate()
                 .expect(&case.name);
             let tree = solver
                 .proof_tree(state, &mut NodeBudget::unlimited())

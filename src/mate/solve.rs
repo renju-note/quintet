@@ -1,6 +1,7 @@
 use super::budget::NodeBudget;
 use super::game::*;
 use super::mate::*;
+use super::outcome::{Outcome, Proof};
 use super::solver::Solver;
 use super::vcf::*;
 use super::vct::*;
@@ -52,42 +53,46 @@ pub fn solve_with_stats(
     attacker: Player,
     limits: SolveLimits,
 ) -> (SolveResult, SolveStats) {
-    // These codes are only kept taken (see `SolveMode`). Nothing is
-    // searched, so nothing is known either, whatever the board.
-    if matches!(mode, VCFIDDFS | VCTIDDFS) {
-        return (SolveResult::Aborted, SolveStats::default());
-    }
-    if let Some(result) = trivial_result(board, attacker) {
-        return (result, SolveStats::default());
-    }
-    let limit = limits.limit;
-    let threat_limit = limits.threat_limit;
-    let defender_vcf_depth = limits.defender_vcf_depth;
-    let budget = &mut limits.budget();
-    let vcf_state = || VCFState::from_board(board, attacker, limit);
-    let vct_state = || VCTState::from_board(board, attacker, limit, threat_limit);
-    let (maybe_mate, memo_len) = match mode {
-        VCFDFS => run(DFSSolver::new(), vcf_state(), budget),
-        VCTDFS => run(DFSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
-        VCTPNS => run(PNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
-        VCTDFPNS => run(DFPNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
-        VCTAUTO => {
-            let mut solver = DFPNSVCTSolver::new(defender_vcf_depth);
-            let maybe_mate = solver.solve_auto(board, attacker, budget);
-            (maybe_mate, solver.memo_len())
-        }
-        VCFIDDFS | VCTIDDFS => unreachable!("answered above"),
-    };
-    let result = match maybe_mate {
-        Some(mate) => SolveResult::Proven(mate),
-        None if budget.is_exhausted() => SolveResult::Aborted,
-        None => SolveResult::Disproven,
-    };
-    let stats = SolveStats {
-        nodes: budget.nodes(),
-        memo_len,
-    };
-    (result, stats)
+    ask::<Line>(mode, board, attacker, limits)
+}
+
+/// [`solve`] without the winning line: whether `attacker` has a mate, and
+/// its first move ([`Solver::prove`]).
+///
+/// The answer and the first move are the ones `solve` gives. What is saved
+/// is the walk the VCT solvers take through their tables to recover the
+/// line after the proof: little next to the search on a fresh solver, as
+/// here, but most of the call on a reused solver asked again.
+///
+/// ```
+/// use quintet::board::{Board, Player};
+/// use quintet::mate::{Outcome, Proof, SolveLimits, SolveMode, prove};
+///
+/// // Black's three G8-I8 becomes an open four at once.
+/// let board: Board = "G8,H8,I8/G1,H1".parse().unwrap();
+/// let limits = SolveLimits::new(2).with_threat_limit(1);
+/// let outcome = prove(SolveMode::VCTDFPNS, &board, Player::Black, limits);
+/// assert!(outcome.is_proven());
+/// ```
+pub fn prove(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+) -> Outcome<Proof> {
+    prove_with_stats(mode, board, attacker, limits).0
+}
+
+/// [`prove`], also reporting what the search cost: see [`SolveStats`]. The
+/// nodes are those [`solve_with_stats`] counts, which leaves recovering the
+/// line out.
+pub fn prove_with_stats(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+) -> (Outcome<Proof>, SolveStats) {
+    ask::<FirstMove>(mode, board, attacker, limits)
 }
 
 /// What one [`solve_with_stats`] call cost.
@@ -107,7 +112,7 @@ pub struct SolveStats {
 pub enum SolveMode {
     VCFDFS,
     /// Reserved: no solver answers it, and [`solve`] returns
-    /// [`SolveResult::Aborted`].
+    /// [`Outcome::Unknown`].
     VCFIDDFS,
     VCTDFS,
     /// Reserved, as [`Self::VCFIDDFS`].
@@ -217,67 +222,134 @@ impl SolveLimits {
     }
 }
 
-/// What a search concluded.
-///
-/// `Disproven` and `Aborted` are both "no mate to report", but only
-/// `Disproven` says there is none: `Aborted` means the search ran out of
-/// budget, or was never run, and the position is still open.
-#[derive(Debug, PartialEq, Eq)]
-pub enum SolveResult {
-    /// The attacker wins, by this line.
-    Proven(Mate),
-    /// The attacker has no mate within the limits.
-    Disproven,
-    /// The budget ran out first, or `mode` has no solver (`VCFIDDFS`,
-    /// `VCTIDDFS`); nothing is known.
-    Aborted,
+/// What [`solve`] concluded: the winning line, if there is a mate.
+pub type SolveResult = Outcome<Mate>;
+
+/// [`solve_with_stats`] and [`prove_with_stats`]: they differ only in what
+/// they ask of the solver ([`Question`]).
+fn ask<Q: Question>(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+) -> (Outcome<Q::Answer>, SolveStats) {
+    // These codes are only kept taken (see `SolveMode`). Nothing is
+    // searched, so nothing is known either, whatever the board.
+    if matches!(mode, VCFIDDFS | VCTIDDFS) {
+        return (Outcome::Unknown, SolveStats::default());
+    }
+    // Answered here, not by the solvers, so that no solver is built.
+    if let Some(outcome) = trivial_result(board, attacker) {
+        return (Q::trivial(outcome), SolveStats::default());
+    }
+    let limit = limits.limit;
+    let threat_limit = limits.threat_limit;
+    let defender_vcf_depth = limits.defender_vcf_depth;
+    let budget = &mut limits.budget();
+    let vcf_state = || VCFState::from_board(board, attacker, limit);
+    let vct_state = || VCTState::from_board(board, attacker, limit, threat_limit);
+    let (outcome, memo_len) = match mode {
+        VCFDFS => run::<Q, _>(DFSSolver::new(), vcf_state(), budget),
+        VCTDFS => run::<Q, _>(DFSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
+        VCTPNS => run::<Q, _>(PNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
+        VCTDFPNS => run::<Q, _>(DFPNSVCTSolver::new(defender_vcf_depth), vct_state(), budget),
+        VCTAUTO => {
+            let mut solver = DFPNSVCTSolver::new(defender_vcf_depth);
+            let outcome = Q::ask_auto(&mut solver, board, attacker, budget);
+            (outcome, solver.memo_len())
+        }
+        VCFIDDFS | VCTIDDFS => unreachable!("answered above"),
+    };
+    let stats = SolveStats {
+        nodes: budget.nodes(),
+        memo_len,
+    };
+    (outcome, stats)
 }
 
-impl SolveResult {
-    pub fn is_proven(&self) -> bool {
-        matches!(self, Self::Proven(_))
-    }
-
-    pub fn is_disproven(&self) -> bool {
-        matches!(self, Self::Disproven)
-    }
-
-    pub fn is_aborted(&self) -> bool {
-        matches!(self, Self::Aborted)
-    }
-
-    pub fn mate(&self) -> Option<&Mate> {
-        match self {
-            Self::Proven(mate) => Some(mate),
-            _ => None,
-        }
-    }
-
-    pub fn into_mate(self) -> Option<Mate> {
-        match self {
-            Self::Proven(mate) => Some(mate),
-            _ => None,
-        }
-    }
-}
-
-/// Runs `solver` on `state`, reporting the mate and how much the solver's
-/// memos hold afterwards.
-fn run<S: Solver>(
+/// Runs `solver` on `state`, reporting the outcome and how much the
+/// solver's memos hold afterwards.
+fn run<Q: Question, S: Solver>(
     mut solver: S,
     mut state: S::State,
     budget: &mut NodeBudget,
-) -> (Option<Mate>, usize) {
-    let maybe_mate = solver.solve(&mut state, budget);
-    (maybe_mate, solver.memo_len())
+) -> (Outcome<Q::Answer>, usize) {
+    let outcome = Q::ask(&mut solver, &mut state, budget);
+    (outcome, solver.memo_len())
+}
+
+/// What [`ask`] asks of a solver: the line ([`Line`]) or only the first
+/// move ([`FirstMove`]).
+trait Question {
+    type Answer;
+    fn ask<S: Solver>(
+        solver: &mut S,
+        state: &mut S::State,
+        budget: &mut NodeBudget,
+    ) -> Outcome<Self::Answer>;
+    fn ask_auto(
+        solver: &mut DFPNSVCTSolver,
+        board: &Board,
+        attacker: Player,
+        budget: &mut NodeBudget,
+    ) -> Outcome<Self::Answer>;
+    fn trivial(outcome: Outcome<Mate>) -> Outcome<Self::Answer>;
+}
+
+struct Line;
+
+impl Question for Line {
+    type Answer = Mate;
+    fn ask<S: Solver>(
+        solver: &mut S,
+        state: &mut S::State,
+        budget: &mut NodeBudget,
+    ) -> Outcome<Mate> {
+        solver.solve(state, budget)
+    }
+    fn ask_auto(
+        solver: &mut DFPNSVCTSolver,
+        board: &Board,
+        attacker: Player,
+        budget: &mut NodeBudget,
+    ) -> Outcome<Mate> {
+        solver.solve_auto(board, attacker, budget)
+    }
+    fn trivial(outcome: Outcome<Mate>) -> Outcome<Mate> {
+        outcome
+    }
+}
+
+struct FirstMove;
+
+impl Question for FirstMove {
+    type Answer = Proof;
+    fn ask<S: Solver>(
+        solver: &mut S,
+        state: &mut S::State,
+        budget: &mut NodeBudget,
+    ) -> Outcome<Proof> {
+        solver.prove(state, budget)
+    }
+    fn ask_auto(
+        solver: &mut DFPNSVCTSolver,
+        board: &Board,
+        attacker: Player,
+        budget: &mut NodeBudget,
+    ) -> Outcome<Proof> {
+        solver.prove_auto(board, attacker, budget)
+    }
+    fn trivial(outcome: Outcome<Mate>) -> Outcome<Proof> {
+        outcome.to_proof()
+    }
 }
 
 /// The answer for a board that needs no search, if it is one: the game
-/// is already over, or the attacker has a four and wins next move.
+/// is already over (`Disproven`), or the attacker has a four and wins by
+/// making five (`Proven`, by that one move).
 ///
-/// [`solve`] checks this before searching. The solvers do not handle
-/// these boards, so a caller that keeps a solver and calls
-/// [`Solver::solve`] itself should check it too.
+/// [`solve`], [`Solver::solve`] and [`Solver::prove`] check this before
+/// searching; the searches themselves do not handle these boards.
 ///
 /// ```
 /// use quintet::board::{Board, Player};
@@ -294,8 +366,8 @@ pub fn trivial_result(board: &Board, attacker: Player) -> Option<SolveResult> {
     if over {
         return Some(SolveResult::Disproven);
     }
-    if board.rows(attacker, Four).next().is_some() {
-        return Some(SolveResult::Proven(Mate::new(Unknown, vec![])));
+    if let Some(eye) = board.rows(attacker, Four).flat_map(|r| r.eyes()).next() {
+        return Some(SolveResult::Proven(Mate::new(Unknown, vec![eye])));
     }
     None
 }
@@ -775,7 +847,7 @@ mod tests {
 
         // One node is not enough to decide anything.
         let result = solve(VCTDFPNS, &board, Black, limits.with_max_nodes(1));
-        assert_eq!(result, SolveResult::Aborted);
+        assert_eq!(result, SolveResult::Unknown);
     }
 
     /// Positions that are decided before any search.
@@ -796,14 +868,88 @@ mod tests {
             assert_eq!(result(board, White)?, SolveResult::Disproven, "{board}");
         }
 
-        // The attacker has a four already and wins next move, which has no
-        // line worth showing.
+        // The attacker has a four already and wins by making five.
         let four = "H8,I8,J8,K8/G8";
+        let l8 = "L8".parse::<Point>()?;
         assert_eq!(
             result(four, Black)?,
-            SolveResult::Proven(Mate::new(Unknown, vec![]))
+            SolveResult::Proven(Mate::new(Unknown, vec![l8]))
         );
+        let board = four.parse::<Board>()?;
+        let proof = Outcome::Proven(Proof { first_move: l8 });
+        assert_eq!(prove(VCTDFPNS, &board, Black, limits), proof);
         Ok(())
+    }
+
+    /// A solver asked directly answers the decided positions as [`solve`]
+    /// does, rather than searching them.
+    #[test]
+    fn test_solver_answers_decided_positions() -> Result<(), String> {
+        let budget = &mut NodeBudget::unlimited();
+        let five = "H8,I8,J8,K8,L8/A1,A2,A3,A4".parse::<Board>()?;
+        let state = &mut VCFState::from_board(&five, White, 3);
+        assert_eq!(DFSSolver::new().solve(state, budget), Outcome::Disproven);
+        let state = &mut VCTState::from_board(&five, White, 3, 1);
+        let mut vct = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        assert_eq!(vct.prove(state, budget), Outcome::Disproven);
+
+        let four = "H8,I8,J8,K8/G8,A1,A2".parse::<Board>()?;
+        let l8 = "L8".parse::<Point>()?;
+        let state = &mut VCTState::from_board(&four, Black, 3, 1);
+        assert_eq!(
+            vct.prove(state, budget),
+            Outcome::Proven(Proof { first_move: l8 })
+        );
+        assert_eq!(budget.nodes(), 0);
+        Ok(())
+    }
+
+    /// [`prove`] gives the answer and the first move [`solve`] gives, in
+    /// every mode, for the same nodes.
+    #[test]
+    fn test_prove_agrees_with_solve() {
+        let boards = [(vct_board(), Black), (vct_board(), White)];
+        let modes = [VCFDFS, VCTDFS, VCTPNS, VCTDFPNS, VCTAUTO, VCFIDDFS];
+        for (board, attacker) in &boards {
+            for mode in modes {
+                for limit in [3, 4] {
+                    for max_nodes in [10, 1_000_000] {
+                        let limits = SolveLimits::new(limit)
+                            .with_threat_limit(1)
+                            .with_max_nodes(max_nodes);
+                        let (line, line_stats) = solve_with_stats(mode, board, *attacker, limits);
+                        let (proof, proof_stats) = prove_with_stats(mode, board, *attacker, limits);
+                        let what = format!("{mode:?} {attacker:?} {limit} {max_nodes}");
+                        assert_eq!(proof, line.to_proof(), "{what}");
+                        assert_eq!(proof_stats.nodes, line_stats.nodes, "{what}");
+                    }
+                }
+            }
+        }
+    }
+
+    /// A reused VCT solver asked a question it has answered finds the proof
+    /// in its tables, and [`Solver::prove`] reports the first move
+    /// [`Solver::solve`] puts first, before and after.
+    #[test]
+    fn test_reused_solver_proves_again() {
+        let board = vct_board();
+        let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let budget = &mut NodeBudget::unlimited();
+        let state = &mut VCTState::from_board(&board, Black, 4, 1);
+        let first = solver.prove(state, budget);
+        assert_eq!(
+            first,
+            Outcome::Proven(Proof {
+                first_move: threat_start()
+            })
+        );
+        let before = budget.nodes();
+        assert_eq!(solver.prove(state, budget), first);
+        assert!(budget.nodes() - before <= 1);
+        assert_eq!(path_string(solver.solve(state, budget)), VCT_SOLUTION);
+        let state = &mut VCTState::from_board(&board, Black, 3, 1);
+        assert_eq!(solver.prove(state, budget), Outcome::Disproven);
     }
 
     /// The numeric codes and names are what callers pass in: see
@@ -835,7 +981,7 @@ mod tests {
             for mode in [VCFIDDFS, VCTIDDFS] {
                 let limits = SolveLimits::new(4).with_threat_limit(3);
                 let (result, stats) = solve_with_stats(mode, &board, Black, limits);
-                assert_eq!(result, SolveResult::Aborted, "{mode:?}");
+                assert_eq!(result, SolveResult::Unknown, "{mode:?}");
                 assert_eq!(stats, SolveStats::default());
             }
         }
@@ -885,7 +1031,7 @@ mod tests {
             assert_eq!(result, VCT_SOLUTION, "after {} nodes", max_nodes);
 
             // Whatever the small budget did find must have been right too.
-            if let Some(mate) = aborted {
+            if let Some(mate) = aborted.into_mate() {
                 assert_eq!(Points(mate.path).to_string(), VCT_SOLUTION);
             }
         }
@@ -928,11 +1074,11 @@ mod tests {
         for round in 0..3 {
             for attacker in [Black, White] {
                 let state = &mut VCTState::from_board(&board, attacker, 4, 1);
-                let got = reused.solve(state, budget).is_some();
+                let got = reused.solve(state, budget).is_proven();
 
                 let mut fresh = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
                 let state = &mut VCTState::from_board(&board, attacker, 4, 1);
-                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_proven();
 
                 assert_eq!(got, want, "round {round}, {attacker:?} attacking");
             }
@@ -941,9 +1087,9 @@ mod tests {
         // key that ignored the attacker would have had to get one of them
         // wrong.
         let state = &mut VCTState::from_board(&board, Black, 4, 1);
-        assert!(reused.solve(state, budget).is_some());
+        assert!(reused.solve(state, budget).is_proven());
         let state = &mut VCTState::from_board(&board, White, 4, 1);
-        assert!(reused.solve(state, budget).is_none());
+        assert!(reused.solve(state, budget).is_disproven());
     }
 
     /// The reuse this is for: one move's worth of questions — does Black have
@@ -970,11 +1116,11 @@ mod tests {
             let next = board.with_stone(White, p);
 
             let state = &mut VCTState::from_board(&next, Black, 4, 1);
-            let got = reused.solve(state, budget).is_some();
+            let got = reused.solve(state, budget).is_proven();
 
             let mut fresh = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
             let state = &mut VCTState::from_board(&next, Black, 4, 1);
-            let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+            let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_proven();
 
             assert_eq!(got, want, "after White {p}");
             checked += 1;
@@ -1023,6 +1169,7 @@ mod tests {
             let state = &mut VCTState::from_board(&next, Black, 4 - k as u8, 1);
             let got = reused
                 .solve(state, budget)
+                .into_mate()
                 .map(|m| Points(m.path).to_string());
             let want = Points(line[2 * k..].to_vec()).to_string();
             assert_eq!(got, Some(want), "{k} attacks in");
@@ -1048,11 +1195,13 @@ mod tests {
             let state = &mut VCTState::from_board(&next, Black, 5, 2);
             let got = reused
                 .solve(state, budget)
+                .into_mate()
                 .map(|m| Points(m.path).to_string());
             let mut fresh = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
             let state = &mut VCTState::from_board(&next, Black, 5, 2);
             let want = fresh
                 .solve(state, &mut NodeBudget::unlimited())
+                .into_mate()
                 .map(|m| Points(m.path).to_string());
             assert_eq!(got, want, "after White {p}");
             assert_eq!(got, None, "after White {p}");
@@ -1118,13 +1267,13 @@ mod tests {
         assert!(
             solver
                 .solve(&mut VCTState::from_board(&board, Black, 3, 1), budget)
-                .is_none()
+                .is_disproven()
         );
         let after_three = budget.nodes();
         assert!(
             solver
                 .solve(&mut VCTState::from_board(&board, Black, 4, 1), budget)
-                .is_some()
+                .is_proven()
         );
         let four = budget.nodes() - after_three;
 
@@ -1134,7 +1283,7 @@ mod tests {
             assert!(
                 solver
                     .solve(&mut VCTState::from_board(&board, Black, limit, 1), budget)
-                    .is_some(),
+                    .is_proven(),
                 "limit {limit}"
             );
             let spent = budget.nodes() - before;
@@ -1150,7 +1299,7 @@ mod tests {
             assert!(
                 solver
                     .solve(&mut VCTState::from_board(&board, Black, limit, 1), budget)
-                    .is_none(),
+                    .is_disproven(),
                 "limit {limit}"
             );
             assert!(budget.nodes() - before < after_three);
@@ -1171,11 +1320,11 @@ mod tests {
         for &limit in &[4u8, 2, 6, 1, 5, 3, 6, 2, 4] {
             for attacker in [Black, White] {
                 let state = &mut VCTState::from_board(&board, attacker, limit, 1);
-                let got = reused.solve(state, budget).is_some();
+                let got = reused.solve(state, budget).is_proven();
 
                 let mut fresh = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
                 let state = &mut VCTState::from_board(&board, attacker, limit, 1);
-                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+                let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_proven();
 
                 assert_eq!(got, want, "{attacker:?} at limit {limit}");
                 verdicts.push(got);
@@ -1219,7 +1368,7 @@ mod tests {
         let max_nodes = stats.nodes / 2;
         let (result, stats) =
             solve_with_stats(VCTAUTO, &board, Black, limits.with_max_nodes(max_nodes));
-        assert!(result.is_aborted());
+        assert!(result.is_unknown());
         assert!(stats.nodes <= max_nodes);
 
         // An empty board has no VCT at any length: disproven, not aborted.
@@ -1257,11 +1406,11 @@ mod tests {
         let mut verdicts = vec![];
         for &(limit, threat_limit) in &[(7u8, 3u8), (7, 2), (6, 3), (7, 1), (7, 3), (7, 2)] {
             let state = &mut VCTState::from_board(&board, Black, limit, threat_limit);
-            let got = reused.solve(state, budget).is_some();
+            let got = reused.solve(state, budget).is_proven();
 
             let mut fresh = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
             let state = &mut VCTState::from_board(&board, Black, limit, threat_limit);
-            let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_some();
+            let want = fresh.solve(state, &mut NodeBudget::unlimited()).is_proven();
 
             assert_eq!(got, want, "limit {limit}, threat_limit {threat_limit}");
             verdicts.push(got);
@@ -1306,7 +1455,7 @@ mod tests {
                                 SolveResult::Proven(_) => 'P',
                                 SolveResult::Disproven => 'D',
                                 // An abort is no information either way.
-                                SolveResult::Aborted => '?',
+                                SolveResult::Unknown => '?',
                             }
                         })
                         .collect();
@@ -1386,22 +1535,23 @@ mod tests {
         let mut game = Game::new(&board, White);
         game.play(None);
         let state = &mut VCFState::new(game, 5);
-        assert!(DFSSolver::new().solve(state, budget).is_none());
+        assert!(DFSSolver::new().solve(state, budget).is_disproven());
 
         // After Black's first VCT move it is a threat: passing loses to a VCF.
         let board = board.with_stone(Black, threat_start());
         let mut game = Game::new(&board, White);
         game.play(None);
         let state = &mut VCFState::new(game, 5);
-        assert!(DFSSolver::new().solve(state, budget).is_some());
+        assert!(DFSSolver::new().solve(state, budget).is_proven());
     }
 
     fn threat_start() -> Point {
         VCT_SOLUTION.split(',').next().unwrap().parse().unwrap()
     }
 
-    fn path_string(maybe_mate: Option<Mate>) -> String {
+    fn path_string(maybe_mate: impl Into<Option<Mate>>) -> String {
         maybe_mate
+            .into()
             .map(|m| Points(m.path).to_string())
             .unwrap_or("".to_string())
     }

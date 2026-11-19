@@ -214,11 +214,17 @@ fn from_tsv(text: &str) -> Result<Vec<Row>, String> {
         .collect()
 }
 
+/// The result in the words of the case files. Asked through the methods
+/// rather than matched, so that the runner also builds against a ref whose
+/// `SolveResult` named its third variant differently (`scripts/bench-compare.sh`
+/// runs it on both sides).
 fn verdict(result: &SolveResult) -> &'static str {
-    match result {
-        SolveResult::Proven(_) => "proven",
-        SolveResult::Disproven => "disproven",
-        SolveResult::Aborted => "aborted",
+    if result.is_proven() {
+        "proven"
+    } else if result.is_disproven() {
+        "disproven"
+    } else {
+        "aborted"
     }
 }
 
@@ -233,7 +239,7 @@ fn check(expect: &Expect, result: &SolveResult, exact: bool) -> Result<(), Strin
     if got != want {
         return Err(format!("expected {want}, got {got}"));
     }
-    if let (Expect::Line(line), SolveResult::Proven(mate), true) = (expect, result, exact) {
+    if let (Expect::Line(line), Some(mate), true) = (expect, result.mate(), exact) {
         let path = Points(mate.path.clone()).to_string();
         if &path != line {
             return Err(format!("expected line {line}, got {path}"));

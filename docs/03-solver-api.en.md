@@ -33,7 +33,7 @@ fn main() -> Result<(), &'static str> {
     match solve(SolveMode::VCTDFPNS, &board, Player::Black, limits) {
         SolveResult::Proven(mate) => println!("{}", Points(mate.path)),
         SolveResult::Disproven => println!("No mate within these limits"),
-        SolveResult::Aborted => println!("Unknown: budget exhausted"),
+        SolveResult::Unknown => println!("Unknown: budget exhausted"),
     }
     Ok(())
 }
@@ -67,7 +67,7 @@ if (path !== undefined) {
 ```
 
 In Rust, `Proven` means a mate exists, `Disproven` means none within the
-specified bounds, and `Aborted` means unknown. JS returns a winning line or
+specified bounds, and `Unknown` means unknown. JS returns a winning line or
 `undefined`; it does not distinguish no mate, budget exhaustion, invalid
 point codes, and similar failures. The JS example has no node budget; use
 `solve_vct_auto` to specify one.
@@ -113,7 +113,26 @@ pub fn solve(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimi
 
 See the [Rust quick start](#quick-start) for a complete calling example.
 
-`solve_with_stats` is the same call, plus what the search cost:
+`prove` is the same question without the winning line:
+
+```rust
+pub fn prove(mode: SolveMode, board: &Board, attacker: Player, limits: SolveLimits) -> Outcome<Proof>
+pub struct Proof { pub first_move: Point }
+```
+
+- The answer, and the first move of the line `solve` would return, for the
+  same nodes. Use it when only the answer is needed, as an engine deciding
+  whether a move loses usually does.
+- What it skips is the walk the VCT solvers take through their tables to
+  recover the line after the proof (VCF solvers build the line as they
+  search, so there it saves nothing). On a fresh solver that walk is small
+  next to the search. On a kept solver ([§4](#section-4)) asked a question
+  it has answered, the proof is found at once and the walk is most of
+  `solve`: on the `quick` VCT cases, `prove` takes 16% of `solve`'s time
+  there (`examples/prove_cost.rs`).
+
+`solve_with_stats` and `prove_with_stats` are the same calls, plus what the
+search cost:
 
 ```rust
 let (result, stats) = solve_with_stats(SolveMode::VCTDFPNS, &board, Player::Black, limits);
@@ -125,29 +144,34 @@ Both numbers are deterministic: the same arguments give the same numbers on
 every run and machine. So they are what solver changes are compared by, as
 the benchmark does (07).
 
-### `SolveResult`
+### `Outcome` and `SolveResult`
 
 ```rust
-pub enum SolveResult { Proven(Mate), Disproven, Aborted }
+pub enum Outcome<T> { Proven(T), Disproven, Unknown }
+pub type SolveResult = Outcome<Mate>;
 ```
 
-`Option<Mate>` cannot say *why* there is no mate; `SolveResult` can.
+`Option<Mate>` cannot say *why* there is no mate; `Outcome` can. `solve`
+answers with an `Outcome<Mate>` (`SolveResult`), `prove` with an
+`Outcome<Proof>`.
 
 - `Disproven`: there is no mate within the limits.
-- `Aborted`: the budget ran out (or a reserved mode searched nothing). The
-  position is still open. An engine that takes `Aborted` as "safe" walks
+- `Unknown`: the budget ran out (or a reserved mode searched nothing). The
+  position is still open. An engine that takes `Unknown` as "safe" walks
   into mates.
-- Accessors: `is_proven()`, `is_disproven()`, `is_aborted()`, `mate()`,
-  `into_mate()`.
+- Accessors: `is_proven()`, `is_disproven()`, `is_unknown()`, `proven()`,
+  `into_proven()`, `map(f)`; for `Outcome<Mate>` also `mate()`,
+  `into_mate()` and `to_proof()`. `Option::from(outcome)` keeps only a
+  proof.
 
 ### `SolveMode`
 
 | `SolveMode` | Code | CLI name | What it searches |
 | --- | --- | --- | --- |
 | `VCFDFS` | 0 | `vcf` | VCF, depth-first. `threat_limit` is ignored. |
-| `VCFIDDFS` | 1 | `vcf_iddfs` | Reserved: `solve` searches nothing and returns `Aborted`. |
+| `VCFIDDFS` | 1 | `vcf_iddfs` | Reserved: `solve` searches nothing and returns `Unknown`. |
 | `VCTDFS` | 10 | `vct` | VCT, depth-first over the proof-number tree. |
-| `VCTIDDFS` | 11 | `vct_iddfs` | Reserved: `solve` searches nothing and returns `Aborted`. |
+| `VCTIDDFS` | 11 | `vct_iddfs` | Reserved: `solve` searches nothing and returns `Unknown`. |
 | `VCTPNS` | 15 | `vct_pns` | VCT, proof-number search. |
 | `VCTDFPNS` | 16 | `vct_dfpns` | VCT, depth-first proof-number search (df-pn). **The one to use.** |
 | `VCTAUTO` | 17 | `vct_auto` | VCT by df-pn with only the node budget: `limit` and `threat_limit` are ignored (below). |
@@ -182,7 +206,8 @@ callers that build limits this way.
 
 `VCTAUTO` asks a VCT with no `limit` or `threat_limit` to choose: give it
 `with_max_nodes` and nothing else matters (`defender_vcf_depth` still
-applies). It is `DFPNSVCTSolver::solve_auto` ([06 §5](06-solver-vct.en.md#section-5)), and from JS
+applies). It is `DFPNSVCTSolver::solve_auto` (and `prove_auto`, for
+`prove`; [06 §5](06-solver-vct.en.md#section-5)), and from JS
 `solve_vct_auto(blacks, whites, black, max_nodes)`.
 
 ```rust
@@ -197,7 +222,7 @@ let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
   cheaper to prove.
 - `Disproven`: no VCT of any length under any of those `threat_limit`s.
   It never says "none within N moves".
-- `Aborted`: unknown, as usual.
+- `Unknown`: unknown, as usual.
 
 <a id="section-3"></a>
 
@@ -241,16 +266,16 @@ asking many related questions (a game engine, an analysis view walking a
 variation) should keep one solver. All the pieces are public:
 
 ```rust
-use quintet::mate::{DFPNSVCTSolver, NodeBudget, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
+use quintet::mate::{DFPNSVCTSolver, NodeBudget, Outcome, Solver, VCTState, DEFAULT_DEFENDER_VCF_DEPTH};
 
 let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
 let budget = &mut NodeBudget::new(1_000_000);   // bounds the whole loop
 for board in candidates {
     let state = &mut VCTState::from_board(&board, attacker, limit, threat_limit);
-    match solver.solve(state, budget) {
-        Some(mate) => { /* proven */ }
-        None if budget.is_exhausted() => break,
-        None => { /* no mate within limit */ }
+    match solver.prove(state, budget) {
+        Outcome::Proven(proof) => { /* proven; proof.first_move */ }
+        Outcome::Disproven => { /* no mate within limit */ }
+        Outcome::Unknown => break,   // the shared budget ran out
     }
 }
 ```
@@ -260,7 +285,9 @@ Every solver implements `Solver` (`mate/solver.rs`):
 ```rust
 pub trait Solver {
     type State: State;
-    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;
+    fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;
+    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -276,6 +303,13 @@ pub trait Solver {
 Build a fresh state per question with `VCFState::from_board(&board,
 attacker, limit)` or `VCTState::from_board(&board, attacker, limit,
 threat_limit)`. The solver is what carries over.
+
+- `solve` and `prove` answer the positions of [§6](#section-6) without
+  searching, as the one-shot `solve` does, then open a generation and
+  search. They are what a caller uses.
+- `search_line` is the search behind `solve`, for a solver to implement:
+  it assumes a position that needs a search and opens no generation.
+- A kept solver is where `prove` pays: see [§2](#section-2).
 
 <details>
 <summary>Reuse guarantees and memo management (implementation details)</summary>
@@ -311,7 +345,7 @@ What reuse gives:
   roots are the same distance from it.
 - `clear()` forgets everything. Never required: use it to hand a solver on
   with a clean slate, or to give memory back.
-- `advance_generation()` is what `solve` calls first. Only a caller driving
+- `advance_generation()` is what `solve` and `prove` call first. Only a caller driving
   a solver's lower-level `search` / `extract` by hand needs it ([04 §4](04-solver-framework.en.md#section-4)).
 
 </details>
@@ -342,7 +376,7 @@ What reuse gives:
   defender has made, or a limit of 0.
 - **Is this move a threat?** Let the side to move pass
   (`Game::play(None)`) and ask for the opponent's VCF: `VCFState::new(game,
-  limit)` on the passed game, then `DFSSolver::new().solve(..)`.
+  limit)` on the passed game, then `DFSSolver::new().prove(..)`.
   `test_threat_after_pass` does it move by move.
 
 <a id="section-5"></a>
@@ -362,25 +396,26 @@ pub enum End { Fours(Point, Point), Forbidden(Point), Unknown }
 | --- | --- | --- |
 | `Fours(p1, p2)` | Fours with two different winning points `p1`, `p2`: one block is not enough. A straight four (`Grid` reports two `Four`s with different eyes) or a double-four. | Either. An attacking Black gets it only from a straight four: a double-four is forbidden for Black and never played. |
 | `Forbidden(p)` | A single four whose only block `p` is a forbidden move. | Black only. |
-| `Unknown` | The win is proven but the line could not be completed: the attacker already had a four before the search ([§6](#section-6)), or the extractor found no proven child to follow ([06 §6](06-solver-vct.en.md#section-6)). | — |
+| `Unknown` | The win is proven but how the defender is lost is not told: the attacker already had a four and makes five ([§6](#section-6)), or the extractor found no proven child to follow ([06 §6](06-solver-vct.en.md#section-6)). | — |
 
 <a id="section-6"></a>
 
 ## 6. What is checked before searching: `trivial_result`
 
-`solve` answers some positions without searching, since the solvers do not
-handle them. (A reserved mode is checked first: it is `Aborted` whatever
-the board.)
+`solve`, `prove`, `Solver::solve` and `Solver::prove` answer some positions
+without searching, since the searches do not handle them. (In the one-shot
+calls a reserved mode is checked first: it is `Unknown` whatever the
+board.)
 
 | Position | Result |
 | --- | --- |
 | Either colour already has a `Five` | `Disproven` |
 | Black already has an `Overlined` | `Disproven` |
-| The attacker already has a `Four` | `Proven(Mate { end: Unknown, path: [] })`: already won, nothing to prove |
+| The attacker already has a `Four` | `Proven(Mate { end: Unknown, path: [p] })`: `p` makes five |
 
-A caller using a solver directly ([§4](#section-4)) gets none of this. The
-check is public, `mate::trivial_result(board, attacker)`: call it before
-`Solver::solve`, and skip the search when it answers.
+The check is public too, `mate::trivial_result(board, attacker)`. Only a
+caller driving a solver's lower-level search by hand (`search_line`,
+`VCTSolver::search`) needs it.
 
 <a id="section-7"></a>
 
@@ -389,11 +424,12 @@ check is public, `mate::trivial_result(board, attacker)`: call it before
 | I want to… | Use |
 | --- | --- |
 | Get a yes/no/line once | `solve` |
-| Know what a search cost | `solve_with_stats`; `SolveStats::nodes` and `memo_len` |
+| Get only yes/no (and the first move) | `prove`, `Solver::prove` |
+| Know what a search cost | `solve_with_stats`, `prove_with_stats`; `SolveStats::nodes` and `memo_len` |
 | Find only VCFs | `SolveMode::VCFDFS` |
 | Find VCTs | `SolveMode::VCTDFPNS`; `threat_limit` decides what counts as a threat |
 | Find VCTs with only a node budget | `SolveMode::VCTAUTO`, `VCTSolver::solve_auto`, `wasm::solve_vct_auto` |
-| Stop a search that takes too long | `SolveLimits::with_max_nodes`; treat `Aborted` as unknown, not safe |
+| Stop a search that takes too long | `SolveLimits::with_max_nodes`; treat `Unknown` as unknown, not safe |
 | Ask many questions cheaply | Keep a `DFPNSVCTSolver`, give it a fresh `VCTState` per question, share one `NodeBudget` |
 | Ask about both colours | The same solver; the attacker is part of every key |
 | Know which defences to try | `VCTState::threat_defences(&mate)` |
@@ -401,4 +437,4 @@ check is public, `mate::trivial_result(board, attacker)`: call it before
 | Know every winning first move | `VCTSolver::solve_attacks` |
 | Know whether the last move was a threat | Pass with `Game::play(None)`, then ask for the opponent's VCF |
 | Read the winning line from JS | `wasm::solve` returns the path as `u8` point codes ([02 §1](02-board-implementation.en.md#section-1)); `decode_x` / `decode_y` |
-| Add a solve mode | `SolveMode`, its `TryFrom<u8>` and `FromStr`, and the `match` in `solve` (`solve.rs`) |
+| Add a solve mode | `SolveMode`, its `TryFrom<u8>` and `FromStr`, and the `match` in `ask` (`solve.rs`) |

@@ -23,7 +23,8 @@ Assumed:
 ```
 src/mate.rs          module root: re-exports, the overview doc comment
 src/mate/
-├── solve.rs         solve, SolveMode, SolveLimits, SolveResult, trivial_result
+├── solve.rs         solve, prove, SolveMode, SolveLimits, SolveResult, trivial_result
+├── outcome.rs       Outcome (proven / disproven / unknown), Proof
 │                    + the solver regression tests
 ├── solver.rs        trait Solver                      (§4)
 ├── game.rs          Game, Event, End                  (§2)
@@ -42,7 +43,7 @@ src/feature/sword.rs       SwordMap: cached swords for VCF (02 §7, 05)
 How they fit together, bottom up:
 
 ```
-Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solver::solve(state, budget) ──► Option<Mate>
+Board  ──►  Game  ──►  State (VCFState | VCTState)  ──►  Solver::solve(state, budget) ──► Outcome<Mate>
             stones,    + attacker, remaining limit,       reads and writes Memo<V>s
             moves,     + Key for the memos                 keyed by State::key()
             turn
@@ -180,7 +181,9 @@ The two parts are kept apart because they are remembered differently:
 ```rust
 pub trait Solver {
     type State: State;
-    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
+    fn solve(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Mate>;   // provided
+    fn prove(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Outcome<Proof>;  // provided
+    fn search_line(&mut self, state: &mut Self::State, budget: &mut NodeBudget) -> Option<Mate>;
     fn clear(&mut self);
     fn advance_generation(&mut self);
     fn memo_len(&self) -> usize;
@@ -189,10 +192,10 @@ pub trait Solver {
 
 Every solver has two entry points, split the same way in all three:
 
-| | `solve` | `search` |
+| | `solve` / `prove` | `search` |
 | --- | --- | --- |
 | Is | one whole question | the search itself |
-| Does | `advance_generation()`, then `search` (VCT: then `extract`) | the recursion; no memo housekeeping |
+| Does | `trivial_result`, `advance_generation()`, then `search_line` (VCT: `search`, then `extract`; `prove` reads only the first move) | the recursion; no memo housekeeping |
 | Called by | the outside: `mate::solve`, an engine | other solvers: `IDDFSSolver` over `DFSSolver::search`, the VCT solver over its nested VCF solvers' `search` |
 
 Why the split: a solver can sit inside another.
@@ -267,7 +270,8 @@ And one rule about what is *not* stored, from `NodeBudget`:
 - There is no clock anywhere under `src/`: the crate must compile for
   `wasm32-unknown-unknown`.
 
-`VCTSolver::solve` runs `extract` with an unlimited budget. Once the root is
+`VCTSolver::solve` runs `extract` with an unlimited budget, and
+`VCTSolver::prove` its first step, `first_move`, the same way. Once the root is
 proven, reading the line back is bounded by its length, and giving up on a
 proof for want of budget would be pointless.
 
@@ -277,7 +281,7 @@ proof for want of budget would be pointless.
 
 | Question | Where to look |
 | --- | --- |
-| What is a solver, minimally? | `Solver` in `solver.rs`: `solve` = `advance_generation` + the solver's own `search` |
+| What is a solver, minimally? | `Solver` in `solver.rs`: `solve` = `trivial_result` + `advance_generation` + the solver's `search_line`; `prove` the same without the line |
 | Why did the search stop at depth N? | `limit` counts attacker moves; `State::play` decrements it after each defender move |
 | Why is the attacker in the hash? | `State::key`: one solver answers about both sides |
 | Why is the `threat_limit` in the hash? | `VCTState::key`: one VCT solver answers under several ([06 §2](06-solver-vct.en.md#section-2)) |
