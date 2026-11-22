@@ -83,6 +83,31 @@ pub fn prove(
     prove_with_stats(mode, board, attacker, limits).0
 }
 
+/// [`solve`] bounded by a caller-supplied [`NodeBudget`] (which may carry a
+/// node cap, a stop signal such as a deadline, or both). `limits.max_nodes` is
+/// ignored in favour of `budget`.
+pub fn solve_with_budget(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+    budget: &mut NodeBudget<'_>,
+) -> SolveResult {
+    ask_with_budget::<Line>(mode, board, attacker, limits, budget).0
+}
+
+/// [`prove`] bounded by a caller-supplied [`NodeBudget`], as
+/// [`solve_with_budget`].
+pub fn prove_with_budget(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+    budget: &mut NodeBudget<'_>,
+) -> Outcome<Proof> {
+    ask_with_budget::<FirstMove>(mode, board, attacker, limits, budget).0
+}
+
 /// [`prove`], also reporting what the search cost: see [`SolveStats`]. The
 /// nodes are those [`solve_with_stats`] counts, which leaves recovering the
 /// line out.
@@ -214,7 +239,7 @@ impl SolveLimits {
         }
     }
 
-    pub(crate) fn budget(&self) -> NodeBudget {
+    pub(crate) fn budget(&self) -> NodeBudget<'static> {
         match self.max_nodes {
             Some(max_nodes) => NodeBudget::new(max_nodes),
             None => NodeBudget::unlimited(),
@@ -233,6 +258,17 @@ fn ask<Q: Question>(
     attacker: Player,
     limits: SolveLimits,
 ) -> (Outcome<Q::Answer>, SolveStats) {
+    let mut budget = limits.budget();
+    ask_with_budget::<Q>(mode, board, attacker, limits, &mut budget)
+}
+
+fn ask_with_budget<Q: Question>(
+    mode: SolveMode,
+    board: &Board,
+    attacker: Player,
+    limits: SolveLimits,
+    budget: &mut NodeBudget<'_>,
+) -> (Outcome<Q::Answer>, SolveStats) {
     // These codes are only kept taken (see `SolveMode`). Nothing is
     // searched, so nothing is known either, whatever the board.
     if matches!(mode, VCFIDDFS | VCTIDDFS) {
@@ -245,7 +281,6 @@ fn ask<Q: Question>(
     let limit = limits.limit;
     let threat_limit = limits.threat_limit;
     let defender_vcf_depth = limits.defender_vcf_depth;
-    let budget = &mut limits.budget();
     let vcf_state = || VCFState::from_board(board, attacker, limit);
     let vct_state = || VCTState::from_board(board, attacker, limit, threat_limit);
     let (outcome, memo_len) = match mode {
@@ -1670,6 +1705,36 @@ mod tests {
         game.play(None);
         let state = &mut VCFState::new(game, 5);
         assert!(DFSSolver::new().solve(state, budget).is_proven());
+    }
+
+    #[test]
+    fn test_stop_signal_aborts_cleanly() {
+        let board = vct_board();
+        let always_stop = || true;
+
+        // One-shot solve/prove with a stop signal and no node limit.
+        for mode in [VCFDFS, VCTDFPNS, VCTAUTO] {
+            let limits = SolveLimits::new(5).with_threat_limit(2);
+            let mut b1 = NodeBudget::unlimited().with_stop(&always_stop);
+            assert!(solve_with_budget(mode, &board, Black, limits, &mut b1).is_unknown());
+            let mut b2 = NodeBudget::unlimited().with_stop(&always_stop);
+            assert!(prove_with_budget(mode, &board, Black, limits, &mut b2).is_unknown());
+        }
+
+        // Reusing a solver after a stop-signal abort still finds the mate.
+        let mut solver = DFPNSVCTSolver::new(DEFAULT_DEFENDER_VCF_DEPTH);
+        let state = &mut VCTState::from_board(&board, Black, 4, 1);
+        let mut stopped = NodeBudget::unlimited().with_stop(&always_stop);
+        assert!(solver.solve(state, &mut stopped).is_unknown());
+        assert!(stopped.is_exhausted());
+
+        let state = &mut VCTState::from_board(&board, Black, 4, 1);
+        let mut unlimited = NodeBudget::unlimited();
+        let mate = solver
+            .solve(state, &mut unlimited)
+            .into_mate()
+            .expect("reused solver must still prove the VCT");
+        assert_eq!(path_string(mate), VCT_SOLUTION);
     }
 
     fn threat_start() -> Point {

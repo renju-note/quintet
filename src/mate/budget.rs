@@ -1,8 +1,10 @@
-/// How much work a search may do, counted in nodes.
+/// How much work a search may do, bounded by nodes and/or a caller stop signal.
 ///
 /// A budget is the only way to interrupt a solver. The crate must keep
 /// compiling for `wasm32-unknown-unknown`, so there is no clock here: a caller
-/// with a time control converts it into a number of nodes itself.
+/// with a time control or cancellation flag passes a stop predicate with
+/// [`NodeBudget::with_stop`], which [`NodeBudget::consume`] polls every
+/// `STOP_POLL` nodes.
 ///
 /// The same budget can be passed to several `solve` calls in a row to bound
 /// their total work; a solver that is handed an exhausted budget gives up
@@ -19,34 +21,86 @@
 /// assert!(solver.solve(state, &mut budget).is_disproven());
 /// assert!(!budget.is_exhausted());
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct NodeBudget {
+#[derive(Clone, Copy)]
+pub struct NodeBudget<'a> {
     max_nodes: Option<u64>,
     nodes: u64,
     exhausted: bool,
+    stop: Option<&'a dyn Fn() -> bool>,
+    stopped: bool,
 }
 
-impl NodeBudget {
+/// How often (in nodes) a stop signal is polled. Must be a power of two.
+const STOP_POLL: u64 = 256;
+
+impl Default for NodeBudget<'static> {
+    fn default() -> Self {
+        Self::unlimited()
+    }
+}
+
+impl std::fmt::Debug for NodeBudget<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NodeBudget")
+            .field("max_nodes", &self.max_nodes)
+            .field("nodes", &self.nodes)
+            .field("exhausted", &self.exhausted)
+            .field("stop", &self.stop.is_some())
+            .finish()
+    }
+}
+
+impl NodeBudget<'static> {
     /// A budget of `max_nodes` nodes.
     pub fn new(max_nodes: u64) -> Self {
         Self {
             max_nodes: Some(max_nodes),
             nodes: 0,
             exhausted: false,
+            stop: None,
+            stopped: false,
         }
     }
 
-    /// A budget that is never exhausted.
+    /// A budget with no node limit. Pair with [`NodeBudget::with_stop`] to
+    /// bound a search by time or an external cancellation flag alone.
     pub fn unlimited() -> Self {
         Self {
             max_nodes: None,
             nodes: 0,
             exhausted: false,
+            stop: None,
+            stopped: false,
+        }
+    }
+}
+
+impl<'a> NodeBudget<'a> {
+    /// Adds a caller stop signal, polled on the first node and every 256 nodes
+    /// thereafter. Once `stop()` returns `true`, the budget becomes exhausted.
+    ///
+    /// ```
+    /// use quintet::mate::NodeBudget;
+    /// use std::time::{Duration, Instant};
+    ///
+    /// let deadline = Instant::now() + Duration::from_millis(50);
+    /// let stop = || Instant::now() >= deadline;
+    /// let mut budget = NodeBudget::unlimited().with_stop(&stop);
+    /// assert!(budget.consume());
+    /// ```
+    pub fn with_stop<'b>(self, stop: &'b dyn Fn() -> bool) -> NodeBudget<'b> {
+        NodeBudget {
+            max_nodes: self.max_nodes,
+            nodes: self.nodes,
+            exhausted: self.exhausted,
+            stop: Some(stop),
+            stopped: self.stopped,
         }
     }
 
-    /// Counts one node. Returns `false` once the budget is used up, after
-    /// which it stays exhausted until [`NodeBudget::reset`].
+    /// Counts one node. Returns `false` once the node limit is reached or the
+    /// stop signal triggers, after which the budget stays exhausted until
+    /// [`NodeBudget::reset`].
     pub fn consume(&mut self) -> bool {
         if self.exhausted {
             return false;
@@ -56,12 +110,17 @@ impl NodeBudget {
             self.exhausted = true;
             return false;
         }
+        if (self.nodes - 1) & (STOP_POLL - 1) == 0 && self.stop.is_some_and(|f| f()) {
+            self.exhausted = true;
+            self.stopped = true;
+            return false;
+        }
         true
     }
 
-    /// Whether the budget ran out. A search that stopped with an exhausted
-    /// budget did not finish, so "no mate found" means "unknown", not "no
-    /// mate".
+    /// Whether the budget ran out (by node limit or stop signal). A search that
+    /// stopped with an exhausted budget did not finish, so "no mate found"
+    /// means "unknown", not "no mate".
     pub fn is_exhausted(&self) -> bool {
         self.exhausted
     }
@@ -76,24 +135,38 @@ impl NodeBudget {
         self.max_nodes
     }
 
-    /// Puts the counter back to zero, keeping the limit.
+    /// Puts the counter back to zero, keeping the limit and stop signal.
     pub fn reset(&mut self) {
         self.nodes = 0;
         self.exhausted = false;
+        self.stopped = false;
     }
 
     /// A fresh budget for part of this one's work: `max_nodes`, or what is
-    /// left of this one if that is less. Hand what it spent back with
-    /// [`Self::absorb`].
+    /// left of this one if that is less, sharing this budget's stop signal.
+    /// Hand what it spent back with [`Self::absorb`].
     pub fn slice(&self, max_nodes: u64) -> Self {
         let left = self.max_nodes.map(|max| max.saturating_sub(self.nodes));
-        Self::new(left.map_or(max_nodes, |left| left.min(max_nodes)))
+        Self {
+            max_nodes: Some(left.map_or(max_nodes, |left| left.min(max_nodes))),
+            nodes: 0,
+            exhausted: self.exhausted,
+            stop: self.stop,
+            stopped: self.stopped,
+        }
     }
 
     /// Counts what `slice`, made by [`Self::slice`], spent. A slice that ran
-    /// out is counted at its limit, without the node that exhausted it, and
-    /// exhausts this budget too if it had all that was left.
+    /// out of nodes is counted at its limit, without the node that exhausted
+    /// it, and exhausts this budget too if it had all that was left. A slice
+    /// stopped by the stop signal exhausts this budget immediately.
     pub fn absorb(&mut self, slice: &Self) {
+        if slice.stopped {
+            self.nodes += slice.nodes;
+            self.exhausted = true;
+            self.stopped = true;
+            return;
+        }
         let spent = match slice.max_nodes {
             Some(max) if slice.exhausted => max,
             _ => slice.nodes,
@@ -108,6 +181,7 @@ impl NodeBudget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
 
     #[test]
     fn test_unlimited() {
@@ -118,7 +192,10 @@ mod tests {
         assert!(!budget.is_exhausted());
         assert_eq!(budget.nodes(), 1000);
         assert_eq!(budget.max_nodes(), None);
-        assert_eq!(NodeBudget::default(), NodeBudget::unlimited());
+        let default = NodeBudget::default();
+        assert_eq!(default.max_nodes(), None);
+        assert_eq!(default.nodes(), 0);
+        assert!(!default.is_exhausted());
     }
 
     #[test]
@@ -169,5 +246,36 @@ mod tests {
         assert!(!budget.is_exhausted());
         assert_eq!(budget.nodes(), 0);
         assert!(budget.consume());
+    }
+
+    #[test]
+    fn test_stop_signal_immediate() {
+        let stop = || true;
+        let mut budget = NodeBudget::unlimited().with_stop(&stop);
+        assert!(!budget.consume());
+        assert!(budget.is_exhausted());
+        assert_eq!(budget.nodes(), 1);
+    }
+
+    #[test]
+    fn test_stop_signal_polls_and_propagates_through_slice() {
+        let polls = Cell::new(0u64);
+        let stop = || {
+            let n = polls.get() + 1;
+            polls.set(n);
+            n >= 3
+        };
+        let mut budget = NodeBudget::unlimited().with_stop(&stop);
+        let mut slice = budget.slice(10_000);
+        while slice.consume() {}
+        assert!(slice.is_exhausted());
+        // Polled at nodes 1 (n=1), 257 (n=2), 513 (n=3 -> stop).
+        assert_eq!(slice.nodes(), 513);
+        assert_eq!(polls.get(), 3);
+        // Absorbing a stopped slice exhausts the parent even though the parent
+        // had no node limit.
+        budget.absorb(&slice);
+        assert!(budget.is_exhausted());
+        assert_eq!(budget.nodes(), 513);
     }
 }
