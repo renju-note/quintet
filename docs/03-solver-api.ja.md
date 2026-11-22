@@ -206,13 +206,13 @@ SolveLimits::new(limit)
 | `defender_vcf_depth` | 受け方の逆襲四追いを探す内部四追いの攻め手数。 | VCT |
 | `max_nodes` | 総仕事量（ノード数、[§3](#section-3)）。 | 全モード |
 
-`with_*` は新しい値を返す。後でフィールドが増えても、この書き方なら呼び出し側は壊れない。
+`with_*` は新しい値を返す。後でフィールドが増えても、この書き方なら呼び出し側は壊れない。使い捨ての呼び出しに停止判定付きの [`NodeBudget`](#section-3)（期限チェックなど）を渡したい場合は、`solve_with_budget` または `prove_with_budget` を使う。
 
 ### 予算だけで解く: `VCTAUTO`
 
 `VCTAUTO` は、`limit` も `threat_limit` も選ばずに追い詰めを問う。
 
-- `with_max_nodes` を与えれば、ほかは関係ない（`defender_vcf_depth` だけは効く）。
+- `with_max_nodes` を与えるか、`solve_with_budget` / `prove_with_budget` で時間予算付き `NodeBudget` を渡せば、ほかは関係ない（`defender_vcf_depth` だけは効く）。
 - 中身は `DFPNSVCTSolver::solve_auto`（`prove` では `prove_auto`。[06 §5](06-solver-vct.ja.md#section-5)）。
 - JS からは `solve_vct_auto(blacks, whites, black, max_nodes)` で呼ぶ。
 
@@ -232,20 +232,22 @@ let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
 
 ## 3. 予算: `NodeBudget`
 
-時計は使わない。`src/` 以下は `std::time` のない `wasm32-unknown-unknown` 向けにもコンパイルするため。時間制限をかけたい呼び出し側は、自分でノード数に換算する。
+`src/` 以下は `wasm32-unknown-unknown` 向けにもコンパイルするため、クレート内部に時計は持たない。呼び出し側は、ノード上限・停止判定（`with_stop` で `std::time::Instant` や Wasm の `Date.now()` による期限チェックやキャンセルフラグを渡す）・またはその両方で探索を区切る。
 
 ```rust
 let mut budget = NodeBudget::new(100_000);   // または NodeBudget::unlimited()
+let mut timed = NodeBudget::unlimited().with_stop(&stop);
 budget.is_exhausted();                       // 予算切れになったか
 budget.nodes();                              // これまでのノード数
-budget.reset();                              // 0 に戻す。上限はそのまま
-let part = budget.slice(1_000);              // 仕事の一部のための予算。残りより多くはならない
+budget.reset();                              // 0 に戻す。上限と stop はそのまま
+let part = budget.slice(1_000);              // 仕事の一部のための予算。stop も引き継ぐ
 budget.absorb(&part);                        // その一部が使った分を数える
 ```
 
 - 1 ノードは探索関数 1 回の呼び出しに相当する。内部の四追い探索も数える。
   - 四追いでは `DFSSolver::search`。
   - 追い詰めでは `search_attacks` / `search_defences`。
+- `stop` は最初のノードと、その後 256 ノードごとに呼ばれる。`true` を返すと予算切れ（未証明なら `Outcome::Unknown`）になる。`slice` は親の `stop` を共有し、`stop` で止まった `slice` を `absorb` すると親も即座に予算切れになる。
 - 尽きた予算は、`reset()` されるまで尽きたまま。1 つの予算を共有する複数の呼び出しは、全体としてそこで止まる。
 
 予算を安全に使える理由は 2 つある。

@@ -241,12 +241,15 @@ SolveLimits::new(limit)
 | `max_nodes` | Total work, in nodes ([§3](#section-3)). | every mode |
 
 The `with_*` methods return a new value, so fields added later do not break
-callers that build limits this way.
+callers that build limits this way. To pass a [`NodeBudget`](#section-3)
+with a stop signal (such as a deadline) to a one-shot call, use
+`solve_with_budget` or `prove_with_budget`.
 
 ### Only a budget: `VCTAUTO`
 
 `VCTAUTO` asks a VCT with no `limit` or `threat_limit` to choose: give it
-`with_max_nodes` and nothing else matters (`defender_vcf_depth` still
+`with_max_nodes` (or pass a timed `NodeBudget` via `solve_with_budget` /
+`prove_with_budget`) and nothing else matters (`defender_vcf_depth` still
 applies). It is `DFPNSVCTSolver::solve_auto` (and `prove_auto`, for
 `prove`; [06 §5](06-solver-vct.en.md#section-5)), and from JS
 `solve_vct_auto(blacks, whites, black, max_nodes)`.
@@ -269,22 +272,28 @@ let result = solve(SolveMode::VCTAUTO, &board, Player::Black, limits);
 
 ## 3. Budgets: `NodeBudget`
 
-There is no clock. Everything under `src/` compiles for
-`wasm32-unknown-unknown`, which has no `std::time`. A caller with a time
-control converts it into a number of nodes.
+Everything under `src/` compiles for `wasm32-unknown-unknown`, so there is
+no built-in clock. A caller bounds a search by nodes, by a stop predicate
+(`with_stop`, e.g. checking a deadline from `std::time::Instant` or
+`Date.now()` in Wasm, or an atomic cancellation flag), or by both.
 
 ```rust
 let mut budget = NodeBudget::new(100_000);   // or NodeBudget::unlimited()
+let mut timed = NodeBudget::unlimited().with_stop(&stop);
 budget.is_exhausted();                       // did a search run out?
 budget.nodes();                              // nodes counted so far
-budget.reset();                              // back to zero, same limit
-let part = budget.slice(1_000);              // a budget for part of the work, at most what is left
+budget.reset();                              // back to zero, same limit and stop
+let part = budget.slice(1_000);              // a budget for part of the work, sharing stop
 budget.absorb(&part);                        // count what that part spent
 ```
 
 - One node is one visit of a search function, nested VCF searches
   included: `DFSSolver::search` in VCF, `search_attacks` /
   `search_defences` in VCT.
+- `stop` is polled on the first node and every 256 nodes thereafter. When
+  it returns `true`, the budget becomes exhausted (`Outcome::Unknown` if no
+  mate was proved). A `slice` shares the parent's `stop`, and absorbing a
+  slice stopped by `stop` exhausts the parent immediately.
 - A budget stays exhausted until `reset()`. Calls sharing one budget stop
   as a whole, rather than each doing a little more.
 

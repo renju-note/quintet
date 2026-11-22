@@ -22,9 +22,11 @@
 //!   confused. Each [`Solver::solve`] opens a new generation, which settles
 //!   the memos at about two searches' worth however many searches are asked;
 //!   [`Solver::clear`] throws the lot away, which nothing requires.
-//! - [`NodeBudget`] bounds how much work a search may do, in nodes. There is
-//!   no clock: everything here compiles for `wasm32-unknown-unknown`, so a
-//!   caller with a time control converts it into a number of nodes itself.
+//! - [`NodeBudget`] bounds how much work a search may do, by node count
+//!   and/or a caller stop signal ([`NodeBudget::with_stop`]). There is no
+//!   built-in clock because everything here compiles for
+//!   `wasm32-unknown-unknown`, so a caller with a time control passes a
+//!   deadline predicate.
 //!
 //! [`VCTState::threat_defences`] lists the moves worth trying against a
 //! threat that was found, for a caller that wants to defend.
@@ -49,7 +51,8 @@ pub use outcome::{Outcome, Proof};
 pub use path::{PathOptions, solve_path};
 pub use solve::{
     DEFAULT_DEFENDER_VCF_DEPTH, SolveLimits, SolveMode, SolveResult, SolveStats, prove,
-    prove_with_stats, solve, solve_with_stats, trivial_result,
+    prove_with_budget, prove_with_stats, solve, solve_with_budget, solve_with_stats,
+    trivial_result,
 };
 pub use solver::Solver;
 pub use state::{Key, State};
