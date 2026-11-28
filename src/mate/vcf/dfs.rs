@@ -223,26 +223,29 @@ impl DFSSolver {
 /// a further attack in it, which then counts it.
 fn attack_zone(board: &Board, attack: Point, attacker: Player) -> Area {
     let mut area = Area::new();
-    for (d, _, line) in board.lines_on(attack) {
+    for d in Direction::ALL {
         let idx = attack.to_index(d);
-        let (j, max_j) = (idx.j, idx.max_j());
-        if max_j < 4 {
+        let Some(line) = board.line(d, idx.i) else {
             continue;
-        }
-        let mine = line.stones(attacker).0;
-        let theirs = line.stones(attacker.opponent()).0;
-        let mut cells = 0u16;
-        for s in j.saturating_sub(4)..=j.min(max_j - 4) {
-            let window = 0b11111u16 << s;
-            if theirs & window == 0 && mine & window != 0 {
-                cells |= window;
-            }
-        }
-        cells &= !(mine | theirs | (1 << j));
-        for k in 0..=max_j {
-            if cells & (1 << k) != 0 {
-                area.insert(Index::new(d, idx.i, k).to_point());
-            }
+        };
+        let j = idx.j as u32;
+        let cells = (1u32 << (idx.max_j() as u32 + 1)) - 1;
+        let mine = line.stones(attacker).0 as u32;
+        let theirs = line.stones(attacker.opponent()).0 as u32;
+        // Bit `s` of each is the window of cells `s..s + 5`: on the line
+        // and free of the defender's stones, holding one of the attacker's,
+        // and holding `attack`.
+        let free = !theirs & cells;
+        let free = free & free >> 1 & free >> 2 & free >> 3 & free >> 4;
+        let held = mine | mine >> 1 | mine >> 2 | mine >> 3 | mine >> 4;
+        let through = (0b11111 << j) >> 4;
+        let starts = free & held & through;
+        let mut found = starts | starts << 1 | starts << 2 | starts << 3 | starts << 4;
+        found &= cells & !(mine | theirs | 1 << j);
+        while found != 0 {
+            let k = found.trailing_zeros() as u8;
+            area.insert(Index::new(d, idx.i, k).to_point());
+            found &= found - 1;
         }
     }
     area

@@ -199,7 +199,9 @@ A profile of the whole benchmark on `main` just before [#169](https://github.com
   points making a two, so that a mate starting with a move that makes no
   two is found ([06 §3](06-solver-vct.en.md#section-3), `vct_quiet_attack`). That cost the default set 11%
   more nodes, nearly all of it in disproving quiet moves that are no
-  threat. Two ways to win it back, neither tried:
+  threat, and about 35% more time: the longer candidate lists also cost
+  more to order, copy out of the cache and select from. Two ways to win
+  it back, neither tried:
   - Look up a VCF dead end one stone away: a position that is a dead end
     but for a stone outside the dead end's zone is a dead end too. A quiet
     move's nested VCF search would then cost little.
