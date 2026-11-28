@@ -824,12 +824,49 @@ mod tests {
         let result = solve_mate(VCTDFS, 4, &board, White, 1);
         assert!(result.is_none());
 
-        let solution = "K3,G7,I3,I4,L2,J4,L3,J8,J3";
         let result = solve_mate(VCTDFPNS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
 
+        let solution = "K3,G7,I3,I4,L2,J4,L3,J8,J3";
         let result = solve_mate(VCTPNS, 5, &board, White, 1);
         assert_eq!(path_string(result), solution);
+
+        Ok(())
+    }
+
+    /// Problem 88 of Shigeru Nakamura's "中村シェフのおいしい詰連珠": Black's
+    /// first attack N4 makes no two on any line, yet threatens a VCF whose
+    /// fours fill row 4 (L4, O4, K4, M4). Attacks generated from the twos
+    /// alone never tried it.
+    #[test]
+    fn test_vct_quiet_attack() -> Result<(), String> {
+        let board = "
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . x x . . .
+         . . . . . . . . . . o . . . .
+         . . . . . . . x . x o x o . .
+         . . . . . . x o o x o o x . .
+         . . . . . . . o x o o o x . .
+         . . . . . . x . o x x . o . .
+         . . . . . . . x . . . o . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+         . . . . . . . . . . . . . . .
+        "
+        .parse::<Board>()?;
+
+        let solution = "N4,L4,N7,M3,K5,K4,N9,N11,N5,O4,M5";
+        for mode in [VCTDFS, VCTPNS, VCTDFPNS] {
+            let result = solve_mate(mode, 6, &board, Black, 4);
+            assert_eq!(path_string(result), solution, "{mode:?}");
+        }
+
+        let result = solve_mate(VCTDFPNS, 5, &board, Black, 4);
+        assert!(result.is_none());
 
         Ok(())
     }

@@ -80,8 +80,8 @@ VCTSolver::prove = advance_generation; search; first_move   (extract's first ste
 │   ├── generate_attacks                                               §3
 │   │     attacker_vcf.vcf      has a VCF?          → Terminal(proven), else its zone
 │   │     defender_vcf.threat   must parry a threat? → only threat_defences
-│   │     points making at least a Two, by priority                    §8
-│   │     minus those the zone rules out as threats
+│   │     points the zone leaves as threats (in it, or a Sword), by priority §8
+│   │     (twos instead when the budget cut the zone short)
 │   └── expand_attacks: loop { select_attack; play best; search_defences; store in attacker_table }
 │
 │   search_defences (AND node, defender to move)
@@ -227,18 +227,25 @@ small searches do not allocate the full capacity up front. See the
 2. `defender_vcf.threat`: would the defender have a VCF if the attacker
    passed? If so, the attack must also parry it: candidates are restricted
    to `threat_defences(threat)`.
-3. Candidates are the points where the attacker makes at least a `Two`
-   along some line in the `ShapeMap` (`sorted_attacks(only)`), in order of
-   `priority` ([§8](#section-8)). Their number is the `width`.
-4. Keep only those that may be threats (`may_threaten`):
+3. Candidates are the points that may be threats
+   (`sorted_attacks_in(only, zone)`, the test of `may_threaten`), in order
+   of `priority` ([§8](#section-8)):
    - in the zone, or
    - in a segment already holding two attacker stones (at least a `Sword`
      along some line in the `ShapeMap`, §8), which the zone leaves to the
      caller.
    - Any other move leaves the attacker without a VCF after a pass, so it
      is no threat.
-   - Skipped when the budget ran out, as the zone is then incomplete.
+   - A move need not make a `Two` of its own. A quiet move can threaten a
+     VCF whose fours fill its line later: problem 88 of Shigeru Nakamura's
+     *中村シェフのおいしい詰連珠*, where Black's N4 makes no two, but the fours
+     L4, O4, K4 make row 4 a four (`test_vct_quiet_attack`,
+     `vct_quiet_attack`).
+   - When the budget ran out the zone is incomplete. The points making at
+     least a `Two` stand in for it then; nothing generated is cached.
    - None left → `Terminal(disproven)`.
+4. The `width` is the number of points (of `only`, if given) where the
+   attacker makes at least a `Two`, counted along the way.
 5. Each gets its estimate from the biggest shape it makes (`best_shape`,
    from the `ShapeMap`, §8): `width / 4` for a four, `width / 2` for a
    three, `width` for any other ([§5](#section-5), *Selection*).
@@ -247,13 +254,14 @@ Notes:
 
 - Otherwise, candidates are *not* checked for being threats here. That
   happens one ply down at the defender node, where a non-threat is refuted
-  at once, for a nested VCF search and a node each. Step 4 saves that for
-  about half the non-threats on the benchmark (where no threat ever fell
-  outside the zone).
-- The `width` is taken before step 4 because it seeds the proof numbers of
-  the unexpanded children ([§5](#section-5)). A move that is no threat would only be
-  disproven, never make its siblings easier to prove. Seeding with the
-  count after pruning tips the search towards other lines.
+  at once, for a nested VCF search and a node each. The zone saves that
+  for about half the non-threats on the benchmark.
+- The `width` counts the twos, not the candidates, because it seeds the
+  proof numbers of the unexpanded children ([§5](#section-5)). A move that is no threat
+  would only be disproven, never make its siblings easier to prove.
+  Seeding with the count of candidates tips the search towards other
+  lines: when quiet moves were added, the benchmark's nodes went up 27%
+  with that count, and 11% with the twos.
 
 ### `compute_defences` (defender to move)
 

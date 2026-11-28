@@ -126,24 +126,50 @@ impl VCTState {
     }
 
     pub fn sorted_attacks(&mut self, only: Option<Vec<Point>>) -> Vec<Point> {
+        self.sorted_attacks_in(only, None).0
+    }
+
+    /// [`Self::sorted_attacks`], but with `zone` given (the zone of the
+    /// attacker's failed VCF search) the points that may be threats
+    /// ([`Self::may_threaten`]) instead of those making a two: a quiet move
+    /// with no two of its own can still make a VCF whose fours fill its
+    /// line. Also returns how many points make a two, the moves
+    /// [`Self::sorted_attacks`] would give, as the width that seeds the
+    /// proof numbers.
+    pub fn sorted_attacks_in(
+        &mut self,
+        only: Option<Vec<Point>>,
+        zone: Option<&Area>,
+    ) -> (Vec<Point>, u32) {
         self.shapes.sync(self.game.board());
         let (shapes, attacker) = (&self.shapes, self.attacker);
-        let makes_two = |&p: &Point| shapes.get(p, attacker).count_at_least(Shape::Two) > 0;
+        let mut twos = 0;
+        let mut keep = |&p: &Point| {
+            let shape = shapes.get(p, attacker);
+            let two = shape.count_at_least(Shape::Two) > 0;
+            twos += two as u32;
+            match zone {
+                Some(zone) => zone.contains(p) || shape.count_at_least(Shape::Sword) > 0,
+                None => two,
+            }
+        };
         // Filtered in place or into room for every point: this runs at
         // every attacker node, and a `Vec` grown step by step was a good
         // part of its cost.
         let points = match only {
             Some(mut only) => {
-                only.retain(makes_two);
+                // Without duplicates, so that each point counts once.
+                let mut seen = Area::new();
+                only.retain(|p| seen.insert(*p) && keep(p));
                 only
             }
             None => {
                 let mut points = Vec::with_capacity(POINT_COUNT);
-                points.extend(self.game.board().empty_points().filter(makes_two));
+                points.extend(self.game.board().empty_points().filter(keep));
                 points
             }
         };
-        self.sort_by_priority(points)
+        (self.sort_by_priority(points), twos)
     }
 
     /// Whether the attacker's move to `p` may be a threat, given that the

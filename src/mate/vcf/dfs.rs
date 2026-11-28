@@ -65,8 +65,9 @@ impl DFSSolver {
     /// check itself — leaves the attacker without a VCF too. The zone is
     /// what the search looked at:
     ///
-    /// - around each attack, its four lines up to four cells away: the
-    ///   segments the attack joins, where the stone may find two of the
+    /// - around each attack, the empty cells of the five-cell windows it
+    ///   shares with another of the attacker's stones and no defender
+    ///   stone (`attack_zone`): where the stone may find two of the
     ///   attacker's stones that were not there before;
     /// - the eyes of the defender's fours, where the stone would block
     ///   them;
@@ -175,8 +176,8 @@ impl DFSSolver {
         budget: &mut NodeBudget,
         zone: &mut Area,
     ) -> Option<Mate> {
-        // The defence is on the same segment, within four cells.
-        *zone |= Area::around(attack, 4);
+        // The defence is in a window with the attack and three more stones.
+        *zone |= attack_zone(state.game().board(), attack, state.attacker());
         let result = state.with_move(Some(attack), |s| {
             self.search_defence(s, defence, budget, zone)
                 .map(|m| m.prepend(attack))
@@ -213,6 +214,41 @@ impl DFSSolver {
                 .map(|m| m.prepend(defence))
         })
     }
+}
+
+/// The empty cells of the five-cell windows through `attack` that hold no
+/// stone of the defender and at least one other stone of `attacker`: where
+/// one more stone would join `attack` and that stone in a window that a
+/// later four may fill. A window with fewer of the attacker's stones needs
+/// a further attack in it, which then counts it.
+fn attack_zone(board: &Board, attack: Point, attacker: Player) -> Area {
+    let mut area = Area::new();
+    for d in Direction::ALL {
+        let idx = attack.to_index(d);
+        let Some(line) = board.line(d, idx.i) else {
+            continue;
+        };
+        let j = idx.j as u32;
+        let cells = (1u32 << (idx.max_j() as u32 + 1)) - 1;
+        let mine = line.stones(attacker).0 as u32;
+        let theirs = line.stones(attacker.opponent()).0 as u32;
+        // Bit `s` of each is the window of cells `s..s + 5`: on the line
+        // and free of the defender's stones, holding one of the attacker's,
+        // and holding `attack`.
+        let free = !theirs & cells;
+        let free = free & free >> 1 & free >> 2 & free >> 3 & free >> 4;
+        let held = mine | mine >> 1 | mine >> 2 | mine >> 3 | mine >> 4;
+        let through = (0b11111 << j) >> 4;
+        let starts = free & held & through;
+        let mut found = starts | starts << 1 | starts << 2 | starts << 3 | starts << 4;
+        found &= cells & !(mine | theirs | 1 << j);
+        while found != 0 {
+            let k = found.trailing_zeros() as u8;
+            area.insert(Index::new(d, idx.i, k).to_point());
+            found &= found - 1;
+        }
+    }
+    area
 }
 
 impl Solver for DFSSolver {
