@@ -59,16 +59,11 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         // This is not necessary but narrows candidates
         let maybe_threat = self.defender_vcf.threat(state, budget);
         let maybe_threat_defences = maybe_threat.map(|t| state.threat_defences(&t));
-        let mut result = state.sorted_attacks(maybe_threat_defences);
+        // A zone the budget cut short proves nothing, but then nothing
+        // generated here is kept anyway: the twos stand in for it.
+        let zone = (!budget.is_exhausted()).then_some(&zone);
+        let result = state.sorted_attacks_in(maybe_threat_defences, zone);
         let width = result.len() as u32;
-
-        // An attack must be a threat, and a move the zone rules out is not
-        // one: this is not necessary either, but saves a nested VCF search
-        // for each. A zone the budget cut short proves nothing, but then
-        // nothing generated here is kept anyway.
-        if !budget.is_exhausted() {
-            result.retain(|&p| state.may_threaten(p, &zone));
-        }
 
         if result.is_empty() {
             return Terminal(PnDn::disproven(state.limit()));

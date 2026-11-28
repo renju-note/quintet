@@ -126,20 +126,37 @@ impl VCTState {
     }
 
     pub fn sorted_attacks(&mut self, only: Option<Vec<Point>>) -> Vec<Point> {
+        self.sorted_attacks_in(only, None)
+    }
+
+    /// [`Self::sorted_attacks`], but with `zone` given (the zone of the
+    /// attacker's failed VCF search, see [`Self::may_threaten`]) the points
+    /// that may be threats instead of those making a two: a quiet move with
+    /// no two of its own can still make a VCF whose fours fill its line.
+    pub fn sorted_attacks_in(
+        &mut self,
+        only: Option<Vec<Point>>,
+        zone: Option<&Area>,
+    ) -> Vec<Point> {
         self.shapes.sync(self.game.board());
         let (shapes, attacker) = (&self.shapes, self.attacker);
-        let makes_two = |&p: &Point| shapes.get(p, attacker).count_at_least(Shape::Two) > 0;
+        let keep = |&p: &Point| match zone {
+            Some(zone) => {
+                zone.contains(p) || shapes.get(p, attacker).count_at_least(Shape::Sword) > 0
+            }
+            None => shapes.get(p, attacker).count_at_least(Shape::Two) > 0,
+        };
         // Filtered in place or into room for every point: this runs at
         // every attacker node, and a `Vec` grown step by step was a good
         // part of its cost.
         let points = match only {
             Some(mut only) => {
-                only.retain(makes_two);
+                only.retain(keep);
                 only
             }
             None => {
                 let mut points = Vec::with_capacity(POINT_COUNT);
-                points.extend(self.game.board().empty_points().filter(makes_two));
+                points.extend(self.game.board().empty_points().filter(keep));
                 points
             }
         };
