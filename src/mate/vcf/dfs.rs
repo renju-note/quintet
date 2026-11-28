@@ -65,8 +65,9 @@ impl DFSSolver {
     /// check itself — leaves the attacker without a VCF too. The zone is
     /// what the search looked at:
     ///
-    /// - around each attack, its four lines up to four cells away: the
-    ///   segments the attack joins, where the stone may find two of the
+    /// - around each attack, the empty cells of the five-cell windows it
+    ///   shares with another of the attacker's stones and no defender
+    ///   stone (`attack_zone`): where the stone may find two of the
     ///   attacker's stones that were not there before;
     /// - the eyes of the defender's fours, where the stone would block
     ///   them;
@@ -175,7 +176,7 @@ impl DFSSolver {
         budget: &mut NodeBudget,
         zone: &mut Area,
     ) -> Option<Mate> {
-        // The defence is on the same segment, within four cells.
+        // The defence is in a window with the attack and three more stones.
         *zone |= attack_zone(state.game().board(), attack, state.attacker());
         let result = state.with_move(Some(attack), |s| {
             self.search_defence(s, defence, budget, zone)

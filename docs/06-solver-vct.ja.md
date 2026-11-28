@@ -86,8 +86,8 @@ VCTSolver::prove = advance_generation; search; first_move   (extract's first ste
 │   ├── generate_attacks                                               §3
 │   │     attacker_vcf.vcf      has a VCF?          → Terminal(proven), else its zone
 │   │     defender_vcf.threat   must parry a threat? → only threat_defences
-│   │     points making at least a Two, by priority                    §8
-│   │     minus those the zone rules out as threats
+│   │     points the zone leaves as threats (in it, or a Sword), by priority §8
+│   │     (twos instead when the budget cut the zone short)
 │   └── expand_attacks: loop { select_attack; play best; search_defences; store in attacker_table }
 │
 │   search_defences (AND node, defender to move)
@@ -214,13 +214,14 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
    - なければ、その探索の関連領域（[05 §2](05-solver-vcf.ja.md#section-2)）を返す。攻め方がもう 1 石置けば四追いが生まれうる点の集合である。
 2. `defender_vcf.threat` を呼ぶ。
    - 攻め方がパスすると受け方に四追いがあるなら、攻め手はそれも受ける必要がある。そこで候補を `threat_defences(threat)` に絞る。
-3. 候補は、`ShapeMap` で攻め方がどれかの線に `Two` 以上を作る点（`sorted_attacks(only)`）を、`priority`（[§8](#section-8)）の順に並べたもの。その数が `width` になる。
-4. 追い手になりうるもの（`may_threaten`）だけを残す。
+3. 候補は、追い手になりうる点（`sorted_attacks_in(only, zone)`。判定は `may_threaten` と同じ）を、`priority`（[§8](#section-8)）の順に並べたもの。
    - 関連領域にある、または
    - 攻め方の石をすでに 2 つ含むセグメントにある（`ShapeMap` でどれかの線が `Sword` 以上。[§8](#section-8)）。関連領域が呼び出し側に任せる部分である。
    - それ以外の手は、パスされても攻め方に四追いを生まないので、追い手ではない。
-   - 予算切れのときは、関連領域が不完全なので行わない。
+   - 自分で `Two` を作る手に限らない。静かな手でも、その線を後から四が埋める四追いを狙える。例は中村茂『中村シェフのおいしい詰連珠』第 88 問で、黒の N4 は二を作らないが、四 L4・O4・K4 で 4 路が四になる（`test_vct_quiet_attack`、`vct_quiet_attack`）。
+   - 予算切れのときは関連領域が不完全なので、代わりに `Two` 以上を作る点を使う。このとき生成結果はキャッシュしない。
    - 候補が空なら `Terminal(disproven)`。
+4. `width` は、攻め方が `Two` 以上を作る点（`only` があればその中）の数。候補を選ぶ途中で数える。
 5. 各候補に見積もりを付ける。見積もりは、それが作る最も大きい形（`best_shape`。`ShapeMap` から求める。[§8](#section-8)）で決まる。
    - 四なら `width / 4`。
    - 三なら `width / 2`。
@@ -229,8 +230,8 @@ pub struct Candidate { pub point: Point, pub estimate: u32 }
 補足は次のとおり。
 
 - ここでは、候補が追い手かどうかを調べない。1 手先の受け方ノードで判定し、追い手でなければその場で反証する。この判定ごとに内部四追い探索と 1 ノードを要する。
-  - ステップ 4 は、ベンチマークで追い手でない手のおよそ半分について、この反証を省く（関連領域の外に追い手があったことはない）。
-- `width` をステップ 4 の前に取るのは、それが未展開の子の証明数の初期値になるため（[§5](#section-5)）。追い手でない手は反証されるだけで、兄弟の証明を易しくはしない。除いた後の数を初期値にすると、探索が別の手順に傾いてしまう。
+  - 関連領域は、ベンチマークで追い手でない手のおよそ半分について、この反証を省く。
+- `width` が候補ではなく二の数なのは、それが未展開の子の証明数の初期値になるため（[§5](#section-5)）。追い手でない手は反証されるだけで、兄弟の証明を易しくはしない。候補の数を初期値にすると、探索が別の手順に傾く。静かな手を加えたとき、ベンチマークのノード数は、候補の数では 27%、二の数では 11% 増えた。
 
 ### `compute_defences`（受け方の手番）
 

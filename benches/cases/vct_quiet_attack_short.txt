@@ -1,0 +1,25 @@
+# Problem 88 of Shigeru Nakamura's "中村シェフのおいしい詰連珠" (moves up to it
+# made up): H8,H9,H7,G8,I6,I7,I8,J8,J7,G6,K8,H5,K9,L9,K10,K11,K7,K6,L7,J9,L8,M7,M9,J6,L5,M8,M6,L11
+# Black's N4 makes no two, yet threatens a VCF that fills row 4.
+mode: vct_dfpns
+attacker: o
+limit: 5
+threat_limit: 4
+tags: vct disproven quick
+expect: disproven
+board:
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . x x . . .
+. . . . . . . . . . o . . . .
+. . . . . . . x . x o x o . .
+. . . . . . x o o x o o x . .
+. . . . . . . o x o o o x . .
+. . . . . . x . o x x . o . .
+. . . . . . . x . . . o . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . .

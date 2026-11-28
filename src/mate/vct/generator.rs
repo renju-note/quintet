@@ -62,8 +62,7 @@ impl<P: ThresholdPolicy> VCTSolver<P> {
         // A zone the budget cut short proves nothing, but then nothing
         // generated here is kept anyway: the twos stand in for it.
         let zone = (!budget.is_exhausted()).then_some(&zone);
-        let result = state.sorted_attacks_in(maybe_threat_defences, zone);
-        let width = result.len() as u32;
+        let (result, width) = state.sorted_attacks_in(maybe_threat_defences, zone);
 
         if result.is_empty() {
             return Terminal(PnDn::disproven(state.limit()));

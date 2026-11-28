@@ -154,7 +154,7 @@ stone could give the attacker one.
 
 | Where | Added |
 | --- | --- |
-| each attack `a` played | `Area::around(a, 4)`: the four lines through `a`, four cells either way — any segment `a` is in |
+| each attack `a` played | `attack_zone`: the empty cells of the five-cell windows through `a` that hold no defender stone and at least one other attacker stone |
 | `Forced(p)` at an attacker node | `p`, the eye of the defender's four |
 | `Defeated(Fours(e1, e2))` at an attacker node | `e1`, `e2` |
 | `Defeated(Forbidden(e))` at an attacker node, a Black attack found forbidden, and each of Black's blocks when White attacks | `Area::around(_, 5)` |
@@ -173,10 +173,15 @@ What the zone leaves out, and why that is sound:
 - It leaves out the other segments that already hold two attacker stones at
   the root. A stone there makes a new sword, so the caller checks those
   itself (`VCTState::may_threaten` reads them off the `ShapeMap`).
-- A stone outside both joins no segment the attacker could make a four or
-  five in, at the root or after any attack of the tree. Every segment it
-  might join at a later node is either one at the root or holds one of the
-  tree's attacks.
+- A stone outside both takes part in no four or five of the attacker, at
+  the root or after any attack of the tree. Such a four or five lies in a
+  window holding the stone and at least two more attacker stones before
+  the move that makes it. Those two were not both there at the root, or
+  the stone would make a sword. So the later of them is an attack of the
+  tree, and when it was played its window held another attacker stone
+  and no defender stone: all the window's empty cells went into the zone.
+- `test_zone_holds_every_stone_that_gives_a_vcf` checks this on test
+  positions, stone by stone.
 - It blocks no defender's four either: a four's only empty cell is its eye.
 - So the tree is the same with it, and so is the answer.
 - The last row of the table is an approximation, as in
