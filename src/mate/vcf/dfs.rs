@@ -176,7 +176,7 @@ impl DFSSolver {
         zone: &mut Area,
     ) -> Option<Mate> {
         // The defence is on the same segment, within four cells.
-        *zone |= Area::around(attack, 4);
+        *zone |= attack_zone(state.game().board(), attack, state.attacker());
         let result = state.with_move(Some(attack), |s| {
             self.search_defence(s, defence, budget, zone)
                 .map(|m| m.prepend(attack))
@@ -213,6 +213,38 @@ impl DFSSolver {
                 .map(|m| m.prepend(defence))
         })
     }
+}
+
+/// The empty cells of the five-cell windows through `attack` that hold no
+/// stone of the defender and at least one other stone of `attacker`: where
+/// one more stone would join `attack` and that stone in a window that a
+/// later four may fill. A window with fewer of the attacker's stones needs
+/// a further attack in it, which then counts it.
+fn attack_zone(board: &Board, attack: Point, attacker: Player) -> Area {
+    let mut area = Area::new();
+    for (d, _, line) in board.lines_on(attack) {
+        let idx = attack.to_index(d);
+        let (j, max_j) = (idx.j, idx.max_j());
+        if max_j < 4 {
+            continue;
+        }
+        let mine = line.stones(attacker).0;
+        let theirs = line.stones(attacker.opponent()).0;
+        let mut cells = 0u16;
+        for s in j.saturating_sub(4)..=j.min(max_j - 4) {
+            let window = 0b11111u16 << s;
+            if theirs & window == 0 && mine & window != 0 {
+                cells |= window;
+            }
+        }
+        cells &= !(mine | theirs | (1 << j));
+        for k in 0..=max_j {
+            if cells & (1 << k) != 0 {
+                area.insert(Index::new(d, idx.i, k).to_point());
+            }
+        }
+    }
+    area
 }
 
 impl Solver for DFSSolver {
